@@ -1,0 +1,9 @@
+[package]
+name = "maudio"
+version = "0.1.0"
+license = "MIT"
+edition = "2024"
+categories = ["multimedia::audio", "multimedia"]
+
+[dependencies]
+maudio-sys = { path = "../maudio-sys"}
