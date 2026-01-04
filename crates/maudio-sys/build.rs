@@ -37,6 +37,7 @@ fn main() {
     println!("cargo:rerun-if-changed=src/src/pregen_bindings/unix.rs");
 
     cc::Build::new()
+        .file("native/miniaudio_version_check.c")
         .file("native/miniaudio/miniaudio.c")
         .include("native/miniaudio")
         .compile("miniaudio");

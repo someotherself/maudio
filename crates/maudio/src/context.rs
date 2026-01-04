@@ -27,9 +27,7 @@ impl Context {
 
         Context::context_init(&c_config, &mut ctx)?;
 
-        Ok(Self {
-            inner: ctx ,
-        })
+        Ok(Self { inner: ctx })
     }
 
     fn context_init(

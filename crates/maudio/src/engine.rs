@@ -2,7 +2,7 @@ use std::{ffi::CString, mem::MaybeUninit, path::Path, pin::Pin};
 
 use crate::{
     ErrorKinds, LogLevel, MaError, MaRawResult, Result,
-    sound::{Sound, SoundConfig},
+    sound::{Sound, sound_builder::SoundBuilder, sound_flags::SoundFlags},
 };
 
 use maudio_sys::ffi as sys;
@@ -38,15 +38,10 @@ impl Engine {
         Ok(engine)
     }
 
-    pub fn new_sound_config(&mut self) -> SoundConfig {
-        // will be replaced by ma_sound_config_init in miniaudio v0.12
-        let config = unsafe { sys::ma_sound_config_init_2(self.assume_init_mut_ptr()) };
-        SoundConfig::new(config)
-    }
-
     pub fn new_sound(&mut self) -> Result<Sound<'_>> {
-        let mut sound = Sound::new_uninit();
-        let config = self.new_sound_config();
+        let mut sound = Sound::new_uninit(SoundFlags::NONE);
+        let config = SoundBuilder::init(self.assume_init_mut_ptr());
+        // let config = self.new_sound_config();
         let res = unsafe {
             sys::ma_sound_init_ex(
                 self.assume_init_mut_ptr(),
@@ -59,8 +54,8 @@ impl Engine {
         Ok(sound)
     }
 
-    pub fn new_sound_with_config(&mut self, config: SoundConfig) -> Result<Sound<'_>> {
-        let mut sound = Sound::new_uninit();
+    pub fn new_sound_with_config(&mut self, config: SoundBuilder) -> Result<Sound<'_>> {
+        let mut sound = Sound::new_uninit(SoundFlags::NONE);
         let res = unsafe {
             sys::ma_sound_init_ex(
                 self.assume_init_mut_ptr(),
@@ -69,12 +64,25 @@ impl Engine {
             )
         };
         MaRawResult::resolve(res)?;
+        sound.set_init();
+        Ok(sound)
+    }
+
+    // TODO Compare with miniaudio API - should flags be a param?
+    // Or leave as convenience methods and create different API?
+    pub fn new_sound_from_file_with_flags(
+        &mut self,
+        path: &Path,
+        flags: SoundFlags,
+    ) -> Result<Sound<'_>> {
+        let mut sound = Sound::new_uninit(flags);
+        self.init_sound_from_file_raw(path, &mut sound)?;
         sound.set_init();
         Ok(sound)
     }
 
     pub fn new_sound_from_file(&mut self, path: &Path) -> Result<Sound<'_>> {
-        let mut sound = Sound::new_uninit();
+        let mut sound = Sound::new_uninit(SoundFlags::NONE);
         self.init_sound_from_file_raw(path, &mut sound)?;
         sound.set_init();
         Ok(sound)
@@ -90,7 +98,7 @@ impl Engine {
                 sys::ma_sound_init_from_file(
                     self.assume_init_mut_ptr(),
                     c_path.as_ptr(),
-                    0,            // TODO
+                    sound.flag_bits(),
                     p_group,      // TODO
                     p_done_fence, // TODO
                     sound.maybe_uninit_mut_ptr(),
@@ -106,7 +114,7 @@ impl Engine {
                 sys::ma_sound_init_from_file_w(
                     self.assume_init_mut_ptr(),
                     c_path.as_ptr(),
-                    0,            // TODO
+                    sound.flag_bits(),
                     p_group,      // TODO
                     p_done_fence, // TODO
                     sound.maybe_uninit_mut_ptr(),
@@ -120,6 +128,10 @@ impl Engine {
         #[cfg(not(any(unix, windows)))]
         compile_error!("init_sound_from_file is only supported on unix and windows");
     }
+
+    // pub fn get_device(&mut self) {
+    //     let res = unsafe { sys::ma_engine_get_device(self.assume_init_mut_ptr()) };
+    // }
 }
 
 impl Engine {
@@ -144,6 +156,11 @@ impl Engine {
         debug_assert!(self.init, "Engine used before initialization.");
         unsafe { self.inner.as_mut().get_mut().assume_init_mut() }
     }
+
+    /// Use carefully. Some functions (like ma_sound_config_init_2) require `*mut sys::ma_engine` (bindgen generated) even though they don't mutate it.
+    pub(crate) unsafe fn as_mut_ptr_from_ref(&self) -> *mut sys::ma_engine {
+        self.inner.as_ptr() as *mut sys::ma_engine
+    }
 }
 
 impl Drop for Engine {
@@ -158,13 +175,13 @@ impl Drop for Engine {
 }
 
 #[cfg(unix)]
-fn cstring_from_path(path: &Path) -> Result<CString> {
+pub(crate) fn cstring_from_path(path: &Path) -> Result<CString> {
     use std::os::unix::ffi::OsStrExt;
     CString::new(path.as_os_str().as_bytes()).map_err(|_| MaError(sys::ma_result_MA_INVALID_ARGS))
 }
 
 #[cfg(windows)]
-fn wide_null_terminated(path: &Path) -> Vec<u16> {
+pub(crate) fn wide_null_terminated(path: &Path) -> Vec<u16> {
     use std::os::windows::ffi::OsStrExt;
 
     // UTF-16 + trailing NUL
@@ -203,23 +220,27 @@ mod test {
     use super::*;
 
     #[test]
+    #[cfg(feature = "device-tests")]
     fn engine_works_with_default() {
         let _engine = Engine::new().unwrap();
     }
 
     #[test]
+    #[cfg(feature = "device-tests")]
     fn engine_works_with_cfg() {
         let config = EngineConfig::new();
         let _engine = Engine::with_config(config).unwrap();
     }
 
     #[test]
+    #[cfg(feature = "device-tests")]
     fn init_engine_and_sound() {
         let mut engine = Engine::new().unwrap();
         let _sound = engine.new_sound().unwrap();
     }
 
     #[test]
+    #[cfg(feature = "device-tests")]
     fn init_engine_and_sound_with_config() {
         // TODO: Which config needs to be consumed?
         let config = EngineConfig::new();
@@ -229,6 +250,7 @@ mod test {
     }
 
     #[test]
+    #[cfg(feature = "device-tests")]
     fn init_sound_from_path() {
         let mut engine = Engine::new().unwrap();
         let path = Path::new("tests/assets/sample.mp3");
