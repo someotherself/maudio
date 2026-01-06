@@ -49,8 +49,6 @@ impl Drop for Context {
 
 #[cfg(test)]
 mod test {
-    use std::io::Write;
-
     use super::*;
 
     #[test]
@@ -59,23 +57,5 @@ mod test {
         assert!(res.is_ok());
         res.unwrap();
         Ok(())
-    }
-
-    #[test]
-    fn context_init_error_is_readable() {
-        let err = MaError(sys::ma_result_MA_INVALID_ARGS);
-        assert!(err.to_string().contains("InvalidArgs"));
-
-        let err = MaError(sys::ma_result_MA_BAD_MESSAGE);
-        assert!(err.to_string().contains("BadMessage"));
-
-        let err = MaError(sys::ma_result_MA_PROTOCOL_NOT_SUPPORTED);
-        assert!(err.to_string().contains("ProtocolNotSupported"));
-
-        let err = MaError(sys::ma_result_MA_INVALID_FILE);
-        assert!(err.to_string().contains("InvalidFile"));
-
-        let err = MaError(sys::ma_result_MA_OUT_OF_MEMORY);
-        assert!(err.to_string().contains("OutOfMemory"));
     }
 }

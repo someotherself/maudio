@@ -114,7 +114,7 @@ impl<'a> SoundBuilder<'a> {
             return Err(crate::MaError(sys::ma_result_MA_INVALID_ARGS));
         }
 
-        let mut sound = Sound::new_uninit(self.flags.clone());
+        let mut sound = Sound::new_uninit(self.flags);
         let res = unsafe {
             sys::ma_sound_init_ex(
                 engine.assume_init_mut_ptr(),
@@ -232,7 +232,6 @@ impl<'a> SoundBuilder<'a> {
     /// If you are simply playing sounds through the engine's default output (the most
     /// common case), you should not call this method. The engine will automatically
     /// attach the sound for you.
-    ///
     pub fn initial_attachment(mut self, node: *mut sys::ma_node, input_bus: u32) -> Self {
         self.inner.pInitialAttachment = node;
         self.inner.initialAttachmentInputBusIndex = input_bus;

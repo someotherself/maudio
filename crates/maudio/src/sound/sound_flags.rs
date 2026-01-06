@@ -1,6 +1,5 @@
 use maudio_sys::ffi as sys;
 
-// TODO: Add an example
 /// Bitflags controlling how a sound is loaded, initialized, and processed.
 ///
 /// `SoundFlags` is a typed wrapper around miniaudio’s `ma_sound_flags` and is
@@ -10,7 +9,8 @@ use maudio_sys::ffi as sys;
 /// Flags can be combined, then passed to sound initialization
 /// functions where they are forwarded directly to
 /// miniaudio without modification.
-#[derive(Debug, PartialEq, Clone)]
+#[repr(transparent)]
+#[derive(Debug, PartialEq, Clone, Copy, Hash, Eq)]
 pub struct SoundFlags(u32);
 
 impl SoundFlags {
@@ -42,7 +42,7 @@ impl SoundFlags {
     pub const DECODE: Self = Self(sys::ma_sound_flags_MA_SOUND_FLAG_DECODE);
     /// Resource Manager flag
     ///
-    /// Loads the sound asynchronously on a background thread. Will playing after the sound has had some audio decoded.
+    /// Loads the sound asynchronously on a background thread. Will start playing after the sound has had some audio decoded.
     pub const ASYNC: Self = Self(sys::ma_sound_flags_MA_SOUND_FLAG_ASYNC);
     /// Resource Manager flag
     ///
@@ -78,11 +78,6 @@ impl SoundFlags {
         self.0
     }
 
-    #[inline]
-    pub(crate) const fn copy_bits(&self) -> u32 {
-        self.0
-    }
-
     /// Set or clear bits
     #[inline]
     pub const fn set(&mut self, other: Self, enabled: bool) {
@@ -99,10 +94,21 @@ impl SoundFlags {
         Self(bits)
     }
 
-    /// Check if a SoundFlags instance matches another
+    /// Check if all the bits in other are set
     #[inline]
     pub const fn contains(self, other: Self) -> bool {
         (self.0 & other.0) == other.0
+    }
+
+    /// Check if any of the bits in other are set
+    #[inline]
+    pub const fn intersects(self, other: Self) -> bool {
+        (self.0 & other.0) != 0
+    }
+
+    #[inline]
+    pub const fn is_none(self) -> bool {
+        self.0 == 0
     }
 
     #[inline]
@@ -183,6 +189,9 @@ mod tests {
         flag.insert(SoundFlags::ASYNC);
         flag.insert(SoundFlags::LOOPING);
         assert!(flag == (SoundFlags::ASYNC | SoundFlags::LOOPING));
+        assert!(flag.contains(SoundFlags::ASYNC));
+        assert!(flag.contains(SoundFlags::LOOPING));
+        assert!(!flag.contains(SoundFlags::DECODE));
 
         flag.remove(SoundFlags::ASYNC);
         assert!(flag == SoundFlags::LOOPING);

@@ -2,6 +2,7 @@
 
 use std::mem::MaybeUninit;
 
+pub mod audio;
 pub mod context;
 pub mod engine;
 pub mod sound;
@@ -138,3 +139,26 @@ struct MaudioError {
 }
 
 type MaudioResult<T> = std::result::Result<T, MaudioError>;
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn context_init_error_is_readable() {
+        let err = MaError(sys::ma_result_MA_INVALID_ARGS);
+        assert!(err.to_string().contains("InvalidArgs"));
+
+        let err = MaError(sys::ma_result_MA_BAD_MESSAGE);
+        assert!(err.to_string().contains("BadMessage"));
+
+        let err = MaError(sys::ma_result_MA_PROTOCOL_NOT_SUPPORTED);
+        assert!(err.to_string().contains("ProtocolNotSupported"));
+
+        let err = MaError(sys::ma_result_MA_INVALID_FILE);
+        assert!(err.to_string().contains("InvalidFile"));
+
+        let err = MaError(sys::ma_result_MA_OUT_OF_MEMORY);
+        assert!(err.to_string().contains("OutOfMemory"));
+    }
+}

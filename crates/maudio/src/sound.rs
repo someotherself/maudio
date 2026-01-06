@@ -4,8 +4,10 @@ use maudio_sys::ffi as sys;
 
 use crate::{ErrorKinds, MaRawResult, Result, engine::Engine, sound::sound_flags::SoundFlags};
 
+pub mod data_source;
 pub mod sound_builder;
 pub mod sound_flags;
+pub mod sound_group;
 
 pub enum SoundError {}
 
@@ -75,15 +77,21 @@ impl<'a> Sound<'a> {
     ///
     /// If the sound was created with [`SoundFlags::NO_PITCH`], this method has no effect.
     pub fn set_pitch(&mut self, pitch: f32) {
+        if self.flags.contains(SoundFlags::NO_PITCH) {
+            return;
+        }
         unsafe { sys::ma_sound_set_pitch(self.assume_init_mut_ptr(), pitch) };
     }
 
     /// Does not return an error.
     ///
-    /// Also returns `0.0` if `Sound` if not initialized
+    /// Also returns `0.0` if `Sound` if not initialized.
     ///
-    /// If the sound was created with [`SoundFlags::NO_PITCH`], this method has no effect.
+    /// If the sound was created with [`SoundFlags::NO_PITCH`], this method has no effect and returns `0.0`.
     pub fn get_pitch(&self) -> f32 {
+        if self.flags.contains(SoundFlags::NO_PITCH) {
+            return 0.0;
+        }
         unsafe { sys::ma_sound_get_pitch(self.assume_init_ptr()) }
     }
 
@@ -159,7 +167,7 @@ impl<'a> Sound<'a> {
     }
 
     pub(crate) fn flag_bits(&self) -> u32 {
-        self.flags.copy_bits()
+        self.flags.bits()
     }
 
     /// Gets a pointer to an initialized `MaybeUninit<sys::ma_sound>`
