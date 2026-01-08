@@ -1,15 +1,12 @@
-#![allow(dead_code, unused_imports)]
-
-use std::mem::MaybeUninit;
+#![allow(dead_code)]
 
 pub mod audio;
 pub mod context;
 pub mod engine;
 pub mod sound;
+pub mod util;
 
-use maudio_sys::ffi::{
-    self as sys, ma_context, ma_context_config_init, ma_context_init, ma_context_uninit,
-};
+use maudio_sys::ffi as sys;
 
 use crate::{engine::EngineError, sound::SoundError};
 
@@ -125,6 +122,14 @@ impl MaError {
             _ => "UNKNOWN_MA_ERROR",
         }
     }
+}
+
+pub(crate) trait Binding: Sized {
+    type Raw;
+
+    fn from_ptr(raw: Self::Raw) -> Self;
+
+    fn to_raw(&self) -> Self::Raw;
 }
 
 #[non_exhaustive]

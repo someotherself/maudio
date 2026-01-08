@@ -1,4 +1,4 @@
-use std::{mem::MaybeUninit, pin::Pin};
+use std::ptr::NonNull;
 
 use maudio_sys::ffi as sys;
 
@@ -13,21 +13,15 @@ use crate::{
 };
 
 pub struct SoundGroup {
-    inner: Pin<Box<MaybeUninit<sys::ma_sound_group>>>,
-    init: bool,
+    inner: NonNull<sys::ma_sound_group>,
 }
 
 impl SoundGroup {
-    pub(crate) fn new_uninit() -> Self {
-        let inner = Box::pin(MaybeUninit::<sys::ma_sound_group>::uninit());
-        Self { inner, init: false }
+    pub(crate) fn new(inner: NonNull<sys::ma_sound_group>) -> Self {
+        Self { inner }
     }
 
-    pub(crate) fn set_init(&mut self) {
-        self.init = true
-    }
-
-    pub fn engine(&mut self) -> EngineRef<'_> {
+    pub fn engine(&mut self) -> Option<EngineRef<'_>> {
         s_group_ffi::ma_sound_group_get_engine(self)
     }
 
@@ -43,7 +37,7 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_set_volume(self, volume);
     }
 
-    pub fn get_volume(&self) -> f32 {
+    pub fn volume(&self) -> f32 {
         s_group_ffi::ma_sound_group_get_volume(self)
     }
 
@@ -225,19 +219,19 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_set_start_time_in_pcm_frames(self, abs_time_frames);
     }
 
-    pub fn set_start_time_mili(&mut self, abs_time_mili: u64) {
-        s_group_ffi::ma_sound_group_set_start_time_in_milliseconds(self, abs_time_mili);
+    pub fn set_start_time_mili(&mut self, abs_time_millis: u64) {
+        s_group_ffi::ma_sound_group_set_start_time_in_milliseconds(self, abs_time_millis);
     }
 
     pub fn set_stop_time_pcm(&mut self, abs_time_frames: u64) {
         s_group_ffi::ma_sound_group_set_stop_time_in_pcm_frames(self, abs_time_frames);
     }
 
-    pub fn set_stop_time_mili(&mut self, abs_time_mili: u64) {
-        s_group_ffi::ma_sound_group_set_stop_time_in_milliseconds(self, abs_time_mili);
+    pub fn set_stop_time_mili(&mut self, abs_time_millis: u64) {
+        s_group_ffi::ma_sound_group_set_stop_time_in_milliseconds(self, abs_time_millis);
     }
 
-    pub fn playing(&self) -> bool {
+    pub fn is_playing(&self) -> bool {
         s_group_ffi::ma_sound_group_is_playing(self)
     }
 
@@ -249,27 +243,17 @@ impl SoundGroup {
 impl SoundGroup {
     /// Gets a pointer to an initialized `MaybeUninit<sys::ma_engine>`
     pub(crate) fn assume_init_ptr(&self) -> *const sys::ma_sound_group {
-        debug_assert!(self.init, "Engine used before initialization.");
         self.inner.as_ptr()
-    }
-
-    /// Gets a pointer to an UNINITIALIZED `MaybeUninit<sys::ma_engine>`
-    pub(crate) fn maybe_uninit_mut_ptr(&mut self) -> *mut sys::ma_sound_group {
-        self.inner.as_mut_ptr()
     }
 
     /// Gets a pointer to an initialized `MaybeUninit<sys::ma_engine>`
     pub(crate) fn assume_init_mut_ptr(&mut self) -> *mut sys::ma_sound_group {
-        debug_assert!(self.init, "Engine used before initialization.");
-        unsafe { self.inner.as_mut().get_unchecked_mut().as_mut_ptr() }
+        self.inner.as_ptr() as *mut _
     }
 }
 
 impl Drop for SoundGroup {
     fn drop(&mut self) {
-        if !self.init {
-            return;
-        }
         s_group_ffi::ma_sound_group_uninit(self);
     }
 }
@@ -281,10 +265,11 @@ pub struct SoundGroupConfig {
 pub(crate) mod s_group_cfg_ffi {
     use maudio_sys::ffi as sys;
 
+    use crate::Binding;
     use crate::{engine::Engine, sound::sound_group::SoundGroupConfig};
 
-    pub fn ma_sound_group_config_init_2(engine: &mut Engine) -> SoundGroupConfig {
-        let ptr = unsafe { sys::ma_sound_group_config_init_2(engine.assume_init_mut_ptr()) };
+    pub fn ma_sound_group_config_init_2(engine: &Engine) -> SoundGroupConfig {
+        let ptr = unsafe { sys::ma_sound_group_config_init_2(engine.to_raw()) };
         SoundGroupConfig { inner: ptr }
     }
 }
@@ -293,10 +278,10 @@ pub(crate) mod s_group_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        MaRawResult, Result,
+        Binding, MaRawResult, Result,
         audio::{
             dsp::pan::PanMode,
-            math::vec3::{self, Vec3},
+            math::vec3::Vec3,
             spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
         },
         engine::{Engine, EngineRef},
@@ -304,16 +289,12 @@ pub(crate) mod s_group_ffi {
     };
 
     pub fn ma_sound_group_init_ex(
-        engine: &mut Engine,
+        engine: &Engine,
         config: SoundGroupConfig,
-        s_group: &mut SoundGroup,
+        s_group: *mut sys::ma_sound_group,
     ) -> Result<()> {
         let res = unsafe {
-            sys::ma_sound_group_init_ex(
-                engine.assume_init_mut_ptr(),
-                &config.inner as *const _,
-                s_group.maybe_uninit_mut_ptr(),
-            )
+            sys::ma_sound_group_init_ex(engine.to_raw(), &config.inner as *const _, s_group)
         };
         MaRawResult::resolve(res)
     }
@@ -324,9 +305,13 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_get_engine<'a>(s_group: &SoundGroup) -> EngineRef<'a> {
+    pub fn ma_sound_group_get_engine<'a>(s_group: &'a SoundGroup) -> Option<EngineRef<'a>> {
         let ptr = unsafe { sys::ma_sound_group_get_engine(s_group.assume_init_ptr()) };
-        EngineRef::from_ptr(ptr)
+        if ptr.is_null() {
+            None
+        } else {
+            Some(EngineRef::from_ptr(ptr))
+        }
     }
 
     #[inline]
@@ -401,7 +386,6 @@ pub(crate) mod s_group_ffi {
 
     #[inline]
     pub fn ma_sound_group_set_pinned_listener_index(s_group: &mut SoundGroup, listener_idx: u32) {
-        println!("Setting listener to {listener_idx}");
         unsafe {
             sys::ma_sound_group_set_pinned_listener_index(
                 s_group.assume_init_mut_ptr(),
@@ -543,10 +527,7 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_set_cone(
-        s_group: &mut SoundGroup,
-        cone: Cone
-    ) {
+    pub fn ma_sound_group_set_cone(s_group: &mut SoundGroup, cone: Cone) {
         unsafe {
             sys::ma_sound_group_set_cone(
                 s_group.assume_init_mut_ptr(),
@@ -714,17 +695,21 @@ pub(crate) mod s_group_ffi {
 
 #[cfg(test)]
 mod test {
-    use crate::{audio::{dsp::pan::PanMode, math::vec3::Vec3, spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning}}, engine::Engine};
+    use crate::{
+        audio::{
+            dsp::pan::PanMode,
+            math::vec3::Vec3,
+            spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
+        },
+        engine::Engine,
+    };
 
     fn approx_eq(a: f32, b: f32, eps: f32) -> bool {
         (a - b).abs() <= eps
     }
 
     fn assert_approx_eq(a: f32, b: f32, eps: f32) {
-        assert!(
-            approx_eq(a, b, eps),
-            "expected ~={b}, got {a} (eps={eps})"
-        );
+        assert!(approx_eq(a, b, eps), "expected ~={b}, got {a} (eps={eps})");
     }
 
     fn assert_vec3_eq(a: Vec3, b: Vec3, eps: f32) {
@@ -737,7 +722,7 @@ mod test {
     #[test]
     // #[cfg(feature = "device-tests")]
     fn test_sound_group_basic() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
         let engine_ref = s_group.engine();
         drop(engine_ref);
@@ -745,7 +730,7 @@ mod test {
 
     #[test]
     fn test_sound_group_start_stop_smoke() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         // These are just smoke tests; depending on backend/device, playing() may be false.
@@ -755,21 +740,21 @@ mod test {
 
     #[test]
     fn test_sound_group_volume_roundtrip() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_volume(0.25);
-        let v = s_group.get_volume();
+        let v = s_group.volume();
         assert_approx_eq(v, 0.25, 1e-6);
 
         s_group.set_volume(1.0);
-        let v = s_group.get_volume();
+        let v = s_group.volume();
         assert_approx_eq(v, 1.0, 1e-6);
     }
 
     #[test]
     fn test_sound_group_pan_roundtrip() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_pan(-0.5);
@@ -781,7 +766,7 @@ mod test {
 
     #[test]
     fn test_sound_group_pan_mode_roundtrip() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         // Use variants that exist in your PanMode enum.
@@ -795,7 +780,7 @@ mod test {
 
     #[test]
     fn test_sound_group_pitch_roundtrip() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_pitch(0.5);
@@ -807,7 +792,7 @@ mod test {
 
     #[test]
     fn test_sound_group_spatialization_toggle() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_spatialization(false);
@@ -819,7 +804,7 @@ mod test {
 
     // #[test]
     // fn test_sound_group_pinned_listener_roundtrip() {
-    //     let mut engine = Engine::new().unwrap();
+    //     let engine = Engine::new().unwrap();
     //     let mut s_group = engine.new_sound_group().unwrap();
 
     //     s_group.set_pinned_listener(0);
@@ -831,7 +816,7 @@ mod test {
 
     // #[test]
     // fn test_sound_group_pinned_listener_roundtrip() {
-    //     let mut engine = Engine::new().unwrap();
+    //     let engine = Engine::new().unwrap();
     //     let mut s_group = engine.new_sound_group().unwrap();
 
     //     s_group.set_pinned_listener(0);
@@ -850,19 +835,22 @@ mod test {
 
     #[test]
     fn test_sound_group_listener_index_smoke() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let s_group = engine.new_sound_group().unwrap();
 
-        // Just ensure call works and returns something deterministic-ish.
         let _idx = s_group.listener();
     }
 
     #[test]
     fn test_sound_group_position_roundtrip() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
-        let p = Vec3 { x: 1.0, y: 2.0, z: 3.0 };
+        let p = Vec3 {
+            x: 1.0,
+            y: 2.0,
+            z: 3.0,
+        };
         s_group.set_position(p);
         let got = s_group.position();
         assert_vec3_eq(got, p, 1e-6);
@@ -870,10 +858,14 @@ mod test {
 
     #[test]
     fn test_sound_group_direction_roundtrip() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
-        let d = Vec3 { x: 0.0, y: 0.0, z: 1.0 };
+        let d = Vec3 {
+            x: 0.0,
+            y: 0.0,
+            z: 1.0,
+        };
         s_group.set_direction(d);
         let got = s_group.direction();
         assert_vec3_eq(got, d, 1e-6);
@@ -881,10 +873,14 @@ mod test {
 
     #[test]
     fn test_sound_group_velocity_roundtrip() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
-        let v = Vec3 { x: -1.0, y: 0.5, z: 0.25 };
+        let v = Vec3 {
+            x: -1.0,
+            y: 0.5,
+            z: 0.25,
+        };
         s_group.set_velocity(v);
         let got = s_group.velocity();
         assert_vec3_eq(got, v, 1e-6);
@@ -892,7 +888,7 @@ mod test {
 
     #[test]
     fn test_sound_group_direction_to_listener_smoke() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let s_group = engine.new_sound_group().unwrap();
 
         // Typically depends on listener position; just ensure it doesn't crash.
@@ -901,7 +897,7 @@ mod test {
 
     #[test]
     fn test_sound_group_attenuation_model_roundtrip() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         // Use variants that exist in your AttenuationModel enum.
@@ -914,7 +910,7 @@ mod test {
 
     #[test]
     fn test_sound_group_positioning_roundtrip() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_positioning(Positioning::Absolute);
@@ -926,7 +922,7 @@ mod test {
 
     #[test]
     fn test_sound_group_rolloff_roundtrip() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_rolloff(0.75);
@@ -935,7 +931,7 @@ mod test {
 
     #[test]
     fn test_sound_group_min_max_gain_roundtrip() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_min_gain(0.1);
@@ -947,7 +943,7 @@ mod test {
 
     #[test]
     fn test_sound_group_min_max_distance_roundtrip() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_min_distance(1.25);
@@ -959,7 +955,7 @@ mod test {
 
     #[test]
     fn test_sound_group_cone_roundtrip() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         let c = Cone {
@@ -978,7 +974,7 @@ mod test {
 
     #[test]
     fn test_sound_group_doppler_factor_roundtrip() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_doppler_factor(1.5);
@@ -987,17 +983,16 @@ mod test {
 
     #[test]
     fn test_sound_group_directional_attenuation_roundtrip() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_directional_attenuation(0.6);
         assert_approx_eq(s_group.directional_attenuation(), 0.6, 1e-6);
     }
 
-
     #[test]
     fn test_sound_group_fade_api_smoke() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         // Not possible to reliably assert current_fade_volume() without running audio;
@@ -1011,7 +1006,7 @@ mod test {
 
     #[test]
     fn test_sound_group_start_stop_time_api_smoke() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_start_time_pcm(0);
@@ -1023,10 +1018,10 @@ mod test {
 
     #[test]
     fn test_sound_group_playing_and_time_pcm_smoke() {
-        let mut engine = Engine::new().unwrap();
+        let engine = Engine::new().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
-        let _is_playing = s_group.playing();
+        let _is_playing = s_group.is_playing();
         let _t = s_group.time_pcm();
     }
 }

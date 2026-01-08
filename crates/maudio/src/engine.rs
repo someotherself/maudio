@@ -11,9 +11,9 @@
 //!
 //! ## Quick start
 //! ```no_run
-//! # use maudio::Engine;
+//! # use maudio::engine::Engine;
 //! # fn main() -> maudio::Result<()> {
-//! let mut engine = Engine::new()?;
+//! let engine = Engine::new()?;
 //! // let mut sound = engine.new_sound_from_file("music.ogg")?;
 //! // sound.start()?;
 //! /* block the main thread while the sound is playing */
@@ -49,18 +49,16 @@
 //! be taken to avoid heavy work or allocations in contexts that must remain
 //! real-time safe.
 use std::{
-    ffi::CString, marker::PhantomData, mem::MaybeUninit, path::Path, pin::Pin, ptr::NonNull,
+    cell::Cell, ffi::CString, marker::PhantomData, mem::MaybeUninit, path::Path, ptr::NonNull,
 };
 
 use crate::{
-    ErrorKinds, LogLevel, MaError, MaRawResult, Result,
-    engine::{
-        self,
-        node_graph::{NodeGraphRef, nodes::NodeRef},
-    },
+    Binding, ErrorKinds, MaError, Result,
+    engine::node_graph::{NodeGraphRef, nodes::NodeRef},
     sound::{
         Sound,
         sound_builder::SoundBuilder,
+        sound_ffi,
         sound_flags::SoundFlags,
         sound_group::{SoundGroup, SoundGroupConfig, s_group_cfg_ffi, s_group_ffi},
     },
@@ -108,22 +106,29 @@ impl From<EngineError> for ErrorKinds {
 /// accessors) are **borrows** into engine-owned state and cannot outlive the
 /// engine.
 pub struct Engine {
-    inner: Pin<Box<MaybeUninit<sys::ma_engine>>>,
-    /// Marks if inner is initialized
-    init: bool,
+    inner: *mut sys::ma_engine,
+    _not_sync: PhantomData<Cell<()>>,
 }
 
 pub struct EngineRef<'a> {
-    ptr: NonNull<sys::ma_engine>,
+    ptr: *mut sys::ma_engine,
     _marker: PhantomData<&'a ()>,
+    _not_sync: PhantomData<Cell<()>>,
 }
 
-impl<'a> EngineRef<'a> {
-    pub(crate) fn from_ptr(ptr: *mut sys::ma_engine) -> Self {
+impl Binding for EngineRef<'_> {
+    type Raw = *mut sys::ma_engine;
+
+    fn from_ptr(raw: Self::Raw) -> Self {
         Self {
-            ptr: NonNull::new(ptr).expect("returned null ma_engine"),
+            ptr: raw,
             _marker: PhantomData,
+            _not_sync: PhantomData,
         }
+    }
+
+    fn to_raw(&self) -> Self::Raw {
+        self.ptr
     }
 }
 
@@ -155,11 +160,40 @@ impl Engine {
     }
 
     fn new_with_config(config: Option<&EngineConfig>) -> Result<Self> {
-        let inner: Pin<Box<MaybeUninit<sys::ma_engine>>> = Box::pin(MaybeUninit::zeroed());
-        let mut engine = Self { inner, init: false };
-        engine_ffi::engine_init(config, &mut engine)?;
-        engine.set_init();
-        Ok(engine)
+        let mut mem: Box<MaybeUninit<sys::ma_engine>> = Box::new_uninit();
+        engine_ffi::engine_init(config, mem.as_mut_ptr())?;
+        // Safety: If mem is not initialized, engine_init will return an error
+        let mem: Box<sys::ma_engine> = unsafe { mem.assume_init() };
+        let inner = Box::into_raw(mem);
+        Ok(Self::from_ptr(inner))
+    }
+
+    pub fn new_sound(&self) -> Result<Sound<'_>> {
+        self.new_sound_with_config_internal(None)
+    }
+
+    pub fn new_sound_with_config(&self, config: SoundBuilder) -> Result<Sound<'_>> {
+        self.new_sound_with_config_internal(Some(config))
+    }
+
+    pub fn new_sound_from_file(&self, path: &Path) -> Result<Sound<'_>> {
+        self.new_sound_with_file_internal(path, SoundFlags::NONE, None)
+    }
+
+    pub fn new_sound_from_file_with_group(
+        &self,
+        path: &Path,
+        sound_group: &mut SoundGroup,
+    ) -> Result<Sound<'_>> {
+        self.new_sound_with_file_internal(path, SoundFlags::NONE, Some(sound_group))
+    }
+
+    pub fn new_sound_from_file_with_flags(
+        &self,
+        path: &Path,
+        flags: SoundFlags,
+    ) -> Result<Sound<'_>> {
+        self.new_sound_with_file_internal(path, flags, None)
     }
 
     // TODO
@@ -168,7 +202,7 @@ impl Engine {
         todo!()
     }
 
-    pub fn node_graph(&mut self) -> NodeGraphRef<'_> {
+    pub fn node_graph(&mut self) -> Option<NodeGraphRef<'_>> {
         engine_ffi::ma_engine_get_node_graph(self)
     }
 
@@ -201,7 +235,7 @@ impl Engine {
     /// ## Lifetime
     /// The returned [`NodeRef`] borrows the engine mutably and cannot outlive it.
     /// Only one mutable access to the node graph may exist at a time.
-    pub fn endpoint(&mut self) -> NodeRef<'_> {
+    pub fn endpoint(&mut self) -> Option<NodeRef<'_>> {
         engine_ffi::ma_engine_get_endpoint(self)
     }
 
@@ -287,149 +321,83 @@ impl Engine {
         engine_ffi::ma_engine_get_sample_rate(self)
     }
 
-    pub fn new_sound(&mut self) -> Result<Sound<'_>> {
-        let mut sound = Sound::new_uninit(SoundFlags::NONE);
-        let config = SoundBuilder::init(self.assume_init_mut_ptr());
-        // let config = self.new_sound_config();
-        let res = unsafe {
-            sys::ma_sound_init_ex(
-                self.assume_init_mut_ptr(),
-                config.get_raw(),
-                sound.maybe_uninit_mut_ptr(),
-            )
-        };
-        MaRawResult::resolve(res)?;
-        sound.set_init();
-        Ok(sound)
+    fn new_sound_with_config_internal(&self, config: Option<SoundBuilder>) -> Result<Sound<'_>> {
+        let config = config.unwrap_or(SoundBuilder::init(self.to_raw()));
+        let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new_uninit();
+
+        sound_ffi::ma_sound_init_ex(self, &config, mem.as_mut_ptr())?;
+
+        let mem: Box<sys::ma_sound> = unsafe { mem.assume_init() };
+        let inner = Box::into_raw(mem);
+        Ok(Sound::from_ptr(inner))
     }
 
-    pub fn new_sound_with_config(&mut self, config: SoundBuilder) -> Result<Sound<'_>> {
-        let mut sound = Sound::new_uninit(SoundFlags::NONE);
-        let res = unsafe {
-            sys::ma_sound_init_ex(
-                self.assume_init_mut_ptr(),
-                config.get_raw(),
-                sound.maybe_uninit_mut_ptr(),
-            )
-        };
-        MaRawResult::resolve(res)?;
-        sound.set_init();
-        Ok(sound)
-    }
-
-    // TODO Compare with miniaudio API - should flags be a param?
-    // Or leave as convenience methods and create different API?
-    pub fn new_sound_from_file_with_flags(
-        &mut self,
+    fn new_sound_with_file_internal(
+        &self,
         path: &Path,
         flags: SoundFlags,
+        sound_group: Option<&mut SoundGroup>,
     ) -> Result<Sound<'_>> {
-        let mut sound = Sound::new_uninit(flags);
-        self.init_sound_from_file_raw(path, &mut sound)?;
-        sound.set_init();
-        Ok(sound)
+        let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new_uninit();
+
+        Sound::init_from_file_internal(mem.as_mut_ptr(), self, path, flags, sound_group, None)?;
+
+        let mem: Box<sys::ma_sound> = unsafe { mem.assume_init() };
+        let inner = Box::into_raw(mem);
+        Ok(Sound::from_ptr(inner))
     }
 
-    pub fn new_sound_from_file(&mut self, path: &Path) -> Result<Sound<'_>> {
-        let mut sound = Sound::new_uninit(SoundFlags::NONE);
-        self.init_sound_from_file_raw(path, &mut sound)?;
-        sound.set_init();
-        Ok(sound)
+    // TODO: Not yet exposed to the public API
+    fn new_sound_instance_internal(
+        &self,
+        sound: &Sound,
+        flags: SoundFlags,
+        sound_group: Option<&mut SoundGroup>,
+    ) -> Result<Sound<'_>> {
+        let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new_uninit();
+
+        sound_ffi::ma_sound_init_copy(self, sound, flags, sound_group, mem.as_mut_ptr())?;
+
+        let mem: Box<sys::ma_sound> = unsafe { mem.assume_init() };
+        let inner = Box::into_raw(mem);
+        Ok(Sound::from_ptr(inner))
     }
 
-    pub fn new_sound_group(&mut self) -> Result<SoundGroup> {
-        let mut group = SoundGroup::new_uninit();
+    pub fn new_sound_group(&self) -> Result<SoundGroup> {
+        let mut mem: Box<MaybeUninit<sys::ma_sound_group>> = Box::new_uninit();
         let config = self.new_sound_group_config();
-        s_group_ffi::ma_sound_group_init_ex(self, config, &mut group)?;
-        group.set_init();
-        Ok(group)
+
+        s_group_ffi::ma_sound_group_init_ex(self, config, mem.as_mut_ptr())?;
+
+        let mem: Box<sys::ma_sound> = unsafe { mem.assume_init() };
+        let inner = NonNull::new(Box::into_raw(mem)).expect("NonNull ma_sound");
+        Ok(SoundGroup::new(inner))
     }
 
-    pub fn new_sound_group_config(&mut self) -> SoundGroupConfig {
+    pub fn new_sound_group_config(&self) -> SoundGroupConfig {
         s_group_cfg_ffi::ma_sound_group_config_init_2(self)
     }
-
-    fn init_sound_from_file_raw(&mut self, path: &Path, sound: &mut Sound) -> Result<()> {
-        let p_group: *mut sys::ma_sound = core::ptr::null_mut();
-        let p_done_fence: *mut sys::ma_fence = core::ptr::null_mut();
-        // TODO: Move to sound_ffi mod
-        #[cfg(unix)]
-        {
-            let c_path = cstring_from_path(path)?;
-            let res = unsafe {
-                sys::ma_sound_init_from_file(
-                    self.assume_init_mut_ptr(),
-                    c_path.as_ptr(),
-                    sound.flag_bits(),
-                    p_group,      // TODO
-                    p_done_fence, // TODO
-                    sound.maybe_uninit_mut_ptr(),
-                )
-            };
-            MaRawResult::resolve(res)?;
-            Ok(())
-        }
-        #[cfg(windows)]
-        {
-            let c_path = wide_null_terminated(&path);
-            let res = unsafe {
-                sys::ma_sound_init_from_file_w(
-                    self.assume_init_mut_ptr(),
-                    c_path.as_ptr(),
-                    sound.flag_bits(),
-                    p_group,      // TODO
-                    p_done_fence, // TODO
-                    sound.maybe_uninit_mut_ptr(),
-                )
-            };
-            MaRawResult::resolve(res)?;
-            return Ok(());
-        }
-
-        // TODO. What other platforms can be added
-        #[cfg(not(any(unix, windows)))]
-        compile_error!("init_sound_from_file is only supported on unix and windows");
-    }
-
-    // pub fn get_device(&mut self) {
-    //     let res = unsafe { sys::ma_engine_get_device(self.assume_init_mut_ptr()) };
-    // }
 }
 
-impl Engine {
-    pub(crate) fn set_init(&mut self) {
-        self.init = true;
+impl Binding for Engine {
+    type Raw = *mut sys::ma_engine;
+
+    fn from_ptr(raw: Self::Raw) -> Self {
+        Self {
+            inner: raw,
+            _not_sync: PhantomData,
+        }
     }
 
-    /// Gets a pointer to an initialized `MaybeUninit<sys::ma_engine>`
-    pub(crate) fn assume_init_ptr(&self) -> *const sys::ma_engine {
-        debug_assert!(self.init, "Engine used before initialization.");
-        self.inner.as_ptr()
-    }
-
-    /// Gets a pointer to an UNINITIALIZED `MaybeUninit<sys::ma_engine>`
-    pub(crate) fn maybe_uninit_mut_ptr(&mut self) -> *mut sys::ma_engine {
-        self.inner.as_mut_ptr()
-    }
-
-    /// Gets a pointer to an initialized `MaybeUninit<sys::ma_engine>`
-    pub(crate) fn assume_init_mut_ptr(&mut self) -> *mut sys::ma_engine {
-        debug_assert!(self.init, "Engine used before initialization.");
-        unsafe { self.inner.as_mut().get_unchecked_mut().as_mut_ptr() }
-    }
-
-    /// Use carefully. Some functions (like ma_sound_config_init_2) require `*mut sys::ma_engine` (bindgen generated) even though they don't mutate it.
-    pub(crate) unsafe fn as_mut_ptr_from_ref(&self) -> *mut sys::ma_engine {
-        self.inner.as_ptr() as *mut sys::ma_engine
+    fn to_raw(&self) -> Self::Raw {
+        self.inner
     }
 }
 
 impl Drop for Engine {
     fn drop(&mut self) {
-        if !self.init {
-            return;
-        }
         engine_ffi::engine_uninit(self);
+        drop(unsafe { Box::from_raw(self.to_raw()) });
     }
 }
 
@@ -495,45 +463,41 @@ pub struct AllocationCallbacks {
 
 #[cfg(test)]
 mod test {
-    use std::io::Write;
-
-    use super::*;
 
     #[test]
     #[cfg(feature = "device-tests")]
-    fn engine_works_with_default() {
+    fn engine_test_works_with_default() {
+        use super::*;
+
         let _engine = Engine::new().unwrap();
     }
 
     #[test]
     #[cfg(feature = "device-tests")]
-    fn engine_works_with_cfg() {
+    fn engine_test_works_with_cfg() {
+        use super::*;
+
         let config = EngineConfig::new();
         let _engine = Engine::with_config(config).unwrap();
     }
 
     #[test]
     #[cfg(feature = "device-tests")]
-    fn init_engine_and_sound() {
-        let mut engine = Engine::new().unwrap();
+    fn engine_test_init_engine_and_sound() {
+        use super::*;
+
+        let engine = Engine::new().unwrap();
         let _sound = engine.new_sound().unwrap();
     }
 
     #[test]
     #[cfg(feature = "device-tests")]
-    fn init_engine_and_sound_with_config() {
-        // TODO: Which config needs to be consumed?
-        let config = EngineConfig::new();
-        let mut engine = Engine::new_with_config(Some(&config)).unwrap();
-        let s_config = engine.new_sound_config();
-        let _sound = engine.new_sound_with_config(s_config).unwrap();
-    }
+    fn engine_test_init_sound_from_path() {
+        use super::*;
+        use std::path::Path;
 
-    #[test]
-    #[cfg(feature = "device-tests")]
-    fn init_sound_from_path() {
-        let mut engine = Engine::new().unwrap();
-        let path = Path::new("tests/assets/sample.mp3");
+        let engine = Engine::new().unwrap();
+        let path = Path::new("examples/assets/Goldberg Variations, BWV. 988 - Variation 4.mp3");
         let mut sound = engine.new_sound_from_file(path).unwrap();
         sound.play_sound().unwrap();
     }
@@ -545,102 +509,104 @@ pub(crate) mod engine_ffi {
     use crate::{
         MaRawResult, Result,
         engine::{
-            Engine, EngineConfig,
-            node_graph::{NodeGraph, NodeGraphRef, nodes::NodeRef},
+            Binding, Engine, EngineConfig,
+            node_graph::{NodeGraphRef, nodes::NodeRef},
         },
     };
 
     #[inline]
-    pub fn engine_init(config: Option<&EngineConfig>, engine: &mut Engine) -> Result<()> {
+    pub fn engine_init(config: Option<&EngineConfig>, engine: *mut sys::ma_engine) -> Result<()> {
         let p_config: *const sys::ma_engine_config =
             config.map_or(core::ptr::null(), |c| &c.inner as *const _);
-        let res = unsafe { sys::ma_engine_init(p_config, engine.maybe_uninit_mut_ptr()) };
+        let res = unsafe { sys::ma_engine_init(p_config, engine) };
         MaRawResult::resolve(res)
     }
 
     #[inline]
-    pub fn engine_uninit(engine: &mut Engine) {
+    pub fn engine_uninit(engine: &Engine) {
         unsafe {
-            sys::ma_engine_uninit(engine.assume_init_mut_ptr());
+            sys::ma_engine_uninit(engine.to_raw());
         }
     }
 
     // TODO
     #[inline]
     pub fn ma_engine_read_pcm_frames(
-        engine: &mut Engine,
+        engine: &Engine,
         frames_out: *mut core::ffi::c_void,
         frame_count: sys::ma_uint64,
         frames_read: *mut sys::ma_uint64,
     ) -> i32 {
         unsafe {
-            sys::ma_engine_read_pcm_frames(
-                engine.assume_init_mut_ptr(),
-                frames_out,
-                frame_count,
-                frames_read,
-            )
+            sys::ma_engine_read_pcm_frames(engine.to_raw(), frames_out, frame_count, frames_read)
         }
     }
 
     #[inline]
-    pub fn ma_engine_get_node_graph(engine: &mut Engine) -> NodeGraphRef<'_> {
-        let ptr = unsafe { sys::ma_engine_get_node_graph(engine.assume_init_mut_ptr()) };
-        NodeGraphRef::from_ptr(ptr)
+    pub fn ma_engine_get_node_graph(engine: &Engine) -> Option<NodeGraphRef<'_>> {
+        let ptr = unsafe { sys::ma_engine_get_node_graph(engine.to_raw()) };
+        if ptr.is_null() {
+            None
+        } else {
+            Some(NodeGraphRef::from_ptr(ptr))
+        }
     }
 
-    // TODO: Create ResourceManRef. Implement MA_NO_RESOURCE_MANAGER
-    // TODO: Test out &mut Engine works in practice
+    // TODO: Create ResourceManRef. Implement MA_NO_RESOURCE_MANAGER?
     #[inline]
-    pub fn ma_engine_get_resource_manager(engine: &mut Engine) -> *mut sys::ma_resource_manager {
-        unsafe { sys::ma_engine_get_resource_manager(engine.assume_init_mut_ptr()) }
+    pub fn ma_engine_get_resource_manager(engine: &Engine) -> *mut sys::ma_resource_manager {
+        unsafe { sys::ma_engine_get_resource_manager(engine.to_raw()) }
     }
 
     // TODO: Create Device(Ref?)
     #[inline]
-    pub fn ma_engine_get_device(engine: &mut Engine) -> *mut sys::ma_device {
-        unsafe { sys::ma_engine_get_device(engine.assume_init_mut_ptr()) }
+    pub fn ma_engine_get_device(engine: &Engine) -> *mut sys::ma_device {
+        unsafe { sys::ma_engine_get_device(engine.to_raw()) }
     }
 
     // TODO: Implement Log(Ref?)
     #[inline]
-    pub fn ma_engine_get_log(engine: &mut Engine) -> *mut sys::ma_log {
-        unsafe { sys::ma_engine_get_log(engine.assume_init_mut_ptr()) }
+    pub fn ma_engine_get_log(engine: &Engine) -> *mut sys::ma_log {
+        unsafe { sys::ma_engine_get_log(engine.to_raw()) }
     }
 
     #[inline]
-    pub fn ma_engine_get_endpoint<'a>(engine: &'a mut Engine) -> NodeRef<'a> {
-        let ptr = unsafe { sys::ma_engine_get_endpoint(engine.assume_init_mut_ptr()) };
-        NodeRef::from_ptr(ptr)
+    pub fn ma_engine_get_endpoint<'a>(engine: &'a Engine) -> Option<NodeRef<'a>> {
+        let ptr = unsafe { sys::ma_engine_get_endpoint(engine.to_raw()) };
+        if ptr.is_null() {
+            None
+        } else {
+            Some(NodeRef::from_ptr(ptr))
+        }
     }
 
     #[inline]
     pub fn ma_engine_get_time_in_pcm_frames(engine: &Engine) -> u64 {
-        unsafe { sys::ma_engine_get_time_in_pcm_frames(engine.assume_init_ptr()) }
+        unsafe { sys::ma_engine_get_time_in_pcm_frames(engine.to_raw() as *const _) }
     }
 
     #[inline]
     pub fn ma_engine_get_time_in_milliseconds(engine: &Engine) -> u64 {
-        unsafe { sys::ma_engine_get_time_in_milliseconds(engine.assume_init_ptr()) }
+        unsafe { sys::ma_engine_get_time_in_milliseconds(engine.to_raw() as *const _) }
     }
 
     #[inline]
-    pub fn ma_engine_set_time_in_pcm_frames(engine: &mut Engine, time: u64) {
-        unsafe { sys::ma_engine_set_time_in_pcm_frames(engine.assume_init_mut_ptr(), time) };
+    pub fn ma_engine_set_time_in_pcm_frames(engine: &Engine, time: u64) {
+        unsafe { sys::ma_engine_set_time_in_pcm_frames(engine.to_raw(), time) };
     }
 
     #[inline]
-    pub fn ma_engine_set_time_in_milliseconds(engine: &mut Engine, time: u64) {
-        unsafe { sys::ma_engine_set_time_in_milliseconds(engine.assume_init_mut_ptr(), time) };
+    pub fn ma_engine_set_time_in_milliseconds(engine: &Engine, time: u64) {
+        unsafe { sys::ma_engine_set_time_in_milliseconds(engine.to_raw(), time) };
     }
 
     #[inline]
     pub fn ma_engine_get_channels(engine: &Engine) -> u32 {
-        unsafe { sys::ma_engine_get_channels(engine.assume_init_ptr()) }
+        unsafe { sys::ma_engine_get_channels(engine.to_raw() as *const _) }
     }
 
     #[inline]
     pub fn ma_engine_get_sample_rate(engine: &Engine) -> u32 {
-        unsafe { sys::ma_engine_get_sample_rate(engine.assume_init_ptr()) }
+        unsafe { sys::ma_engine_get_sample_rate(engine.to_raw() as *const _) }
     }
 }

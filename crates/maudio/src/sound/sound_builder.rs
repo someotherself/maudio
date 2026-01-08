@@ -1,11 +1,11 @@
-use std::path::Path;
+use std::{mem::MaybeUninit, path::Path};
 
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Result,
+    Binding, MaRawResult, Result,
     engine::Engine,
-    sound::{Sound, sound_flags::SoundFlags},
+    sound::{Sound, SoundSource},
 };
 
 /// Builder for constructing a [`Sound`]
@@ -43,12 +43,14 @@ use crate::{
 ///
 /// ```no_run
 /// # use std::path::Path;
-/// # fn demo(mut engine: Engine) -> Result<()> {
-/// let sound = SoundBuilder::new(&mut engine)
+/// # use maudio::engine::Engine;
+/// # use maudio::sound::sound_builder::SoundBuilder;
+/// # fn demo(engine: &Engine) -> maudio::Result<()> {
+/// let config = SoundBuilder::new(&engine)
 ///     .file_path(Path::new("assets/click.wav"))?
 ///     .channels_in(1)
-///     .channels_out(0) // 0 = engine's native channel count
-///     .build(&mut engine)?;
+///     .channels_out(0); // 0 = engine's native channel count
+/// let sound = config.build(engine)?;
 /// # Ok(())
 /// # }
 /// ```
@@ -56,10 +58,12 @@ use crate::{
 /// Initialize from an existing data source:
 ///
 /// ```no_run
-/// # fn demo(mut engine: Engine, ds: *mut sys::ma_data_source) -> Result<()> {
-/// let sound = SoundBuilder::new(&mut engine)
-///     .data_source(ds)
-///     .build(&mut engine)?;
+/// # use maudio::engine::Engine;
+/// # use maudio::sound::sound_builder::SoundBuilder;
+/// # fn demo(engine: &Engine, ds: *mut maudio_sys::ffi::ma_data_source) -> maudio::Result<()> { // TODO
+/// let config = SoundBuilder::new(&engine)
+///     .data_source(ds);
+/// let sound = config.build(&engine)?;
 /// # Ok(())
 /// # }
 /// ```
@@ -67,11 +71,13 @@ use crate::{
 /// Attach to a node/bus on init:
 ///
 /// ```no_run
-/// # fn demo(mut engine: Engine, node: *mut sys::ma_node) -> Result<()> {
-/// let sound = SoundBuilder::new(&mut engine)
-///     .file_path("assets/music.ogg".as_ref())?
-///     .initial_attachment(node, 0)
-///     .build(&mut engine)?;
+/// # use maudio::engine::Engine;
+/// # use maudio::sound::sound_builder::SoundBuilder;
+/// # use maudio::engine::node_graph::nodes::Node;
+/// # fn demo(engine: &Engine, node: Node) -> maudio::Result<()> { // TODO
+/// let config = SoundBuilder::new(& engine)
+///     .file_path("assets/music.ogg".as_ref())?;
+/// let sound = config.build(&engine)?;
 /// # Ok(())
 /// }
 /// ```
@@ -82,30 +88,18 @@ use crate::{
 /// - If you only need a simple sound, prefer the convenience constructors on [`Engine`] / [`Sound`].
 pub struct SoundBuilder<'a> {
     inner: sys::ma_sound_config,
-    flags: SoundFlags,
     source: SoundSource<'a>,
     path_utf8: Option<std::ffi::CString>,
     path_wide: Option<Vec<u16>>,
 }
 
-/// The initialization source for a sound.
-///
-/// Only one source may be active at a time (file path OR data source).
-#[derive(PartialEq)]
-pub enum SoundSource<'a> {
-    None,
-    File(&'a Path),
-    DataSource(*mut sys::ma_data_source),
-}
-
 impl<'a> SoundBuilder<'a> {
     pub fn new(engine: &Engine) -> Self {
-        SoundBuilder::init(unsafe { engine.as_mut_ptr_from_ref() })
+        SoundBuilder::init(engine.to_raw())
     }
 
-    pub fn build(&self, engine: &mut Engine) -> Result<Sound<'_>> {
+    pub fn build(&self, engine: &Engine) -> Result<Sound<'_>> {
         if self.check_invalid_sources() {
-            // TODO: Re-do errors
             return Err(crate::MaError(sys::ma_result_MA_INVALID_ARGS));
         }
         if let SoundSource::DataSource(src) = self.source
@@ -114,24 +108,13 @@ impl<'a> SoundBuilder<'a> {
             return Err(crate::MaError(sys::ma_result_MA_INVALID_ARGS));
         }
 
-        let mut sound = Sound::new_uninit(self.flags);
-        let res = unsafe {
-            sys::ma_sound_init_ex(
-                engine.assume_init_mut_ptr(),
-                &self.inner,
-                sound.maybe_uninit_mut_ptr(),
-            )
-        };
-        crate::MaRawResult::resolve(res)?;
-        sound.set_init();
-        Ok(sound)
-    }
+        let mut mem = Box::new(MaybeUninit::<sys::ma_sound>::uninit());
+        let res = unsafe { sys::ma_sound_init_ex(engine.to_raw(), &self.inner, mem.as_mut_ptr()) };
+        MaRawResult::resolve(res)?;
 
-    /// See [`SoundFlags`]
-    pub fn flags(mut self, flags: SoundFlags) -> Self {
-        self.flags.insert_bits(&flags);
-        self.inner.flags = flags.bits();
-        self
+        let mem: Box<sys::ma_sound> = unsafe { mem.assume_init() };
+        let inner = Box::into_raw(mem);
+        Ok(Sound::from_ptr(inner))
     }
 
     /// Sets the source of the sound from a path
@@ -272,7 +255,6 @@ impl<'a> SoundBuilder<'a> {
         let inner = unsafe { sys::ma_sound_config_init_2(inner) };
         Self {
             inner,
-            flags: SoundFlags::NONE,
             source: SoundSource::None,
             path_utf8: None,
             path_wide: None,
@@ -294,7 +276,7 @@ mod test {
 
     #[test]
     fn sound_builder() {
-        let mut engine = Engine::new().unwrap();
-        let _s_config = SoundBuilder::new(&mut engine).channels_in(1);
+        let engine = Engine::new().unwrap();
+        let _s_config = SoundBuilder::new(&engine).channels_in(1);
     }
 }

@@ -1,6 +1,8 @@
-use std::{marker::PhantomData, ptr::NonNull};
+use std::{cell::Cell, marker::PhantomData};
 
 use maudio_sys::ffi as sys;
+
+use crate::Binding;
 
 pub struct Node {
     heap: Box<[u8]>,
@@ -8,18 +10,27 @@ pub struct Node {
 }
 
 pub struct NodeRef<'a> {
-    ptr: NonNull<sys::ma_node>,
+    ptr: *mut sys::ma_node,
     _marker: PhantomData<&'a mut ()>,
+    _not_sync: PhantomData<Cell<()>>,
 }
 
-impl<'a> NodeRef<'a> {
-    pub(crate) fn from_ptr(ptr: *mut sys::ma_node) -> Self {
+impl Binding for NodeRef<'_> {
+    type Raw = *mut sys::ma_node;
+
+    fn from_ptr(raw: Self::Raw) -> Self {
         Self {
-            ptr: NonNull::new(ptr).expect("returned null node_graph"),
+            ptr: raw,
             _marker: PhantomData,
+            _not_sync: PhantomData,
         }
     }
+
+    fn to_raw(&self) -> Self::Raw {
+        self.ptr
+    }
 }
+
 
 pub trait NodePtr {
     fn as_node_ptr(&self) -> *const sys::ma_node;
@@ -38,11 +49,11 @@ impl NodePtr for Node {
 
 impl<'g> NodePtr for NodeRef<'g> {
     fn as_node_ptr(&self) -> *const sys::ma_node {
-        self.ptr.as_ptr()
+        self.ptr as *const _
     }
 
     fn as_node_mut_ptr(&mut self) -> *mut sys::ma_node {
-        unsafe { self.ptr.as_mut() }
+        self.ptr
     }
 }
 

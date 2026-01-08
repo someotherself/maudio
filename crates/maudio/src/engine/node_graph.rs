@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, mem::MaybeUninit, ptr::NonNull};
+use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit};
 
 pub mod node_flags;
 pub mod node_graph_builder;
@@ -7,7 +7,8 @@ pub mod nodes;
 use maudio_sys::ffi as sys;
 
 use crate::{
-    MaError, MaRawResult, Result,
+    Binding,
+    MaRawResult, Result,
     engine::{
         AllocationCallbacks,
         node_graph::{node_graph_builder::NodeGraphConfig, nodes::NodeRef},
@@ -72,25 +73,34 @@ pub struct NodeGraph<'a> {
 /// This type exists to safely model miniaudio APIs that return pointers to
 /// internally managed node graphs (for example `ma_engine_get_node_graph`).
 pub struct NodeGraphRef<'e> {
-    ptr: NonNull<sys::ma_node_graph>,
+    ptr: *mut sys::ma_node_graph,
     _engine: PhantomData<&'e mut sys::ma_engine>,
+    _not_sync: PhantomData<Cell<()>>,
 }
 
-impl<'e> NodeGraphRef<'e> {
-    pub(crate) fn from_ptr(ptr: *mut sys::ma_node_graph) -> Self {
+impl Binding for NodeGraphRef<'_> {
+    type Raw = *mut sys::ma_node_graph;
+
+    fn from_ptr(raw: Self::Raw) -> Self {
         Self {
-            ptr: NonNull::new(ptr).expect("engine returned null node_graph"),
+            ptr: raw,
             _engine: PhantomData,
+            _not_sync: PhantomData,
         }
     }
+
+    fn to_raw(&self) -> Self::Raw {
+        self.ptr
+    }
 }
+
 
 impl<'a> NodeGraph<'a> {
     pub fn new(config: &NodeGraphConfig) -> Result<Self> {
         NodeGraph::with_alloc_callbacks(config, None)
     }
 
-    pub fn endpoint(&self) -> NodeRef<'_> {
+    pub fn endpoint(&self) -> Option<NodeRef<'_>> {
         graph_ffi::ma_node_graph_get_endpoint(self)
     }
 
@@ -155,7 +165,7 @@ impl<'a> NodeGraph<'a> {
 mod graph_ffi {
     use maudio_sys::ffi as sys;
 
-    use crate::engine::node_graph::{NodeGraph, nodes::NodeRef};
+    use crate::{Binding, engine::node_graph::{NodeGraph, nodes::NodeRef}};
 
     #[inline]
     pub(crate) fn ma_node_graph_init(
@@ -175,9 +185,13 @@ mod graph_ffi {
     }
 
     #[inline]
-    pub(crate) fn ma_node_graph_get_endpoint<'a>(node_graph: &'a NodeGraph) -> NodeRef<'a> {
+    pub(crate) fn ma_node_graph_get_endpoint<'a>(node_graph: &'a NodeGraph) -> Option<NodeRef<'a>> {
         let ptr = unsafe { sys::ma_node_graph_get_endpoint(node_graph.inner_ptr_mut()) };
-        NodeRef::from_ptr(ptr)
+        if ptr.is_null() {
+            None
+        } else {
+            Some(NodeRef::from_ptr(ptr))
+        }
     }
 
     #[inline]

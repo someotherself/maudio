@@ -1,14 +1,8 @@
-use std::{
-    ffi::{CStr, CString},
-    mem::MaybeUninit,
-    path::Path,
-    pin::Pin,
-    sync::atomic::AtomicBool,
-};
+use std::{mem::MaybeUninit, pin::Pin};
 
 use maudio_sys::ffi as sys;
 
-use crate::{LogLevel, MaError, MaRawResult, Result};
+use crate::{LogLevel, MaRawResult, Result};
 
 pub struct Context {
     inner: Pin<Box<MaybeUninit<sys::ma_context>>>,
