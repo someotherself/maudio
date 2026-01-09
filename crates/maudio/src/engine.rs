@@ -177,48 +177,90 @@ impl AsEnginePtr for EngineRef<'_> {
     }
 }
 
-impl<T: AsEnginePtr + ?Sized> EngineMethods for T {}
+impl<T: AsEnginePtr + ?Sized> EngineOps for T {}
 
-pub trait EngineMethods: AsEnginePtr {}
+pub trait EngineOps: AsEnginePtr {
+    fn set_volume(&mut self, volume: f32) -> Result<()> {
+        engine_ffi::ma_engine_set_volume(self, volume)
+    }
 
-pub trait EngineOps {
-    fn set_volume(&mut self, volume: f32) -> Result<()>;
+    fn volume(&mut self) -> f32 {
+        engine_ffi::ma_engine_get_volume(self)
+    }
 
-    fn volume(&mut self) -> f32;
+    fn set_gain_db(&mut self, db_gain: f32) -> Result<()> {
+        engine_ffi::ma_engine_set_gain_db(self, db_gain)
+    }
 
-    fn set_gain_db(&mut self, volume: f32) -> Result<()>;
+    fn gain_db(&mut self) -> f32 {
+        engine_ffi::ma_engine_get_gain_db(self)
+    }
 
-    fn gain_db(&mut self) -> f32;
+    fn listener_count(&self) -> u32 {
+        engine_ffi::ma_engine_get_listener_count(self)
+    }
 
-    fn listener_count(&self) -> u32;
+    fn closest_listener(&self, position: Vec3) -> u32 {
+        engine_ffi::ma_engine_find_closest_listener(self, position)
+    }
 
-    fn node_graph(&self) -> Option<NodeGraphRef<'_>>;
+    fn set_position(&mut self, listener: u32, position: Vec3) {
+        engine_ffi::ma_engine_listener_set_position(self, listener, position);
+    }
 
-    fn closest_listener(&self, position: Vec3) -> u32;
+    fn position(&self, listener: u32) -> Vec3 {
+        engine_ffi::ma_engine_listener_get_position(self, listener)
+    }
 
-    fn set_position(&mut self, listener: u32, position: Vec3);
+    fn set_direction(&mut self, listener: u32, position: Vec3) {
+        engine_ffi::ma_engine_listener_set_direction(self, listener, position);
+    }
 
-    fn position(&self, listener: u32) -> Vec3;
+    fn direction(&self, listener: u32) -> Vec3 {
+        engine_ffi::ma_engine_listener_get_position(self, listener)
+    }
 
-    fn set_direction(&mut self, listener: u32, position: Vec3);
+    fn set_velocity(&mut self, listener: u32, position: Vec3) {
+        engine_ffi::ma_engine_listener_set_velocity(self, listener, position);
+    }
 
-    fn direction(&self, listener: u32) -> Vec3;
+    fn velocity(&self, listener: u32) -> Vec3 {
+        engine_ffi::ma_engine_listener_get_velocity(self, listener)
+    }
 
-    fn set_velocity(&mut self, listener: u32, position: Vec3);
+    fn set_cone(&mut self, listener: u32, cone: Cone) {
+        engine_ffi::ma_engine_listener_set_cone(self, listener, cone);
+    }
 
-    fn velocity(&self, listener: u32) -> Vec3;
+    fn cone(&self, listener: u32) -> Cone {
+        engine_ffi::ma_engine_listener_get_cone(self, listener)
+    }
 
-    fn set_cone(&mut self, listener: u32, cone: Cone);
+    fn set_world_up(&mut self, listener: u32, up_direction: Vec3) {
+        engine_ffi::ma_engine_listener_set_world_up(self, listener, up_direction);
+    }
 
-    fn cone(&self, listener: u32) -> Cone;
+    fn get_world_up(&self, listener: u32) -> Vec3 {
+        engine_ffi::ma_engine_listener_get_world_up(self, listener)
+    }
 
-    fn set_world_up(&mut self, listener: u32, up_direction: Vec3);
+    fn toggle_listener(&mut self, listener: u32, enabled: bool) {
+        engine_ffi::ma_engine_listener_set_enabled(self, listener, enabled);
+    }
 
-    fn get_world_up(&self, listener: u32) -> Vec3;
+    fn listener_enabled(&self, listener: u32) -> bool {
+        engine_ffi::ma_engine_listener_is_enabled(self, listener)
+    }
 
-    fn toggle_listener(&mut self, listener: u32, enabled: bool);
+    fn node_graph(&self) -> Option<NodeGraphRef<'_>> {
+        engine_ffi::ma_engine_get_node_graph(self)
+    }
 
-    fn listener_enabled(&self, listener: u32) -> bool;
+    // TODO
+    fn pcm_frames(&mut self) {
+        // let frames = engine_ffi::ma_engine_read_pcm_frames(engine, frames_out, frame_count, frames_read);
+        todo!()
+    }
 
     /// Returns the engine’s **endpoint node**.
     ///
@@ -234,7 +276,9 @@ pub trait EngineOps {
     /// ## Lifetime
     /// The returned [`NodeRef`] borrows the engine mutably and cannot outlive it.
     /// Only one mutable access to the node graph may exist at a time.
-    fn endpoint(&mut self) -> Option<NodeRef<'_>>;
+    fn endpoint(&mut self) -> Option<NodeRef<'_>> {
+        engine_ffi::ma_engine_get_endpoint(self)
+    }
 
     /// Returns the current engine time in **PCM frames**.
     ///
@@ -249,8 +293,10 @@ pub trait EngineOps {
     /// ## Notes
     /// - The time is monotonic unless explicitly modified with
     ///   [`set_time_pcm`].
-    /// - The value is independent of any individual sound’s playback position.
-    fn time_pcm(&self) -> u64;
+    /// - The value is independent of any individual sound’s playback position
+    fn time_pcm(&self) -> u64 {
+        engine_ffi::ma_engine_get_time_in_pcm_frames(self)
+    }
 
     /// Returns the current engine time in **milliseconds**.
     ///
@@ -260,7 +306,9 @@ pub trait EngineOps {
     /// ## Notes
     /// - This value may lose precision compared to [`time_pcm`].
     /// - For sample-accurate work, prefer [`time_pcm`].
-    fn time_mili(&self) -> u64;
+    fn time_mili(&self) -> u64 {
+        engine_ffi::ma_engine_get_time_in_milliseconds(self)
+    }
 
     /// Sets the engine’s global time in **PCM frames**.
     ///
@@ -274,7 +322,9 @@ pub trait EngineOps {
     /// ## Note
     /// Changing engine time while audio is playing may cause audible artifacts,
     /// depending on the active nodes and sounds.
-    fn set_time_pcm(&mut self, time: u64);
+    fn set_time_pcm(&mut self, time: u64) {
+        engine_ffi::ma_engine_set_time_in_pcm_frames(self, time);
+    }
 
     /// Sets the engine’s global time in **milliseconds**.
     ///
@@ -284,7 +334,9 @@ pub trait EngineOps {
     /// ## Notes
     /// - Internally converted to PCM frames.
     /// - Precision may be lower than [`set_time_pcm`].
-    fn set_time_mili(&mut self, time: u64);
+    fn set_time_mili(&mut self, time: u64) {
+        engine_ffi::ma_engine_set_time_in_milliseconds(self, time);
+    }
 
     /// Returns the number of output **channels** used by the engine.
     ///
@@ -294,7 +346,9 @@ pub trait EngineOps {
     ///
     /// This reflects the channel count of the engine’s internal node graph
     /// and output device.
-    fn channels(&self) -> u32;
+    fn channels(&self) -> u32 {
+        engine_ffi::ma_engine_get_channels(self)
+    }
 
     /// Returns the engine’s **sample rate**, in Hz.
     ///
@@ -304,216 +358,6 @@ pub trait EngineOps {
     /// ## Notes
     /// - Typically matches the output device’s sample rate.
     /// - Used to convert between PCM frames and real time.
-    fn sample_rate(&self) -> u32;
-}
-
-impl EngineOps for Engine {
-    fn set_volume(&mut self, volume: f32) -> Result<()> {
-        engine_ffi::ma_engine_set_volume(self, volume)
-    }
-
-    fn volume(&mut self) -> f32 {
-        engine_ffi::ma_engine_get_volume(self)
-    }
-
-    fn set_gain_db(&mut self, db_gain: f32) -> Result<()> {
-        engine_ffi::ma_engine_set_gain_db(self, db_gain)
-    }
-
-    fn gain_db(&mut self) -> f32 {
-        engine_ffi::ma_engine_get_gain_db(self)
-    }
-
-    fn listener_count(&self) -> u32 {
-        engine_ffi::ma_engine_get_listener_count(self)
-    }
-
-    fn closest_listener(&self, position: Vec3) -> u32 {
-        engine_ffi::ma_engine_find_closest_listener(self, position)
-    }
-
-    fn set_position(&mut self, listener: u32, position: Vec3) {
-        engine_ffi::ma_engine_listener_set_position(self, listener, position);
-    }
-
-    fn position(&self, listener: u32) -> Vec3 {
-        engine_ffi::ma_engine_listener_get_position(self, listener)
-    }
-
-    fn set_direction(&mut self, listener: u32, position: Vec3) {
-        engine_ffi::ma_engine_listener_set_direction(self, listener, position);
-    }
-
-    fn direction(&self, listener: u32) -> Vec3 {
-        engine_ffi::ma_engine_listener_get_position(self, listener)
-    }
-
-    fn set_velocity(&mut self, listener: u32, position: Vec3) {
-        engine_ffi::ma_engine_listener_set_velocity(self, listener, position);
-    }
-
-    fn velocity(&self, listener: u32) -> Vec3 {
-        engine_ffi::ma_engine_listener_get_velocity(self, listener)
-    }
-
-    fn set_cone(&mut self, listener: u32, cone: Cone) {
-        engine_ffi::ma_engine_listener_set_cone(self, listener, cone);
-    }
-
-    fn cone(&self, listener: u32) -> Cone {
-        engine_ffi::ma_engine_listener_get_cone(self, listener)
-    }
-
-    fn set_world_up(&mut self, listener: u32, up_direction: Vec3) {
-        engine_ffi::ma_engine_listener_set_world_up(self, listener, up_direction);
-    }
-
-    fn get_world_up(&self, listener: u32) -> Vec3 {
-        engine_ffi::ma_engine_listener_get_world_up(self, listener)
-    }
-
-    fn toggle_listener(&mut self, listener: u32, enabled: bool) {
-        engine_ffi::ma_engine_listener_set_enabled(self, listener, enabled);
-    }
-
-    fn listener_enabled(&self, listener: u32) -> bool {
-        engine_ffi::ma_engine_listener_is_enabled(self, listener)
-    }
-
-    fn node_graph(&self) -> Option<NodeGraphRef<'_>> {
-        engine_ffi::ma_engine_get_node_graph(self)
-    }
-
-    fn endpoint(&mut self) -> Option<NodeRef<'_>> {
-        engine_ffi::ma_engine_get_endpoint(self)
-    }
-
-    fn time_pcm(&self) -> u64 {
-        engine_ffi::ma_engine_get_time_in_pcm_frames(self)
-    }
-
-    fn time_mili(&self) -> u64 {
-        engine_ffi::ma_engine_get_time_in_milliseconds(self)
-    }
-
-    fn set_time_pcm(&mut self, time: u64) {
-        engine_ffi::ma_engine_set_time_in_pcm_frames(self, time);
-    }
-
-    fn set_time_mili(&mut self, time: u64) {
-        engine_ffi::ma_engine_set_time_in_milliseconds(self, time);
-    }
-
-    fn channels(&self) -> u32 {
-        engine_ffi::ma_engine_get_channels(self)
-    }
-
-    fn sample_rate(&self) -> u32 {
-        engine_ffi::ma_engine_get_sample_rate(self)
-    }
-}
-
-impl EngineOps for EngineRef<'_> {
-    fn set_volume(&mut self, volume: f32) -> Result<()> {
-        engine_ffi::ma_engine_set_volume(self, volume)
-    }
-
-    fn volume(&mut self) -> f32 {
-        engine_ffi::ma_engine_get_volume(self)
-    }
-
-    fn set_gain_db(&mut self, db_gain: f32) -> Result<()> {
-        engine_ffi::ma_engine_set_gain_db(self, db_gain)
-    }
-
-    fn gain_db(&mut self) -> f32 {
-        engine_ffi::ma_engine_get_gain_db(self)
-    }
-
-    fn listener_count(&self) -> u32 {
-        engine_ffi::ma_engine_get_listener_count(self)
-    }
-
-    fn closest_listener(&self, position: Vec3) -> u32 {
-        engine_ffi::ma_engine_find_closest_listener(self, position)
-    }
-
-    fn set_position(&mut self, listener: u32, position: Vec3) {
-        engine_ffi::ma_engine_listener_set_position(self, listener, position);
-    }
-
-    fn position(&self, listener: u32) -> Vec3 {
-        engine_ffi::ma_engine_listener_get_position(self, listener)
-    }
-
-    fn set_direction(&mut self, listener: u32, position: Vec3) {
-        engine_ffi::ma_engine_listener_set_direction(self, listener, position);
-    }
-
-    fn direction(&self, listener: u32) -> Vec3 {
-        engine_ffi::ma_engine_listener_get_position(self, listener)
-    }
-
-    fn set_velocity(&mut self, listener: u32, position: Vec3) {
-        engine_ffi::ma_engine_listener_set_velocity(self, listener, position);
-    }
-
-    fn velocity(&self, listener: u32) -> Vec3 {
-        engine_ffi::ma_engine_listener_get_velocity(self, listener)
-    }
-
-    fn set_cone(&mut self, listener: u32, cone: Cone) {
-        engine_ffi::ma_engine_listener_set_cone(self, listener, cone);
-    }
-
-    fn cone(&self, listener: u32) -> Cone {
-        engine_ffi::ma_engine_listener_get_cone(self, listener)
-    }
-
-    fn set_world_up(&mut self, listener: u32, up_direction: Vec3) {
-        engine_ffi::ma_engine_listener_set_world_up(self, listener, up_direction);
-    }
-
-    fn get_world_up(&self, listener: u32) -> Vec3 {
-        engine_ffi::ma_engine_listener_get_world_up(self, listener)
-    }
-
-    fn toggle_listener(&mut self, listener: u32, enabled: bool) {
-        engine_ffi::ma_engine_listener_set_enabled(self, listener, enabled);
-    }
-
-    fn listener_enabled(&self, listener: u32) -> bool {
-        engine_ffi::ma_engine_listener_is_enabled(self, listener)
-    }
-
-    fn node_graph(&self) -> Option<NodeGraphRef<'_>> {
-        engine_ffi::ma_engine_get_node_graph(self)
-    }
-
-    fn endpoint(&mut self) -> Option<NodeRef<'_>> {
-        engine_ffi::ma_engine_get_endpoint(self)
-    }
-
-    fn time_pcm(&self) -> u64 {
-        engine_ffi::ma_engine_get_time_in_pcm_frames(self)
-    }
-
-    fn time_mili(&self) -> u64 {
-        engine_ffi::ma_engine_get_time_in_milliseconds(self)
-    }
-
-    fn set_time_pcm(&mut self, time: u64) {
-        engine_ffi::ma_engine_set_time_in_pcm_frames(self, time);
-    }
-
-    fn set_time_mili(&mut self, time: u64) {
-        engine_ffi::ma_engine_set_time_in_milliseconds(self, time);
-    }
-
-    fn channels(&self) -> u32 {
-        engine_ffi::ma_engine_get_channels(self)
-    }
-
     fn sample_rate(&self) -> u32 {
         engine_ffi::ma_engine_get_sample_rate(self)
     }
@@ -583,31 +427,6 @@ impl Engine {
         self.new_sound_with_file_internal(path, flags, None)
     }
 
-    // TODO
-    pub fn pcm_frames(&mut self) {
-        // let frames = engine_ffi::ma_engine_read_pcm_frames(engine, frames_out, frame_count, frames_read);
-        todo!()
-    }
-
-    pub fn node_graph(&mut self) -> Option<NodeGraphRef<'_>> {
-        engine_ffi::ma_engine_get_node_graph(self)
-    }
-
-    pub fn resource_manager(&mut self) {
-        // engine_ffi::ma_engine_get_resource_manager(self);
-        todo!()
-    }
-
-    pub fn device(&mut self) {
-        // engine_ffi::ma_engine_get_device(self);
-        todo!()
-    }
-
-    pub fn log(&mut self) {
-        // engine_ffi::ma_engine_get_log(self);
-        todo!()
-    }
-
     fn new_sound_with_config_internal(&self, config: Option<SoundBuilder>) -> Result<Sound<'_>> {
         let config = config.unwrap_or(SoundBuilder::init(self.to_raw()));
         let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new_uninit();
@@ -650,6 +469,7 @@ impl Engine {
         Ok(Sound::from_ptr(inner))
     }
 
+    // Shared?
     pub fn new_sound_group(&self) -> Result<SoundGroup> {
         let mut mem: Box<MaybeUninit<sys::ma_sound_group>> = Box::new_uninit();
         let config = self.new_sound_group_config();
@@ -661,6 +481,7 @@ impl Engine {
         Ok(SoundGroup::from_ptr(inner))
     }
 
+    // Shared?
     pub fn new_sound_group_config(&self) -> SoundGroupConfig {
         s_group_cfg_ffi::ma_sound_group_config_init_2(self)
     }
