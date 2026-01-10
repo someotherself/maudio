@@ -1,9 +1,9 @@
-use std::ptr::NonNull;
+use std::{cell::Cell, marker::PhantomData};
 
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Result,
+    Binding, Result,
     audio::{
         dsp::pan::PanMode,
         math::vec3::Vec3,
@@ -12,15 +12,28 @@ use crate::{
     engine::EngineRef,
 };
 
+// TODO: Needs a lifetime to engine
 pub struct SoundGroup {
-    inner: NonNull<sys::ma_sound_group>,
+    inner: *mut sys::ma_sound_group,
+    _not_sync: PhantomData<Cell<()>>,
+}
+
+impl Binding for SoundGroup {
+    type Raw = *mut sys::ma_sound_group;
+
+    fn from_ptr(raw: Self::Raw) -> Self {
+        Self {
+            inner: raw,
+            _not_sync: PhantomData,
+        }
+    }
+
+    fn to_raw(&self) -> Self::Raw {
+        self.inner
+    }
 }
 
 impl SoundGroup {
-    pub(crate) fn new(inner: NonNull<sys::ma_sound_group>) -> Self {
-        Self { inner }
-    }
-
     pub fn engine(&mut self) -> Option<EngineRef<'_>> {
         s_group_ffi::ma_sound_group_get_engine(self)
     }
@@ -240,18 +253,6 @@ impl SoundGroup {
     }
 }
 
-impl SoundGroup {
-    /// Gets a pointer to an initialized `MaybeUninit<sys::ma_engine>`
-    pub(crate) fn assume_init_ptr(&self) -> *const sys::ma_sound_group {
-        self.inner.as_ptr()
-    }
-
-    /// Gets a pointer to an initialized `MaybeUninit<sys::ma_engine>`
-    pub(crate) fn assume_init_mut_ptr(&mut self) -> *mut sys::ma_sound_group {
-        self.inner.as_ptr() as *mut _
-    }
-}
-
 impl Drop for SoundGroup {
     fn drop(&mut self) {
         s_group_ffi::ma_sound_group_uninit(self);
@@ -301,12 +302,12 @@ pub(crate) mod s_group_ffi {
 
     #[inline]
     pub fn ma_sound_group_uninit(s_group: &mut SoundGroup) {
-        unsafe { sys::ma_sound_group_uninit(s_group.assume_init_mut_ptr()) };
+        unsafe { sys::ma_sound_group_uninit(s_group.to_raw()) };
     }
 
     #[inline]
     pub fn ma_sound_group_get_engine<'a>(s_group: &'a SoundGroup) -> Option<EngineRef<'a>> {
-        let ptr = unsafe { sys::ma_sound_group_get_engine(s_group.assume_init_ptr()) };
+        let ptr = unsafe { sys::ma_sound_group_get_engine(s_group.to_raw() as *const _) };
         if ptr.is_null() {
             None
         } else {
@@ -316,221 +317,207 @@ pub(crate) mod s_group_ffi {
 
     #[inline]
     pub fn ma_sound_group_start(s_group: &mut SoundGroup) -> Result<()> {
-        let res = unsafe { sys::ma_sound_group_start(s_group.assume_init_mut_ptr()) };
+        let res = unsafe { sys::ma_sound_group_start(s_group.to_raw()) };
         MaRawResult::resolve(res)
     }
 
     #[inline]
     pub fn ma_sound_group_stop(s_group: &mut SoundGroup) -> Result<()> {
-        let res = unsafe { sys::ma_sound_group_stop(s_group.assume_init_mut_ptr()) };
+        let res = unsafe { sys::ma_sound_group_stop(s_group.to_raw()) };
         MaRawResult::resolve(res)
     }
 
     #[inline]
     pub fn ma_sound_group_set_volume(s_group: &mut SoundGroup, volume: f32) {
         unsafe {
-            sys::ma_sound_group_set_volume(s_group.assume_init_mut_ptr(), volume);
+            sys::ma_sound_group_set_volume(s_group.to_raw(), volume);
         }
     }
 
     #[inline]
     pub fn ma_sound_group_get_volume(s_group: &SoundGroup) -> f32 {
-        unsafe { sys::ma_sound_group_get_volume(s_group.assume_init_ptr()) }
+        unsafe { sys::ma_sound_group_get_volume(s_group.to_raw() as *const _) }
     }
 
     #[inline]
     pub fn ma_sound_group_set_pan(s_group: &mut SoundGroup, pan: f32) {
-        unsafe { sys::ma_sound_group_set_pan(s_group.assume_init_mut_ptr(), pan) };
+        unsafe { sys::ma_sound_group_set_pan(s_group.to_raw(), pan) };
     }
 
     #[inline]
     pub fn ma_sound_group_get_pan(s_group: &SoundGroup) -> f32 {
-        unsafe { sys::ma_sound_group_get_pan(s_group.assume_init_ptr()) }
+        unsafe { sys::ma_sound_group_get_pan(s_group.to_raw() as *const _) }
     }
 
     #[inline]
     pub fn ma_sound_group_set_pan_mode(s_group: &mut SoundGroup, pan_mode: PanMode) {
-        unsafe { sys::ma_sound_group_set_pan_mode(s_group.assume_init_mut_ptr(), pan_mode.into()) }
+        unsafe { sys::ma_sound_group_set_pan_mode(s_group.to_raw(), pan_mode.into()) }
     }
 
     #[inline]
     pub fn ma_sound_group_get_pan_mode(s_group: &SoundGroup) -> Result<PanMode> {
-        let mode = unsafe { sys::ma_sound_group_get_pan_mode(s_group.assume_init_ptr()) };
+        let mode = unsafe { sys::ma_sound_group_get_pan_mode(s_group.to_raw() as *const _) };
         mode.try_into()
     }
 
     #[inline]
     pub fn ma_sound_group_set_pitch(s_group: &mut SoundGroup, pitch: f32) {
-        unsafe { sys::ma_sound_group_set_pitch(s_group.assume_init_mut_ptr(), pitch) }
+        unsafe { sys::ma_sound_group_set_pitch(s_group.to_raw(), pitch) }
     }
 
     #[inline]
     pub fn ma_sound_group_get_pitch(s_group: &SoundGroup) -> f32 {
-        unsafe { sys::ma_sound_group_get_pitch(s_group.assume_init_ptr()) }
+        unsafe { sys::ma_sound_group_get_pitch(s_group.to_raw() as *const _) }
     }
 
     #[inline]
     pub fn ma_sound_group_set_spatialization_enabled(s_group: &mut SoundGroup, enabled: bool) {
         let enabled = enabled as sys::ma_bool32;
-        unsafe {
-            sys::ma_sound_group_set_spatialization_enabled(s_group.assume_init_mut_ptr(), enabled)
-        }
+        unsafe { sys::ma_sound_group_set_spatialization_enabled(s_group.to_raw(), enabled) }
     }
 
     #[inline]
     pub fn ma_sound_group_is_spatialization_enabled(s_group: &SoundGroup) -> bool {
         let res =
-            unsafe { sys::ma_sound_group_is_spatialization_enabled(s_group.assume_init_ptr()) };
+            unsafe { sys::ma_sound_group_is_spatialization_enabled(s_group.to_raw() as *const _) };
         res == 1
     }
 
     #[inline]
     pub fn ma_sound_group_set_pinned_listener_index(s_group: &mut SoundGroup, listener_idx: u32) {
-        unsafe {
-            sys::ma_sound_group_set_pinned_listener_index(
-                s_group.assume_init_mut_ptr(),
-                listener_idx,
-            )
-        }
+        unsafe { sys::ma_sound_group_set_pinned_listener_index(s_group.to_raw(), listener_idx) }
     }
 
     #[inline]
     pub fn ma_sound_group_get_pinned_listener_index(s_group: &SoundGroup) -> u32 {
-        unsafe { sys::ma_sound_group_get_pinned_listener_index(s_group.assume_init_ptr()) }
+        unsafe { sys::ma_sound_group_get_pinned_listener_index(s_group.to_raw() as *const _) }
     }
 
     #[inline]
     pub fn ma_sound_group_get_listener_index(s_group: &SoundGroup) -> u32 {
-        unsafe { sys::ma_sound_group_get_listener_index(s_group.assume_init_ptr()) }
+        unsafe { sys::ma_sound_group_get_listener_index(s_group.to_raw() as *const _) }
     }
 
     #[inline]
     pub fn ma_sound_group_get_direction_to_listener(s_group: &SoundGroup) -> Vec3 {
         let vec =
-            unsafe { sys::ma_sound_group_get_direction_to_listener(s_group.assume_init_ptr()) };
+            unsafe { sys::ma_sound_group_get_direction_to_listener(s_group.to_raw() as *const _) };
         vec.into()
     }
 
     #[inline]
     pub fn ma_sound_group_set_position(s_group: &mut SoundGroup, vec3: Vec3) {
         unsafe {
-            sys::ma_sound_group_set_position(s_group.assume_init_mut_ptr(), vec3.x, vec3.y, vec3.z);
+            sys::ma_sound_group_set_position(s_group.to_raw(), vec3.x, vec3.y, vec3.z);
         }
     }
 
     #[inline]
     pub fn ma_sound_group_get_position(s_group: &SoundGroup) -> Vec3 {
-        let vec = unsafe { sys::ma_sound_group_get_position(s_group.assume_init_ptr()) };
+        let vec = unsafe { sys::ma_sound_group_get_position(s_group.to_raw() as *const _) };
         vec.into()
     }
 
     #[inline]
     pub fn ma_sound_group_set_direction(s_group: &mut SoundGroup, vec3: Vec3) {
-        unsafe {
-            sys::ma_sound_group_set_direction(s_group.assume_init_mut_ptr(), vec3.x, vec3.y, vec3.z)
-        }
+        unsafe { sys::ma_sound_group_set_direction(s_group.to_raw(), vec3.x, vec3.y, vec3.z) }
     }
 
     #[inline]
     pub fn ma_sound_group_get_direction(s_group: &SoundGroup) -> Vec3 {
-        let vec = unsafe { sys::ma_sound_group_get_direction(s_group.assume_init_ptr()) };
+        let vec = unsafe { sys::ma_sound_group_get_direction(s_group.to_raw() as *const _) };
         vec.into()
     }
 
     #[inline]
     pub fn ma_sound_group_set_velocity(s_group: &mut SoundGroup, vec3: Vec3) {
-        unsafe {
-            sys::ma_sound_group_set_velocity(s_group.assume_init_mut_ptr(), vec3.x, vec3.y, vec3.z)
-        }
+        unsafe { sys::ma_sound_group_set_velocity(s_group.to_raw(), vec3.x, vec3.y, vec3.z) }
     }
 
     #[inline]
     pub fn ma_sound_group_get_velocity(s_group: &SoundGroup) -> Vec3 {
-        let vec = unsafe { sys::ma_sound_group_get_velocity(s_group.assume_init_ptr()) };
+        let vec = unsafe { sys::ma_sound_group_get_velocity(s_group.to_raw() as *const _) };
         vec.into()
     }
 
     #[inline]
     pub fn ma_sound_group_set_attenuation_model(s_group: &mut SoundGroup, model: AttenuationModel) {
-        unsafe {
-            sys::ma_sound_group_set_attenuation_model(s_group.assume_init_mut_ptr(), model.into())
-        }
+        unsafe { sys::ma_sound_group_set_attenuation_model(s_group.to_raw(), model.into()) }
     }
 
     #[inline]
     pub fn ma_sound_group_get_attenuation_model(s_group: &SoundGroup) -> Result<AttenuationModel> {
-        let model = unsafe { sys::ma_sound_group_get_attenuation_model(s_group.assume_init_ptr()) };
+        let model =
+            unsafe { sys::ma_sound_group_get_attenuation_model(s_group.to_raw() as *const _) };
         model.try_into()
     }
 
     #[inline]
     pub fn ma_sound_group_set_positioning(s_group: &mut SoundGroup, positioning: Positioning) {
-        unsafe {
-            sys::ma_sound_group_set_positioning(s_group.assume_init_mut_ptr(), positioning.into())
-        }
+        unsafe { sys::ma_sound_group_set_positioning(s_group.to_raw(), positioning.into()) }
     }
 
     #[inline]
     pub fn ma_sound_group_get_positioning(s_group: &SoundGroup) -> Result<Positioning> {
-        let pos = unsafe { sys::ma_sound_group_get_positioning(s_group.assume_init_ptr()) };
+        let pos = unsafe { sys::ma_sound_group_get_positioning(s_group.to_raw() as *const _) };
         pos.try_into()
     }
 
     #[inline]
     pub fn ma_sound_group_set_rolloff(s_group: &mut SoundGroup, rolloff: f32) {
-        unsafe { sys::ma_sound_group_set_rolloff(s_group.assume_init_mut_ptr(), rolloff) }
+        unsafe { sys::ma_sound_group_set_rolloff(s_group.to_raw(), rolloff) }
     }
 
     #[inline]
     pub fn ma_sound_group_get_rolloff(s_group: &SoundGroup) -> f32 {
-        unsafe { sys::ma_sound_group_get_rolloff(s_group.assume_init_ptr()) }
+        unsafe { sys::ma_sound_group_get_rolloff(s_group.to_raw() as *const _) }
     }
 
     #[inline]
     pub fn ma_sound_group_set_min_gain(s_group: &mut SoundGroup, min_gain: f32) {
-        unsafe { sys::ma_sound_group_set_min_gain(s_group.assume_init_mut_ptr(), min_gain) }
+        unsafe { sys::ma_sound_group_set_min_gain(s_group.to_raw(), min_gain) }
     }
 
     #[inline]
     pub fn ma_sound_group_get_min_gain(s_group: &SoundGroup) -> f32 {
-        unsafe { sys::ma_sound_group_get_min_gain(s_group.assume_init_ptr()) }
+        unsafe { sys::ma_sound_group_get_min_gain(s_group.to_raw() as *const _) }
     }
 
     #[inline]
     pub fn ma_sound_group_set_max_gain(s_group: &mut SoundGroup, max_gain: f32) {
-        unsafe { sys::ma_sound_group_set_max_gain(s_group.assume_init_mut_ptr(), max_gain) }
+        unsafe { sys::ma_sound_group_set_max_gain(s_group.to_raw(), max_gain) }
     }
 
     #[inline]
     pub fn ma_sound_group_get_max_gain(s_group: &SoundGroup) -> f32 {
-        unsafe { sys::ma_sound_group_get_max_gain(s_group.assume_init_ptr()) }
+        unsafe { sys::ma_sound_group_get_max_gain(s_group.to_raw() as *const _) }
     }
 
     #[inline]
     pub fn ma_sound_group_set_min_distance(s_group: &mut SoundGroup, min_distance: f32) {
-        unsafe { sys::ma_sound_group_set_min_distance(s_group.assume_init_mut_ptr(), min_distance) }
+        unsafe { sys::ma_sound_group_set_min_distance(s_group.to_raw(), min_distance) }
     }
 
     #[inline]
     pub fn ma_sound_group_get_min_distance(s_group: &SoundGroup) -> f32 {
-        unsafe { sys::ma_sound_group_get_min_distance(s_group.assume_init_ptr()) }
+        unsafe { sys::ma_sound_group_get_min_distance(s_group.to_raw() as *const _) }
     }
 
     #[inline]
     pub fn ma_sound_group_set_max_distance(s_group: &mut SoundGroup, max_distance: f32) {
-        unsafe { sys::ma_sound_group_set_max_distance(s_group.assume_init_mut_ptr(), max_distance) }
+        unsafe { sys::ma_sound_group_set_max_distance(s_group.to_raw(), max_distance) }
     }
 
     #[inline]
     pub fn ma_sound_group_get_max_distance(s_group: &SoundGroup) -> f32 {
-        unsafe { sys::ma_sound_group_get_max_distance(s_group.assume_init_ptr()) }
+        unsafe { sys::ma_sound_group_get_max_distance(s_group.to_raw() as *const _) }
     }
 
     #[inline]
     pub fn ma_sound_group_set_cone(s_group: &mut SoundGroup, cone: Cone) {
         unsafe {
             sys::ma_sound_group_set_cone(
-                s_group.assume_init_mut_ptr(),
+                s_group.to_raw(),
                 cone.inner_angle_rad,
                 cone.outer_angle_rad,
                 cone.outer_gain,
@@ -546,7 +533,7 @@ pub(crate) mod s_group_ffi {
 
         unsafe {
             sys::ma_sound_group_get_cone(
-                s_group.assume_init_ptr(),
+                s_group.to_raw() as *const _,
                 &mut inner,
                 &mut outer,
                 &mut gain,
@@ -562,14 +549,12 @@ pub(crate) mod s_group_ffi {
 
     #[inline]
     pub fn ma_sound_group_set_doppler_factor(s_group: &mut SoundGroup, doppler_factor: f32) {
-        unsafe {
-            sys::ma_sound_group_set_doppler_factor(s_group.assume_init_mut_ptr(), doppler_factor)
-        }
+        unsafe { sys::ma_sound_group_set_doppler_factor(s_group.to_raw(), doppler_factor) }
     }
 
     #[inline]
     pub fn ma_sound_group_get_doppler_factor(s_group: &SoundGroup) -> f32 {
-        unsafe { sys::ma_sound_group_get_doppler_factor(s_group.assume_init_ptr()) }
+        unsafe { sys::ma_sound_group_get_doppler_factor(s_group.to_raw() as *const _) }
     }
 
     #[inline]
@@ -579,7 +564,7 @@ pub(crate) mod s_group_ffi {
     ) {
         unsafe {
             sys::ma_sound_group_set_directional_attenuation_factor(
-                s_group.assume_init_mut_ptr(),
+                s_group.to_raw(),
                 dir_attenuation_factor,
             );
         }
@@ -587,7 +572,9 @@ pub(crate) mod s_group_ffi {
 
     #[inline]
     pub fn ma_sound_group_get_directional_attenuation_factor(s_group: &SoundGroup) -> f32 {
-        unsafe { sys::ma_sound_group_get_directional_attenuation_factor(s_group.assume_init_ptr()) }
+        unsafe {
+            sys::ma_sound_group_get_directional_attenuation_factor(s_group.to_raw() as *const _)
+        }
     }
 
     #[inline]
@@ -599,7 +586,7 @@ pub(crate) mod s_group_ffi {
     ) {
         unsafe {
             sys::ma_sound_group_set_fade_in_pcm_frames(
-                s_group.assume_init_mut_ptr(),
+                s_group.to_raw(),
                 volume_start,
                 volume_end,
                 fade_length_frames,
@@ -616,7 +603,7 @@ pub(crate) mod s_group_ffi {
     ) {
         unsafe {
             sys::ma_sound_group_set_fade_in_milliseconds(
-                s_group.assume_init_mut_ptr(),
+                s_group.to_raw(),
                 volume_start,
                 volume_end,
                 fade_length_mili,
@@ -626,7 +613,7 @@ pub(crate) mod s_group_ffi {
 
     #[inline]
     pub fn ma_sound_group_get_current_fade_volume(s_group: &mut SoundGroup) -> f32 {
-        unsafe { sys::ma_sound_group_get_current_fade_volume(s_group.assume_init_mut_ptr()) }
+        unsafe { sys::ma_sound_group_get_current_fade_volume(s_group.to_raw()) }
     }
 
     #[inline]
@@ -635,10 +622,7 @@ pub(crate) mod s_group_ffi {
         abs_time_frames: u64,
     ) {
         unsafe {
-            sys::ma_sound_group_set_start_time_in_pcm_frames(
-                s_group.assume_init_mut_ptr(),
-                abs_time_frames,
-            );
+            sys::ma_sound_group_set_start_time_in_pcm_frames(s_group.to_raw(), abs_time_frames);
         }
     }
 
@@ -648,10 +632,7 @@ pub(crate) mod s_group_ffi {
         abs_time_mili: u64,
     ) {
         unsafe {
-            sys::ma_sound_group_set_start_time_in_milliseconds(
-                s_group.assume_init_mut_ptr(),
-                abs_time_mili,
-            );
+            sys::ma_sound_group_set_start_time_in_milliseconds(s_group.to_raw(), abs_time_mili);
         }
     }
 
@@ -661,10 +642,7 @@ pub(crate) mod s_group_ffi {
         abs_time_frames: u64,
     ) {
         unsafe {
-            sys::ma_sound_group_set_stop_time_in_pcm_frames(
-                s_group.assume_init_mut_ptr(),
-                abs_time_frames,
-            );
+            sys::ma_sound_group_set_stop_time_in_pcm_frames(s_group.to_raw(), abs_time_frames);
         }
     }
 
@@ -674,22 +652,19 @@ pub(crate) mod s_group_ffi {
         abs_time_mili: u64,
     ) {
         unsafe {
-            sys::ma_sound_group_set_stop_time_in_milliseconds(
-                s_group.assume_init_mut_ptr(),
-                abs_time_mili,
-            );
+            sys::ma_sound_group_set_stop_time_in_milliseconds(s_group.to_raw(), abs_time_mili);
         }
     }
 
     #[inline]
     pub fn ma_sound_group_is_playing(s_group: &SoundGroup) -> bool {
-        let res = unsafe { sys::ma_sound_group_is_playing(s_group.assume_init_ptr()) };
+        let res = unsafe { sys::ma_sound_group_is_playing(s_group.to_raw() as *const _) };
         res == 1
     }
 
     #[inline]
     pub fn ma_sound_group_get_time_in_pcm_frames(s_group: &SoundGroup) -> u64 {
-        unsafe { sys::ma_sound_group_get_time_in_pcm_frames(s_group.assume_init_ptr()) }
+        unsafe { sys::ma_sound_group_get_time_in_pcm_frames(s_group.to_raw() as *const _) }
     }
 }
 

@@ -53,7 +53,10 @@ use std::{cell::Cell, ffi::CString, marker::PhantomData, mem::MaybeUninit, path:
 use crate::{
     Binding, ErrorKinds, MaError, Result,
     audio::{math::vec3::Vec3, spatial::cone::Cone},
-    engine::node_graph::{NodeGraphRef, nodes::NodeRef},
+    engine::{
+        engine_builder::EngineBuilder,
+        node_graph::{NodeGraphRef, nodes::NodeRef},
+    },
     sound::{
         Sound,
         sound_builder::SoundBuilder,
@@ -366,31 +369,15 @@ pub trait EngineOps: AsEnginePtr {
 impl Engine {
     /// Creates a new engine using the default configuration.
     ///
-    /// This is a convenience constructor equivalent to calling
-    /// [`Engine::with_config`] with a default [`EngineConfig`].
+    /// This is a convenience constructor equivalent to using
+    /// an [`EngineBuilder`] (`ma_engine_config`) with a default configuration.
     ///
     /// Most applications should start with this method.
     pub fn new() -> Result<Self> {
         Self::new_with_config(None)
     }
 
-    /// Creates a new engine using a custom configuration.
-    ///
-    /// This allows fine-grained control over engine initialization, such as:
-    /// - output format (sample rate, channels)
-    /// - resource manager behavior
-    /// - backend- or device-specific options
-    ///
-    /// For a detailed description of each option, see [`EngineConfig`].
-    ///
-    /// ## Notes
-    /// - The engine takes a snapshot of the configuration during initialization.
-    /// - The configuration does not need to outlive the engine.
-    pub fn with_config(config: EngineConfig) -> Result<Self> {
-        Self::new_with_config(Some(&config))
-    }
-
-    fn new_with_config(config: Option<&EngineConfig>) -> Result<Self> {
+    fn new_with_config(config: Option<&EngineBuilder>) -> Result<Self> {
         let mut mem: Box<MaybeUninit<sys::ma_engine>> = Box::new_uninit();
         engine_ffi::engine_init(config, mem.as_mut_ptr())?;
         // Safety: If mem is not initialized, engine_init will return an error
@@ -403,20 +390,16 @@ impl Engine {
         self.new_sound_with_config_internal(None)
     }
 
-    pub fn new_sound_with_config(&self, config: SoundBuilder) -> Result<Sound<'_>> {
-        self.new_sound_with_config_internal(Some(config))
-    }
-
     pub fn new_sound_from_file(&self, path: &Path) -> Result<Sound<'_>> {
-        self.new_sound_with_file_internal(path, SoundFlags::NONE, None)
+        self.new_sound_with_file_internal(path, SoundFlags::NONE, &mut None)
     }
 
     pub fn new_sound_from_file_with_group<'a>(
         &'a self,
         path: &Path,
-        sound_group: &'a mut SoundGroup,
+        sound_group: &'a SoundGroup,
     ) -> Result<Sound<'a>> {
-        self.new_sound_with_file_internal(path, SoundFlags::NONE, Some(sound_group))
+        self.new_sound_with_file_internal(path, SoundFlags::NONE, &mut Some(sound_group))
     }
 
     pub fn new_sound_from_file_with_flags(
@@ -424,25 +407,29 @@ impl Engine {
         path: &Path,
         flags: SoundFlags,
     ) -> Result<Sound<'_>> {
-        self.new_sound_with_file_internal(path, flags, None)
+        self.new_sound_with_file_internal(path, flags, &mut None)
     }
 
-    fn new_sound_with_config_internal(&self, config: Option<SoundBuilder>) -> Result<Sound<'_>> {
-        let config = config.unwrap_or(SoundBuilder::init(self.to_raw()));
+    pub(crate) fn new_sound_with_config_internal(
+        &self,
+        config: Option<&SoundBuilder>,
+    ) -> Result<Sound<'_>> {
+        let temp_config = SoundBuilder::init(self);
+        let config = config.unwrap_or(&temp_config);
         let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new_uninit();
 
-        sound_ffi::ma_sound_init_ex(self, &config, mem.as_mut_ptr())?;
+        sound_ffi::ma_sound_init_ex(self, config, mem.as_mut_ptr())?;
 
         let mem: Box<sys::ma_sound> = unsafe { mem.assume_init() };
         let inner = Box::into_raw(mem);
         Ok(Sound::from_ptr(inner))
     }
 
-    fn new_sound_with_file_internal<'a>(
+    pub(crate) fn new_sound_with_file_internal<'a>(
         &'a self,
         path: &Path,
         flags: SoundFlags,
-        sound_group: Option<&'a mut SoundGroup>,
+        sound_group: &mut Option<&'a SoundGroup>,
     ) -> Result<Sound<'a>> {
         let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new_uninit();
 
@@ -511,28 +498,6 @@ pub(crate) fn wide_null_terminated(path: &Path) -> Vec<u16> {
         .collect()
 }
 
-pub struct EngineConfig {
-    inner: sys::ma_engine_config,
-}
-
-impl Default for EngineConfig {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl EngineConfig {
-    pub fn new() -> Self {
-        Self {
-            inner: unsafe { sys::ma_engine_config_init() },
-        }
-    }
-
-    fn get_raw(&mut self) -> &mut sys::ma_engine_config {
-        &mut self.inner
-    }
-}
-
 /// Custom memory allocation callbacks for miniaudio.
 ///
 /// Miniaudio allows callers to override how heap memory is allocated and freed
@@ -567,15 +532,6 @@ mod test {
 
     #[test]
     #[cfg(feature = "device-tests")]
-    fn engine_test_works_with_cfg() {
-        use super::*;
-
-        let config = EngineConfig::new();
-        let _engine = Engine::with_config(config).unwrap();
-    }
-
-    #[test]
-    #[cfg(feature = "device-tests")]
     fn engine_test_init_engine_and_sound() {
         use super::*;
 
@@ -603,15 +559,16 @@ pub(crate) mod engine_ffi {
         MaRawResult, Result,
         audio::{math::vec3::Vec3, spatial::cone::Cone},
         engine::{
-            AsEnginePtr, Binding, Engine, EngineConfig,
+            AsEnginePtr, Binding, Engine,
+            engine_builder::EngineBuilder,
             node_graph::{NodeGraphRef, nodes::NodeRef},
         },
     };
 
     #[inline]
-    pub fn engine_init(config: Option<&EngineConfig>, engine: *mut sys::ma_engine) -> Result<()> {
+    pub fn engine_init(config: Option<&EngineBuilder>, engine: *mut sys::ma_engine) -> Result<()> {
         let p_config: *const sys::ma_engine_config =
-            config.map_or(core::ptr::null(), |c| &c.inner as *const _);
+            config.map_or(core::ptr::null(), |c| &c.to_raw() as *const _);
         let res = unsafe { sys::ma_engine_init(p_config, engine) };
         MaRawResult::resolve(res)
     }
@@ -629,8 +586,8 @@ pub(crate) mod engine_ffi {
     pub fn ma_engine_read_pcm_frames(
         engine: &Engine,
         frames_out: *mut core::ffi::c_void,
-        frame_count: sys::ma_uint64,
-        frames_read: *mut sys::ma_uint64,
+        frame_count: u64,
+        frames_read: *mut u64,
     ) -> i32 {
         unsafe {
             sys::ma_engine_read_pcm_frames(engine.to_raw(), frames_out, frame_count, frames_read)
@@ -639,7 +596,7 @@ pub(crate) mod engine_ffi {
 
     #[inline]
     pub fn ma_engine_get_node_graph<'a, E: AsEnginePtr + ?Sized>(
-        engine: &E,
+        engine: &'a E,
     ) -> Option<NodeGraphRef<'a>> {
         let ptr = unsafe { sys::ma_engine_get_node_graph(engine.as_engine_ptr()) };
         if ptr.is_null() {
@@ -925,13 +882,24 @@ pub(crate) mod engine_ffi {
     }
 
     #[inline]
-    pub fn ma_engine_listener_set_enabled<E: AsEnginePtr + ?Sized>(engine: &mut E, listener: u32, enabled: bool) {
-        unsafe { sys::ma_engine_listener_set_enabled(engine.as_engine_ptr(), listener, enabled as u32) }
+    pub fn ma_engine_listener_set_enabled<E: AsEnginePtr + ?Sized>(
+        engine: &mut E,
+        listener: u32,
+        enabled: bool,
+    ) {
+        unsafe {
+            sys::ma_engine_listener_set_enabled(engine.as_engine_ptr(), listener, enabled as u32)
+        }
     }
 
     #[inline]
-    pub fn ma_engine_listener_is_enabled<E: AsEnginePtr + ?Sized>(engine: &E, listener: u32) -> bool {
-        let res = unsafe { sys::ma_engine_listener_is_enabled(engine.as_engine_ptr() as *const _, listener) };
+    pub fn ma_engine_listener_is_enabled<E: AsEnginePtr + ?Sized>(
+        engine: &E,
+        listener: u32,
+    ) -> bool {
+        let res = unsafe {
+            sys::ma_engine_listener_is_enabled(engine.as_engine_ptr() as *const _, listener)
+        };
         res == 1
     }
 }

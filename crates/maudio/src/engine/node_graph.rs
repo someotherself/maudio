@@ -1,5 +1,6 @@
 use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit};
 
+pub mod node_builder;
 pub mod node_flags;
 pub mod node_graph_builder;
 pub mod nodes;
@@ -7,10 +8,9 @@ pub mod nodes;
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding,
-    MaRawResult, Result,
+    Binding, MaRawResult, Result,
     engine::{
-        AllocationCallbacks,
+        AllocationCallbacks, Engine,
         node_graph::{node_graph_builder::NodeGraphConfig, nodes::NodeRef},
     },
 };
@@ -57,8 +57,21 @@ use crate::{
 /// - offline rendering of audio
 /// - fine-grained control over how audio is evaluated
 pub struct NodeGraph<'a> {
-    inner: sys::ma_node_graph,
+    inner: *mut sys::ma_node_graph,
     alloc_cb: Option<&'a AllocationCallbacks>,
+}
+
+impl Binding for NodeGraph<'_> {
+    type Raw = *mut sys::ma_node_graph;
+
+    /// !!! Not Implemented !!!
+    fn from_ptr(_raw: Self::Raw) -> Self {
+        unimplemented!()
+    }
+
+    fn to_raw(&self) -> Self::Raw {
+        self.inner
+    }
 }
 
 /// ## Borrowed node graphs (`NodeGraphRef`)
@@ -74,7 +87,7 @@ pub struct NodeGraph<'a> {
 /// internally managed node graphs (for example `ma_engine_get_node_graph`).
 pub struct NodeGraphRef<'e> {
     ptr: *mut sys::ma_node_graph,
-    _engine: PhantomData<&'e mut sys::ma_engine>,
+    _engine: PhantomData<&'e mut Engine>,
     _not_sync: PhantomData<Cell<()>>,
 }
 
@@ -94,17 +107,30 @@ impl Binding for NodeGraphRef<'_> {
     }
 }
 
+pub trait AsNodeGraphPtr {
+    fn as_nodegraph_ptr(&self) -> *mut sys::ma_node_graph;
+}
 
-impl<'a> NodeGraph<'a> {
-    pub fn new(config: &NodeGraphConfig) -> Result<Self> {
-        NodeGraph::with_alloc_callbacks(config, None)
+impl AsNodeGraphPtr for NodeGraph<'_> {
+    fn as_nodegraph_ptr(&self) -> *mut sys::ma_node_graph {
+        self.to_raw()
     }
+}
 
-    pub fn endpoint(&self) -> Option<NodeRef<'_>> {
+impl AsNodeGraphPtr for NodeGraphRef<'_> {
+    fn as_nodegraph_ptr(&self) -> *mut sys::ma_node_graph {
+        self.to_raw()
+    }
+}
+
+impl<T: AsNodeGraphPtr + ?Sized> NodeGraphOps for T {}
+
+pub trait NodeGraphOps: AsNodeGraphPtr {
+    fn endpoint(&self) -> Option<NodeRef<'_>> {
         graph_ffi::ma_node_graph_get_endpoint(self)
     }
 
-    pub fn read_pcm_frames_f32(
+    fn read_pcm_frames_f32(
         &mut self,
         _frames_out: &mut [f32],
         _frame_count: u64,
@@ -118,34 +144,57 @@ impl<'a> NodeGraph<'a> {
         // );
     }
 
-    pub fn channels(&self) -> u32 {
+    fn channels(&self) -> u32 {
         graph_ffi::ma_node_graph_get_channels(self)
     }
 
-    pub fn time(&self) -> u64 {
+    fn time(&self) -> u64 {
         graph_ffi::ma_node_graph_get_time(self)
     }
 
-    pub fn set_time(&mut self, global_time: u64) -> Result<()> {
+    fn set_time(&mut self, global_time: u64) -> Result<()> {
         let res = graph_ffi::ma_node_graph_set_time(self, global_time);
         MaRawResult::resolve(res)
     }
 }
 
 impl<'a> NodeGraph<'a> {
+    pub fn new(config: &NodeGraphConfig) -> Result<Self> {
+        NodeGraph::with_alloc_callbacks(config, None)
+    }
     fn with_alloc_callbacks(
         config: &NodeGraphConfig,
         alloc: Option<&'a AllocationCallbacks>,
     ) -> Result<Self> {
-        let mut node_graph = MaybeUninit::<sys::ma_node_graph>::uninit();
+        let mut mem: Box<MaybeUninit<sys::ma_node_graph>> = Box::new_uninit();
+
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
-        graph_ffi::ma_node_graph_init(config.get_raw(), alloc_cb, node_graph.as_mut_ptr());
+        graph_ffi::ma_node_graph_init(config.get_raw(), alloc_cb, mem.as_mut_ptr())?;
+        let mem: Box<sys::ma_node_graph> = unsafe { mem.assume_init() };
+        let inner = Box::into_raw(mem);
+
         Ok(Self {
-            inner: unsafe { node_graph.assume_init() },
+            inner,
             alloc_cb: alloc,
         })
     }
+
+    // fn node(&'a self) -> Result<Node<'a>> {
+    //     self.node_with_config_internal(None)
+    // }
+
+    // TODO: Do not use.
+    // TODO: ma_node is generated as a void pointer
+    // fn node_with_config_internal(&self, config: Option<NodeBuilder>) -> Result<Node<'_>> {
+    //     let mut mem: Box<MaybeUninit<sys::ma_node>> = Box::new_uninit();
+    //     let alloc_cb = self.alloc_cb_ptr();
+    //     let config = config.map_or(unsafe { sys::ma_node_config_init() }, |c| c.to_raw());
+    //     node_ffi::ma_node_init(self, &config as *const _, alloc_cb, mem.as_mut_ptr())?;
+    //     let ptr: Box<sys::ma_node> = unsafe { mem.assume_init() };
+    //     let inner: *mut sys::ma_node = Box::into_raw(ptr);
+    //     Ok(Node::new(inner, self.alloc_cb))
+    // }
 
     #[inline]
     fn alloc_cb_ptr(&self) -> *const sys::ma_allocation_callbacks {
@@ -154,26 +203,24 @@ impl<'a> NodeGraph<'a> {
             None => core::ptr::null(),
         }
     }
-
-    #[inline]
-    pub(crate) fn inner_ptr_mut(&self) -> *mut sys::ma_node_graph {
-        // This does *not* create an `&mut` reference; it just produces a raw pointer.
-        core::ptr::addr_of!(self.inner) as *mut sys::ma_node_graph
-    }
 }
 
 mod graph_ffi {
     use maudio_sys::ffi as sys;
 
-    use crate::{Binding, engine::node_graph::{NodeGraph, nodes::NodeRef}};
+    use crate::{
+        Binding, MaRawResult, Result,
+        engine::node_graph::{AsNodeGraphPtr, nodes::NodeRef},
+    };
 
     #[inline]
     pub(crate) fn ma_node_graph_init(
         config: *const sys::ma_node_graph_config,
         alloc_cb: *const sys::ma_allocation_callbacks,
         node_graph: *mut sys::ma_node_graph,
-    ) -> i32 {
-        unsafe { sys::ma_node_graph_init(config, alloc_cb, node_graph) }
+    ) -> Result<()> {
+        let res = unsafe { sys::ma_node_graph_init(config, alloc_cb, node_graph) };
+        MaRawResult::resolve(res)
     }
 
     #[inline]
@@ -185,8 +232,10 @@ mod graph_ffi {
     }
 
     #[inline]
-    pub(crate) fn ma_node_graph_get_endpoint<'a>(node_graph: &'a NodeGraph) -> Option<NodeRef<'a>> {
-        let ptr = unsafe { sys::ma_node_graph_get_endpoint(node_graph.inner_ptr_mut()) };
+    pub(crate) fn ma_node_graph_get_endpoint<'a, N: AsNodeGraphPtr + ?Sized>(
+        node_graph: &'a N,
+    ) -> Option<NodeRef<'a>> {
+        let ptr = unsafe { sys::ma_node_graph_get_endpoint(node_graph.as_nodegraph_ptr()) };
         if ptr.is_null() {
             None
         } else {
@@ -195,15 +244,15 @@ mod graph_ffi {
     }
 
     #[inline]
-    pub(crate) fn ma_node_graph_read_pcm_frames(
-        node_graph: &mut NodeGraph,
+    pub(crate) fn ma_node_graph_read_pcm_frames<N: AsNodeGraphPtr + ?Sized>(
+        node_graph: &mut N,
         frames_out: *mut core::ffi::c_void,
         frame_count: u64,
         frames_read: *mut u64,
     ) -> i32 {
         unsafe {
             sys::ma_node_graph_read_pcm_frames(
-                &mut node_graph.inner,
+                node_graph.as_nodegraph_ptr(),
                 frames_out,
                 frame_count,
                 frames_read,
@@ -212,25 +261,27 @@ mod graph_ffi {
     }
 
     #[inline]
-    pub(crate) fn ma_node_graph_get_channels(node_graph: &NodeGraph) -> u32 {
-        unsafe { sys::ma_node_graph_get_channels(&node_graph.inner as *const _) }
+    pub(crate) fn ma_node_graph_get_channels<N: AsNodeGraphPtr + ?Sized>(node_graph: &N) -> u32 {
+        unsafe { sys::ma_node_graph_get_channels(node_graph.as_nodegraph_ptr() as *const _) }
     }
 
     #[inline]
-    pub(crate) fn ma_node_graph_get_time(node_graph: &NodeGraph) -> u64 {
-        unsafe { sys::ma_node_graph_get_time(&node_graph.inner as *const _) }
+    pub(crate) fn ma_node_graph_get_time<N: AsNodeGraphPtr + ?Sized>(node_graph: &N) -> u64 {
+        unsafe { sys::ma_node_graph_get_time(node_graph.as_nodegraph_ptr() as *const _) }
     }
 
     #[inline]
-    pub(crate) fn ma_node_graph_set_time(node_graph: &mut NodeGraph, global_time: u64) -> i32 {
-        unsafe { sys::ma_node_graph_set_time(node_graph.inner_ptr_mut(), global_time) }
+    pub(crate) fn ma_node_graph_set_time<N: AsNodeGraphPtr + ?Sized>(
+        node_graph: &mut N,
+        global_time: u64,
+    ) -> i32 {
+        unsafe { sys::ma_node_graph_set_time(node_graph.as_nodegraph_ptr(), global_time) }
     }
 }
 
 impl<'a> Drop for NodeGraph<'a> {
     fn drop(&mut self) {
-        unsafe {
-            sys::ma_node_graph_uninit(&mut self.inner, self.alloc_cb_ptr());
-        }
+        graph_ffi::ma_node_graph_uninit(self.to_raw(), self.alloc_cb_ptr());
+        drop(unsafe { Box::from_raw(self.to_raw()) });
     }
 }

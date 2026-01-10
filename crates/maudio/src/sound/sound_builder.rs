@@ -1,11 +1,12 @@
-use std::{mem::MaybeUninit, path::Path};
+use std::path::Path;
 
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaRawResult, Result,
-    engine::Engine,
-    sound::{Sound, SoundSource},
+    Binding, Result,
+    audio::math::vec3::Vec3,
+    engine::{Engine, EngineOps, cstring_from_path},
+    sound::{Sound, SoundSource, sound_flags::SoundFlags},
 };
 
 /// Builder for constructing a [`Sound`]
@@ -14,7 +15,7 @@ use crate::{
 /// Miniaudio exposes `ma_sound_config` as a configuration struct that is filled out
 /// and then used to create a sound (ma_sound). `SoundBuilder` is the wrapper around that pattern:
 ///
-/// - You configure *how the sound should be initialized* (source, flags, routing, channels, etc.)
+/// - You configure *how the sound should be initialized*
 /// - Then you "build" it once, producing a fully initialized [`Sound`].
 ///
 /// This is especially useful when you need more control than the convenience
@@ -88,33 +89,50 @@ use crate::{
 /// - If you only need a simple sound, prefer the convenience constructors on [`Engine`] / [`Sound`].
 pub struct SoundBuilder<'a> {
     inner: sys::ma_sound_config,
+    engine: &'a Engine,
     source: SoundSource<'a>,
-    path_utf8: Option<std::ffi::CString>,
-    path_wide: Option<Vec<u16>>,
+    sound_state: SoundState,
+}
+
+#[derive(Default)]
+struct SoundState {
+    min_distance: Option<f32>,
+    max_distance: Option<f32>,
+    rolloff: Option<f32>,
+    position: Option<Vec3>,
+    velocity: Option<Vec3>,
+    direction: Option<Vec3>,
+    start_playing: bool,
 }
 
 impl<'a> SoundBuilder<'a> {
-    pub fn new(engine: &Engine) -> Self {
-        SoundBuilder::init(engine.to_raw())
+    pub fn new(engine: &'a Engine) -> Self {
+        SoundBuilder::init(engine)
     }
 
-    pub fn build(&self, engine: &Engine) -> Result<Sound<'_>> {
-        if self.check_invalid_sources() {
-            return Err(crate::MaError(sys::ma_result_MA_INVALID_ARGS));
-        }
-        if let SoundSource::DataSource(src) = self.source
-            && src.is_null()
-        {
-            return Err(crate::MaError(sys::ma_result_MA_INVALID_ARGS));
-        }
+    // TODO: Write a documentation on why it doesn't take a sound group
+    // TODO: and how this can be used to create a sound group
+    // TODO: Add method to edit pInitialAttachment and initialAttachmentInputBusIndex fields
+    // TODO: If build_from_file and source are not implemented, remove the Self::group()?
+    pub fn build(mut self) -> Result<Sound<'a>> {
+        self.set_source()?;
 
-        let mut mem = Box::new(MaybeUninit::<sys::ma_sound>::uninit());
-        let res = unsafe { sys::ma_sound_init_ex(engine.to_raw(), &self.inner, mem.as_mut_ptr()) };
-        MaRawResult::resolve(res)?;
+        let mut sound = self.engine.new_sound_with_config_internal(Some(&self))?;
 
-        let mem: Box<sys::ma_sound> = unsafe { mem.assume_init() };
-        let inner = Box::into_raw(mem);
-        Ok(Sound::from_ptr(inner))
+        self.configure_sound(&mut sound);
+
+        Ok(sound)
+    }
+
+    /// Explicitly sets the sound to have no playback source.
+    ///
+    /// This is a convenience method for creating a silent sound or clearing a
+    /// previously configured source.
+    ///
+    /// If no source was previously added, this has no effect
+    pub fn no_source(mut self) -> Self {
+        self.source = SoundSource::None;
+        self
     }
 
     /// Sets the source of the sound from a path
@@ -124,35 +142,17 @@ impl<'a> SoundBuilder<'a> {
     ///
     /// The provided path is converted to the platform-specific format required by
     /// miniaudio and is only used during sound initialization.
-    pub fn file_path(mut self, path: &'a Path) -> Result<Self> {
-        self.source = SoundSource::File(path);
-        self.inner.pDataSource = core::ptr::null_mut();
-        self.inner.pFilePath = core::ptr::null();
-        self.inner.pFilePathW = core::ptr::null();
-
+    pub fn file_path(mut self, path: &'a Path) -> Self {
+        self.source = SoundSource::None;
         #[cfg(unix)]
         {
-            use crate::engine::cstring_from_path;
-
-            let utf8_path = cstring_from_path(path)?;
-
-            self.inner.pFilePath = utf8_path.as_ptr();
-            self.path_utf8 = Some(utf8_path);
-            Ok(self)
+            self.source = SoundSource::FileUtf8(path);
         }
         #[cfg(windows)]
         {
-            use crate::engine::wide_null_terminated;
-
-            let wide_path = cstring_from_path(path)?;
-
-            self.inner.pFilePathW = wide_path.as_ptr();
-            self.inner.path_wide = Some(wide_path);
-            Ok(self)
+            self.source = SoundSource::FileWide(path);
         }
-        // TODO. What other platforms can be added
-        #[cfg(not(any(unix, windows)))]
-        compile_error!("set_path_source is only supported on unix and windows");
+        self
     }
 
     // TODO: wrap ma_data_source
@@ -186,15 +186,14 @@ impl<'a> SoundBuilder<'a> {
     /// For simple file playback, prefer initializing the sound from a file path.
     pub fn data_source(mut self, source: *mut sys::ma_data_source) -> Self {
         self.source = SoundSource::DataSource(source);
+        // self.inner.pDataSource = core::ptr::null_mut();
+        // self.inner.pFilePath = core::ptr::null();
+        // self.inner.pFilePathW = core::ptr::null();
 
-        self.inner.pDataSource = core::ptr::null_mut();
-        self.inner.pFilePath = core::ptr::null();
-        self.inner.pFilePathW = core::ptr::null();
+        // self.inner.pDataSource = source;
 
-        self.inner.pDataSource = source;
-
-        self.path_utf8 = None;
-        self.path_wide = None;
+        // self.path_utf8 = None;
+        // self.path_wide = None;
 
         self
     }
@@ -248,24 +247,285 @@ impl<'a> SoundBuilder<'a> {
         self.inner.channelsOut = ch;
         self
     }
-}
 
-impl<'a> SoundBuilder<'a> {
-    pub(crate) fn init(inner: *mut sys::ma_engine) -> Self {
-        let inner = unsafe { sys::ma_sound_config_init_2(inner) };
-        Self {
-            inner,
-            source: SoundSource::None,
-            path_utf8: None,
-            path_wide: None,
+    /// See [`SoundFlags`]
+    pub fn flags(mut self, flags: SoundFlags) -> Self {
+        self.inner.flags = flags.bits();
+        self
+    }
+
+    pub fn looping(mut self, looping: bool) -> Self {
+        self.inner.isLooping = looping as u32;
+        self
+    }
+
+    pub fn volume_smooth_frames(mut self, pcm_frames: u32) -> Self {
+        self.inner.volumeSmoothTimeInPCMFrames = pcm_frames;
+        self
+    }
+
+    pub fn range_begin_frames(mut self, pcm_frames: u64) -> Self {
+        self.inner.rangeBegInPCMFrames = pcm_frames;
+        self
+    }
+
+    pub fn range_end_frames(mut self, pcm_frames: u64) -> Self {
+        self.inner.rangeEndInPCMFrames = pcm_frames;
+        self
+    }
+
+    pub fn loop_begin_frames(mut self, pcm_frames: u64) -> Self {
+        self.inner.loopPointBegInPCMFrames = pcm_frames;
+        self
+    }
+
+    pub fn loop_end_frames(mut self, pcm_frames: u64) -> Self {
+        self.inner.loopPointEndInPCMFrames = pcm_frames;
+        self
+    }
+
+    pub fn seek_point_frames(mut self, pcm_frames: u64) -> Self {
+        self.inner.initialSeekPointInPCMFrames = pcm_frames;
+        self
+    }
+
+    /// Interprets `seconds` in engine time and converts it to PCM frames using the engine sample rate.
+    pub fn volume_smooth_seconds(mut self, seconds: f64) -> Self {
+        self.inner.volumeSmoothTimeInPCMFrames = self.seconds_to_frames(seconds) as u32;
+        self
+    }
+
+    /// Interprets `seconds` in engine time and converts it to PCM frames using the engine sample rate.
+    pub fn range_begin_seconds(mut self, seconds: f64) -> Self {
+        self.inner.rangeBegInPCMFrames = self.seconds_to_frames(seconds);
+        self
+    }
+
+    /// Interprets `seconds` in engine time and converts it to PCM frames using the engine sample rate.
+    pub fn range_end_seconds(mut self, seconds: f64) -> Self {
+        self.inner.rangeEndInPCMFrames = self.seconds_to_frames(seconds);
+        self
+    }
+
+    /// Interprets `seconds` in engine time and converts it to PCM frames using the engine sample rate.
+    pub fn loop_begin_seconds(mut self, seconds: f64) -> Self {
+        self.inner.loopPointBegInPCMFrames = self.seconds_to_frames(seconds);
+        self
+    }
+
+    /// Interprets `seconds` in engine time and converts it to PCM frames using the engine sample rate.
+    pub fn loop_end_seconds(mut self, seconds: f64) -> Self {
+        self.inner.loopPointEndInPCMFrames = self.seconds_to_frames(seconds);
+        self
+    }
+
+    /// Interprets `seconds` in engine time and converts it to PCM frames using the engine sample rate.
+    pub fn seek_point_seconds(mut self, seconds: f64) -> Self {
+        self.inner.initialSeekPointInPCMFrames = self.seconds_to_frames(seconds);
+        self
+    }
+
+    /// Convenience method for calling [`Self::range_begin_frames`] and [`Self::range_end_frames`] in the same call
+    pub fn range_frames(mut self, begin: u64, end: u64) -> Self {
+        self.inner.rangeBegInPCMFrames = begin;
+        self.inner.rangeEndInPCMFrames = end;
+        self
+    }
+
+    /// Convenience method for calling [`Self::range_begin_seconds`] and [`Self::range_end_seconds`] in the same call
+    ///
+    /// Interprets `seconds` in engine time and converts it to PCM frames using the engine sample rate.
+    pub fn range_seconds(mut self, begin: f64, end: f64) -> Self {
+        self.inner.rangeBegInPCMFrames = self.seconds_to_frames(begin);
+        self.inner.rangeEndInPCMFrames = self.seconds_to_frames(end);
+        self
+    }
+
+    /// Convenience method for calling [`Self::loop_begin_frames`] and [`Self::loop_end_frames`] in the same call
+    ///
+    /// Interprets `seconds` in engine time and converts it to PCM frames using the engine sample rate.
+    pub fn loop_frames(mut self, begin: u64, end: u64) -> Self {
+        self.inner.loopPointBegInPCMFrames = begin;
+        self.inner.loopPointEndInPCMFrames = end;
+        self
+    }
+
+    /// Convenience method for calling [`Self::loop_begin_seconds`] and [`Self::loop_end_seconds`] in the same call
+    ///
+    /// Interprets `seconds` in engine time and converts it to PCM frames using the engine sample rate.
+    pub fn loop_seconds(mut self, begin: f64, end: f64) -> Self {
+        self.inner.loopPointBegInPCMFrames = self.seconds_to_frames(begin);
+        self.inner.loopPointEndInPCMFrames = self.seconds_to_frames(end);
+        self
+    }
+
+    /// Equivalent to adding [SoundFlags::STREAM]
+    ///
+    /// Does not modify any other existing flags
+    pub fn streaming(mut self, yes: bool) -> Self {
+        let mut flags = SoundFlags::from_bits(self.inner.flags);
+        if yes {
+            flags.insert(SoundFlags::STREAM);
+        } else {
+            flags.remove(SoundFlags::STREAM);
+        }
+        self.inner.flags = flags.bits();
+        self
+    }
+
+    /// Equivalent to adding [SoundFlags::DECODE]
+    ///
+    /// Does not modify any other existing flags
+    pub fn decode(mut self, yes: bool) -> Self {
+        let mut flags = SoundFlags::from_bits(self.inner.flags);
+        if yes {
+            flags.insert(SoundFlags::DECODE);
+        } else {
+            flags.remove(SoundFlags::DECODE);
+        }
+        self.inner.flags = flags.bits();
+        self
+    }
+
+    /// Equivalent to adding [SoundFlags::ASYNC]
+    ///
+    /// Does not modify any other existing flags
+    pub fn async_load(mut self, yes: bool) -> Self {
+        let mut flags = SoundFlags::from_bits(self.inner.flags);
+        if yes {
+            flags.insert(SoundFlags::ASYNC);
+        } else {
+            flags.remove(SoundFlags::ASYNC);
+        }
+        self.inner.flags = flags.bits();
+        self
+    }
+
+    /// Sets the `min_distance` field on the newly created sound
+    ///
+    /// Equivalent to calling [`Sound::set_min_distance`]
+    pub fn min_distance(mut self, d: f32) -> Self {
+        self.sound_state.min_distance = Some(d);
+        self
+    }
+
+    /// Sets the `max_distance` field on the newly created sound
+    ///
+    /// Equivalent to calling [`Sound::set_max_distance`]
+    pub fn max_distance(mut self, d: f32) -> Self {
+        self.sound_state.max_distance = Some(d);
+        self
+    }
+
+    /// Sets the `rolloff` field on the newly created sound
+    ///
+    /// Equivalent to calling [`Sound::set_rolloff`]
+    pub fn rolloff(mut self, r: f32) -> Self {
+        self.sound_state.rolloff = Some(r);
+        self
+    }
+
+    /// Sets the `position` field on the newly created sound
+    ///
+    /// Equivalent to calling [`Sound::set_position`]
+    pub fn position(mut self, position: Vec3) -> Self {
+        self.sound_state.position = Some(position);
+        self
+    }
+
+    /// Sets the `velocity` field on the newly created sound
+    ///
+    /// Equivalent to calling [`Sound::set_velocity`]
+    pub fn velocity(mut self, velocity: Vec3) -> Self {
+        self.sound_state.velocity = Some(velocity);
+        self
+    }
+
+    /// Sets the `direction` field on the newly created sound
+    ///
+    /// Equivalent to calling [`Sound::set_direction`]
+    pub fn direction(mut self, direction: Vec3) -> Self {
+        self.sound_state.direction = Some(direction);
+        self
+    }
+
+    #[inline]
+    fn seconds_to_frames(&self, seconds: f64) -> u64 {
+        let sr = self.engine.sample_rate() as f64;
+        (seconds.max(0.0) * sr).round() as u64
+    }
+
+    fn configure_sound(self, sound: &mut Sound) {
+        if let Some(min_d) = self.sound_state.min_distance {
+            sound.set_min_distance(min_d)
+        };
+        if let Some(max_d) = self.sound_state.max_distance {
+            sound.set_max_distance(max_d)
+        };
+        if let Some(r) = self.sound_state.rolloff {
+            sound.set_rolloff(r);
+        }
+        if let Some(p) = self.sound_state.position {
+            sound.set_position(p);
+        }
+        if let Some(v) = self.sound_state.velocity {
+            sound.set_velocity(v);
+        }
+        if let Some(d) = self.sound_state.direction {
+            sound.set_direction(d);
         }
     }
 
-    fn check_invalid_sources(&self) -> bool {
-        self.source == SoundSource::None && self.path_utf8.is_none() && self.path_wide.is_none()
+    fn set_source(&mut self) -> Result<()> {
+        let null_fields = |cfg: &mut SoundBuilder| {
+            cfg.inner.pDataSource = core::ptr::null_mut();
+            cfg.inner.pFilePath = core::ptr::null();
+            cfg.inner.pFilePathW = core::ptr::null();
+        };
+        match self.source {
+            SoundSource::None => null_fields(self),
+            SoundSource::DataSource(src) => {
+                null_fields(self);
+                self.inner.pDataSource = src;
+            }
+            #[cfg(unix)]
+            SoundSource::FileUtf8(p) => {
+                null_fields(self);
+                let cstring = cstring_from_path(p)?;
+                self.inner.pFilePath = cstring.as_ptr();
+            }
+            #[cfg(windows)]
+            SoundSource::FileWide(p) => {
+                null_fields(self);
+                let wide_path = wide_null_terminated(p);
+                self.inner.pFilePathW = wide_path.as_ptr();
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<'a> SoundBuilder<'a> {
+    pub(crate) fn init(inner: &'a Engine) -> Self {
+        let ptr = unsafe { sys::ma_sound_config_init_2(inner.to_raw()) };
+        let state = SoundState::default();
+        Self {
+            inner: ptr,
+            engine: inner,
+            source: SoundSource::None,
+            sound_state: state,
+        }
+    }
+}
+
+impl Binding for SoundBuilder<'_> {
+    type Raw = *const sys::ma_sound_config;
+
+    fn from_ptr(_raw: Self::Raw) -> Self {
+        unimplemented!()
     }
 
-    pub(crate) fn get_raw(&self) -> *const sys::ma_sound_config {
+    fn to_raw(&self) -> Self::Raw {
         &self.inner as *const _
     }
 }
@@ -275,7 +535,7 @@ mod test {
     use crate::{engine::Engine, sound::sound_builder::SoundBuilder};
 
     #[test]
-    fn sound_builder() {
+    fn sound_builder_test_basic() {
         let engine = Engine::new().unwrap();
         let _s_config = SoundBuilder::new(&engine).channels_in(1);
     }

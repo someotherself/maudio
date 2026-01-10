@@ -32,7 +32,10 @@ impl From<SoundError> for ErrorKinds {
 #[derive(PartialEq)]
 pub enum SoundSource<'a> {
     None,
-    File(&'a Path),
+    #[cfg(unix)]
+    FileUtf8(&'a Path),
+    #[cfg(windows)]
+    FileWide(&'a Path),
     DataSource(*mut sys::ma_data_source),
 }
 
@@ -372,23 +375,20 @@ impl<'a> Sound<'a> {
         )
     }
 
-    // TODO
-    fn cursor_pcm(&self, cursor: *mut sys::ma_uint64) -> Result<()> {
-        sound_ffi::ma_sound_get_cursor_in_pcm_frames(self, cursor)
+    fn cursor_pcm(&self) -> Result<u64> {
+        sound_ffi::ma_sound_get_cursor_in_pcm_frames(self)
     }
 
-    // TODO
-    fn length_pcm(&self, length: *mut sys::ma_uint64) -> Result<()> {
-        sound_ffi::ma_sound_get_length_in_pcm_frames(self, length)
+    fn length_pcm(&self) -> Result<u64> {
+        sound_ffi::ma_sound_get_length_in_pcm_frames(self)
     }
 
-    // TODO
-    fn cursor_seconds(&self, cursor: *mut f32) -> Result<()> {
-        sound_ffi::ma_sound_get_cursor_in_seconds(self, cursor)
+    fn cursor_seconds(&self) -> Result<f32> {
+        sound_ffi::ma_sound_get_cursor_in_seconds(self)
     }
-    // TODO
-    fn length_seconds(&self, length: *mut f32) -> Result<()> {
-        sound_ffi::ma_sound_get_length_in_seconds(self, length)
+
+    fn length_seconds(&self) -> Result<f32> {
+        sound_ffi::ma_sound_get_length_in_seconds(self)
     }
 
     // TODO
@@ -409,7 +409,7 @@ impl<'a> Sound<'a> {
         engine: &Engine,
         path: &Path,
         flags: SoundFlags,
-        sound_group: Option<&mut SoundGroup>,
+        sound_group: &mut Option<&SoundGroup>,
         fence: Option<*mut sys::ma_fence>,
     ) -> Result<()> {
         #[cfg(unix)]
@@ -488,12 +488,12 @@ pub(crate) mod sound_ffi {
         engine: &Engine,
         path: CString,
         flags: SoundFlags,
-        s_group: Option<&mut SoundGroup>,
+        s_group: &mut Option<&SoundGroup>,
         done_fence: Option<*mut sys::ma_fence>,
         sound: *mut sys::ma_sound,
     ) -> Result<()> {
         let s_group: *mut sys::ma_sound_group =
-            s_group.map_or(core::ptr::null_mut(), |g| g.assume_init_mut_ptr());
+            s_group.map_or(core::ptr::null_mut(), |g| g.to_raw());
         let done_fence = done_fence.unwrap_or(core::ptr::null_mut());
 
         let res = unsafe {
@@ -547,7 +547,7 @@ pub(crate) mod sound_ffi {
         new_sound: *mut sys::ma_sound,
     ) -> Result<()> {
         let s_group: *mut sys::ma_sound_group =
-            s_group.map_or(core::ptr::null_mut(), |g| g.assume_init_mut_ptr());
+            s_group.map_or(core::ptr::null_mut(), |g| g.to_raw());
 
         let res = unsafe {
             sys::ma_sound_init_copy(
@@ -575,7 +575,7 @@ pub(crate) mod sound_ffi {
                 engine.to_raw(),
                 data_source,
                 flags.bits(),
-                s_group.assume_init_mut_ptr(),
+                s_group.to_raw(),
                 sound.to_raw(),
             )
         };
@@ -588,7 +588,7 @@ pub(crate) mod sound_ffi {
         config: &SoundBuilder,
         sound: *mut sys::ma_sound,
     ) -> Result<()> {
-        let res = unsafe { sys::ma_sound_init_ex(engine.to_raw(), config.get_raw(), sound) };
+        let res = unsafe { sys::ma_sound_init_ex(engine.to_raw(), config.to_raw(), sound) };
         MaRawResult::resolve(res)
     }
 
@@ -1086,40 +1086,42 @@ pub(crate) mod sound_ffi {
         MaRawResult::resolve(res)
     }
 
-    // TODO
     #[inline]
-    pub fn ma_sound_get_cursor_in_pcm_frames(
-        sound: &Sound,
-        cursor: *mut sys::ma_uint64,
-    ) -> Result<()> {
-        let res =
-            unsafe { sys::ma_sound_get_cursor_in_pcm_frames(sound.to_raw() as *const _, cursor) };
-        MaRawResult::resolve(res)
-    }
-
-    // TODO
-    #[inline]
-    pub fn ma_sound_get_length_in_pcm_frames(
-        sound: &Sound,
-        length: *mut sys::ma_uint64,
-    ) -> Result<()> {
-        let res =
-            unsafe { sys::ma_sound_get_length_in_pcm_frames(sound.to_raw() as *const _, length) };
-        MaRawResult::resolve(res)
+    pub fn ma_sound_get_cursor_in_pcm_frames(sound: &Sound) -> Result<u64> {
+        let mut cursor: sys::ma_uint64 = 0;
+        let res = unsafe {
+            sys::ma_sound_get_cursor_in_pcm_frames(sound.to_raw() as *const _, &mut cursor)
+        };
+        MaRawResult::resolve(res)?;
+        Ok(cursor)
     }
 
     #[inline]
-    pub fn ma_sound_get_cursor_in_seconds(sound: &Sound, cursor: *mut f32) -> Result<()> {
-        let res =
-            unsafe { sys::ma_sound_get_cursor_in_seconds(sound.to_raw() as *const _, cursor) };
-        MaRawResult::resolve(res)
+    pub fn ma_sound_get_length_in_pcm_frames(sound: &Sound) -> Result<u64> {
+        let mut length: sys::ma_uint64 = 0;
+        let res = unsafe {
+            sys::ma_sound_get_length_in_pcm_frames(sound.to_raw() as *const _, &mut length)
+        };
+        MaRawResult::resolve(res)?;
+        Ok(length)
     }
 
     #[inline]
-    pub fn ma_sound_get_length_in_seconds(sound: &Sound, length: *mut f32) -> Result<()> {
+    pub fn ma_sound_get_cursor_in_seconds(sound: &Sound) -> Result<f32> {
+        let mut cursor: f32 = 0.0;
         let res =
-            unsafe { sys::ma_sound_get_length_in_seconds(sound.to_raw() as *const _, length) };
-        MaRawResult::resolve(res)
+            unsafe { sys::ma_sound_get_cursor_in_seconds(sound.to_raw() as *const _, &mut cursor) };
+        MaRawResult::resolve(res)?;
+        Ok(cursor)
+    }
+
+    #[inline]
+    pub fn ma_sound_get_length_in_seconds(sound: &Sound) -> Result<f32> {
+        let mut length: f32 = 0.0;
+        let res =
+            unsafe { sys::ma_sound_get_length_in_seconds(sound.to_raw() as *const _, &mut length) };
+        MaRawResult::resolve(res)?;
+        Ok(length)
     }
 
     // TODO

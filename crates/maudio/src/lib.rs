@@ -127,6 +127,7 @@ impl MaError {
 pub(crate) trait Binding: Sized {
     type Raw;
 
+    /// Construct the wrapper from a raw FFI handle.
     fn from_ptr(raw: Self::Raw) -> Self;
 
     fn to_raw(&self) -> Self::Raw;
@@ -139,8 +140,8 @@ enum ErrorKinds {
 }
 
 struct MaudioError {
-    native: ErrorKinds,
-    ma_result: Option<MaError>,
+    native: Option<ErrorKinds>,
+    ma_result: MaError,
 }
 
 type MaudioResult<T> = std::result::Result<T, MaudioError>;
