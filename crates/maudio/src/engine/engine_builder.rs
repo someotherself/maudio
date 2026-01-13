@@ -38,7 +38,8 @@ impl Default for EngineBuilder {
 
 impl EngineBuilder {
     pub fn new() -> Self {
-        engine_cfg::ma_engine_config_init()
+        let ptr = unsafe { sys::ma_engine_config_init() };
+        Self::from_ptr(ptr)
     }
 
     // TODO: Implement wrapper for sys::ma_device
@@ -76,16 +77,5 @@ impl EngineBuilder {
 
     pub fn build(self) -> Result<Engine> {
         Engine::new_with_config(Some(&self))
-    }
-}
-
-pub(crate) mod engine_cfg {
-    use maudio_sys::ffi as sys;
-
-    use crate::{Binding, engine::engine_builder::EngineBuilder};
-
-    pub fn ma_engine_config_init() -> EngineBuilder {
-        let ptr = unsafe { sys::ma_engine_config_init() };
-        EngineBuilder::from_ptr(ptr)
     }
 }

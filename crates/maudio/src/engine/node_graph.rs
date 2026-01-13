@@ -5,6 +5,20 @@ pub mod node_flags;
 pub mod node_graph_builder;
 pub mod nodes;
 
+/// Prelude for the [`node_graph`](super) module.
+///
+/// This module re-exports the most commonly used engine types and traits
+/// so they can be imported with a single global import.
+///
+/// Import this when you want access to [`NodeGraph`] and [`NodeGraphRef`] and all shared engine
+/// methods (provided by [`EngineOps`]) without having to import each item
+/// individually.
+/// This is purely a convenience module; importing directly
+/// works just as well if you prefer explicit imports.
+pub mod prelude {
+    pub use super::{NodeGraph, NodeGraphRef};
+}
+
 use maudio_sys::ffi as sys;
 
 use crate::{
@@ -59,6 +73,7 @@ use crate::{
 pub struct NodeGraph<'a> {
     inner: *mut sys::ma_node_graph,
     alloc_cb: Option<&'a AllocationCallbacks>,
+    _not_sync: PhantomData<Cell<()>>,
 }
 
 impl Binding for NodeGraph<'_> {
@@ -158,10 +173,12 @@ pub trait NodeGraphOps: AsNodeGraphPtr {
     }
 }
 
+// These should not be available to NodeGraphRef
 impl<'a> NodeGraph<'a> {
     pub fn new(config: &NodeGraphConfig) -> Result<Self> {
         NodeGraph::with_alloc_callbacks(config, None)
     }
+
     fn with_alloc_callbacks(
         config: &NodeGraphConfig,
         alloc: Option<&'a AllocationCallbacks>,
@@ -177,24 +194,9 @@ impl<'a> NodeGraph<'a> {
         Ok(Self {
             inner,
             alloc_cb: alloc,
+            _not_sync: PhantomData,
         })
     }
-
-    // fn node(&'a self) -> Result<Node<'a>> {
-    //     self.node_with_config_internal(None)
-    // }
-
-    // TODO: Do not use.
-    // TODO: ma_node is generated as a void pointer
-    // fn node_with_config_internal(&self, config: Option<NodeBuilder>) -> Result<Node<'_>> {
-    //     let mut mem: Box<MaybeUninit<sys::ma_node>> = Box::new_uninit();
-    //     let alloc_cb = self.alloc_cb_ptr();
-    //     let config = config.map_or(unsafe { sys::ma_node_config_init() }, |c| c.to_raw());
-    //     node_ffi::ma_node_init(self, &config as *const _, alloc_cb, mem.as_mut_ptr())?;
-    //     let ptr: Box<sys::ma_node> = unsafe { mem.assume_init() };
-    //     let inner: *mut sys::ma_node = Box::into_raw(ptr);
-    //     Ok(Node::new(inner, self.alloc_cb))
-    // }
 
     #[inline]
     fn alloc_cb_ptr(&self) -> *const sys::ma_allocation_callbacks {

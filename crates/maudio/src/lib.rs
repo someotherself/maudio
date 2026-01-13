@@ -2,6 +2,7 @@
 
 pub mod audio;
 pub mod context;
+pub mod device;
 pub mod engine;
 pub mod sound;
 pub mod util;

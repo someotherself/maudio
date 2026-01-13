@@ -47,11 +47,11 @@ use crate::{
 /// # use maudio::engine::Engine;
 /// # use maudio::sound::sound_builder::SoundBuilder;
 /// # fn demo(engine: &Engine) -> maudio::Result<()> {
-/// let config = SoundBuilder::new(&engine)
-///     .file_path(Path::new("assets/click.wav"))?
+/// let sound = SoundBuilder::new(&engine)
+///     .file_path(Path::new("assets/click.wav"))
 ///     .channels_in(1)
-///     .channels_out(0); // 0 = engine's native channel count
-/// let sound = config.build(engine)?;
+///     .channels_out(0) // 0 = engine's native channel count
+///     .build()?;
 /// # Ok(())
 /// # }
 /// ```
@@ -62,9 +62,7 @@ use crate::{
 /// # use maudio::engine::Engine;
 /// # use maudio::sound::sound_builder::SoundBuilder;
 /// # fn demo(engine: &Engine, ds: *mut maudio_sys::ffi::ma_data_source) -> maudio::Result<()> { // TODO
-/// let config = SoundBuilder::new(&engine)
-///     .data_source(ds);
-/// let sound = config.build(&engine)?;
+/// let sound = SoundBuilder::new(&engine).data_source(ds).build()?;
 /// # Ok(())
 /// # }
 /// ```
@@ -74,11 +72,9 @@ use crate::{
 /// ```no_run
 /// # use maudio::engine::Engine;
 /// # use maudio::sound::sound_builder::SoundBuilder;
-/// # use maudio::engine::node_graph::nodes::Node;
-/// # fn demo(engine: &Engine, node: Node) -> maudio::Result<()> { // TODO
-/// let config = SoundBuilder::new(& engine)
-///     .file_path("assets/music.ogg".as_ref())?;
-/// let sound = config.build(&engine)?;
+/// # fn demo(engine: &Engine) -> maudio::Result<()> {
+/// let sound = SoundBuilder::new(&engine)
+///     .file_path("assets/music.ogg".as_ref()).build()?;;
 /// # Ok(())
 /// }
 /// ```
@@ -289,39 +285,39 @@ impl<'a> SoundBuilder<'a> {
         self
     }
 
-    /// Interprets `seconds` in engine time and converts it to PCM frames using the engine sample rate.
-    pub fn volume_smooth_seconds(mut self, seconds: f64) -> Self {
-        self.inner.volumeSmoothTimeInPCMFrames = self.seconds_to_frames(seconds) as u32;
+    /// Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
+    pub fn volume_smooth_millis(mut self, millis: f64) -> Self {
+        self.inner.volumeSmoothTimeInPCMFrames = self.millis_to_frames(millis) as u32;
         self
     }
 
-    /// Interprets `seconds` in engine time and converts it to PCM frames using the engine sample rate.
-    pub fn range_begin_seconds(mut self, seconds: f64) -> Self {
-        self.inner.rangeBegInPCMFrames = self.seconds_to_frames(seconds);
+    /// Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
+    pub fn range_begin_millis(mut self, millis: f64) -> Self {
+        self.inner.rangeBegInPCMFrames = self.millis_to_frames(millis);
         self
     }
 
-    /// Interprets `seconds` in engine time and converts it to PCM frames using the engine sample rate.
-    pub fn range_end_seconds(mut self, seconds: f64) -> Self {
-        self.inner.rangeEndInPCMFrames = self.seconds_to_frames(seconds);
+    /// Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
+    pub fn range_end_millis(mut self, millis: f64) -> Self {
+        self.inner.rangeEndInPCMFrames = self.millis_to_frames(millis);
         self
     }
 
-    /// Interprets `seconds` in engine time and converts it to PCM frames using the engine sample rate.
-    pub fn loop_begin_seconds(mut self, seconds: f64) -> Self {
-        self.inner.loopPointBegInPCMFrames = self.seconds_to_frames(seconds);
+    /// Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
+    pub fn loop_begin_millis(mut self, millis: f64) -> Self {
+        self.inner.loopPointBegInPCMFrames = self.millis_to_frames(millis);
         self
     }
 
-    /// Interprets `seconds` in engine time and converts it to PCM frames using the engine sample rate.
-    pub fn loop_end_seconds(mut self, seconds: f64) -> Self {
-        self.inner.loopPointEndInPCMFrames = self.seconds_to_frames(seconds);
+    /// Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
+    pub fn loop_end_millis(mut self, millis: f64) -> Self {
+        self.inner.loopPointEndInPCMFrames = self.millis_to_frames(millis);
         self
     }
 
-    /// Interprets `seconds` in engine time and converts it to PCM frames using the engine sample rate.
-    pub fn seek_point_seconds(mut self, seconds: f64) -> Self {
-        self.inner.initialSeekPointInPCMFrames = self.seconds_to_frames(seconds);
+    /// Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
+    pub fn seek_point_millis(mut self, millis: f64) -> Self {
+        self.inner.initialSeekPointInPCMFrames = self.millis_to_frames(millis);
         self
     }
 
@@ -332,30 +328,28 @@ impl<'a> SoundBuilder<'a> {
         self
     }
 
-    /// Convenience method for calling [`Self::range_begin_seconds`] and [`Self::range_end_seconds`] in the same call
+    /// Convenience method for calling [`Self::range_begin_millis`] and [`Self::range_end_millis`] in the same call
     ///
-    /// Interprets `seconds` in engine time and converts it to PCM frames using the engine sample rate.
-    pub fn range_seconds(mut self, begin: f64, end: f64) -> Self {
-        self.inner.rangeBegInPCMFrames = self.seconds_to_frames(begin);
-        self.inner.rangeEndInPCMFrames = self.seconds_to_frames(end);
+    /// Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
+    pub fn range_millis(mut self, begin: f64, end: f64) -> Self {
+        self.inner.rangeBegInPCMFrames = self.millis_to_frames(begin);
+        self.inner.rangeEndInPCMFrames = self.millis_to_frames(end);
         self
     }
 
     /// Convenience method for calling [`Self::loop_begin_frames`] and [`Self::loop_end_frames`] in the same call
-    ///
-    /// Interprets `seconds` in engine time and converts it to PCM frames using the engine sample rate.
     pub fn loop_frames(mut self, begin: u64, end: u64) -> Self {
         self.inner.loopPointBegInPCMFrames = begin;
         self.inner.loopPointEndInPCMFrames = end;
         self
     }
 
-    /// Convenience method for calling [`Self::loop_begin_seconds`] and [`Self::loop_end_seconds`] in the same call
+    /// Convenience method for calling [`Self::loop_begin_millis`] and [`Self::loop_end_millis`] in the same call
     ///
-    /// Interprets `seconds` in engine time and converts it to PCM frames using the engine sample rate.
-    pub fn loop_seconds(mut self, begin: f64, end: f64) -> Self {
-        self.inner.loopPointBegInPCMFrames = self.seconds_to_frames(begin);
-        self.inner.loopPointEndInPCMFrames = self.seconds_to_frames(end);
+    /// Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
+    pub fn loop_millis(mut self, begin: f64, end: f64) -> Self {
+        self.inner.loopPointBegInPCMFrames = self.millis_to_frames(begin);
+        self.inner.loopPointEndInPCMFrames = self.millis_to_frames(end);
         self
     }
 
@@ -450,7 +444,19 @@ impl<'a> SoundBuilder<'a> {
     }
 
     #[inline]
+    fn millis_to_frames(&self, millis: f64) -> u64 {
+        if !millis.is_finite() || millis <= 0.0 {
+            return 0;
+        }
+        let sr = self.engine.sample_rate() as f64;
+        (millis.max(0.0) * sr / 1000.0).round() as u64
+    }
+
+    #[inline]
     fn seconds_to_frames(&self, seconds: f64) -> u64 {
+        if !seconds.is_finite() || seconds <= 0.0 {
+            return 0;
+        }
         let sr = self.engine.sample_rate() as f64;
         (seconds.max(0.0) * sr).round() as u64
     }

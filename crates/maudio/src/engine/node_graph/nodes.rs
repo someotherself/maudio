@@ -1,3 +1,77 @@
+//! Node graph primitives.
+//!
+//! This module provides a view of **miniaudio nodes** (`ma_node`) and the
+//! node-graph operations that can be performed on them.
+//!
+//! ## What is a node (in miniaudio)?
+//!
+//! In miniaudio, an audio **node** is a unit of processing/routing inside a **node graph**.
+//! Nodes have *input buses* and *output buses* (each bus is a multi-channel audio stream).
+//! Nodes can be connected together so that audio flows from upstream nodes into downstream
+//! nodes, potentially being mixed, filtered, delayed, split, etc.
+//!
+//! Many high-level engine objects are also nodes. For example, a `Sound` can be treated as a
+//! node for routing purposes: it can be connected to effect nodes, mixers, splitters, and
+//! ultimately to the graph endpoint.
+//!
+//! ## What is a node graph?
+//!
+//! A **node graph** is the routing/processing graph that miniaudio evaluates to produce
+//! audio output. Conceptually:
+//!
+//! - connections go from an output bus of one node to an input bus of another node,
+//! - multiple outputs can feed the same input (mixing),
+//! - the graph is evaluated as the engine/device pulls audio from the endpoint.
+//!
+//! You usually work with a graph indirectly through [`Engine`](crate::engine) and [`NodeGraph`].
+//! How nodes work in miniaudio’s node graph (conceptually)
+//!
+//! ## Why `ma_node` looks like a `void*` (and why there is no `Node::new`)
+//!
+//! The type `ma_node` in miniaudio is an *opaque* / *transparent* “base pointer”:
+//!
+//! - In the C headers it is effectively `typedef void ma_node;`.
+//! - A `ma_node*` does **not** point to a standalone `ma_node` allocation.
+//! - Instead, it points at a **concrete node type** (e.g. `ma_delay_node`, `ma_splitter_node`,
+//!   `ma_sound`, `ma_node_graph`, …) whose internal layout begins with a common base.
+//!
+//! This is how miniaudio implements a form of polymorphism in C: the public API accepts
+//! `ma_node*`, while the actual object behind it is one of many concrete node structs with
+//! node-specific behavior.
+//!
+//! Miniaudio does allow creating custom nodes however, this is an advanced feature that is
+//! current not implemented in this crate.
+//!
+//! Because `ma_node` has no size and is not a constructible C struct, this crate does **not**
+//! expose `Node::new()`. You cannot allocate a generic node. You either:
+//!
+//! 1. **Borrow a node view** from an existing object (recommended).
+//!    For example: `sound.as_node()` returns a [`NodeRef`].
+//! 2. **Own a concrete node type** (e.g. `DelayNode`, `SplitterNode`, etc.) and treat it as a node
+//!    when connecting/routing.
+//! 3. **Create a custom node** (advanced, not implemented): allocate a concrete node struct compatible with miniaudio
+//!    and provide callbacks/vtables. This crate currently keeps generic node creation internal.
+//!
+//! ## How to use nodes
+//!
+//! Most node-graph operations are provided via [`NodeOps`]. Any type that can yield an underlying
+//! `ma_node*` implements the internal [`AsNodePtr`] adapter and therefore gets the shared methods.
+//!
+//! ### Example: treating a sound as a node
+//!
+//! ```no_run
+//! use maudio::engine::{Engine, node_graph::nodes::NodeOps};
+//!
+//! let engine = Engine::new().unwrap();
+//! let sound  = engine.new_sound().unwrap();
+//!
+//! // Borrow a node view of the sound.
+//! let node = sound.as_node();
+//!
+//! // Use node-level methods.
+//! let state = node.state().unwrap();
+//! println!("node state: {:?}", state);
+//! ```
 use std::{cell::Cell, marker::PhantomData};
 
 use maudio_sys::ffi as sys;
@@ -10,24 +84,17 @@ use crate::{
     },
 };
 
-/// Prelude for the [`node`](super) module.
-///
-/// This module re-exports the most commonly used engine types and traits
-/// so they can be imported with a single global import.
-///
-/// Import this when you want access to [`Node`] and [`NodeRef`] and all shared engine
-/// methods (provided by [`NodeOps`]) without having to import each item
-/// individually.
-/// This is purely a convenience module; importing from `engine` directly
-/// works just as well if you prefer explicit imports.
-pub mod prelude {
-    pub use super::{Node, NodeOps};
-}
+pub mod effects;
+pub mod filters;
+pub mod routing;
+pub mod source;
 
-pub struct Node<'a> {
+// Would be used for fully custom nodes. Not used for now
+struct Node<'a> {
     inner: *mut sys::ma_node,
     alloc_cb: Option<&'a AllocationCallbacks>,
     _marker: PhantomData<&'a NodeGraph<'a>>,
+    _not_sync: PhantomData<Cell<()>>,
 }
 
 impl Binding for Node<'_> {
@@ -44,9 +111,8 @@ impl Binding for Node<'_> {
 }
 
 pub struct NodeRef<'a> {
-    // TODO: Use *mut sys::ma_node_base instead, and cast it to ma_node
     ptr: *mut sys::ma_node,
-    _marker: PhantomData<&'a mut ()>,
+    _marker: PhantomData<&'a ()>,
     _not_sync: PhantomData<Cell<()>>,
 }
 
@@ -163,12 +229,14 @@ pub trait NodeOps: AsNodePtr {
     }
 }
 
+// These should be not available to NodeRef
 impl<'a> Node<'a> {
     pub(crate) fn new(inner: *mut sys::ma_node, alloc_cb: Option<&'a AllocationCallbacks>) -> Self {
         Self {
             inner,
             alloc_cb,
             _marker: PhantomData,
+            _not_sync: PhantomData,
         }
     }
 
@@ -193,7 +261,7 @@ pub(super) mod node_ffi {
         },
     };
 
-    // Do not expose to public API
+    // Do not expose to public API. Used internally by ma_node_init
     #[inline]
     pub(crate) fn ma_node_get_heap_size(
         node_graph: &mut NodeGraph,
@@ -204,7 +272,7 @@ pub(super) mod node_ffi {
         heap_size
     }
 
-    // Do not expose to public API
+    // Do not expose to public API. Used internally by ma_node_init
     #[inline]
     pub(crate) fn ma_node_init_preallocated(
         node_graph: &mut NodeGraph,
@@ -215,7 +283,7 @@ pub(super) mod node_ffi {
         unsafe { sys::ma_node_init_preallocated(node_graph.to_raw(), config, heap, node) }
     }
 
-    // Expose on NodeGraph
+    // Not exposed to public API yet. Used for creating custom nodes only.
     #[inline]
     pub(crate) fn ma_node_init(
         node_graph: &NodeGraph,
@@ -228,15 +296,11 @@ pub(super) mod node_ffi {
         MaRawResult::resolve(res)
     }
 
+    // Creating nodes is currently not supported. Any nodes that used are not owned and should not be dropped.
     #[inline]
-    pub(crate) fn ma_node_uninit(
-        node: &mut Node,
-        allocation_callbacks: *const sys::ma_allocation_callbacks,
-    ) {
+    fn ma_node_uninit(node: &mut Node, allocation_callbacks: *const sys::ma_allocation_callbacks) {
         unsafe { sys::ma_node_uninit(node.to_raw(), allocation_callbacks) }
     }
-
-    // ---- graph / bus info ----
 
     #[inline]
     pub(crate) fn ma_node_get_node_graph<'a, P: AsNodePtr + ?Sized>(
@@ -280,8 +344,6 @@ pub(super) mod node_ffi {
         }
     }
 
-    // ---- connections ----
-
     #[inline]
     pub(crate) fn ma_node_attach_output_bus<P: AsNodePtr + ?Sized, Q: AsNodePtr + ?Sized>(
         node: &mut P,
@@ -309,7 +371,6 @@ pub(super) mod node_ffi {
         MaRawResult::resolve(res)
     }
 
-    /// Shared???
     #[inline]
     pub(crate) fn ma_node_detach_all_output_buses<P: AsNodePtr + ?Sized>(
         node: &mut P,
@@ -317,8 +378,6 @@ pub(super) mod node_ffi {
         let res = unsafe { sys::ma_node_detach_all_output_buses(node.as_engine_ptr()) };
         MaRawResult::resolve(res)
     }
-
-    // ---- per-output-bus volume ----
 
     #[inline]
     pub(crate) fn ma_node_set_output_bus_volume<P: AsNodePtr + ?Sized>(
@@ -339,8 +398,6 @@ pub(super) mod node_ffi {
     ) -> f32 {
         unsafe { sys::ma_node_get_output_bus_volume(node.as_engine_ptr(), output_bus_index) }
     }
-
-    // ---- state ----
 
     #[inline]
     pub(crate) fn ma_node_set_state<P: AsNodePtr + ?Sized>(
@@ -400,8 +457,6 @@ pub(super) mod node_ffi {
         }
     }
 
-    // ---- time ----
-
     #[inline]
     pub(crate) fn ma_node_get_time<P: AsNodePtr + ?Sized>(node: &P) -> u64 {
         unsafe { sys::ma_node_get_time(node.as_engine_ptr() as *const _) }
@@ -417,6 +472,7 @@ pub(super) mod node_ffi {
     }
 }
 
+// Creating nodes is currently not supported. Any nodes that used are not owned and should not be dropped.
 // impl<'a> Drop for Node<'a> {
 //     fn drop(&mut self) {
 //         node_ffi::ma_node_uninit(self, self.alloc_cb_ptr());

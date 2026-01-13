@@ -9,7 +9,7 @@ use crate::{
         math::vec3::Vec3,
         spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
     },
-    engine::{Engine, EngineRef},
+    engine::{Engine, EngineRef, node_graph::nodes::NodeRef},
     sound::{sound_flags::SoundFlags, sound_group::SoundGroup},
 };
 
@@ -64,6 +64,28 @@ impl Binding for Sound<'_> {
 impl<'a> Sound<'a> {
     pub fn engine(&self) -> Option<EngineRef<'_>> {
         sound_ffi::ma_sound_get_engine(self)
+    }
+
+    /// Returns a **borrowed view** of this sound as a node in the engine's node graph.
+    ///
+    /// In miniaudio, sounds participate in the audio routing system as graph nodes.
+    ///
+    /// In addition to its high-level playback API, a sound can also be viewed as a node in the engine’s node graph.
+    /// This method exposes that internal node so it can be connected, routed, or
+    /// inspected using node-graph APIs.
+    ///
+    /// # What this is for
+    ///
+    /// Use `as_node()` when you want to:
+    /// - connect this sound to other nodes (effects, mixers, splitters, etc.)
+    /// - insert the sound into a custom routing graph
+    /// - query node-level state exposed by the graph
+    ///
+    /// Most sound configuration (playback, volume, looping, spatialization, etc.)
+    /// should be done through [`Sound`] methods directly, not through the node view.
+    pub fn as_node(&'a self) -> NodeRef<'a> {
+        let ptr: *mut sys::ma_node = self.inner.cast::<sys::ma_node>();
+        NodeRef::from_ptr(ptr)
     }
 
     // TODO: Implement data source
@@ -1133,5 +1155,21 @@ pub(crate) mod sound_ffi {
     ) -> Result<()> {
         let res = unsafe { sys::ma_sound_set_end_callback(sound.to_raw(), callback, user_data) };
         MaRawResult::resolve(res)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::engine::{Engine, node_graph::nodes::NodeOps};
+
+    #[test]
+    fn sound_test_cast_to_node() {
+        let engine = Engine::new().unwrap();
+        let sound = engine.new_sound().unwrap();
+        let node_ref = sound.as_node();
+        let state = node_ref.state();
+        assert!(state.is_ok());
+        let state = state.unwrap();
+        println!("node state is: {:?}", state);
     }
 }

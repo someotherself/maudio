@@ -79,7 +79,7 @@ pub mod node_graph;
 /// Import this when you want access to [`Engine`] and [`EngineRef`] and all shared engine
 /// methods (provided by [`EngineOps`]) without having to import each item
 /// individually.
-/// This is purely a convenience module; importing from `engine` directly
+/// This is purely a convenience module; importing directly
 /// works just as well if you prefer explicit imports.
 pub mod prelude {
     pub use super::{Engine, EngineOps};
@@ -255,7 +255,7 @@ pub trait EngineOps: AsEnginePtr {
         engine_ffi::ma_engine_listener_is_enabled(self, listener)
     }
 
-    fn node_graph(&self) -> Option<NodeGraphRef<'_>> {
+    fn as_node_graph(&self) -> Option<NodeGraphRef<'_>> {
         engine_ffi::ma_engine_get_node_graph(self)
     }
 
@@ -366,6 +366,7 @@ pub trait EngineOps: AsEnginePtr {
     }
 }
 
+// These should be available to EngineRef
 impl Engine {
     /// Creates a new engine using the default configuration.
     ///
@@ -546,7 +547,7 @@ mod test {
         use std::path::Path;
 
         let engine = Engine::new().unwrap();
-        let path = Path::new("examples/assets/Goldberg Variations, BWV. 988 - Variation 4.mp3");
+        let path = Path::new("examples/assets/Goldberg_Variations_BWV_988_Variation_4.mp3");
         let mut sound = engine.new_sound_from_file(path).unwrap();
         sound.play_sound().unwrap();
     }
