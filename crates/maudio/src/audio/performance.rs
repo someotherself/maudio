@@ -28,14 +28,18 @@ pub enum PerformanceProfile {
     /// This typically results in larger internal buffers, which can improve
     /// robustness on slower systems or under heavy load, at the cost of
     /// increased audio latency.
-    Conservative
+    Conservative,
 }
 
 impl From<PerformanceProfile> for sys::ma_performance_profile {
     fn from(value: PerformanceProfile) -> Self {
         match value {
-            PerformanceProfile::LowLatency => sys::ma_performance_profile_ma_performance_profile_low_latency,
-            PerformanceProfile::Conservative => sys::ma_performance_profile_ma_performance_profile_conservative,
+            PerformanceProfile::LowLatency => {
+                sys::ma_performance_profile_ma_performance_profile_low_latency
+            }
+            PerformanceProfile::Conservative => {
+                sys::ma_performance_profile_ma_performance_profile_conservative
+            }
         }
     }
 }
@@ -45,8 +49,12 @@ impl TryFrom<sys::ma_performance_profile> for PerformanceProfile {
 
     fn try_from(value: sys::ma_performance_profile) -> Result<Self, Self::Error> {
         match value {
-            sys::ma_performance_profile_ma_performance_profile_low_latency => Ok(PerformanceProfile::LowLatency),
-            sys::ma_performance_profile_ma_performance_profile_conservative => Ok(PerformanceProfile::Conservative),
+            sys::ma_performance_profile_ma_performance_profile_low_latency => {
+                Ok(PerformanceProfile::LowLatency)
+            }
+            sys::ma_performance_profile_ma_performance_profile_conservative => {
+                Ok(PerformanceProfile::Conservative)
+            }
             _ => Err(MaError(sys::ma_result_MA_INVALID_ARGS)),
         }
     }
@@ -77,17 +85,19 @@ mod tests {
 
     #[test]
     fn test_performance_profile_try_from_sys_to_rust_low_latency() {
-        let rust_val =
-            PerformanceProfile::try_from(sys::ma_performance_profile_ma_performance_profile_low_latency)
-                .unwrap();
+        let rust_val = PerformanceProfile::try_from(
+            sys::ma_performance_profile_ma_performance_profile_low_latency,
+        )
+        .unwrap();
         assert_eq!(rust_val, PerformanceProfile::LowLatency);
     }
 
     #[test]
     fn test_performance_profile_try_from_sys_to_rust_conservative() {
-        let rust_val =
-            PerformanceProfile::try_from(sys::ma_performance_profile_ma_performance_profile_conservative)
-                .unwrap();
+        let rust_val = PerformanceProfile::try_from(
+            sys::ma_performance_profile_ma_performance_profile_conservative,
+        )
+        .unwrap();
         assert_eq!(rust_val, PerformanceProfile::Conservative);
     }
 

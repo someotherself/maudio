@@ -12,7 +12,7 @@ use crate::MaError;
 ///
 /// Not all backends or devices support every listed rate. Unsupported
 /// rates may be silently converted or rejected depending on the context.
-/// 
+///
 /// ### Notes
 ///
 /// - `48_000 Hz` and `44_100 Hz` are the most commonly used rates.
@@ -173,19 +173,23 @@ mod tests {
     #[test]
     fn test_sample_rate_try_from_sys_accepts_concrete_values() {
         assert_eq!(
-            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_48000).unwrap(),
+            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_48000)
+                .unwrap(),
             SampleRate::Sr48000
         );
         assert_eq!(
-            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_44100).unwrap(),
+            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_44100)
+                .unwrap(),
             SampleRate::Sr44100
         );
         assert_eq!(
-            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_8000).unwrap(),
+            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_8000)
+                .unwrap(),
             SampleRate::Sr8000
         );
         assert_eq!(
-            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_384000).unwrap(),
+            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_384000)
+                .unwrap(),
             SampleRate::Sr384000
         );
     }

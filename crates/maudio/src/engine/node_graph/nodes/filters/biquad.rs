@@ -4,6 +4,7 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     Binding, Result,
+    audio::formats::Format,
     engine::{
         AllocationCallbacks,
         node_graph::{AsNodeGraphPtr, NodeGraph, nodes::NodeRef},
@@ -11,28 +12,47 @@ use crate::{
 };
 
 /// A node that applies a biquad filtering to an audio signal.
-/// 
+///
 /// `BiquadNode` is one of the custom DSP nodes provided by miniaudio.
-/// 
+///
 /// By changing its coefficients, the same filter structure can act as low-pass, high-pass,
 /// EQ, or notch filters while maintaining continuous state for real-time processing.
-
+///
+/// ## Parameters
+///
+/// The filter is defined by six coefficients:
+///
+/// - **Numerator (feed-forward):** `b0`, `b1`, `b2`  
+/// - **Denominator (feed-back):** `a0`, `a1`, `a2`
+///
+/// ### Important invariants
+///
+/// - `a0` **must not be zero**
+/// - Coefficients **must not be pre-normalized**
+///   (normalization is handled internally)
+/// - Coefficients must be **finite** (`NaN` or ±∞ are invalid).
+///   Maudio current does not check the inputs passed to miniaudio
+///
+/// Violating these constraints may result in an error or undefined DSP behavior.
+///
 /// ## Notes
-/// - After creating the filter, use [`Self::reinit`] to change the values of the coefficients.
-/// This reinitializes the filter coefficients without clearing the internal state.
-/// This allows filter parameters to be updated in real time without causing
-/// audible artifacts such as clicks or pops.
+/// - After creating the filter, use [`Self::reinit`] and [`BiquadNodeParams`] to change the values of the coefficients.
+///   This reinitializes the filter coefficients without clearing the internal state.
+///   This allows filter parameters to be updated in real time without causing
+///   audible artifacts such as clicks or pops.
 /// - Changing the format or channel count after initialization is invalid and
-/// will result in an error.
-/// 
+///   will result in an error.
+///
 /// Use [`BiquadNodeBuilder`] to initialize
 pub struct BiquadNode<'a> {
     inner: *mut sys::ma_biquad_node,
     alloc_cb: Option<&'a AllocationCallbacks>,
     _marker: PhantomData<&'a NodeGraph<'a>>,
-    // May be needed during a reinit
+    // Below is needed during a reinit
     channels: u32,
-    format: u32,
+    // format is hard coded as ma_format_f32 in miniaudio `sys::ma_biquad_node_config_init()`
+    // but use value in inner.biquad.format anyway inside new_with_cfg_alloc_internal()
+    format: Format,
 }
 
 impl Binding for BiquadNode<'_> {
@@ -61,28 +81,29 @@ impl<'a> BiquadNode<'a> {
 
         n_biquad_ffi::ma_biquad_node_init(node_graph, config.to_raw(), alloc_cb, mem.as_mut_ptr())?;
 
-        let ptr = unsafe { mem.assume_init() };
-        let inner = Box::into_raw(ptr);
+        let ptr: Box<sys::ma_biquad_node> = unsafe { mem.assume_init() };
+        let inner: *mut sys::ma_biquad_node = Box::into_raw(ptr);
         Ok(Self {
             inner,
             alloc_cb: alloc,
             _marker: PhantomData,
             channels: config.inner.biquad.channels,
-            format: config.inner.biquad.format,
+            format: config.inner.biquad.format.try_into().unwrap_or(Format::F32),
         })
     }
 
-    fn reinit(&mut self, config: &BiquadNodeParams) -> Result<()> {
+    /// See [`BiquadNodeParams`] for creating a config
+    pub fn reinit(&mut self, config: &BiquadNodeParams) -> Result<()> {
         n_biquad_ffi::ma_biquad_node_reinit(config.to_raw(), self)
     }
 
-    /// Returns a **borrowed view** of this sound as a node in the engine's node graph.
+    /// Returns a **borrowed view** as a node in the engine's node graph.
     ///
     /// ### What this is for
     ///
     /// Use `as_node()` when you want to:
-    /// - connect this sound to other nodes (effects, mixers, splitters, etc.)
-    /// - insert the sound into a custom routing graph
+    /// - connect this to other nodes (effects, mixers, splitters, etc.)
+    /// - insert into a custom routing graph
     /// - query node-level state exposed by the graph
     pub fn as_node(&'a self) -> NodeRef<'a> {
         let ptr = self.inner.cast::<sys::ma_node>();
@@ -158,6 +179,7 @@ impl<N: AsNodeGraphPtr + ?Sized> Binding for BiquadNodeBuilder<'_, N> {
 }
 
 impl<'a, N: AsNodeGraphPtr + ?Sized> BiquadNodeBuilder<'a, N> {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         node_graph: &'a N,
         channels: u32,
@@ -180,6 +202,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> BiquadNodeBuilder<'a, N> {
     }
 }
 
+/// Used to build a config file needed by [`BiquadNode::reinit`]
 pub struct BiquadNodeParams {
     inner: sys::ma_biquad_config,
 }
@@ -199,8 +222,7 @@ impl Binding for BiquadNodeParams {
 
 impl BiquadNodeParams {
     pub fn new(
-        format: sys::ma_format,
-        channels: u32,
+        biquad_node: &BiquadNode,
         b0: f64,
         b1: f64,
         b2: f64,
@@ -208,24 +230,105 @@ impl BiquadNodeParams {
         a1: f64,
         a2: f64,
     ) -> Self {
-        let ptr = unsafe { sys::ma_biquad_config_init(format, channels, b0, b1, b2, a0, a1, a2) };
+        let ptr = unsafe {
+            sys::ma_biquad_config_init(
+                biquad_node.format.into(),
+                biquad_node.channels,
+                b0,
+                b1,
+                b2,
+                a0,
+                a1,
+                a2,
+            )
+        };
         Self { inner: ptr }
     }
 }
 
+#[cfg(feature = "device-tests")]
 #[cfg(test)]
 mod test {
-    use crate::engine::{Engine, EngineOps, node_graph::nodes::filters::biquad::BiquadNodeBuilder};
+    use crate::engine::{
+        Engine, EngineOps,
+        node_graph::nodes::filters::biquad::{BiquadNodeBuilder, BiquadNodeParams},
+    };
 
     #[test]
     fn test_biquad_builder_basic_init() {
         let engine = Engine::new().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
-        let _node = BiquadNodeBuilder::new(&node_graph, 1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1)
+        let mut node = BiquadNodeBuilder::new(&node_graph, 1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1)
             .build()
             .unwrap();
 
-        // let config = BiquadNodeParams::new(format, channels, b0, b1, b2, a0, a1, a2);
-        // node.reinit(config);
+        let config = BiquadNodeParams::new(&node, 0.11, 0.11, 0.11, 0.11, 0.11, 0.11);
+        node.reinit(&config).unwrap();
+    }
+
+    #[test]
+    fn test_biquad_reinit_same_params() {
+        let engine = Engine::new().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+        let mut node = BiquadNodeBuilder::new(&node_graph, 1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7)
+            .build()
+            .unwrap();
+
+        let config = BiquadNodeParams::new(&node, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7);
+        node.reinit(&config).unwrap();
+    }
+
+    #[test]
+    fn test_biquad_multiple_reinit() {
+        let engine = Engine::new().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+        let mut node = BiquadNodeBuilder::new(&node_graph, 1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1)
+            .build()
+            .unwrap();
+
+        for i in 0..10 {
+            let v = i as f64 * 0.01;
+            let config = BiquadNodeParams::new(&node, v, v, v, v, v, v);
+            node.reinit(&config).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_biquad_nan_coefficients_1() {
+        let engine = Engine::new().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+        let result =
+            BiquadNodeBuilder::new(&node_graph, 1, f32::NAN, 0.0, 0.0, 0.0, 0.0, 0.0).build();
+
+        assert!(result.is_err(), "expected NaN coefficients to be rejected");
+    }
+
+    #[test]
+    fn test_biquad_nan_coefficients_2() {
+        let engine = Engine::new().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+        let mut node = BiquadNodeBuilder::new(&node_graph, 1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1)
+            .build()
+            .unwrap();
+
+        let config = BiquadNodeParams::new(&node, f64::INFINITY, 0.0, 0.0, 0.0, 0.0, 0.0);
+
+        // TODO: Should check inputs on Rust side to prevent INFITITY ?
+        let _ = node.reinit(&config);
+    }
+
+    #[test]
+    fn test_biquad_extreme_coefficients() {
+        let engine = Engine::new().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let mut node =
+            BiquadNodeBuilder::new(&node_graph, 1, 1e30, -1e30, 1e30, -1e30, 1e30, -1e30)
+                .build()
+                .unwrap();
+
+        let config = BiquadNodeParams::new(&node, 1e30, 1e30, 1e30, 1e30, 1e30, 1e30);
+
+        let _ = node.reinit(&config);
     }
 }

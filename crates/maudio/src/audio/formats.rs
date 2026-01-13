@@ -20,7 +20,7 @@ pub enum Format {
     S24,
     S32,
     F32,
-    Count
+    Count,
 }
 
 impl From<Format> for sys::ma_format {
@@ -90,7 +90,7 @@ impl TryFrom<sys::ma_format> for Format {
 pub enum Dither {
     None,
     Rectangle,
-    Triangle
+    Triangle,
 }
 
 impl From<Dither> for sys::ma_dither_mode {
@@ -107,9 +107,9 @@ impl TryFrom<sys::ma_dither_mode> for Dither {
     type Error = MaError;
     fn try_from(value: sys::ma_dither_mode) -> Result<Self, Self::Error> {
         match value {
-                sys::ma_dither_mode_ma_dither_mode_none => Ok(Dither::None),
-                sys::ma_dither_mode_ma_dither_mode_rectangle => Ok(Dither::Rectangle),
-                sys::ma_dither_mode_ma_dither_mode_triangle => Ok(Dither::Triangle),
+            sys::ma_dither_mode_ma_dither_mode_none => Ok(Dither::None),
+            sys::ma_dither_mode_ma_dither_mode_rectangle => Ok(Dither::Rectangle),
+            sys::ma_dither_mode_ma_dither_mode_triangle => Ok(Dither::Triangle),
             _ => Err(MaError(sys::ma_result_MA_INVALID_ARGS)),
         }
     }
@@ -126,23 +126,62 @@ mod tests {
 
     #[test]
     fn test_formats_format_into_sys_matches_expected_constants() {
-        assert_eq!(sys::ma_format::from(Format::Unknown), sys::ma_format_ma_format_unknown);
-        assert_eq!(sys::ma_format::from(Format::U8),      sys::ma_format_ma_format_u8);
-        assert_eq!(sys::ma_format::from(Format::S16),     sys::ma_format_ma_format_s16);
-        assert_eq!(sys::ma_format::from(Format::S24),     sys::ma_format_ma_format_s24);
-        assert_eq!(sys::ma_format::from(Format::S32),     sys::ma_format_ma_format_s32);
-        assert_eq!(sys::ma_format::from(Format::F32),     sys::ma_format_ma_format_f32);
-        assert_eq!(sys::ma_format::from(Format::Count),   sys::ma_format_ma_format_count);
+        assert_eq!(
+            sys::ma_format::from(Format::Unknown),
+            sys::ma_format_ma_format_unknown
+        );
+        assert_eq!(
+            sys::ma_format::from(Format::U8),
+            sys::ma_format_ma_format_u8
+        );
+        assert_eq!(
+            sys::ma_format::from(Format::S16),
+            sys::ma_format_ma_format_s16
+        );
+        assert_eq!(
+            sys::ma_format::from(Format::S24),
+            sys::ma_format_ma_format_s24
+        );
+        assert_eq!(
+            sys::ma_format::from(Format::S32),
+            sys::ma_format_ma_format_s32
+        );
+        assert_eq!(
+            sys::ma_format::from(Format::F32),
+            sys::ma_format_ma_format_f32
+        );
+        assert_eq!(
+            sys::ma_format::from(Format::Count),
+            sys::ma_format_ma_format_count
+        );
     }
 
     #[test]
     fn test_formats_format_try_from_sys_accepts_known_values() {
-        assert_eq!(Format::try_from(sys::ma_format_ma_format_unknown).unwrap(), Format::Unknown);
-        assert_eq!(Format::try_from(sys::ma_format_ma_format_u8).unwrap(),      Format::U8);
-        assert_eq!(Format::try_from(sys::ma_format_ma_format_s16).unwrap(),     Format::S16);
-        assert_eq!(Format::try_from(sys::ma_format_ma_format_s24).unwrap(),     Format::S24);
-        assert_eq!(Format::try_from(sys::ma_format_ma_format_s32).unwrap(),     Format::S32);
-        assert_eq!(Format::try_from(sys::ma_format_ma_format_f32).unwrap(),     Format::F32);
+        assert_eq!(
+            Format::try_from(sys::ma_format_ma_format_unknown).unwrap(),
+            Format::Unknown
+        );
+        assert_eq!(
+            Format::try_from(sys::ma_format_ma_format_u8).unwrap(),
+            Format::U8
+        );
+        assert_eq!(
+            Format::try_from(sys::ma_format_ma_format_s16).unwrap(),
+            Format::S16
+        );
+        assert_eq!(
+            Format::try_from(sys::ma_format_ma_format_s24).unwrap(),
+            Format::S24
+        );
+        assert_eq!(
+            Format::try_from(sys::ma_format_ma_format_s32).unwrap(),
+            Format::S32
+        );
+        assert_eq!(
+            Format::try_from(sys::ma_format_ma_format_f32).unwrap(),
+            Format::F32
+        );
     }
 
     #[test]

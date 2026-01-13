@@ -15,7 +15,7 @@ pub enum StreamFormat {
     ///
     /// Audio samples are provided directly as raw PCM data.
     /// This is the only stream format currently supported by miniaudio.
-    Pcm
+    Pcm,
 }
 
 impl From<StreamFormat> for sys::ma_stream_format {
@@ -97,8 +97,7 @@ mod tests {
 
     #[test]
     fn test_stream_format_try_from_sys_to_rust_pcm() {
-        let rust_val =
-            StreamFormat::try_from(sys::ma_stream_format_ma_stream_format_pcm).unwrap();
+        let rust_val = StreamFormat::try_from(sys::ma_stream_format_ma_stream_format_pcm).unwrap();
         assert_eq!(rust_val, StreamFormat::Pcm);
     }
 
@@ -112,10 +111,7 @@ mod tests {
     #[test]
     fn test_stream_layout_from_rust_to_sys_interleaved() {
         let sys_val: sys::ma_stream_layout = StreamLayout::Interleaved.into();
-        assert_eq!(
-            sys_val,
-            sys::ma_stream_layout_ma_stream_layout_interleaved
-        );
+        assert_eq!(sys_val, sys::ma_stream_layout_ma_stream_layout_interleaved);
     }
 
     #[test]

@@ -49,14 +49,12 @@ pub enum ChannelMixMode {
 impl From<ChannelMixMode> for sys::ma_channel_mix_mode {
     fn from(value: ChannelMixMode) -> Self {
         match value {
-            ChannelMixMode::Rectangular =>
-                sys::ma_channel_mix_mode_ma_channel_mix_mode_rectangular,
-            ChannelMixMode::Simple =>
-                sys::ma_channel_mix_mode_ma_channel_mix_mode_simple,
-            ChannelMixMode::CustomWeights =>
-                sys::ma_channel_mix_mode_ma_channel_mix_mode_custom_weights,
-            ChannelMixMode::Default =>
-                sys::ma_channel_mix_mode_ma_channel_mix_mode_default,
+            ChannelMixMode::Rectangular => sys::ma_channel_mix_mode_ma_channel_mix_mode_rectangular,
+            ChannelMixMode::Simple => sys::ma_channel_mix_mode_ma_channel_mix_mode_simple,
+            ChannelMixMode::CustomWeights => {
+                sys::ma_channel_mix_mode_ma_channel_mix_mode_custom_weights
+            }
+            ChannelMixMode::Default => sys::ma_channel_mix_mode_ma_channel_mix_mode_default,
         }
     }
 }
@@ -66,16 +64,16 @@ impl TryFrom<sys::ma_channel_mix_mode> for ChannelMixMode {
 
     fn try_from(value: sys::ma_channel_mix_mode) -> Result<Self, Self::Error> {
         match value {
-            sys::ma_channel_mix_mode_ma_channel_mix_mode_rectangular =>
-                Ok(ChannelMixMode::Rectangular),
-            sys::ma_channel_mix_mode_ma_channel_mix_mode_simple =>
-                Ok(ChannelMixMode::Simple),
-            sys::ma_channel_mix_mode_ma_channel_mix_mode_custom_weights =>
-                Ok(ChannelMixMode::CustomWeights),
+            sys::ma_channel_mix_mode_ma_channel_mix_mode_rectangular => {
+                Ok(ChannelMixMode::Rectangular)
+            }
+            sys::ma_channel_mix_mode_ma_channel_mix_mode_simple => Ok(ChannelMixMode::Simple),
+            sys::ma_channel_mix_mode_ma_channel_mix_mode_custom_weights => {
+                Ok(ChannelMixMode::CustomWeights)
+            }
             _ => Err(MaError(sys::ma_result_MA_INVALID_ARGS)),
         }
     }
-
 }
 
 /// Standard channel ordering conventions.
@@ -175,7 +173,9 @@ impl TryFrom<sys::ma_standard_channel_map> for ChannelMap {
 
     fn try_from(value: sys::ma_standard_channel_map) -> Result<Self, Self::Error> {
         match value {
-            sys::ma_standard_channel_map_ma_standard_channel_map_microsoft => Ok(ChannelMap::Microsoft),
+            sys::ma_standard_channel_map_ma_standard_channel_map_microsoft => {
+                Ok(ChannelMap::Microsoft)
+            }
             sys::ma_standard_channel_map_ma_standard_channel_map_alsa => Ok(ChannelMap::Alsa),
             sys::ma_standard_channel_map_ma_standard_channel_map_rfc3551 => Ok(ChannelMap::Rfc3551),
             sys::ma_standard_channel_map_ma_standard_channel_map_flac => Ok(ChannelMap::Flac),
@@ -373,7 +373,10 @@ mod tests {
         let from_default =
             ChannelMixMode::try_from(sys::ma_channel_mix_mode_ma_channel_mix_mode_default).unwrap();
         assert!(
-            matches!(from_default, ChannelMixMode::Rectangular | ChannelMixMode::Default),
+            matches!(
+                from_default,
+                ChannelMixMode::Rectangular | ChannelMixMode::Default
+            ),
             "Expected DEFAULT/RECTANGULAR alias to map to Rectangular or Default; got {from_default:?}"
         );
     }

@@ -81,13 +81,13 @@ impl<'a> DelayNode<'a> {
         n_delay_ffi::ma_delay_node_set_decay(self, decay);
     }
 
-    /// Returns a **borrowed view** of this sound as a node in the engine's node graph.
+    /// Returns a **borrowed view** as a node in the engine's node graph.
     ///
     /// ### What this is for
     ///
     /// Use `as_node()` when you want to:
-    /// - connect this sound to other nodes (effects, mixers, splitters, etc.)
-    /// - insert the sound into a custom routing graph
+    /// - connect this to other nodes (effects, mixers, splitters, etc.)
+    /// - insert into a custom routing graph
     /// - query node-level state exposed by the graph
     pub fn as_node(&'a self) -> NodeRef<'a> {
         let ptr = self.inner.cast::<sys::ma_node>();
