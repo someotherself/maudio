@@ -84,6 +84,7 @@ impl<'a> Sound<'a> {
     /// Most sound configuration (playback, volume, looping, spatialization, etc.)
     /// should be done through [`Sound`] methods directly, not through the node view.
     pub fn as_node(&self) -> NodeRef<'a> {
+        debug_assert!(!self.inner.is_null());
         let ptr: *mut sys::ma_node = self.inner.cast::<sys::ma_node>();
         NodeRef::from_ptr(ptr)
     }

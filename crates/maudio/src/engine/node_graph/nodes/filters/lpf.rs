@@ -98,6 +98,7 @@ impl<'a> LpfNode<'a> {
     /// - insert into a custom routing graph
     /// - query node-level state exposed by the graph
     pub fn as_node(&self) -> NodeRef<'a> {
+        debug_assert!(!self.inner.is_null());
         let ptr = self.inner.cast::<sys::ma_node>();
         NodeRef::from_ptr(ptr)
     }
@@ -175,8 +176,9 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> LpfNodeBuilder<'a, N> {
         cutoff_freq: f64,
         order: u32,
     ) -> Self {
-        let ptr =
-            unsafe { sys::ma_lpf_node_config_init(channels, sample_rate.into(), cutoff_freq, order) };
+        let ptr = unsafe {
+            sys::ma_lpf_node_config_init(channels, sample_rate.into(), cutoff_freq, order)
+        };
         LpfNodeBuilder {
             inner: ptr,
             node_graph,
@@ -303,8 +305,8 @@ mod test {
         let node_graph = engine.as_node_graph().unwrap();
 
         for &order in &[1, 2, 4, 8] {
-            let node = LpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1000.0, order)
-                .build();
+            let node =
+                LpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1000.0, order).build();
 
             let _ = node;
         }
@@ -315,10 +317,8 @@ mod test {
         let engine = Engine::new().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
-        let res = LpfNodeBuilder::new(&node_graph, 0, SampleRate::Sr44100, 1000.0, 1)
-            .build();
+        let res = LpfNodeBuilder::new(&node_graph, 0, SampleRate::Sr44100, 1000.0, 1).build();
 
         assert!(res.is_err());
     }
-
 }

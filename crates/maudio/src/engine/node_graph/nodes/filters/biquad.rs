@@ -106,6 +106,7 @@ impl<'a> BiquadNode<'a> {
     /// - insert into a custom routing graph
     /// - query node-level state exposed by the graph
     pub fn as_node(&self) -> NodeRef<'a> {
+        debug_assert!(!self.inner.is_null());
         let ptr = self.inner.cast::<sys::ma_node>();
         NodeRef::from_ptr(ptr)
     }
