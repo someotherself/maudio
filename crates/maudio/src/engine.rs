@@ -532,7 +532,13 @@ mod test {
     }
 
     #[test]
-    #[cfg(feature = "device-tests")]
+    fn test_blank() {
+        let text = "aaa";
+        println!("{text}");
+    }
+
+    #[test]
+    // #[cfg(feature = "device-tests")]
     fn engine_test_init_engine_and_sound() {
         use super::*;
 
@@ -541,15 +547,20 @@ mod test {
     }
 
     #[test]
-    #[cfg(feature = "device-tests")]
+    // #[cfg(feature = "device-tests")]
     fn engine_test_init_sound_from_path() {
         use super::*;
         use std::path::Path;
 
         let engine = Engine::new().unwrap();
         let path = Path::new("examples/assets/Goldberg_Variations_BWV_988_Variation_4.mp3");
+        if !path.exists() {
+            eprintln!("skipping: asset not found at {:?}", path);
+            return;
+        }
         let mut sound = engine.new_sound_from_file(path).unwrap();
         sound.play_sound().unwrap();
+        sound.stop_sound().unwrap();
     }
 }
 

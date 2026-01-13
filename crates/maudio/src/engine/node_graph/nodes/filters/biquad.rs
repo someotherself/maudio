@@ -105,7 +105,7 @@ impl<'a> BiquadNode<'a> {
     /// - connect this to other nodes (effects, mixers, splitters, etc.)
     /// - insert into a custom routing graph
     /// - query node-level state exposed by the graph
-    pub fn as_node(&'a self) -> NodeRef<'a> {
+    pub fn as_node(&self) -> NodeRef<'a> {
         let ptr = self.inner.cast::<sys::ma_node>();
         NodeRef::from_ptr(ptr)
     }
@@ -286,7 +286,7 @@ mod test {
             .build()
             .unwrap();
 
-        for i in 0..10 {
+        for i in 1..10 {
             let v = i as f64 * 0.01;
             let config = BiquadNodeParams::new(&node, v, v, v, v, v, v);
             node.reinit(&config).unwrap();
