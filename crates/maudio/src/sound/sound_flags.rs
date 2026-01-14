@@ -1,5 +1,7 @@
 use maudio_sys::ffi as sys;
 
+pub type SoundFlagsRaw = sys::ma_sound_flags;
+
 /// Bitflags controlling how a sound is loaded, initialized, and processed.
 ///
 /// `SoundFlags` is a typed wrapper around miniaudio’s `ma_sound_flags` and is
@@ -11,7 +13,7 @@ use maudio_sys::ffi as sys;
 /// miniaudio without modification.
 #[repr(transparent)]
 #[derive(Debug, PartialEq, Clone, Copy, Hash, Eq)]
-pub struct SoundFlags(u32);
+pub struct SoundFlags(SoundFlagsRaw);
 
 impl SoundFlags {
     /// Default value. No flags.
@@ -74,8 +76,11 @@ impl SoundFlags {
     pub const NO_SPATIALIZATION: Self = Self(sys::ma_sound_flags_MA_SOUND_FLAG_NO_SPATIALIZATION);
 
     #[inline]
-    pub const fn bits(self) -> u32 {
-        self.0
+    #[allow(clippy::cast_sign_loss)]
+    #[allow(clippy::useless_conversion)]
+    #[allow(clippy::unnecessary_cast)]
+    pub fn bits(self) -> u32 {
+        self.0 as u32
     }
 
     /// Set or clear bits
@@ -91,7 +96,7 @@ impl SoundFlags {
     /// Create SoundFlags from a u32 bitmask
     #[inline]
     pub const fn from_bits(bits: u32) -> Self {
-        Self(bits)
+        Self(bits as SoundFlagsRaw)
     }
 
     /// Check if all the bits in other are set
@@ -167,9 +172,19 @@ impl core::ops::Not for SoundFlags {
         Self(!self.0)
     }
 }
+
+#[cfg(unix)]
 impl From<SoundFlags> for u32 {
     #[inline]
     fn from(v: SoundFlags) -> u32 {
+        v.0
+    }
+}
+
+#[cfg(windows)]
+impl From<SoundFlags> for i32 {
+    #[inline]
+    fn from(v: SoundFlags) -> i32 {
         v.0
     }
 }

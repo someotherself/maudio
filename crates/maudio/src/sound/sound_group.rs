@@ -699,8 +699,7 @@ mod test {
     fn test_sound_group_basic() {
         let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
-        let engine_ref = s_group.engine();
-        drop(engine_ref);
+        let _engine_ref = s_group.engine();
     }
 
     #[test]
@@ -771,10 +770,10 @@ mod test {
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_spatialization(false);
-        assert_eq!(s_group.spatialization(), false);
+        assert!(!s_group.spatialization());
 
         s_group.set_spatialization(true);
-        assert_eq!(s_group.spatialization(), true);
+        assert!(s_group.spatialization());
     }
 
     // #[test] // TODO

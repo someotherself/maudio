@@ -103,7 +103,7 @@ mod tests {
 
     #[test]
     fn test_stream_format_try_from_invalid_returns_error() {
-        let invalid: sys::ma_stream_format = i32::cast_unsigned(0x7FFF_i32);
+        let invalid: sys::ma_stream_format = 0x7FFF as sys::ma_stream_format;
         let err = StreamFormat::try_from(invalid).unwrap_err();
         assert_eq!(err, MaError(sys::ma_result_MA_INVALID_ARGS));
     }
@@ -139,7 +139,7 @@ mod tests {
 
     #[test]
     fn test_stream_layout_try_from_invalid_returns_error() {
-        let invalid: sys::ma_stream_layout = i32::cast_unsigned(0x7FFF_i32);
+        let invalid: sys::ma_stream_format = 0x7FFF as sys::ma_stream_format;
         let err = StreamLayout::try_from(invalid).unwrap_err();
         assert_eq!(err, MaError(sys::ma_result_MA_INVALID_ARGS));
     }

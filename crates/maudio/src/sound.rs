@@ -446,8 +446,8 @@ impl<'a> Sound<'a> {
         {
             use crate::engine::wide_null_terminated;
 
-            let path = wide_null_terminated(path)?;
-            sound_ffi::ma_sound_init_from_file_w(engine, path, flags, sound_group, fence, sound)
+            let path = wide_null_terminated(path);
+            sound_ffi::ma_sound_init_from_file_w(engine, &path, flags, sound_group, fence, sound)
         }
 
         // TODO. What other platforms can be added
@@ -488,8 +488,6 @@ pub fn sound_volume_linear_to_db(factor: f32) -> f32 {
 pub(crate) mod sound_ffi {
     use maudio_sys::ffi as sys;
 
-    use std::ffi::CString;
-
     use crate::Binding;
     use crate::Result;
     use crate::audio::math::vec3::Vec3;
@@ -509,7 +507,7 @@ pub(crate) mod sound_ffi {
     #[cfg(unix)]
     pub fn ma_sound_init_from_file(
         engine: &Engine,
-        path: CString,
+        path: std::ffi::CString,
         flags: SoundFlags,
         s_group: &mut Option<&SoundGroup>,
         done_fence: Option<*mut sys::ma_fence>,
@@ -540,12 +538,12 @@ pub(crate) mod sound_ffi {
         engine: &Engine,
         path: &[u16],
         flags: SoundFlags,
-        s_group: Option<&mut SoundGroup>,
+        s_group: &mut Option<&SoundGroup>,
         done_fence: Option<*mut sys::ma_fence>,
-        sound: &mut Sound,
+        sound: *mut sys::ma_sound,
     ) -> Result<()> {
         let s_group: *mut sys::ma_sound_group =
-            s_group.map_or(core::ptr::null_mut(), |g| g.assume_init_mut_ptr());
+            s_group.map_or(core::ptr::null_mut(), |g| g.to_raw());
         let done_fence = done_fence.unwrap_or(core::ptr::null_mut());
 
         let res = unsafe {

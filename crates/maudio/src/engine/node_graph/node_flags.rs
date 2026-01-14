@@ -1,12 +1,14 @@
 use maudio_sys::ffi as sys;
 
+pub type NodeFlagsRaw = sys::ma_node_flags;
+
 /// Flags that control how a node behaves inside the node graph.
 ///
 /// These flags influence when the node's processing callback is invoked,
 /// how missing input is handled, and how the node contributes to the final mix.
 #[repr(transparent)]
 #[derive(Debug, PartialEq, Clone, Copy, Hash, Eq)]
-struct NodeFlags(u32);
+struct NodeFlags(NodeFlagsRaw);
 
 impl NodeFlags {
     pub const NONE: Self = Self(0);
@@ -92,8 +94,11 @@ impl NodeFlags {
     pub const SILENT_OUTPUT: Self = Self(sys::ma_node_flags_MA_NODE_FLAG_SILENT_OUTPUT);
 
     #[inline]
-    pub const fn bits(self) -> u32 {
-        self.0
+    #[allow(clippy::cast_sign_loss)]
+    #[allow(clippy::useless_conversion)]
+    #[allow(clippy::unnecessary_cast)]
+    pub fn bits(self) -> u32 {
+        self.0 as u32
     }
 
     /// Set or clear bits
@@ -109,7 +114,7 @@ impl NodeFlags {
     /// Create NodeFlags from a u32 bitmask
     #[inline]
     pub const fn from_bits(bits: u32) -> Self {
-        Self(bits)
+        Self(bits as NodeFlagsRaw)
     }
 
     /// Check if all the bits in other are set
@@ -185,10 +190,14 @@ impl core::ops::Not for NodeFlags {
         Self(!self.0)
     }
 }
+
 impl From<NodeFlags> for u32 {
     #[inline]
+    #[allow(clippy::cast_sign_loss)]
+    #[allow(clippy::useless_conversion)]
+    #[allow(clippy::unnecessary_cast)]
     fn from(v: NodeFlags) -> u32 {
-        v.0
+        v.0 as u32
     }
 }
 

@@ -317,9 +317,7 @@ mod tests {
 
     #[test]
     fn test_channel_map_try_from_invalid_returns_error() {
-        // Create an invalid sys enum value. Bindgen usually emits these as C-like enums,
-        // so transmuting an out-of-range integer is the typical FFI test approach.
-        let invalid: sys::ma_standard_channel_map = i32::cast_unsigned(0x7FFF_i32);
+        let invalid: sys::ma_standard_channel_map = 0x7FFF as sys::ma_standard_channel_map;
 
         let err = ChannelMap::try_from(invalid).unwrap_err();
         assert_eq!(err, MaError(sys::ma_result_MA_INVALID_ARGS));
@@ -383,7 +381,7 @@ mod tests {
 
     #[test]
     fn test_channel_mix_mode_try_from_invalid_returns_error() {
-        let invalid: sys::ma_channel_mix_mode = i32::cast_unsigned(0x7FFF_i32);
+        let invalid: sys::ma_standard_channel_map = 0x7FFF as sys::ma_standard_channel_map;
 
         let err = ChannelMixMode::try_from(invalid).unwrap_err();
         assert_eq!(err, MaError(sys::ma_result_MA_INVALID_ARGS));

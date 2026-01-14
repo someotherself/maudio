@@ -48,10 +48,10 @@
 //! The engine runs an internal audio callback on a real-time thread. Care should
 //! be taken to avoid heavy work or allocations in contexts that must remain
 //! real-time safe.
-use std::{cell::Cell, ffi::CString, marker::PhantomData, mem::MaybeUninit, path::Path};
+use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit, path::Path};
 
 use crate::{
-    Binding, ErrorKinds, MaError, Result,
+    Binding, ErrorKinds, Result,
     audio::{math::vec3::Vec3, sample_rate::SampleRate, spatial::cone::Cone},
     engine::{
         engine_builder::EngineBuilder,
@@ -495,9 +495,10 @@ impl Drop for Engine {
 }
 
 #[cfg(unix)]
-pub(crate) fn cstring_from_path(path: &Path) -> Result<CString> {
+pub(crate) fn cstring_from_path(path: &Path) -> Result<std::ffi::CString> {
     use std::os::unix::ffi::OsStrExt;
-    CString::new(path.as_os_str().as_bytes()).map_err(|_| MaError(sys::ma_result_MA_INVALID_ARGS))
+    std::ffi::CString::new(path.as_os_str().as_bytes())
+        .map_err(|_| crate::MaError(sys::ma_result_MA_INVALID_ARGS))
 }
 
 #[cfg(windows)]

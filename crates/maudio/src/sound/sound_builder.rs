@@ -5,7 +5,7 @@ use maudio_sys::ffi as sys;
 use crate::{
     Binding, Result,
     audio::math::vec3::Vec3,
-    engine::{Engine, EngineOps, cstring_from_path},
+    engine::{Engine, EngineOps},
     sound::{Sound, SoundSource, sound_flags::SoundFlags},
 };
 
@@ -497,13 +497,13 @@ impl<'a> SoundBuilder<'a> {
             #[cfg(unix)]
             SoundSource::FileUtf8(p) => {
                 null_fields(self);
-                let cstring = cstring_from_path(p)?;
+                let cstring = crate::engine::cstring_from_path(p)?;
                 self.inner.pFilePath = cstring.as_ptr();
             }
             #[cfg(windows)]
             SoundSource::FileWide(p) => {
                 null_fields(self);
-                let wide_path = wide_null_terminated(p);
+                let wide_path = crate::engine::wide_null_terminated(p);
                 self.inner.pFilePathW = wide_path.as_ptr();
             }
         }

@@ -103,7 +103,7 @@ mod tests {
 
     #[test]
     fn test_performance_profile_try_from_invalid_returns_error() {
-        let invalid: sys::ma_performance_profile = i32::cast_unsigned(0x7FFF_i32);
+        let invalid: sys::ma_performance_profile = 0x7FFF as sys::ma_performance_profile;
 
         let err = PerformanceProfile::try_from(invalid).unwrap_err();
         assert_eq!(err, MaError(sys::ma_result_MA_INVALID_ARGS));
