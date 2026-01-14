@@ -39,7 +39,7 @@ fn main() {
     cc::Build::new()
         .file("native/miniaudio_version_check.c")
         .file("native/miniaudio/miniaudio.c")
-        .include("native/miniaudio")
+        .include("native")
         .flag_if_supported("-Wno-maybe-uninitialized")
         .flag_if_supported("-Wno-unused-parameter")
         .flag_if_supported("-Wno-unused-function")
