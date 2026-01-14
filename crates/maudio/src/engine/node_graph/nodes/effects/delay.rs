@@ -107,7 +107,7 @@ impl<'a> DelayNode<'a> {
 
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_delay_node>> = Box::new_uninit();
 
-        n_delay_ffi::ma_delay_node_init_with_config(
+        n_delay_ffi::ma_delay_node_init(
             node_graph,
             config,
             alloc_cb,
@@ -138,7 +138,8 @@ pub(crate) mod n_delay_ffi {
     };
     use maudio_sys::ffi as sys;
 
-    pub fn ma_delay_node_init_with_config<N: AsNodeGraphPtr + ?Sized>(
+    #[inline]
+    pub fn ma_delay_node_init<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: *const sys::ma_delay_node_config,
         alloc_cb: *const sys::ma_allocation_callbacks,
@@ -150,10 +151,12 @@ pub(crate) mod n_delay_ffi {
         MaRawResult::resolve(res)
     }
 
+    #[inline]
     pub fn ma_delay_node_uninit(node: &mut DelayNode) {
         unsafe { sys::ma_delay_node_uninit(node.to_raw(), node.alloc_cb_ptr()) }
     }
 
+    #[inline]
     pub fn ma_delay_node_set_wet(node: &mut DelayNode, wet: f32) {
         unsafe {
             sys::ma_delay_node_set_wet(node.to_raw(), wet);
@@ -188,6 +191,7 @@ pub(crate) mod n_delay_ffi {
 impl Drop for DelayNode<'_> {
     fn drop(&mut self) {
         n_delay_ffi::ma_delay_node_uninit(self);
+        drop(unsafe { Box::from_raw(self.to_raw()) });
     }
 }
 

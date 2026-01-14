@@ -121,6 +121,7 @@ pub(crate) mod n_hpf_ffi {
         engine::node_graph::{AsNodeGraphPtr, nodes::filters::hpf::HpfNode},
     };
 
+    #[inline]
     pub fn ma_hpf_node_init<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: *const sys::ma_hpf_node_config,
@@ -132,12 +133,14 @@ pub(crate) mod n_hpf_ffi {
         MaRawResult::resolve(res)
     }
 
+    #[inline]
     pub fn ma_hpf_node_uninit(node: &mut HpfNode) {
         unsafe {
             sys::ma_hpf_node_uninit(node.to_raw(), node.alloc_cb_ptr());
         }
     }
 
+    #[inline]
     pub fn ma_hpf_node_reinit(config: *const sys::ma_hpf_config, node: &mut HpfNode) -> Result<()> {
         let res = unsafe { sys::ma_hpf_node_reinit(config, node.to_raw()) };
         MaRawResult::resolve(res)

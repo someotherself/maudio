@@ -123,6 +123,7 @@ pub(crate) mod n_peak_ffi {
     };
     use maudio_sys::ffi as sys;
 
+    #[inline]
     pub fn ma_peak_node_init<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: *const sys::ma_peak_node_config,
@@ -135,12 +136,14 @@ pub(crate) mod n_peak_ffi {
         MaRawResult::resolve(res)
     }
 
+    #[inline]
     pub fn ma_peak_node_uninit(node: &mut PeakNode) {
         unsafe {
             sys::ma_peak_node_uninit(node.to_raw(), node.alloc_cb_ptr());
         }
     }
 
+    #[inline]
     pub fn ma_peak_node_reinit(
         config: *const sys::ma_peak_config,
         node: &mut PeakNode,

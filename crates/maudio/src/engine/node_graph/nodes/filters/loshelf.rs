@@ -127,6 +127,7 @@ pub(crate) mod n_loshelf_ffi {
         engine::node_graph::{AsNodeGraphPtr, nodes::filters::loshelf::LoShelfNode},
     };
 
+    #[inline]
     pub fn ma_loshelf_node_init<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: *const sys::ma_loshelf_node_config,
@@ -139,12 +140,14 @@ pub(crate) mod n_loshelf_ffi {
         MaRawResult::resolve(res)
     }
 
+    #[inline]
     pub fn ma_loshelf_node_uninit(node: &mut LoShelfNode) {
         unsafe {
             sys::ma_loshelf_node_uninit(node.to_raw(), node.alloc_cb_ptr());
         }
     }
 
+    #[inline]
     pub fn ma_loshelf_node_reinit(
         config: *const sys::ma_loshelf_config,
         node: &mut LoShelfNode,

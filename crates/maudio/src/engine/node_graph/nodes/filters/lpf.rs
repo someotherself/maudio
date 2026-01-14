@@ -120,6 +120,7 @@ pub(crate) mod n_lpf_ffi {
         engine::node_graph::{AsNodeGraphPtr, nodes::filters::lpf::LpfNode},
     };
 
+    #[inline]
     pub fn ma_lpf_node_init<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: *const sys::ma_lpf_node_config,
@@ -131,12 +132,14 @@ pub(crate) mod n_lpf_ffi {
         MaRawResult::resolve(res)
     }
 
+    #[inline]
     pub fn ma_lpf_node_uninit(node: &mut LpfNode) {
         unsafe {
             sys::ma_lpf_node_uninit(node.to_raw(), node.alloc_cb_ptr());
         }
     }
 
+    #[inline]
     pub fn ma_lpf_node_reinit(config: *const sys::ma_lpf_config, node: &mut LpfNode) -> Result<()> {
         let res = unsafe { sys::ma_lpf_node_reinit(config, node.to_raw()) };
         MaRawResult::resolve(res)

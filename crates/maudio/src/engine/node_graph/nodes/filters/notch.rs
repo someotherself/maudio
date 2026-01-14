@@ -121,6 +121,7 @@ pub(crate) mod n_notch_ffi {
         engine::node_graph::{AsNodeGraphPtr, nodes::filters::notch::NotchNode},
     };
 
+    #[inline]
     pub fn ma_notch_node_init<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: *const sys::ma_notch_node_config,
@@ -133,12 +134,14 @@ pub(crate) mod n_notch_ffi {
         MaRawResult::resolve(res)
     }
 
+    #[inline]
     pub fn ma_notch_node_uninit(node: &mut NotchNode) {
         unsafe {
             sys::ma_notch_node_uninit(node.to_raw(), node.alloc_cb_ptr());
         }
     }
 
+    #[inline]
     pub fn ma_notch_node_reinit(
         config: *const sys::ma_notch_config,
         node: &mut NotchNode,

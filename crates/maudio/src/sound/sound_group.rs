@@ -256,6 +256,7 @@ impl SoundGroup {
 impl Drop for SoundGroup {
     fn drop(&mut self) {
         s_group_ffi::ma_sound_group_uninit(self);
+        drop(unsafe { Box::from_raw(self.to_raw()) });
     }
 }
 

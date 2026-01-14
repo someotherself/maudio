@@ -127,6 +127,7 @@ pub(crate) mod n_biquad_ffi {
     };
     use maudio_sys::ffi as sys;
 
+    #[inline]
     pub fn ma_biquad_node_init<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: *const sys::ma_biquad_node_config,
@@ -139,12 +140,14 @@ pub(crate) mod n_biquad_ffi {
         MaRawResult::resolve(res)
     }
 
+    #[inline]
     pub fn ma_biquad_node_uninit(node: &mut BiquadNode) {
         unsafe {
             sys::ma_biquad_node_uninit(node.to_raw(), node.alloc_cb_ptr());
         }
     }
 
+    #[inline]
     pub fn ma_biquad_node_reinit(
         config: *const sys::ma_biquad_config,
         node: &mut BiquadNode,
