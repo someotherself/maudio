@@ -380,7 +380,11 @@ impl Engine {
 
     pub(crate) fn new_for_tests() -> Result<Self> {
         if cfg!(feature = "ci-tests") {
-            EngineBuilder::new().no_device(true).set_channels(2).set_sample_rate(SampleRate::Sr44100).build()
+            EngineBuilder::new()
+                .no_device(true)
+                .set_channels(2)
+                .set_sample_rate(SampleRate::Sr44100)
+                .build()
         } else {
             Engine::new()
         }
@@ -545,7 +549,6 @@ mod test {
         let engine = Engine::new_for_tests().unwrap();
         let _sound = engine.new_sound().unwrap();
     }
-
 }
 
 pub(crate) mod engine_ffi {

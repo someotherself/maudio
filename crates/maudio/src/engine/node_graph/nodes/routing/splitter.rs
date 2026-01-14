@@ -3,10 +3,11 @@ use std::marker::PhantomData;
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, Result, engine::{
+    Binding, Result,
+    engine::{
         AllocationCallbacks,
         node_graph::{AsNodeGraphPtr, NodeGraph, nodes::NodeRef},
-    }
+    },
 };
 
 /// A node that **duplicates an input signal to multiple outputs** inside a node graph.
@@ -80,7 +81,12 @@ impl<'a> SplitterNode<'a> {
 
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_splitter_node>> = Box::new_uninit();
 
-        n_splitter_ffi::ma_splitter_node_init(node_graph, config.to_raw(), alloc_cb, mem.as_mut_ptr())?;
+        n_splitter_ffi::ma_splitter_node_init(
+            node_graph,
+            config.to_raw(),
+            alloc_cb,
+            mem.as_mut_ptr(),
+        )?;
 
         let ptr: Box<sys::ma_splitter_node> = unsafe { mem.assume_init() };
         let inner: *mut sys::ma_splitter_node = Box::into_raw(ptr);
@@ -116,7 +122,10 @@ impl<'a> SplitterNode<'a> {
 }
 
 pub(crate) mod n_splitter_ffi {
-    use crate::{Binding, MaRawResult, Result, engine::node_graph::{AsNodeGraphPtr, nodes::routing::splitter::SplitterNode}};
+    use crate::{
+        Binding, MaRawResult, Result,
+        engine::node_graph::{AsNodeGraphPtr, nodes::routing::splitter::SplitterNode},
+    };
     use maudio_sys::ffi as sys;
 
     #[inline]
@@ -167,10 +176,11 @@ impl<N: AsNodeGraphPtr + ?Sized> Binding for SplitterNodeBuilder<'_, N> {
 
 impl<'a, N: AsNodeGraphPtr + ?Sized> SplitterNodeBuilder<'a, N> {
     pub fn new(node_graph: &'a N, channels: u32) -> Self {
-        let ptr = unsafe {
-            sys::ma_splitter_node_config_init(channels)
-        };
-        Self { inner: ptr, node_graph }
+        let ptr = unsafe { sys::ma_splitter_node_config_init(channels) };
+        Self {
+            inner: ptr,
+            node_graph,
+        }
     }
 
     pub fn output_bus_count(mut self, count: u32) -> Self {
@@ -185,14 +195,23 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> SplitterNodeBuilder<'a, N> {
 
 #[cfg(test)]
 mod test {
-    use crate::engine::{Engine, EngineOps, node_graph::{node_builder::NodeState, nodes::{NodeOps, routing::splitter::SplitterNodeBuilder}}};
+    use crate::engine::{
+        Engine, EngineOps,
+        node_graph::{
+            node_builder::NodeState,
+            nodes::{NodeOps, routing::splitter::SplitterNodeBuilder},
+        },
+    };
 
     #[test]
     fn test_splitter_basic_init() {
         let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
-        let _node = SplitterNodeBuilder::new(&node_graph, 2).output_bus_count(2).build().unwrap();
+        let _node = SplitterNodeBuilder::new(&node_graph, 2)
+            .output_bus_count(2)
+            .build()
+            .unwrap();
     }
 
     #[test]
@@ -291,7 +310,6 @@ mod test {
             assert_eq!(node_ref.output_channels(out_bus), 2);
         }
     }
-
 
     #[test]
     fn test_splitter_attach_and_detach_output_bus() {
