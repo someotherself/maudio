@@ -6,7 +6,7 @@ edition = "2024"
 categories = ["multimedia::audio", "multimedia"]
 
 [features]
-device-tests = [] # used to hide tests in the github CI
+ci-tests = [] # disable the backend for the github CI
 
 [dependencies]
 maudio-sys = { path = "../maudio-sys"}

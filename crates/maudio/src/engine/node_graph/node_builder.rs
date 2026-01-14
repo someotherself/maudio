@@ -2,7 +2,7 @@ use maudio_sys::ffi as sys;
 
 use crate::{Binding, MaError};
 
-pub struct NodeBuilder {
+struct NodeBuilder {
     inner: sys::ma_node_config,
 }
 
@@ -19,7 +19,7 @@ impl Binding for NodeBuilder {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 pub enum NodeState {
     Started,
@@ -46,65 +46,3 @@ impl TryFrom<sys::ma_node_state> for NodeState {
         }
     }
 }
-
-// impl NodeBuilder {
-//     pub fn new() -> Self {
-//         let inner = unsafe { sys::ma_node_config_init() };
-//         Self {
-//             inner,
-//             in_bus_channels: None,
-//             out_bus_channels: None,
-//             in_bus_count: None,
-//             out_bus_count: None,
-//             initial_state: NodeState::Started
-//         }
-//     }
-
-//     pub fn node_type(mut self, node_type: NodeType) -> Self {
-//         self.inner.vtable = node_type.as_ptr();
-//         self
-//     }
-
-//     pub fn in_buses(mut self) -> Self {
-//         todo!()
-//     }
-
-//     pub fn out_buses(mut self) -> Self {
-//         todo!()
-//     }
-//     pub fn channels_in(mut self, channels: u32) -> Self {
-//         todo!()
-//     }
-
-//     pub fn channels_out(mut self, channels: u32) -> Self {
-//         todo!()
-//     }
-
-//     pub fn vtable(mut self) -> Self {
-//         todo!()
-//     }
-
-//     pub fn bus_count(mut self) -> Self {
-//         todo!()
-//     }
-
-//     pub fn initial_state(mut self, state: NodeState) -> Self {
-//         self.inner.initialState = state as u32;
-//         self.initial_state = state;
-//         self
-//     }
-// }
-
-// pub struct NodeType {
-//     inner: &'static sys::ma_node_vtable
-// }
-
-// impl NodeType {
-//     pub(crate) const fn new(inner: &'static sys::ma_node_vtable) -> Self {
-//         Self { inner }
-//     }
-//     #[inline]
-//     fn as_ptr(self) -> *const sys::ma_node_vtable {
-//         self.inner as *const _
-//     }
-// }

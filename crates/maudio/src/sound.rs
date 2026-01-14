@@ -1165,7 +1165,7 @@ mod test {
 
     #[test]
     fn sound_test_cast_to_node() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let sound = engine.new_sound().unwrap();
         let node_ref = sound.as_node();
         let state = node_ref.state();

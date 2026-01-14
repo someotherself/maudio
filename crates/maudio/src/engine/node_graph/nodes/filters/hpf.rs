@@ -227,7 +227,6 @@ impl HpfNodeParams {
     }
 }
 
-#[cfg(feature = "device-tests")]
 #[cfg(test)]
 mod test {
     use crate::{
@@ -240,7 +239,7 @@ mod test {
 
     #[test]
     fn test_hpf_builder_basic_init() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         let mut node = HpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1000.0, 1)
@@ -252,7 +251,7 @@ mod test {
 
     #[test]
     fn test_hpf_reinit_sample_rate_change_ok() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         let mut node = HpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 200.0, 2)
@@ -265,7 +264,7 @@ mod test {
 
     #[test]
     fn test_hpf_reinit_invalid_cutoff_zero_ok_or_error() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         let mut node = HpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 200.0, 2)
@@ -279,7 +278,7 @@ mod test {
 
     #[test]
     fn test_hpf_reinit_negative_cutoff_ok_or_error() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         let mut node = HpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 200.0, 2)
@@ -293,7 +292,7 @@ mod test {
 
     #[test]
     fn test_hpf_builder_extreme_order_init_ok_or_error() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         // Very high order: may succeed or may fail depending on internal allocation limits.

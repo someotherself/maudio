@@ -107,12 +107,7 @@ impl<'a> DelayNode<'a> {
 
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_delay_node>> = Box::new_uninit();
 
-        n_delay_ffi::ma_delay_node_init(
-            node_graph,
-            config,
-            alloc_cb,
-            mem.as_mut_ptr(),
-        )?;
+        n_delay_ffi::ma_delay_node_init(node_graph, config, alloc_cb, mem.as_mut_ptr())?;
         let ptr = unsafe { mem.assume_init() };
         let inner = Box::into_raw(ptr);
         Ok(Self {
@@ -315,7 +310,6 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> DelayNodeBuilder<'a, N> {
     }
 }
 
-#[cfg(feature = "device-tests")]
 #[cfg(test)]
 mod test {
     use crate::engine::{Engine, EngineOps, node_graph::nodes::AsNodePtr};
@@ -333,7 +327,7 @@ mod test {
 
     #[test]
     fn test_delay_node_test_basic_init() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
         let delay = DelayNodeBuilder::new(&node_graph, 1, 441000, 0, 0.0)
             .build()
@@ -348,7 +342,7 @@ mod test {
 
     #[test]
     fn test_delay_node_test_set_get_wet_roundtrip() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
         let mut delay = DelayNodeBuilder::new(&node_graph, 1, 441000, 0, 0.0)
             .build()
@@ -363,7 +357,7 @@ mod test {
 
     #[test]
     fn test_delay_node_test_set_get_dry_roundtrip() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
         let mut delay = DelayNodeBuilder::new(&node_graph, 1, 441000, 0, 0.0)
             .build()
@@ -379,7 +373,7 @@ mod test {
 
     #[test]
     fn test_delay_node_test_set_get_decay_roundtrip() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
         let mut delay = DelayNodeBuilder::new(&node_graph, 1, 441000, 0, 0.0)
             .build()
@@ -398,7 +392,7 @@ mod test {
 
     #[test]
     fn test_delay_node_test_as_node_is_non_null() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
         let delay = DelayNodeBuilder::new(&node_graph, 1, 441000, 0, 0.0)
             .build()

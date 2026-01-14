@@ -250,7 +250,6 @@ impl BiquadNodeParams {
     }
 }
 
-#[cfg(feature = "device-tests")]
 #[cfg(test)]
 mod test {
     use crate::engine::{
@@ -260,7 +259,7 @@ mod test {
 
     #[test]
     fn test_biquad_builder_basic_init() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
         let mut node = BiquadNodeBuilder::new(&node_graph, 1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1)
             .build()
@@ -272,7 +271,7 @@ mod test {
 
     #[test]
     fn test_biquad_reinit_same_params() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
         let mut node = BiquadNodeBuilder::new(&node_graph, 1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7)
             .build()
@@ -284,7 +283,7 @@ mod test {
 
     #[test]
     fn test_biquad_multiple_reinit() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
         let mut node = BiquadNodeBuilder::new(&node_graph, 1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1)
             .build()
@@ -299,7 +298,7 @@ mod test {
 
     #[test]
     fn test_biquad_nan_coefficients_1() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
         let result =
             BiquadNodeBuilder::new(&node_graph, 1, f32::NAN, 0.0, 0.0, 0.0, 0.0, 0.0).build();
@@ -309,7 +308,7 @@ mod test {
 
     #[test]
     fn test_biquad_nan_coefficients_2() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
         let mut node = BiquadNodeBuilder::new(&node_graph, 1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1)
             .build()
@@ -323,7 +322,7 @@ mod test {
 
     #[test]
     fn test_biquad_extreme_coefficients() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         let mut node =

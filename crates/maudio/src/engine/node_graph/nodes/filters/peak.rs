@@ -233,7 +233,6 @@ impl PeakNodeParams {
     }
 }
 
-#[cfg(feature = "device-tests")]
 #[cfg(test)]
 mod test {
     use crate::{
@@ -246,7 +245,7 @@ mod test {
 
     #[test]
     fn test_peak_builder_basic_init() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         let mut node = PeakNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 2.0, 1.1, 2000.0)
@@ -258,7 +257,7 @@ mod test {
 
     #[test]
     fn test_peak_multiple_reinit_updates() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         let mut node = PeakNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 0.0, 1.0, 1000.0)
@@ -285,7 +284,7 @@ mod test {
 
     #[test]
     fn test_peak_reinit_extreme_but_plausible_values() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         let mut node =
@@ -308,7 +307,7 @@ mod test {
 
     #[test]
     fn test_peak_builder_multi_channel_init() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         // Just validate that multi-channel init + reinit works.

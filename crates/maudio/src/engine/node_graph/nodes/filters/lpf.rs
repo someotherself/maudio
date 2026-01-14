@@ -225,7 +225,6 @@ impl LpfNodeParams {
     }
 }
 
-#[cfg(feature = "device-tests")]
 #[cfg(test)]
 mod test {
     use crate::{
@@ -238,7 +237,7 @@ mod test {
 
     #[test]
     fn test_lpf_builder_basic_init() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         let mut node = LpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1000.0, 1)
@@ -250,7 +249,7 @@ mod test {
 
     #[test]
     fn test_lpf_multiple_reinit() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         let mut node = LpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1000.0, 1)
@@ -265,7 +264,7 @@ mod test {
     }
     #[test]
     fn test_lpf_reinit_changes_sample_rate() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         let mut node = LpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1000.0, 1)
@@ -281,7 +280,7 @@ mod test {
 
     #[test]
     fn test_lpf_cutoff_edge_values() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         let mut node = LpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1000.0, 1)
@@ -304,7 +303,7 @@ mod test {
 
     #[test]
     fn test_lpf_builder_orders() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         for &order in &[1, 2, 4, 8] {
@@ -317,7 +316,7 @@ mod test {
 
     #[test]
     fn test_lpf_builder_invalid_channels() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         let res = LpfNodeBuilder::new(&node_graph, 0, SampleRate::Sr44100, 1000.0, 1).build();

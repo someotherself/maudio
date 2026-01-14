@@ -696,9 +696,8 @@ mod test {
     }
 
     #[test]
-    // #[cfg(feature = "device-tests")]
     fn test_sound_group_basic() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
         let engine_ref = s_group.engine();
         drop(engine_ref);
@@ -706,7 +705,7 @@ mod test {
 
     #[test]
     fn test_sound_group_start_stop_smoke() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         // These are just smoke tests; depending on backend/device, playing() may be false.
@@ -716,7 +715,7 @@ mod test {
 
     #[test]
     fn test_sound_group_volume_roundtrip() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_volume(0.25);
@@ -730,7 +729,7 @@ mod test {
 
     #[test]
     fn test_sound_group_pan_roundtrip() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_pan(-0.5);
@@ -742,7 +741,7 @@ mod test {
 
     #[test]
     fn test_sound_group_pan_mode_roundtrip() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         // Use variants that exist in your PanMode enum.
@@ -756,7 +755,7 @@ mod test {
 
     #[test]
     fn test_sound_group_pitch_roundtrip() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_pitch(0.5);
@@ -768,7 +767,7 @@ mod test {
 
     #[test]
     fn test_sound_group_spatialization_toggle() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_spatialization(false);
@@ -778,9 +777,9 @@ mod test {
         assert_eq!(s_group.spatialization(), true);
     }
 
-    // #[test]
+    // #[test] // TODO
     // fn test_sound_group_pinned_listener_roundtrip() {
-    //     let engine = Engine::new().unwrap();
+    //     let engine = Engine::new_for_tests().unwrap();
     //     let mut s_group = engine.new_sound_group().unwrap();
 
     //     s_group.set_pinned_listener(0);
@@ -790,9 +789,9 @@ mod test {
     //     assert_eq!(s_group.pinned_listener(), 2);
     // }
 
-    // #[test]
+    // #[test] // TODO
     // fn test_sound_group_pinned_listener_roundtrip() {
-    //     let engine = Engine::new().unwrap();
+    //     let engine = Engine::new_for_tests().unwrap();
     //     let mut s_group = engine.new_sound_group().unwrap();
 
     //     s_group.set_pinned_listener(0);
@@ -811,7 +810,7 @@ mod test {
 
     #[test]
     fn test_sound_group_listener_index_smoke() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let s_group = engine.new_sound_group().unwrap();
 
         let _idx = s_group.listener();
@@ -819,7 +818,7 @@ mod test {
 
     #[test]
     fn test_sound_group_position_roundtrip() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         let p = Vec3 {
@@ -834,7 +833,7 @@ mod test {
 
     #[test]
     fn test_sound_group_direction_roundtrip() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         let d = Vec3 {
@@ -849,7 +848,7 @@ mod test {
 
     #[test]
     fn test_sound_group_velocity_roundtrip() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         let v = Vec3 {
@@ -864,7 +863,7 @@ mod test {
 
     #[test]
     fn test_sound_group_direction_to_listener_smoke() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let s_group = engine.new_sound_group().unwrap();
 
         // Typically depends on listener position; just ensure it doesn't crash.
@@ -873,7 +872,7 @@ mod test {
 
     #[test]
     fn test_sound_group_attenuation_model_roundtrip() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         // Use variants that exist in your AttenuationModel enum.
@@ -886,7 +885,7 @@ mod test {
 
     #[test]
     fn test_sound_group_positioning_roundtrip() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_positioning(Positioning::Absolute);
@@ -898,7 +897,7 @@ mod test {
 
     #[test]
     fn test_sound_group_rolloff_roundtrip() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_rolloff(0.75);
@@ -907,7 +906,7 @@ mod test {
 
     #[test]
     fn test_sound_group_min_max_gain_roundtrip() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_min_gain(0.1);
@@ -919,7 +918,7 @@ mod test {
 
     #[test]
     fn test_sound_group_min_max_distance_roundtrip() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_min_distance(1.25);
@@ -931,7 +930,7 @@ mod test {
 
     #[test]
     fn test_sound_group_cone_roundtrip() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         let c = Cone {
@@ -950,7 +949,7 @@ mod test {
 
     #[test]
     fn test_sound_group_doppler_factor_roundtrip() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_doppler_factor(1.5);
@@ -959,7 +958,7 @@ mod test {
 
     #[test]
     fn test_sound_group_directional_attenuation_roundtrip() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_directional_attenuation(0.6);
@@ -968,7 +967,7 @@ mod test {
 
     #[test]
     fn test_sound_group_fade_api_smoke() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         // Not possible to reliably assert current_fade_volume() without running audio;
@@ -982,7 +981,7 @@ mod test {
 
     #[test]
     fn test_sound_group_start_stop_time_api_smoke() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         s_group.set_start_time_pcm(0);
@@ -994,7 +993,7 @@ mod test {
 
     #[test]
     fn test_sound_group_playing_and_time_pcm_smoke() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let mut s_group = engine.new_sound_group().unwrap();
 
         let _is_playing = s_group.is_playing();

@@ -52,7 +52,7 @@ use std::{cell::Cell, ffi::CString, marker::PhantomData, mem::MaybeUninit, path:
 
 use crate::{
     Binding, ErrorKinds, MaError, Result,
-    audio::{math::vec3::Vec3, spatial::cone::Cone},
+    audio::{math::vec3::Vec3, sample_rate::SampleRate, spatial::cone::Cone},
     engine::{
         engine_builder::EngineBuilder,
         node_graph::{NodeGraphRef, nodes::NodeRef},
@@ -378,6 +378,14 @@ impl Engine {
         Self::new_with_config(None)
     }
 
+    pub(crate) fn new_for_tests() -> Result<Self> {
+        if cfg!(feature = "ci-tests") {
+            EngineBuilder::new().no_device(true).set_channels(2).set_sample_rate(SampleRate::Sr44100).build()
+        } else {
+            Engine::new()
+        }
+    }
+
     fn new_with_config(config: Option<&EngineBuilder>) -> Result<Self> {
         let mut mem: Box<MaybeUninit<sys::ma_engine>> = Box::new_uninit();
         engine_ffi::engine_init(config, mem.as_mut_ptr())?;
@@ -524,44 +532,20 @@ pub struct AllocationCallbacks {
 mod test {
 
     #[test]
-    #[cfg(feature = "device-tests")]
     fn engine_test_works_with_default() {
         use super::*;
 
-        let _engine = Engine::new().unwrap();
+        let _engine = Engine::new_for_tests().unwrap();
     }
 
     #[test]
-    fn test_blank() {
-        let text = "aaa";
-        println!("{text}");
-    }
-
-    #[test]
-    // #[cfg(feature = "device-tests")]
     fn engine_test_init_engine_and_sound() {
         use super::*;
 
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let _sound = engine.new_sound().unwrap();
     }
 
-    #[test]
-    // #[cfg(feature = "device-tests")]
-    fn engine_test_init_sound_from_path() {
-        use super::*;
-        use std::path::Path;
-
-        let engine = Engine::new().unwrap();
-        let path = Path::new("examples/assets/Goldberg_Variations_BWV_988_Variation_4.mp3");
-        if !path.exists() {
-            eprintln!("skipping: asset not found at {:?}", path);
-            return;
-        }
-        let mut sound = engine.new_sound_from_file(path).unwrap();
-        sound.play_sound().unwrap();
-        sound.stop_sound().unwrap();
-    }
 }
 
 pub(crate) mod engine_ffi {

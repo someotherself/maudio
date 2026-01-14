@@ -229,7 +229,6 @@ impl NotchNodeParams {
     }
 }
 
-#[cfg(feature = "device-tests")]
 #[cfg(test)]
 mod test {
     use crate::{
@@ -242,7 +241,7 @@ mod test {
 
     #[test]
     fn test_notch_builder_basic_init() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         let mut node = NotchNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1.0, 2000.0)
@@ -254,7 +253,7 @@ mod test {
 
     #[test]
     fn test_notch_builder_stereo_init() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         // Just ensure init works for >1 channel.
@@ -265,7 +264,7 @@ mod test {
 
     #[test]
     fn test_notch_multiple_reinit_stability() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         let mut node = NotchNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 2.0, 500.0)
@@ -283,7 +282,7 @@ mod test {
 
     #[test]
     fn test_notch_reinit_frequency_zero_should_error() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         let mut node = NotchNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1.0, 1000.0)
@@ -297,7 +296,7 @@ mod test {
 
     #[test]
     fn test_notch_reinit_negative_q_should_error() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         let mut node = NotchNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1.0, 1000.0)
@@ -311,7 +310,7 @@ mod test {
 
     #[test]
     fn test_notch_builder_frequency_above_nyquist_should_error_or_fail_init() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         // Nyquist for 44100 is 22050. Try something clearly above it.
@@ -329,7 +328,7 @@ mod test {
 
     #[test]
     fn test_notch_builder_q_zero_should_error_or_fail_init() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         // Q=0 is maybe typically invalid (division by zero-ish in coefficient derivation).

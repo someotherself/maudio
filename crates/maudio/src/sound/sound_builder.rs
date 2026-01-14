@@ -542,7 +542,7 @@ mod test {
 
     #[test]
     fn sound_builder_test_basic() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let _s_config = SoundBuilder::new(&engine).channels_in(1);
     }
 }

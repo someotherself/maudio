@@ -252,7 +252,6 @@ impl HiShelfNodeParams {
     }
 }
 
-#[cfg(feature = "device-tests")]
 #[cfg(test)]
 mod test {
     use crate::{
@@ -265,7 +264,7 @@ mod test {
 
     #[test]
     fn test_hishelf_builder_basic_init() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         let mut node =
@@ -279,7 +278,7 @@ mod test {
 
     #[test]
     fn test_hishelf_reinit_sample_rate_change_ok() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         let mut node =
@@ -294,7 +293,7 @@ mod test {
 
     #[test]
     fn test_hishelf_reinit_invalid_frequency_errors() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         let mut node =
@@ -310,7 +309,7 @@ mod test {
 
     #[test]
     fn test_hishelf_reinit_invalid_slope_errors() {
-        let engine = Engine::new().unwrap();
+        let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
 
         let mut node =
