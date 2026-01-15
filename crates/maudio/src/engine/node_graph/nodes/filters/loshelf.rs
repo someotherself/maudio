@@ -3,11 +3,14 @@ use std::marker::PhantomData;
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, Result,
+    Binding, MaResult,
     audio::{formats::Format, sample_rate::SampleRate},
     engine::{
         AllocationCallbacks,
-        node_graph::{AsNodeGraphPtr, NodeGraph, nodes::NodeRef},
+        node_graph::{
+            AsNodeGraphPtr, NodeGraph,
+            nodes::{AsNodePtr, NodeRef},
+        },
     },
 };
 
@@ -58,12 +61,18 @@ impl Binding for LoShelfNode<'_> {
     }
 }
 
+impl AsNodePtr for LoShelfNode<'_> {
+    fn as_node_ptr(&self) -> *mut sys::ma_node {
+        self.as_node().to_raw()
+    }
+}
+
 impl<'a> LoShelfNode<'a> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &LoShelfNodeBuilder<N>,
         alloc: Option<&'a AllocationCallbacks>,
-    ) -> Result<Self> {
+    ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
 
@@ -93,7 +102,7 @@ impl<'a> LoShelfNode<'a> {
     }
 
     /// See [`LoShelfNodeParams`] for creating a config
-    fn reinit(&mut self, config: &LoShelfNodeParams) -> Result<()> {
+    fn reinit(&mut self, config: &LoShelfNodeParams) -> MaResult<()> {
         n_loshelf_ffi::ma_loshelf_node_reinit(config.to_raw(), self)
     }
 
@@ -123,7 +132,7 @@ pub(crate) mod n_loshelf_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        Binding, MaRawResult, Result,
+        Binding, MaRawResult, MaResult,
         engine::node_graph::{AsNodeGraphPtr, nodes::filters::loshelf::LoShelfNode},
     };
 
@@ -133,11 +142,11 @@ pub(crate) mod n_loshelf_ffi {
         config: *const sys::ma_loshelf_node_config,
         alloc_cb: *const sys::ma_allocation_callbacks,
         node: *mut sys::ma_loshelf_node,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe {
             sys::ma_loshelf_node_init(node_graph.as_nodegraph_ptr(), config, alloc_cb, node)
         };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
@@ -151,9 +160,9 @@ pub(crate) mod n_loshelf_ffi {
     pub fn ma_loshelf_node_reinit(
         config: *const sys::ma_loshelf_config,
         node: &mut LoShelfNode,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe { sys::ma_loshelf_node_reinit(config, node.to_raw()) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 }
 
@@ -206,7 +215,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> LoShelfNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(self) -> Result<LoShelfNode<'a>> {
+    pub fn build(self) -> MaResult<LoShelfNode<'a>> {
         LoShelfNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
     }
 }

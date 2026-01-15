@@ -3,28 +3,21 @@ use std::{cell::Cell, marker::PhantomData, path::Path};
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, ErrorKinds, Result,
+    Binding, MaResult,
     audio::{
         dsp::pan::PanMode,
         math::vec3::Vec3,
         spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
     },
     engine::{Engine, EngineRef, node_graph::nodes::NodeRef},
-    sound::{sound_flags::SoundFlags, sound_group::SoundGroup},
+    sound::{data_source::DataFormat, sound_flags::SoundFlags, sound_group::SoundGroup},
+    util::fence::Fence,
 };
 
 pub mod data_source;
 pub mod sound_builder;
 pub mod sound_flags;
 pub mod sound_group;
-
-pub enum SoundError {}
-
-impl From<SoundError> for ErrorKinds {
-    fn from(e: SoundError) -> Self {
-        ErrorKinds::Sound(e)
-    }
-}
 
 /// The initialization source for a sound.
 ///
@@ -92,19 +85,19 @@ impl<'a> Sound<'a> {
     // TODO: Implement data source
     pub fn data_source(&mut self) {}
 
-    pub fn play_sound(&mut self) -> Result<()> {
+    pub fn play_sound(&mut self) -> MaResult<()> {
         sound_ffi::ma_sound_start(self)
     }
 
-    pub fn stop_sound(&mut self) -> Result<()> {
+    pub fn stop_sound(&mut self) -> MaResult<()> {
         sound_ffi::ma_sound_stop(self)
     }
 
-    pub fn stop_at_with_fade_frames(&mut self, fade_frames: u64) -> Result<()> {
+    pub fn stop_at_with_fade_frames(&mut self, fade_frames: u64) -> MaResult<()> {
         sound_ffi::ma_sound_stop_with_fade_in_pcm_frames(self, fade_frames)
     }
 
-    pub fn stop_at_with_fade_millis(&mut self, fade_milis: u64) -> Result<()> {
+    pub fn stop_at_with_fade_millis(&mut self, fade_milis: u64) -> MaResult<()> {
         sound_ffi::ma_sound_stop_with_fade_in_milis(self, fade_milis)
     }
 
@@ -124,7 +117,7 @@ impl<'a> Sound<'a> {
         sound_ffi::ma_sound_set_pan(self, pan);
     }
 
-    pub fn pan_mode(&self) -> Result<PanMode> {
+    pub fn pan_mode(&self) -> MaResult<PanMode> {
         sound_ffi::ma_sound_get_pan_mode(self)
     }
 
@@ -188,7 +181,7 @@ impl<'a> Sound<'a> {
         sound_ffi::ma_sound_set_velocity(self, vec3);
     }
 
-    pub fn attenuation(&self) -> Result<AttenuationModel> {
+    pub fn attenuation(&self) -> MaResult<AttenuationModel> {
         sound_ffi::ma_sound_get_attenuation_model(self)
     }
 
@@ -196,7 +189,7 @@ impl<'a> Sound<'a> {
         sound_ffi::ma_sound_set_attenuation_model(self, model);
     }
 
-    pub fn positioning(&self) -> Result<Positioning> {
+    pub fn positioning(&self) -> MaResult<Positioning> {
         sound_ffi::ma_sound_get_positioning(self)
     }
     pub fn set_positioning(&mut self, positioning: Positioning) {
@@ -371,46 +364,31 @@ impl<'a> Sound<'a> {
         sound_ffi::ma_sound_at_end(self)
     }
 
-    pub fn seek_to_pcm(&mut self, seek_point_frames: u64) -> Result<()> {
+    pub fn seek_to_pcm(&mut self, seek_point_frames: u64) -> MaResult<()> {
         sound_ffi::ma_sound_seek_to_pcm_frame(self, seek_point_frames)
     }
 
-    pub fn seek_to_second(&mut self, seek_point_seconds: f32) -> Result<()> {
+    pub fn seek_to_second(&mut self, seek_point_seconds: f32) -> MaResult<()> {
         sound_ffi::ma_sound_seek_to_second(self, seek_point_seconds)
     }
 
-    // TODO
-    fn data_format(
-        &self,
-        format: *mut sys::ma_format,
-        channels: *mut sys::ma_uint32,
-        sample_rate: *mut sys::ma_uint32,
-        channel_map: *mut sys::ma_channel,
-        channel_map_cap: usize,
-    ) -> Result<()> {
-        sound_ffi::ma_sound_get_data_format(
-            self,
-            format,
-            channels,
-            sample_rate,
-            channel_map,
-            channel_map_cap,
-        )
+    fn data_format(&self) -> MaResult<DataFormat> {
+        sound_ffi::ma_sound_get_data_format(self)
     }
 
-    fn cursor_pcm(&self) -> Result<u64> {
+    fn cursor_pcm(&self) -> MaResult<u64> {
         sound_ffi::ma_sound_get_cursor_in_pcm_frames(self)
     }
 
-    fn length_pcm(&self) -> Result<u64> {
+    fn length_pcm(&self) -> MaResult<u64> {
         sound_ffi::ma_sound_get_length_in_pcm_frames(self)
     }
 
-    fn cursor_seconds(&self) -> Result<f32> {
+    fn cursor_seconds(&self) -> MaResult<f32> {
         sound_ffi::ma_sound_get_cursor_in_seconds(self)
     }
 
-    fn length_seconds(&self) -> Result<f32> {
+    fn length_seconds(&self) -> MaResult<f32> {
         sound_ffi::ma_sound_get_length_in_seconds(self)
     }
 
@@ -419,22 +397,21 @@ impl<'a> Sound<'a> {
         &mut self,
         callback: sys::ma_sound_end_proc,
         user_data: *mut core::ffi::c_void,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         sound_ffi::ma_sound_set_end_callback(self, callback, user_data)
     }
 }
 
 // Private methods
 impl<'a> Sound<'a> {
-    // TODO: Wrap ma_fence
     pub(crate) fn init_from_file_internal(
         sound: *mut sys::ma_sound,
         engine: &Engine,
         path: &Path,
         flags: SoundFlags,
         sound_group: &mut Option<&SoundGroup>,
-        fence: Option<*mut sys::ma_fence>,
-    ) -> Result<()> {
+        fence: Option<&mut Fence>,
+    ) -> MaResult<()> {
         #[cfg(unix)]
         {
             use crate::engine::cstring_from_path;
@@ -489,11 +466,13 @@ pub(crate) mod sound_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::Binding;
-    use crate::Result;
+    use crate::MaResult;
     use crate::audio::math::vec3::Vec3;
     use crate::audio::spatial::{
         attenuation::AttenuationModel, cone::Cone, positioning::Positioning,
     };
+    use crate::sound::data_source::DataFormat;
+    use crate::util::fence::Fence;
     use crate::{
         MaRawResult,
         audio::dsp::pan::PanMode,
@@ -510,12 +489,12 @@ pub(crate) mod sound_ffi {
         path: std::ffi::CString,
         flags: SoundFlags,
         s_group: &mut Option<&SoundGroup>,
-        done_fence: Option<*mut sys::ma_fence>,
+        done_fence: Option<&mut Fence>,
         sound: *mut sys::ma_sound,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let s_group: *mut sys::ma_sound_group =
             s_group.map_or(core::ptr::null_mut(), |g| g.to_raw());
-        let done_fence = done_fence.unwrap_or(core::ptr::null_mut());
+        let done_fence = done_fence.map_or(core::ptr::null_mut(), |f| f.to_raw());
 
         let res = unsafe {
             use crate::Binding;
@@ -529,7 +508,7 @@ pub(crate) mod sound_ffi {
                 sound,
             )
         };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
@@ -539,12 +518,12 @@ pub(crate) mod sound_ffi {
         path: &[u16],
         flags: SoundFlags,
         s_group: &mut Option<&SoundGroup>,
-        done_fence: Option<*mut sys::ma_fence>,
+        done_fence: Option<&mut Fence>,
         sound: *mut sys::ma_sound,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let s_group: *mut sys::ma_sound_group =
             s_group.map_or(core::ptr::null_mut(), |g| g.to_raw());
-        let done_fence = done_fence.unwrap_or(core::ptr::null_mut());
+        let done_fence = done_fence.map_or(core::ptr::null_mut(), |f| f.to_raw());
 
         let res = unsafe {
             sys::ma_sound_init_from_file_w(
@@ -556,7 +535,7 @@ pub(crate) mod sound_ffi {
                 sound,
             )
         };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
@@ -566,7 +545,7 @@ pub(crate) mod sound_ffi {
         flags: SoundFlags,
         s_group: Option<&mut SoundGroup>,
         new_sound: *mut sys::ma_sound,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let s_group: *mut sys::ma_sound_group =
             s_group.map_or(core::ptr::null_mut(), |g| g.to_raw());
 
@@ -579,7 +558,7 @@ pub(crate) mod sound_ffi {
                 new_sound,
             )
         };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     // TODO: Implement data sources
@@ -590,7 +569,7 @@ pub(crate) mod sound_ffi {
         flags: SoundFlags,
         s_group: &mut SoundGroup,
         sound: &Sound,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe {
             sys::ma_sound_init_from_data_source(
                 engine.to_raw(),
@@ -600,7 +579,7 @@ pub(crate) mod sound_ffi {
                 sound.to_raw(),
             )
         };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
@@ -608,9 +587,9 @@ pub(crate) mod sound_ffi {
         engine: &Engine,
         config: &SoundBuilder,
         sound: *mut sys::ma_sound,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_init_ex(engine.to_raw(), config.to_raw(), sound) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
@@ -632,32 +611,32 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_start(sound: &mut Sound) -> Result<()> {
+    pub fn ma_sound_start(sound: &mut Sound) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_start(sound.to_raw()) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
-    pub fn ma_sound_stop(sound: &mut Sound) -> Result<()> {
+    pub fn ma_sound_stop(sound: &mut Sound) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_stop(sound.to_raw()) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
     pub fn ma_sound_stop_with_fade_in_pcm_frames(
         sound: &mut Sound,
         fade_frames: u64,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res =
             unsafe { sys::ma_sound_stop_with_fade_in_pcm_frames(sound.to_raw(), fade_frames) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
-    pub fn ma_sound_stop_with_fade_in_milis(sound: &mut Sound, fade_milis: u64) -> Result<()> {
+    pub fn ma_sound_stop_with_fade_in_milis(sound: &mut Sound, fade_milis: u64) -> MaResult<()> {
         let res =
             unsafe { sys::ma_sound_stop_with_fade_in_milliseconds(sound.to_raw(), fade_milis) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
@@ -688,7 +667,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_get_pan_mode(sound: &Sound) -> Result<PanMode> {
+    pub fn ma_sound_get_pan_mode(sound: &Sound) -> MaResult<PanMode> {
         let res = unsafe { sys::ma_sound_get_pan_mode(sound.to_raw() as *const _) };
         res.try_into()
     }
@@ -777,7 +756,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_get_attenuation_model(sound: &Sound) -> Result<AttenuationModel> {
+    pub fn ma_sound_get_attenuation_model(sound: &Sound) -> MaResult<AttenuationModel> {
         let model = unsafe { sys::ma_sound_get_attenuation_model(sound.to_raw() as *const _) };
         model.try_into()
     }
@@ -788,7 +767,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_get_positioning(sound: &Sound) -> Result<Positioning> {
+    pub fn ma_sound_get_positioning(sound: &Sound) -> MaResult<Positioning> {
         let pos = unsafe { sys::ma_sound_get_positioning(sound.to_raw() as *const _) };
         pos.try_into()
     }
@@ -1073,75 +1052,81 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_seek_to_pcm_frame(sound: &mut Sound, frame_index: u64) -> Result<()> {
+    pub fn ma_sound_seek_to_pcm_frame(sound: &mut Sound, frame_index: u64) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_seek_to_pcm_frame(sound.to_raw(), frame_index) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
-    pub fn ma_sound_seek_to_second(sound: &mut Sound, seek_point_seconds: f32) -> Result<()> {
+    pub fn ma_sound_seek_to_second(sound: &mut Sound, seek_point_seconds: f32) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_seek_to_second(sound.to_raw(), seek_point_seconds) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
-    // TODO Implement data_format type?
     #[inline]
-    pub fn ma_sound_get_data_format(
-        sound: &Sound,
-        format: *mut sys::ma_format,
-        channels: *mut sys::ma_uint32,
-        sample_rate: *mut sys::ma_uint32,
-        channel_map: *mut sys::ma_channel,
-        channel_map_cap: usize,
-    ) -> Result<()> {
+    pub fn ma_sound_get_data_format(sound: &Sound) -> MaResult<DataFormat> {
+        let mut format_raw: sys::ma_format = sys::ma_format_ma_format_unknown;
+        let mut channels: sys::ma_uint32 = 0;
+        let mut sample_rate: sys::ma_uint32 = 0;
+
+        let mut channel_map = vec![0 as sys::ma_channel; sys::MA_MAX_CHANNELS as usize];
         let res = unsafe {
             sys::ma_sound_get_data_format(
-                sound.to_raw() as *const _,
-                format,
-                channels,
-                sample_rate,
-                channel_map,
-                channel_map_cap,
+                sound.to_raw(),
+                &mut format_raw,
+                &mut channels,
+                &mut sample_rate,
+                channel_map.as_mut_ptr(),
+                channel_map.len(),
             )
         };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)?;
+
+        channel_map.truncate(channels as usize);
+
+        Ok(DataFormat {
+            format: format_raw.try_into()?,
+            channels: channels as u32,
+            sample_rate: sample_rate as u32,
+            channel_map,
+        })
     }
 
     #[inline]
-    pub fn ma_sound_get_cursor_in_pcm_frames(sound: &Sound) -> Result<u64> {
+    pub fn ma_sound_get_cursor_in_pcm_frames(sound: &Sound) -> MaResult<u64> {
         let mut cursor: sys::ma_uint64 = 0;
         let res = unsafe {
             sys::ma_sound_get_cursor_in_pcm_frames(sound.to_raw() as *const _, &mut cursor)
         };
-        MaRawResult::resolve(res)?;
+        MaRawResult::check(res)?;
         Ok(cursor)
     }
 
     #[inline]
-    pub fn ma_sound_get_length_in_pcm_frames(sound: &Sound) -> Result<u64> {
+    pub fn ma_sound_get_length_in_pcm_frames(sound: &Sound) -> MaResult<u64> {
         let mut length: sys::ma_uint64 = 0;
         let res = unsafe {
             sys::ma_sound_get_length_in_pcm_frames(sound.to_raw() as *const _, &mut length)
         };
-        MaRawResult::resolve(res)?;
+        MaRawResult::check(res)?;
         Ok(length)
     }
 
     #[inline]
-    pub fn ma_sound_get_cursor_in_seconds(sound: &Sound) -> Result<f32> {
+    pub fn ma_sound_get_cursor_in_seconds(sound: &Sound) -> MaResult<f32> {
         let mut cursor: f32 = 0.0;
         let res =
             unsafe { sys::ma_sound_get_cursor_in_seconds(sound.to_raw() as *const _, &mut cursor) };
-        MaRawResult::resolve(res)?;
+        MaRawResult::check(res)?;
         Ok(cursor)
     }
 
     #[inline]
-    pub fn ma_sound_get_length_in_seconds(sound: &Sound) -> Result<f32> {
+    pub fn ma_sound_get_length_in_seconds(sound: &Sound) -> MaResult<f32> {
         let mut length: f32 = 0.0;
         let res =
             unsafe { sys::ma_sound_get_length_in_seconds(sound.to_raw() as *const _, &mut length) };
-        MaRawResult::resolve(res)?;
+        MaRawResult::check(res)?;
         Ok(length)
     }
 
@@ -1151,9 +1136,9 @@ pub(crate) mod sound_ffi {
         sound: &mut Sound,
         callback: sys::ma_sound_end_proc,
         user_data: *mut core::ffi::c_void,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_set_end_callback(sound.to_raw(), callback, user_data) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 }
 

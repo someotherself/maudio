@@ -1,6 +1,6 @@
 use maudio_sys::ffi as sys;
 
-use crate::MaError;
+use crate::{ErrorKinds, MaudioError};
 
 /// Channel mixing strategy used by the channel converter when a direct 1:1 channel-position mapping
 /// is not possible (or when channel counts differ).
@@ -60,7 +60,7 @@ impl From<ChannelMixMode> for sys::ma_channel_mix_mode {
 }
 
 impl TryFrom<sys::ma_channel_mix_mode> for ChannelMixMode {
-    type Error = MaError;
+    type Error = MaudioError;
 
     fn try_from(value: sys::ma_channel_mix_mode) -> Result<Self, Self::Error> {
         match value {
@@ -71,7 +71,7 @@ impl TryFrom<sys::ma_channel_mix_mode> for ChannelMixMode {
             sys::ma_channel_mix_mode_ma_channel_mix_mode_custom_weights => {
                 Ok(ChannelMixMode::CustomWeights)
             }
-            _ => Err(MaError(sys::ma_result_MA_INVALID_ARGS)),
+            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidChannelMixMode)),
         }
     }
 }
@@ -169,7 +169,7 @@ impl From<ChannelMap> for sys::ma_standard_channel_map {
 }
 
 impl TryFrom<sys::ma_standard_channel_map> for ChannelMap {
-    type Error = MaError;
+    type Error = MaudioError;
 
     fn try_from(value: sys::ma_standard_channel_map) -> Result<Self, Self::Error> {
         match value {
@@ -182,7 +182,7 @@ impl TryFrom<sys::ma_standard_channel_map> for ChannelMap {
             sys::ma_standard_channel_map_ma_standard_channel_map_vorbis => Ok(ChannelMap::Vorbis),
             sys::ma_standard_channel_map_ma_standard_channel_map_sound4 => Ok(ChannelMap::Sound4),
             sys::ma_standard_channel_map_ma_standard_channel_map_sndio => Ok(ChannelMap::Sndio),
-            _ => Err(MaError(sys::ma_result_MA_INVALID_ARGS)),
+            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidChannelMap)),
         }
     }
 }
@@ -190,7 +190,7 @@ impl TryFrom<sys::ma_standard_channel_map> for ChannelMap {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sys;
+    use crate::{MaError, sys};
 
     #[test]
     fn test_channel_map_from_rust_to_sys_variants() {
@@ -320,7 +320,7 @@ mod tests {
         let invalid: sys::ma_standard_channel_map = 0x7FFF as sys::ma_standard_channel_map;
 
         let err = ChannelMap::try_from(invalid).unwrap_err();
-        assert_eq!(err, MaError(sys::ma_result_MA_INVALID_ARGS));
+        assert_eq!(err, MaError(sys::ma_result_MA_ERROR));
     }
 
     #[test]
@@ -384,6 +384,6 @@ mod tests {
         let invalid: sys::ma_standard_channel_map = 0x7FFF as sys::ma_standard_channel_map;
 
         let err = ChannelMixMode::try_from(invalid).unwrap_err();
-        assert_eq!(err, MaError(sys::ma_result_MA_INVALID_ARGS));
+        assert_eq!(err, MaError(sys::ma_result_MA_ERROR));
     }
 }

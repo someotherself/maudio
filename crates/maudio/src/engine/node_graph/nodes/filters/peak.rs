@@ -3,11 +3,14 @@ use std::marker::PhantomData;
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, Result,
+    Binding, MaResult,
     audio::{formats::Format, sample_rate::SampleRate},
     engine::{
         AllocationCallbacks,
-        node_graph::{AsNodeGraphPtr, NodeGraph, nodes::NodeRef},
+        node_graph::{
+            AsNodeGraphPtr, NodeGraph,
+            nodes::{AsNodePtr, NodeRef},
+        },
     },
 };
 
@@ -62,12 +65,18 @@ impl Binding for PeakNode<'_> {
     }
 }
 
+impl AsNodePtr for PeakNode<'_> {
+    fn as_node_ptr(&self) -> *mut sys::ma_node {
+        self.as_node().to_raw()
+    }
+}
+
 impl<'a> PeakNode<'a> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &PeakNodeBuilder<'_, N>,
         alloc: Option<&'a AllocationCallbacks>,
-    ) -> Result<Self> {
+    ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
 
@@ -89,7 +98,7 @@ impl<'a> PeakNode<'a> {
     }
 
     /// See [`PeakNodeParams`] for creating a config
-    pub fn reinit(&mut self, config: &PeakNodeParams) -> Result<()> {
+    pub fn reinit(&mut self, config: &PeakNodeParams) -> MaResult<()> {
         n_peak_ffi::ma_peak_node_reinit(config.to_raw(), self)
     }
 
@@ -118,7 +127,7 @@ impl<'a> PeakNode<'a> {
 
 pub(crate) mod n_peak_ffi {
     use crate::{
-        Binding, MaRawResult, Result,
+        Binding, MaRawResult, MaResult,
         engine::node_graph::{AsNodeGraphPtr, nodes::filters::peak::PeakNode},
     };
     use maudio_sys::ffi as sys;
@@ -129,11 +138,11 @@ pub(crate) mod n_peak_ffi {
         config: *const sys::ma_peak_node_config,
         alloc_cb: *const sys::ma_allocation_callbacks,
         node: *mut sys::ma_peak_node,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe {
             sys::ma_peak_node_init(node_graph.as_nodegraph_ptr(), config, alloc_cb, node)
         };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
@@ -147,9 +156,9 @@ pub(crate) mod n_peak_ffi {
     pub fn ma_peak_node_reinit(
         config: *const sys::ma_peak_config,
         node: &mut PeakNode,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe { sys::ma_peak_node_reinit(config, node.to_raw()) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 }
 
@@ -195,7 +204,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> PeakNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(self) -> Result<PeakNode<'a>> {
+    pub fn build(self) -> MaResult<PeakNode<'a>> {
         PeakNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
     }
 }

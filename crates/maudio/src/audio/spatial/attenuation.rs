@@ -1,6 +1,6 @@
 use maudio_sys::ffi as sys;
 
-use crate::MaError;
+use crate::{ErrorKinds, MaudioError};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -25,9 +25,9 @@ impl From<AttenuationModel> for sys::ma_attenuation_model {
 }
 
 impl TryFrom<sys::ma_attenuation_model> for AttenuationModel {
-    type Error = MaError;
+    type Error = MaudioError;
 
-    fn try_from(v: sys::ma_attenuation_model) -> Result<Self, Self::Error> {
+    fn try_from(v: sys::ma_attenuation_model) -> std::result::Result<Self, Self::Error> {
         match v {
             sys::ma_attenuation_model_ma_attenuation_model_none => Ok(AttenuationModel::None),
             sys::ma_attenuation_model_ma_attenuation_model_inverse => Ok(AttenuationModel::Inverse),
@@ -35,7 +35,7 @@ impl TryFrom<sys::ma_attenuation_model> for AttenuationModel {
             sys::ma_attenuation_model_ma_attenuation_model_exponential => {
                 Ok(AttenuationModel::Exponential)
             }
-            _ => Err(MaError(sys::ma_result_MA_INVALID_ARGS)),
+            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidAttenuationModel)),
         }
     }
 }

@@ -9,7 +9,14 @@ pub mod util;
 
 use maudio_sys::ffi as sys;
 
-use crate::{engine::EngineError, sound::SoundError};
+pub(crate) trait Binding: Sized {
+    type Raw;
+
+    /// Construct the wrapper from a raw FFI handle.
+    fn from_ptr(raw: Self::Raw) -> Self;
+
+    fn to_raw(&self) -> Self::Raw;
+}
 
 pub enum LogLevel {}
 
@@ -22,12 +29,27 @@ pub struct MaError(pub sys::ma_result);
 pub struct MaRawResult;
 
 impl MaRawResult {
-    fn resolve(res: i32) -> Result<()> {
+    fn check(res: i32) -> MaResult<()> {
         if res == sys::ma_result_MA_SUCCESS {
             Ok(())
         } else {
-            Err(MaError(res as sys::ma_result))
+            Err(MaudioError {
+                native: None,
+                ma_result: MaError(res as sys::ma_result),
+            })
         }
+    }
+}
+
+impl MaudioError {
+    pub(crate) fn new_ma_error(native: ErrorKinds) -> Self {
+        Self { native: Some(native), ma_result: MaError(sys::ma_result_MA_ERROR) }
+    }
+}
+
+impl PartialEq<MaError> for MaudioError {
+    fn eq(&self, other: &MaError) -> bool {
+        self.ma_result.0.eq(&other.0)
     }
 }
 
@@ -125,27 +147,33 @@ impl MaError {
     }
 }
 
-pub(crate) trait Binding: Sized {
-    type Raw;
-
-    /// Construct the wrapper from a raw FFI handle.
-    fn from_ptr(raw: Self::Raw) -> Self;
-
-    fn to_raw(&self) -> Self::Raw;
-}
-
+#[derive(Debug)]
 #[non_exhaustive]
-enum ErrorKinds {
-    Engine(EngineError),
-    Sound(SoundError),
+pub enum ErrorKinds {
+    InvalidSampleRate,
+    InvalidBackend,
+    InvalidPerformanceProfile,
+    InvalidDither,
+    InvalidFormat,
+    InvalidChannelMap,
+    InvalidChannelMixMode,
+    InvalidAttenuationModel,
+    InvalidHandedness,
+    InvalidStreamLayout,
+    InvalidPanMode,
+    InvalidStreamFormat,
+    InvalidNodeState,
+    InvalidPositioning,
+    InvalidCString,
 }
 
-struct MaudioError {
+#[derive(Debug)]
+pub struct MaudioError {
     native: Option<ErrorKinds>,
     ma_result: MaError,
 }
 
-type MaudioResult<T> = std::result::Result<T, MaudioError>;
+pub type MaResult<T> = std::result::Result<T, MaudioError>;
 
 #[cfg(test)]
 mod test {

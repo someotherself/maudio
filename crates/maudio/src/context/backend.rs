@@ -1,6 +1,6 @@
 use maudio_sys::ffi as sys;
 
-use crate::MaError;
+use crate::{ErrorKinds, MaudioError};
 
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
@@ -45,7 +45,7 @@ impl From<Backend> for sys::ma_backend {
 }
 
 impl TryFrom<sys::ma_backend> for Backend {
-    type Error = MaError;
+    type Error = MaudioError;
 
     fn try_from(v: sys::ma_backend) -> Result<Self, Self::Error> {
         match v {
@@ -64,7 +64,7 @@ impl TryFrom<sys::ma_backend> for Backend {
             sys::ma_backend_ma_backend_webaudio => Ok(Backend::WebAudio),
             sys::ma_backend_ma_backend_custom => Ok(Backend::Custom),
             sys::ma_backend_ma_backend_null => Ok(Backend::Null),
-            _ => Err(MaError(sys::ma_result_MA_INVALID_ARGS)),
+            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidBackend)),
         }
     }
 }

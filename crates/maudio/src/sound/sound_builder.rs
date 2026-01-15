@@ -3,7 +3,7 @@ use std::path::Path;
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, Result,
+    Binding, MaResult,
     audio::math::vec3::Vec3,
     engine::{Engine, EngineOps},
     sound::{Sound, SoundSource, sound_flags::SoundFlags},
@@ -46,7 +46,7 @@ use crate::{
 /// # use std::path::Path;
 /// # use maudio::engine::Engine;
 /// # use maudio::sound::sound_builder::SoundBuilder;
-/// # fn demo(engine: &Engine) -> maudio::Result<()> {
+/// # fn demo(engine: &Engine) -> maudio::MaResult<()> {
 /// let sound = SoundBuilder::new(&engine)
 ///     .file_path(Path::new("assets/click.wav"))
 ///     .channels_in(1)
@@ -61,7 +61,7 @@ use crate::{
 /// ```no_run
 /// # use maudio::engine::Engine;
 /// # use maudio::sound::sound_builder::SoundBuilder;
-/// # fn demo(engine: &Engine, ds: *mut maudio_sys::ffi::ma_data_source) -> maudio::Result<()> { // TODO
+/// # fn demo(engine: &Engine, ds: *mut maudio_sys::ffi::ma_data_source) -> maudio::MaResult<()> {
 /// let sound = SoundBuilder::new(&engine).data_source(ds).build()?;
 /// # Ok(())
 /// # }
@@ -72,7 +72,7 @@ use crate::{
 /// ```no_run
 /// # use maudio::engine::Engine;
 /// # use maudio::sound::sound_builder::SoundBuilder;
-/// # fn demo(engine: &Engine) -> maudio::Result<()> {
+/// # fn demo(engine: &Engine) -> maudio::MaResult<()> {
 /// let sound = SoundBuilder::new(&engine)
 ///     .file_path("assets/music.ogg".as_ref()).build()?;;
 /// # Ok(())
@@ -110,7 +110,7 @@ impl<'a> SoundBuilder<'a> {
     // TODO: and how this can be used to create a sound group
     // TODO: Add method to edit pInitialAttachment and initialAttachmentInputBusIndex fields
     // TODO: If build_from_file and source are not implemented, remove the Self::group()?
-    pub fn build(mut self) -> Result<Sound<'a>> {
+    pub fn build(mut self) -> MaResult<Sound<'a>> {
         self.set_source()?;
 
         let mut sound = self.engine.new_sound_with_config_internal(Some(&self))?;
@@ -482,7 +482,7 @@ impl<'a> SoundBuilder<'a> {
         }
     }
 
-    fn set_source(&mut self) -> Result<()> {
+    fn set_source(&mut self) -> MaResult<()> {
         let null_fields = |cfg: &mut SoundBuilder| {
             cfg.inner.pDataSource = core::ptr::null_mut();
             cfg.inner.pFilePath = core::ptr::null();

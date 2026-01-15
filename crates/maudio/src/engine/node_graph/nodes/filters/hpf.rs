@@ -3,11 +3,14 @@ use std::marker::PhantomData;
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, Result,
+    Binding, MaResult,
     audio::{formats::Format, sample_rate::SampleRate},
     engine::{
         AllocationCallbacks,
-        node_graph::{AsNodeGraphPtr, NodeGraph, nodes::NodeRef},
+        node_graph::{
+            AsNodeGraphPtr, NodeGraph,
+            nodes::{AsNodePtr, NodeRef},
+        },
     },
 };
 
@@ -58,12 +61,18 @@ impl Binding for HpfNode<'_> {
     }
 }
 
+impl AsNodePtr for HpfNode<'_> {
+    fn as_node_ptr(&self) -> *mut sys::ma_node {
+        self.as_node().to_raw()
+    }
+}
+
 impl<'a> HpfNode<'a> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &HpfNodeBuilder<'_, N>,
         alloc: Option<&'a AllocationCallbacks>,
-    ) -> Result<Self> {
+    ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
 
@@ -85,7 +94,7 @@ impl<'a> HpfNode<'a> {
     }
 
     /// See [`HpfNodeParams`] for creating a config
-    pub fn reinit(&mut self, config: &HpfNodeParams) -> Result<()> {
+    pub fn reinit(&mut self, config: &HpfNodeParams) -> MaResult<()> {
         n_hpf_ffi::ma_hpf_node_reinit(config.to_raw(), self)
     }
 
@@ -117,7 +126,7 @@ pub(crate) mod n_hpf_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        Binding, MaRawResult, Result,
+        Binding, MaRawResult, MaResult,
         engine::node_graph::{AsNodeGraphPtr, nodes::filters::hpf::HpfNode},
     };
 
@@ -127,10 +136,10 @@ pub(crate) mod n_hpf_ffi {
         config: *const sys::ma_hpf_node_config,
         alloc_cb: *const sys::ma_allocation_callbacks,
         node: *mut sys::ma_hpf_node,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res =
             unsafe { sys::ma_hpf_node_init(node_graph.as_nodegraph_ptr(), config, alloc_cb, node) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
@@ -141,9 +150,12 @@ pub(crate) mod n_hpf_ffi {
     }
 
     #[inline]
-    pub fn ma_hpf_node_reinit(config: *const sys::ma_hpf_config, node: &mut HpfNode) -> Result<()> {
+    pub fn ma_hpf_node_reinit(
+        config: *const sys::ma_hpf_config,
+        node: &mut HpfNode,
+    ) -> MaResult<()> {
         let res = unsafe { sys::ma_hpf_node_reinit(config, node.to_raw()) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 }
 
@@ -190,7 +202,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> HpfNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(self) -> Result<HpfNode<'a>> {
+    pub fn build(self) -> MaResult<HpfNode<'a>> {
         HpfNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
     }
 }

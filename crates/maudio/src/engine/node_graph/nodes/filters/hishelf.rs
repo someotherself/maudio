@@ -3,11 +3,14 @@ use std::marker::PhantomData;
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, Result,
+    Binding, MaResult,
     audio::{formats::Format, sample_rate::SampleRate},
     engine::{
         AllocationCallbacks,
-        node_graph::{AsNodeGraphPtr, NodeGraph, nodes::NodeRef},
+        node_graph::{
+            AsNodeGraphPtr, NodeGraph,
+            nodes::{AsNodePtr, NodeRef},
+        },
     },
 };
 
@@ -58,12 +61,18 @@ impl Binding for HiShelfNode<'_> {
     }
 }
 
+impl AsNodePtr for HiShelfNode<'_> {
+    fn as_node_ptr(&self) -> *mut sys::ma_node {
+        self.as_node().to_raw()
+    }
+}
+
 impl<'a> HiShelfNode<'a> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &HiShelfNodeBuilder<N>,
         alloc: Option<&'a AllocationCallbacks>,
-    ) -> Result<Self> {
+    ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
 
@@ -94,7 +103,7 @@ impl<'a> HiShelfNode<'a> {
     }
 
     /// See [`HiShelfNodeParams`] for creating a config
-    pub fn reinit(&mut self, config: &HiShelfNodeParams) -> Result<()> {
+    pub fn reinit(&mut self, config: &HiShelfNodeParams) -> MaResult<()> {
         n_hishelf_ffi::ma_hishelf_node_reinit(config.to_raw(), self)
     }
 
@@ -125,7 +134,7 @@ pub(crate) mod n_hishelf_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        Binding, MaRawResult, Result,
+        Binding, MaRawResult, MaResult,
         engine::node_graph::{AsNodeGraphPtr, nodes::filters::hishelf::HiShelfNode},
     };
 
@@ -135,11 +144,11 @@ pub(crate) mod n_hishelf_ffi {
         config: *const sys::ma_hishelf_node_config,
         alloc_cb: *const sys::ma_allocation_callbacks,
         node: *mut sys::ma_hishelf_node,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe {
             sys::ma_hishelf_node_init(node_graph.as_nodegraph_ptr(), config, alloc_cb, node)
         };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
@@ -153,9 +162,9 @@ pub(crate) mod n_hishelf_ffi {
     pub fn ma_hishelf_node_reinit(
         config: *const sys::ma_hishelf_config,
         node: &mut HiShelfNode,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe { sys::ma_hishelf_node_reinit(config, node.to_raw()) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 }
 
@@ -208,7 +217,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> HiShelfNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(self) -> Result<HiShelfNode<'a>> {
+    pub fn build(self) -> MaResult<HiShelfNode<'a>> {
         HiShelfNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
     }
 }

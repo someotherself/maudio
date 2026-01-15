@@ -1,6 +1,6 @@
 use maudio_sys::ffi as sys;
 
-use crate::MaError;
+use crate::{ErrorKinds, MaudioError};
 
 /// Audio stream sample format.
 ///
@@ -27,12 +27,12 @@ impl From<StreamFormat> for sys::ma_stream_format {
 }
 
 impl TryFrom<sys::ma_stream_format> for StreamFormat {
-    type Error = MaError;
+    type Error = MaudioError;
 
     fn try_from(value: sys::ma_stream_format) -> Result<Self, Self::Error> {
         match value {
             sys::ma_stream_format_ma_stream_format_pcm => Ok(StreamFormat::Pcm),
-            _ => Err(MaError(sys::ma_result_MA_INVALID_ARGS)),
+            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidStreamFormat)),
         }
     }
 }
@@ -73,19 +73,21 @@ impl From<StreamLayout> for sys::ma_stream_layout {
 }
 
 impl TryFrom<sys::ma_stream_layout> for StreamLayout {
-    type Error = MaError;
+    type Error = MaudioError;
 
     fn try_from(value: sys::ma_stream_layout) -> Result<Self, Self::Error> {
         match value {
             sys::ma_stream_layout_ma_stream_layout_interleaved => Ok(StreamLayout::Interleaved),
             sys::ma_stream_layout_ma_stream_layout_deinterleaved => Ok(StreamLayout::Deinterleaved),
-            _ => Err(MaError(sys::ma_result_MA_INVALID_ARGS)),
+            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidPositioning)),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::MaError;
+
     use super::*;
     use maudio_sys::ffi as sys;
 
@@ -105,7 +107,7 @@ mod tests {
     fn test_stream_format_try_from_invalid_returns_error() {
         let invalid: sys::ma_stream_format = 0x7FFF as sys::ma_stream_format;
         let err = StreamFormat::try_from(invalid).unwrap_err();
-        assert_eq!(err, MaError(sys::ma_result_MA_INVALID_ARGS));
+        assert_eq!(err, MaError(sys::ma_result_MA_ERROR));
     }
 
     #[test]
@@ -141,6 +143,6 @@ mod tests {
     fn test_stream_layout_try_from_invalid_returns_error() {
         let invalid: sys::ma_stream_format = 0x7FFF as sys::ma_stream_format;
         let err = StreamLayout::try_from(invalid).unwrap_err();
-        assert_eq!(err, MaError(sys::ma_result_MA_INVALID_ARGS));
+        assert_eq!(err, MaError(sys::ma_result_MA_ERROR));
     }
 }

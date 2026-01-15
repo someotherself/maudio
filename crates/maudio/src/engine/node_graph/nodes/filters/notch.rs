@@ -3,11 +3,14 @@ use std::marker::PhantomData;
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, Result,
+    Binding, MaResult,
     audio::{formats::Format, sample_rate::SampleRate},
     engine::{
         AllocationCallbacks,
-        node_graph::{AsNodeGraphPtr, NodeGraph, nodes::NodeRef},
+        node_graph::{
+            AsNodeGraphPtr, NodeGraph,
+            nodes::{AsNodePtr, NodeRef},
+        },
     },
 };
 
@@ -59,12 +62,18 @@ impl Binding for NotchNode<'_> {
     }
 }
 
+impl AsNodePtr for NotchNode<'_> {
+    fn as_node_ptr(&self) -> *mut sys::ma_node {
+        self.as_node().to_raw()
+    }
+}
+
 impl<'a> NotchNode<'a> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &NotchNodeBuilder<'_, N>,
         alloc: Option<&'a AllocationCallbacks>,
-    ) -> Result<Self> {
+    ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
 
@@ -86,7 +95,7 @@ impl<'a> NotchNode<'a> {
     }
 
     /// See [`NotchNodeParams`] for creating a config
-    pub fn reinit(&mut self, config: &NotchNodeParams) -> Result<()> {
+    pub fn reinit(&mut self, config: &NotchNodeParams) -> MaResult<()> {
         n_notch_ffi::ma_notch_node_reinit(config.to_raw(), self)
     }
 
@@ -117,7 +126,7 @@ pub(crate) mod n_notch_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        Binding, MaRawResult, Result,
+        Binding, MaRawResult, MaResult,
         engine::node_graph::{AsNodeGraphPtr, nodes::filters::notch::NotchNode},
     };
 
@@ -127,11 +136,11 @@ pub(crate) mod n_notch_ffi {
         config: *const sys::ma_notch_node_config,
         alloc_cb: *const sys::ma_allocation_callbacks,
         node: *mut sys::ma_notch_node,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe {
             sys::ma_notch_node_init(node_graph.as_nodegraph_ptr(), config, alloc_cb, node)
         };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
@@ -145,9 +154,9 @@ pub(crate) mod n_notch_ffi {
     pub fn ma_notch_node_reinit(
         config: *const sys::ma_notch_config,
         node: &mut NotchNode,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe { sys::ma_notch_node_reinit(config, node.to_raw()) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 }
 
@@ -192,7 +201,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> NotchNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(self) -> Result<NotchNode<'a>> {
+    pub fn build(self) -> MaResult<NotchNode<'a>> {
         NotchNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
     }
 }

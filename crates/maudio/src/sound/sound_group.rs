@@ -3,7 +3,7 @@ use std::{cell::Cell, marker::PhantomData};
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, Result,
+    Binding, MaResult,
     audio::{
         dsp::pan::PanMode,
         math::vec3::Vec3,
@@ -38,11 +38,11 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_get_engine(self)
     }
 
-    pub fn start(&mut self) -> Result<()> {
+    pub fn start(&mut self) -> MaResult<()> {
         s_group_ffi::ma_sound_group_start(self)
     }
 
-    pub fn stop(&mut self) -> Result<()> {
+    pub fn stop(&mut self) -> MaResult<()> {
         s_group_ffi::ma_sound_group_stop(self)
     }
 
@@ -62,7 +62,7 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_set_pan(self, pan);
     }
 
-    pub fn pan_mode(&self) -> Result<PanMode> {
+    pub fn pan_mode(&self) -> MaResult<PanMode> {
         s_group_ffi::ma_sound_group_get_pan_mode(self)
     }
 
@@ -130,11 +130,11 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_set_attenuation_model(self, model);
     }
 
-    pub fn attenuation(&self) -> Result<AttenuationModel> {
+    pub fn attenuation(&self) -> MaResult<AttenuationModel> {
         s_group_ffi::ma_sound_group_get_attenuation_model(self)
     }
 
-    pub fn positioning(&self) -> Result<Positioning> {
+    pub fn positioning(&self) -> MaResult<Positioning> {
         s_group_ffi::ma_sound_group_get_positioning(self)
     }
 
@@ -280,7 +280,7 @@ pub(crate) mod s_group_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        Binding, MaRawResult, Result,
+        Binding, MaRawResult, MaResult,
         audio::{
             dsp::pan::PanMode,
             math::vec3::Vec3,
@@ -294,11 +294,11 @@ pub(crate) mod s_group_ffi {
         engine: &Engine,
         config: SoundGroupConfig,
         s_group: *mut sys::ma_sound_group,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe {
             sys::ma_sound_group_init_ex(engine.to_raw(), &config.inner as *const _, s_group)
         };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
@@ -317,15 +317,15 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_start(s_group: &mut SoundGroup) -> Result<()> {
+    pub fn ma_sound_group_start(s_group: &mut SoundGroup) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_group_start(s_group.to_raw()) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
-    pub fn ma_sound_group_stop(s_group: &mut SoundGroup) -> Result<()> {
+    pub fn ma_sound_group_stop(s_group: &mut SoundGroup) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_group_stop(s_group.to_raw()) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
@@ -356,7 +356,7 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_get_pan_mode(s_group: &SoundGroup) -> Result<PanMode> {
+    pub fn ma_sound_group_get_pan_mode(s_group: &SoundGroup) -> MaResult<PanMode> {
         let mode = unsafe { sys::ma_sound_group_get_pan_mode(s_group.to_raw() as *const _) };
         mode.try_into()
     }
@@ -447,7 +447,9 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_get_attenuation_model(s_group: &SoundGroup) -> Result<AttenuationModel> {
+    pub fn ma_sound_group_get_attenuation_model(
+        s_group: &SoundGroup,
+    ) -> MaResult<AttenuationModel> {
         let model =
             unsafe { sys::ma_sound_group_get_attenuation_model(s_group.to_raw() as *const _) };
         model.try_into()
@@ -459,7 +461,7 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_get_positioning(s_group: &SoundGroup) -> Result<Positioning> {
+    pub fn ma_sound_group_get_positioning(s_group: &SoundGroup) -> MaResult<Positioning> {
         let pos = unsafe { sys::ma_sound_group_get_positioning(s_group.to_raw() as *const _) };
         pos.try_into()
     }

@@ -3,11 +3,14 @@ use std::marker::PhantomData;
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, Result,
+    Binding, MaResult,
     audio::formats::Format,
     engine::{
         AllocationCallbacks,
-        node_graph::{AsNodeGraphPtr, NodeGraph, nodes::NodeRef},
+        node_graph::{
+            AsNodeGraphPtr, NodeGraph,
+            nodes::{AsNodePtr, NodeRef},
+        },
     },
 };
 
@@ -68,12 +71,18 @@ impl Binding for BiquadNode<'_> {
     }
 }
 
+impl AsNodePtr for BiquadNode<'_> {
+    fn as_node_ptr(&self) -> *mut sys::ma_node {
+        self.as_node().to_raw()
+    }
+}
+
 impl<'a> BiquadNode<'a> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &BiquadNodeBuilder<N>,
         alloc: Option<&'a AllocationCallbacks>,
-    ) -> Result<Self> {
+    ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
 
@@ -93,7 +102,7 @@ impl<'a> BiquadNode<'a> {
     }
 
     /// See [`BiquadNodeParams`] for creating a config
-    pub fn reinit(&mut self, config: &BiquadNodeParams) -> Result<()> {
+    pub fn reinit(&mut self, config: &BiquadNodeParams) -> MaResult<()> {
         n_biquad_ffi::ma_biquad_node_reinit(config.to_raw(), self)
     }
 
@@ -122,7 +131,7 @@ impl<'a> BiquadNode<'a> {
 
 pub(crate) mod n_biquad_ffi {
     use crate::{
-        Binding, MaRawResult, Result,
+        Binding, MaRawResult, MaResult,
         engine::node_graph::{AsNodeGraphPtr, nodes::filters::biquad::BiquadNode},
     };
     use maudio_sys::ffi as sys;
@@ -133,11 +142,11 @@ pub(crate) mod n_biquad_ffi {
         config: *const sys::ma_biquad_node_config,
         alloc_cb: *const sys::ma_allocation_callbacks,
         node: *mut sys::ma_biquad_node,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe {
             sys::ma_biquad_node_init(node_graph.as_nodegraph_ptr(), config, alloc_cb, node)
         };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
@@ -151,9 +160,9 @@ pub(crate) mod n_biquad_ffi {
     pub fn ma_biquad_node_reinit(
         config: *const sys::ma_biquad_config,
         node: &mut BiquadNode,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe { sys::ma_biquad_node_reinit(config, node.to_raw()) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 }
 
@@ -201,7 +210,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> BiquadNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(self) -> Result<BiquadNode<'a>> {
+    pub fn build(self) -> MaResult<BiquadNode<'a>> {
         BiquadNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
     }
 }

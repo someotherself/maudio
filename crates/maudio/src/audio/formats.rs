@@ -1,6 +1,6 @@
 use maudio_sys::ffi as sys;
 
-use crate::MaError;
+use crate::{ErrorKinds, MaudioError};
 
 /// Sample format (numeric representation of audio samples).
 ///
@@ -38,7 +38,7 @@ impl From<Format> for sys::ma_format {
 }
 
 impl TryFrom<sys::ma_format> for Format {
-    type Error = MaError;
+    type Error = MaudioError;
     fn try_from(value: sys::ma_format) -> Result<Self, Self::Error> {
         match value {
             sys::ma_format_ma_format_unknown => Ok(Format::Unknown),
@@ -47,7 +47,7 @@ impl TryFrom<sys::ma_format> for Format {
             sys::ma_format_ma_format_s24 => Ok(Format::S24),
             sys::ma_format_ma_format_s32 => Ok(Format::S32),
             sys::ma_format_ma_format_f32 => Ok(Format::F32),
-            _ => Err(MaError(sys::ma_result_MA_INVALID_ARGS)),
+            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidFormat)),
         }
     }
 }
@@ -104,24 +104,27 @@ impl From<Dither> for sys::ma_dither_mode {
 }
 
 impl TryFrom<sys::ma_dither_mode> for Dither {
-    type Error = MaError;
+    type Error = MaudioError;
+
     fn try_from(value: sys::ma_dither_mode) -> Result<Self, Self::Error> {
         match value {
             sys::ma_dither_mode_ma_dither_mode_none => Ok(Dither::None),
             sys::ma_dither_mode_ma_dither_mode_rectangle => Ok(Dither::Rectangle),
             sys::ma_dither_mode_ma_dither_mode_triangle => Ok(Dither::Triangle),
-            _ => Err(MaError(sys::ma_result_MA_INVALID_ARGS)),
+            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidDither)),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::MaError;
+
     use super::*;
     use maudio_sys::ffi as sys;
 
     fn invalid_args() -> MaError {
-        MaError(sys::ma_result_MA_INVALID_ARGS)
+        MaError(sys::ma_result_MA_ERROR)
     }
 
     #[test]

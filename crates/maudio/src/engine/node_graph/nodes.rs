@@ -77,7 +77,7 @@ use std::{cell::Cell, marker::PhantomData};
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, Result,
+    Binding, MaResult,
     engine::{
         AllocationCallbacks,
         node_graph::{NodeGraph, NodeGraphRef, node_builder::NodeState},
@@ -133,17 +133,17 @@ impl Binding for NodeRef<'_> {
 }
 
 pub trait AsNodePtr {
-    fn as_engine_ptr(&self) -> *mut sys::ma_node;
+    fn as_node_ptr(&self) -> *mut sys::ma_node;
 }
 
 impl AsNodePtr for Node<'_> {
-    fn as_engine_ptr(&self) -> *mut sys::ma_node {
+    fn as_node_ptr(&self) -> *mut sys::ma_node {
         self.to_raw()
     }
 }
 
 impl AsNodePtr for NodeRef<'_> {
-    fn as_engine_ptr(&self) -> *mut sys::ma_node {
+    fn as_node_ptr(&self) -> *mut sys::ma_node {
         self.to_raw()
     }
 }
@@ -156,15 +156,15 @@ pub trait NodeOps: AsNodePtr {
         output_bus: u32,
         other_node: &mut P,
         other_node_input_bus: u32,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         node_ffi::ma_node_attach_output_bus(self, output_bus, other_node, other_node_input_bus)
     }
 
-    fn detach_output_bus(&mut self, output_bus: u32) -> Result<()> {
+    fn detach_output_bus(&mut self, output_bus: u32) -> MaResult<()> {
         node_ffi::ma_node_detach_output_bus(self, output_bus)
     }
 
-    fn detach_all_outputs(&mut self) -> Result<()> {
+    fn detach_all_outputs(&mut self) -> MaResult<()> {
         node_ffi::ma_node_detach_all_output_buses(self)
     }
 
@@ -192,15 +192,15 @@ pub trait NodeOps: AsNodePtr {
         node_ffi::ma_node_get_output_bus_volume(self, out_bux_index)
     }
 
-    fn set_output_bus_volume(&mut self, out_bux_index: u32, volume: f32) -> Result<()> {
+    fn set_output_bus_volume(&mut self, out_bux_index: u32, volume: f32) -> MaResult<()> {
         node_ffi::ma_node_set_output_bus_volume(self, out_bux_index, volume)
     }
 
-    fn state(&self) -> Result<NodeState> {
+    fn state(&self) -> MaResult<NodeState> {
         node_ffi::ma_node_get_state(self)
     }
 
-    fn set_state(&mut self, state: NodeState) -> Result<()> {
+    fn set_state(&mut self, state: NodeState) -> MaResult<()> {
         node_ffi::ma_node_set_state(self, state)
     }
 
@@ -208,15 +208,19 @@ pub trait NodeOps: AsNodePtr {
         node_ffi::ma_node_get_state_time(self, state)
     }
 
-    fn set_state_time(&mut self, state: NodeState, global_time: u64) -> Result<()> {
+    fn set_state_time(&mut self, state: NodeState, global_time: u64) -> MaResult<()> {
         node_ffi::ma_node_set_state_time(self, state, global_time)
     }
 
-    fn state_by_time(&self, global_time: u64) -> Result<NodeState> {
+    fn state_by_time(&self, global_time: u64) -> MaResult<NodeState> {
         node_ffi::ma_node_get_state_by_time(self, global_time)
     }
 
-    fn state_by_time_range(&self, global_time_beg: u64, global_time_end: u64) -> Result<NodeState> {
+    fn state_by_time_range(
+        &self,
+        global_time_beg: u64,
+        global_time_end: u64,
+    ) -> MaResult<NodeState> {
         node_ffi::ma_node_get_state_by_time_range(self, global_time_beg, global_time_end)
     }
 
@@ -224,7 +228,7 @@ pub trait NodeOps: AsNodePtr {
         node_ffi::ma_node_get_time(self)
     }
 
-    fn set_time(&mut self, local_time: u64) -> Result<()> {
+    fn set_time(&mut self, local_time: u64) -> MaResult<()> {
         node_ffi::ma_node_set_time(self, local_time)
     }
 }
@@ -253,7 +257,7 @@ pub(super) mod node_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        Binding, MaRawResult, Result,
+        Binding, MaRawResult, MaResult,
         engine::node_graph::{
             NodeGraph, NodeGraphRef,
             node_builder::NodeState,
@@ -290,10 +294,10 @@ pub(super) mod node_ffi {
         config: *const sys::ma_node_config,
         allocation_callbacks: *const sys::ma_allocation_callbacks,
         node: *mut sys::ma_node,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res =
             unsafe { sys::ma_node_init(node_graph.to_raw(), config, allocation_callbacks, node) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     // Creating nodes is currently not supported. Any nodes that used are not owned and should not be dropped.
@@ -306,7 +310,7 @@ pub(super) mod node_ffi {
     pub(crate) fn ma_node_get_node_graph<'a, P: AsNodePtr + ?Sized>(
         node: &'a P,
     ) -> Option<NodeGraphRef<'a>> {
-        let ptr = unsafe { sys::ma_node_get_node_graph(node.as_engine_ptr() as *const _) };
+        let ptr = unsafe { sys::ma_node_get_node_graph(node.as_node_ptr() as *const _) };
         if ptr.is_null() {
             None
         } else {
@@ -316,12 +320,12 @@ pub(super) mod node_ffi {
 
     #[inline]
     pub(crate) fn ma_node_get_input_bus_count<P: AsNodePtr + ?Sized>(node: &P) -> u32 {
-        unsafe { sys::ma_node_get_input_bus_count(node.as_engine_ptr() as *const _) }
+        unsafe { sys::ma_node_get_input_bus_count(node.as_node_ptr() as *const _) }
     }
 
     #[inline]
     pub(crate) fn ma_node_get_output_bus_count<P: AsNodePtr + ?Sized>(node: &P) -> u32 {
-        unsafe { sys::ma_node_get_output_bus_count(node.as_engine_ptr() as *const _) }
+        unsafe { sys::ma_node_get_output_bus_count(node.as_node_ptr() as *const _) }
     }
 
     #[inline]
@@ -329,9 +333,7 @@ pub(super) mod node_ffi {
         node: &P,
         input_bus_index: u32,
     ) -> u32 {
-        unsafe {
-            sys::ma_node_get_input_channels(node.as_engine_ptr() as *const _, input_bus_index)
-        }
+        unsafe { sys::ma_node_get_input_channels(node.as_node_ptr() as *const _, input_bus_index) }
     }
 
     #[inline]
@@ -340,7 +342,7 @@ pub(super) mod node_ffi {
         output_bus_index: u32,
     ) -> u32 {
         unsafe {
-            sys::ma_node_get_output_channels(node.as_engine_ptr() as *const _, output_bus_index)
+            sys::ma_node_get_output_channels(node.as_node_ptr() as *const _, output_bus_index)
         }
     }
 
@@ -350,15 +352,15 @@ pub(super) mod node_ffi {
         output_bus_index: u32,
         other_node: &mut Q,
         other_node_input_bus_index: u32,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         unsafe {
             let res = sys::ma_node_attach_output_bus(
-                node.as_engine_ptr(),
+                node.as_node_ptr(),
                 output_bus_index,
-                other_node.as_engine_ptr(),
+                other_node.as_node_ptr(),
                 other_node_input_bus_index,
             );
-            MaRawResult::resolve(res)
+            MaRawResult::check(res)
         }
     }
 
@@ -366,17 +368,17 @@ pub(super) mod node_ffi {
     pub(crate) fn ma_node_detach_output_bus<P: AsNodePtr + ?Sized>(
         node: &mut P,
         output_bus_index: u32,
-    ) -> Result<()> {
-        let res = unsafe { sys::ma_node_detach_output_bus(node.as_engine_ptr(), output_bus_index) };
-        MaRawResult::resolve(res)
+    ) -> MaResult<()> {
+        let res = unsafe { sys::ma_node_detach_output_bus(node.as_node_ptr(), output_bus_index) };
+        MaRawResult::check(res)
     }
 
     #[inline]
     pub(crate) fn ma_node_detach_all_output_buses<P: AsNodePtr + ?Sized>(
         node: &mut P,
-    ) -> Result<()> {
-        let res = unsafe { sys::ma_node_detach_all_output_buses(node.as_engine_ptr()) };
-        MaRawResult::resolve(res)
+    ) -> MaResult<()> {
+        let res = unsafe { sys::ma_node_detach_all_output_buses(node.as_node_ptr()) };
+        MaRawResult::check(res)
     }
 
     #[inline]
@@ -384,11 +386,11 @@ pub(super) mod node_ffi {
         node: &mut P,
         output_bus_index: sys::ma_uint32,
         volume: f32,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_node_set_output_bus_volume(node.as_engine_ptr(), output_bus_index, volume)
+            sys::ma_node_set_output_bus_volume(node.as_node_ptr(), output_bus_index, volume)
         };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
@@ -396,21 +398,21 @@ pub(super) mod node_ffi {
         node: &mut P,
         output_bus_index: sys::ma_uint32,
     ) -> f32 {
-        unsafe { sys::ma_node_get_output_bus_volume(node.as_engine_ptr(), output_bus_index) }
+        unsafe { sys::ma_node_get_output_bus_volume(node.as_node_ptr(), output_bus_index) }
     }
 
     #[inline]
     pub(crate) fn ma_node_set_state<P: AsNodePtr + ?Sized>(
         node: &mut P,
         state: NodeState,
-    ) -> Result<()> {
-        let res = unsafe { sys::ma_node_set_state(node.as_engine_ptr(), state.into()) };
-        MaRawResult::resolve(res)
+    ) -> MaResult<()> {
+        let res = unsafe { sys::ma_node_set_state(node.as_node_ptr(), state.into()) };
+        MaRawResult::check(res)
     }
 
     #[inline]
-    pub(crate) fn ma_node_get_state<P: AsNodePtr + ?Sized>(node: &P) -> Result<NodeState> {
-        let res = unsafe { sys::ma_node_get_state(node.as_engine_ptr() as *const _) };
+    pub(crate) fn ma_node_get_state<P: AsNodePtr + ?Sized>(node: &P) -> MaResult<NodeState> {
+        let res = unsafe { sys::ma_node_get_state(node.as_node_ptr() as *const _) };
         res.try_into()
     }
 
@@ -419,25 +421,24 @@ pub(super) mod node_ffi {
         node: &mut P,
         state: NodeState,
         global_time: u64,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res =
-            unsafe { sys::ma_node_set_state_time(node.as_engine_ptr(), state.into(), global_time) };
-        MaRawResult::resolve(res)
+            unsafe { sys::ma_node_set_state_time(node.as_node_ptr(), state.into(), global_time) };
+        MaRawResult::check(res)
     }
 
     #[inline]
     pub(crate) fn ma_node_get_state_time<P: AsNodePtr + ?Sized>(node: &P, state: NodeState) -> u64 {
-        unsafe { sys::ma_node_get_state_time(node.as_engine_ptr() as *const _, state.into()) }
+        unsafe { sys::ma_node_get_state_time(node.as_node_ptr() as *const _, state.into()) }
     }
 
     #[inline]
     pub(crate) fn ma_node_get_state_by_time<P: AsNodePtr + ?Sized>(
         node: &P,
         global_time: u64,
-    ) -> Result<NodeState> {
-        let res = unsafe {
-            sys::ma_node_get_state_by_time(node.as_engine_ptr() as *const _, global_time)
-        };
+    ) -> MaResult<NodeState> {
+        let res =
+            unsafe { sys::ma_node_get_state_by_time(node.as_node_ptr() as *const _, global_time) };
         res.try_into()
     }
 
@@ -446,10 +447,10 @@ pub(super) mod node_ffi {
         node: &P,
         global_time_beg: u64,
         global_time_end: u64,
-    ) -> Result<NodeState> {
+    ) -> MaResult<NodeState> {
         unsafe {
             let res = sys::ma_node_get_state_by_time_range(
-                node.as_engine_ptr() as *const _,
+                node.as_node_ptr() as *const _,
                 global_time_beg,
                 global_time_end,
             );
@@ -459,16 +460,16 @@ pub(super) mod node_ffi {
 
     #[inline]
     pub(crate) fn ma_node_get_time<P: AsNodePtr + ?Sized>(node: &P) -> u64 {
-        unsafe { sys::ma_node_get_time(node.as_engine_ptr() as *const _) }
+        unsafe { sys::ma_node_get_time(node.as_node_ptr() as *const _) }
     }
 
     #[inline]
     pub(crate) fn ma_node_set_time<P: AsNodePtr + ?Sized>(
         node: &mut P,
         local_time: u64,
-    ) -> Result<()> {
-        let res = unsafe { sys::ma_node_set_time(node.as_engine_ptr(), local_time) };
-        MaRawResult::resolve(res)
+    ) -> MaResult<()> {
+        let res = unsafe { sys::ma_node_set_time(node.as_node_ptr(), local_time) };
+        MaRawResult::check(res)
     }
 }
 

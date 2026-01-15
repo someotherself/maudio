@@ -1,6 +1,6 @@
 use maudio_sys::ffi as sys;
 
-use crate::{Binding, MaError};
+use crate::{Binding, ErrorKinds, MaudioError};
 
 struct NodeBuilder {
     inner: sys::ma_node_config,
@@ -36,13 +36,13 @@ impl From<NodeState> for sys::ma_node_state {
 }
 
 impl TryFrom<sys::ma_node_state> for NodeState {
-    type Error = MaError;
+    type Error = MaudioError;
 
     fn try_from(value: sys::ma_pan_mode) -> Result<Self, Self::Error> {
         match value {
             sys::ma_node_state_ma_node_state_started => Ok(NodeState::Started),
             sys::ma_node_state_ma_node_state_stopped => Ok(NodeState::Stopped),
-            _ => Err(MaError(sys::ma_result_MA_INVALID_ARGS)),
+            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidNodeState)),
         }
     }
 }

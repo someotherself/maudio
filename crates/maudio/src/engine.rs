@@ -12,7 +12,7 @@
 //! ## Quick start
 //! ```no_run
 //! # use maudio::engine::Engine;
-//! # fn main() -> maudio::Result<()> {
+//! # fn main() -> maudio::MaResult<()> {
 //! let engine = Engine::new()?;
 //! // let mut sound = engine.new_sound_from_file("music.ogg")?;
 //! // sound.start()?;
@@ -51,7 +51,7 @@
 use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit, path::Path};
 
 use crate::{
-    Binding, ErrorKinds, Result,
+    Binding, ErrorKinds, MaResult,
     audio::{math::vec3::Vec3, sample_rate::SampleRate, spatial::cone::Cone},
     engine::{
         engine_builder::EngineBuilder,
@@ -83,14 +83,6 @@ pub mod node_graph;
 /// works just as well if you prefer explicit imports.
 pub mod prelude {
     pub use super::{Engine, EngineOps};
-}
-
-pub enum EngineError {}
-
-impl From<EngineError> for ErrorKinds {
-    fn from(e: EngineError) -> Self {
-        ErrorKinds::Engine(e)
-    }
 }
 
 /// High-level audio engine.
@@ -183,7 +175,7 @@ impl AsEnginePtr for EngineRef<'_> {
 impl<T: AsEnginePtr + ?Sized> EngineOps for T {}
 
 pub trait EngineOps: AsEnginePtr {
-    fn set_volume(&mut self, volume: f32) -> Result<()> {
+    fn set_volume(&mut self, volume: f32) -> MaResult<()> {
         engine_ffi::ma_engine_set_volume(self, volume)
     }
 
@@ -191,7 +183,7 @@ pub trait EngineOps: AsEnginePtr {
         engine_ffi::ma_engine_get_volume(self)
     }
 
-    fn set_gain_db(&mut self, db_gain: f32) -> Result<()> {
+    fn set_gain_db(&mut self, db_gain: f32) -> MaResult<()> {
         engine_ffi::ma_engine_set_gain_db(self, db_gain)
     }
 
@@ -259,10 +251,8 @@ pub trait EngineOps: AsEnginePtr {
         engine_ffi::ma_engine_get_node_graph(self)
     }
 
-    // TODO
-    fn pcm_frames(&mut self) {
-        // let frames = engine_ffi::ma_engine_read_pcm_frames(engine, frames_out, frame_count, frames_read);
-        todo!()
+    fn read_pcm_frames(&mut self, frame_count: u64) -> MaResult<(Vec<f32>, u64)> {
+        engine_ffi::ma_engine_read_pcm_frames(self, frame_count)
     }
 
     /// Returns the engine’s **endpoint node**.
@@ -374,11 +364,11 @@ impl Engine {
     /// an [`EngineBuilder`] (`ma_engine_config`) with a default configuration.
     ///
     /// Most applications should start with this method.
-    pub fn new() -> Result<Self> {
+    pub fn new() -> MaResult<Self> {
         Self::new_with_config(None)
     }
 
-    pub(crate) fn new_for_tests() -> Result<Self> {
+    pub(crate) fn new_for_tests() -> MaResult<Self> {
         if cfg!(feature = "ci-tests") {
             EngineBuilder::new()
                 .no_device(true)
@@ -390,7 +380,7 @@ impl Engine {
         }
     }
 
-    fn new_with_config(config: Option<&EngineBuilder>) -> Result<Self> {
+    fn new_with_config(config: Option<&EngineBuilder>) -> MaResult<Self> {
         let mut mem: Box<MaybeUninit<sys::ma_engine>> = Box::new_uninit();
         engine_ffi::engine_init(config, mem.as_mut_ptr())?;
         // Safety: If mem is not initialized, engine_init will return an error
@@ -399,11 +389,11 @@ impl Engine {
         Ok(Self::from_ptr(inner))
     }
 
-    pub fn new_sound(&self) -> Result<Sound<'_>> {
+    pub fn new_sound(&self) -> MaResult<Sound<'_>> {
         self.new_sound_with_config_internal(None)
     }
 
-    pub fn new_sound_from_file(&self, path: &Path) -> Result<Sound<'_>> {
+    pub fn new_sound_from_file(&self, path: &Path) -> MaResult<Sound<'_>> {
         self.new_sound_with_file_internal(path, SoundFlags::NONE, &mut None)
     }
 
@@ -411,7 +401,7 @@ impl Engine {
         &'a self,
         path: &Path,
         sound_group: &'a SoundGroup,
-    ) -> Result<Sound<'a>> {
+    ) -> MaResult<Sound<'a>> {
         self.new_sound_with_file_internal(path, SoundFlags::NONE, &mut Some(sound_group))
     }
 
@@ -419,14 +409,14 @@ impl Engine {
         &self,
         path: &Path,
         flags: SoundFlags,
-    ) -> Result<Sound<'_>> {
+    ) -> MaResult<Sound<'_>> {
         self.new_sound_with_file_internal(path, flags, &mut None)
     }
 
     pub(crate) fn new_sound_with_config_internal(
         &self,
         config: Option<&SoundBuilder>,
-    ) -> Result<Sound<'_>> {
+    ) -> MaResult<Sound<'_>> {
         let temp_config = SoundBuilder::init(self);
         let config = config.unwrap_or(&temp_config);
         let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new_uninit();
@@ -443,7 +433,7 @@ impl Engine {
         path: &Path,
         flags: SoundFlags,
         sound_group: &mut Option<&'a SoundGroup>,
-    ) -> Result<Sound<'a>> {
+    ) -> MaResult<Sound<'a>> {
         let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new_uninit();
 
         Sound::init_from_file_internal(mem.as_mut_ptr(), self, path, flags, sound_group, None)?;
@@ -453,13 +443,16 @@ impl Engine {
         Ok(Sound::from_ptr(inner))
     }
 
-    // TODO: Not yet exposed to the public API
+    pub fn clone_sound(&self, sound: &Sound, flags: SoundFlags) -> MaResult<Sound<'_>> {
+        self.new_sound_instance_internal(sound, flags, None)
+    }
+
     fn new_sound_instance_internal<'a>(
         &'a self,
         sound: &Sound,
         flags: SoundFlags,
         sound_group: Option<&mut SoundGroup>,
-    ) -> Result<Sound<'a>> {
+    ) -> MaResult<Sound<'a>> {
         let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new_uninit();
 
         sound_ffi::ma_sound_init_copy(self, sound, flags, sound_group, mem.as_mut_ptr())?;
@@ -469,8 +462,7 @@ impl Engine {
         Ok(Sound::from_ptr(inner))
     }
 
-    // Shared?
-    pub fn new_sound_group(&self) -> Result<SoundGroup> {
+    pub fn new_sound_group(&self) -> MaResult<SoundGroup> {
         let mut mem: Box<MaybeUninit<sys::ma_sound_group>> = Box::new_uninit();
         let config = self.new_sound_group_config();
 
@@ -481,7 +473,6 @@ impl Engine {
         Ok(SoundGroup::from_ptr(inner))
     }
 
-    // Shared?
     pub fn new_sound_group_config(&self) -> SoundGroupConfig {
         s_group_cfg_ffi::ma_sound_group_config_init_2(self)
     }
@@ -495,10 +486,9 @@ impl Drop for Engine {
 }
 
 #[cfg(unix)]
-pub(crate) fn cstring_from_path(path: &Path) -> Result<std::ffi::CString> {
+pub(crate) fn cstring_from_path(path: &Path) -> MaResult<std::ffi::CString> {
     use std::os::unix::ffi::OsStrExt;
-    std::ffi::CString::new(path.as_os_str().as_bytes())
-        .map_err(|_| crate::MaError(sys::ma_result_MA_INVALID_ARGS))
+    std::ffi::CString::new(path.as_os_str().as_bytes()).map_err(|_| crate::MaudioError::new_ma_error(ErrorKinds::InvalidCString))
 }
 
 #[cfg(windows)]
@@ -556,21 +546,24 @@ pub(crate) mod engine_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        MaRawResult, Result,
+        MaRawResult, MaResult,
         audio::{math::vec3::Vec3, spatial::cone::Cone},
         engine::{
-            AsEnginePtr, Binding, Engine,
+            AsEnginePtr, Binding, Engine, EngineOps,
             engine_builder::EngineBuilder,
             node_graph::{NodeGraphRef, nodes::NodeRef},
         },
     };
 
     #[inline]
-    pub fn engine_init(config: Option<&EngineBuilder>, engine: *mut sys::ma_engine) -> Result<()> {
+    pub fn engine_init(
+        config: Option<&EngineBuilder>,
+        engine: *mut sys::ma_engine,
+    ) -> MaResult<()> {
         let p_config: *const sys::ma_engine_config =
             config.map_or(core::ptr::null(), |c| &c.to_raw() as *const _);
         let res = unsafe { sys::ma_engine_init(p_config, engine) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
@@ -580,18 +573,25 @@ pub(crate) mod engine_ffi {
         }
     }
 
-    // TODO
-    // AsEnginePtr
     #[inline]
-    pub fn ma_engine_read_pcm_frames(
-        engine: &Engine,
-        frames_out: *mut core::ffi::c_void,
+    pub fn ma_engine_read_pcm_frames<E: AsEnginePtr + ?Sized>(
+        engine: &mut E,
         frame_count: u64,
-        frames_read: *mut u64,
-    ) -> i32 {
-        unsafe {
-            sys::ma_engine_read_pcm_frames(engine.to_raw(), frames_out, frame_count, frames_read)
-        }
+    ) -> MaResult<(Vec<f32>, u64)> {
+        let channels = engine.channels();
+        let mut buffer = vec![0.0f32; (frame_count * channels as u64) as usize];
+        let mut frames_read = 0;
+        let res = unsafe {
+            sys::ma_engine_read_pcm_frames(
+                engine.as_engine_ptr(),
+                buffer.as_mut_ptr() as *mut std::ffi::c_void,
+                frame_count,
+                &mut frames_read,
+            )
+        };
+        MaRawResult::check(res)?;
+        buffer.truncate((frames_read * channels as u64) as usize);
+        Ok((buffer, frames_read))
     }
 
     #[inline]
@@ -670,24 +670,24 @@ pub(crate) mod engine_ffi {
     }
 
     #[inline]
-    pub fn ma_engine_start(engine: &mut Engine) -> Result<()> {
+    pub fn ma_engine_start(engine: &mut Engine) -> MaResult<()> {
         let res = unsafe { sys::ma_engine_start(engine.to_raw()) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
-    pub fn ma_engine_stop(engine: &mut Engine) -> Result<()> {
+    pub fn ma_engine_stop(engine: &mut Engine) -> MaResult<()> {
         let res = unsafe { sys::ma_engine_stop(engine.to_raw()) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
     pub fn ma_engine_set_volume<E: AsEnginePtr + ?Sized>(
         engine: &mut E,
         volume: f32,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe { sys::ma_engine_set_volume(engine.as_engine_ptr(), volume) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
@@ -699,9 +699,9 @@ pub(crate) mod engine_ffi {
     pub fn ma_engine_set_gain_db<E: AsEnginePtr + ?Sized>(
         engine: &mut E,
         db_gain: f32,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe { sys::ma_engine_set_gain_db(engine.as_engine_ptr(), db_gain) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]

@@ -1,6 +1,6 @@
 use maudio_sys::ffi as sys;
 
-use crate::{Binding, Result, audio::sample_rate::SampleRate, engine::Engine};
+use crate::{Binding, MaResult, audio::sample_rate::SampleRate, engine::Engine};
 
 pub struct EngineBuilder {
     inner: sys::ma_engine_config,
@@ -75,7 +75,7 @@ impl EngineBuilder {
         self
     }
 
-    pub fn build(self) -> Result<Engine> {
+    pub fn build(self) -> MaResult<Engine> {
         Engine::new_with_config(Some(&self))
     }
 }

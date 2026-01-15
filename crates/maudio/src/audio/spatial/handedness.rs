@@ -1,6 +1,6 @@
 use maudio_sys::ffi as sys;
 
-use crate::MaError;
+use crate::{ErrorKinds, MaudioError};
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -19,13 +19,13 @@ impl From<Handedness> for sys::ma_handedness {
 }
 
 impl TryFrom<sys::ma_handedness> for Handedness {
-    type Error = MaError;
+    type Error = MaudioError;
 
     fn try_from(v: sys::ma_handedness) -> Result<Self, Self::Error> {
         match v {
             sys::ma_handedness_ma_handedness_right => Ok(Handedness::Right),
             sys::ma_handedness_ma_handedness_left => Ok(Handedness::Left),
-            _ => Err(MaError(sys::ma_result_MA_INVALID_ARGS)),
+            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidHandedness)),
         }
     }
 }

@@ -2,7 +2,7 @@ use std::{cell::Cell, marker::PhantomData};
 
 use maudio_sys::ffi as sys;
 
-use crate::{Binding, Result, context::backend::Backend, device::device_builder::DeviceBuilder};
+use crate::{Binding, MaResult, context::backend::Backend, device::device_builder::DeviceBuilder};
 
 pub mod device_builder;
 
@@ -26,7 +26,7 @@ impl Binding for Device {
 }
 
 impl Device {
-    fn init_default(_config: &DeviceBuilder) -> Result<Self> {
+    fn init_default(_config: &DeviceBuilder) -> MaResult<Self> {
         // TODO: Used by DeviceBuilder
         todo!()
     }
@@ -40,7 +40,7 @@ pub(crate) mod device_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        Binding, MaRawResult, Result,
+        Binding, MaRawResult, MaResult,
         context::{Context, backend::Backend},
         device::device_builder::DeviceBuilder,
     };
@@ -49,9 +49,9 @@ pub(crate) mod device_ffi {
         context: &mut Context,
         config: &DeviceBuilder,
         device: *mut sys::ma_device,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe { sys::ma_device_init(context.to_raw(), config.to_raw(), device) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     pub fn ma_device_init_ex(
@@ -59,7 +59,7 @@ pub(crate) mod device_ffi {
         context_cfg: *const sys::ma_context_config,
         config: *const sys::ma_device_config,
         device: *mut sys::ma_device,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let (backends_ptr, length): (*const sys::ma_backend, u32) = if !backends.is_empty() {
             (backends.as_ptr() as *const _, backends.len() as u32)
         } else {
@@ -67,7 +67,7 @@ pub(crate) mod device_ffi {
         };
         let res =
             unsafe { sys::ma_device_init_ex(backends_ptr, length, context_cfg, config, device) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     pub fn ma_device_uninit(device: *mut sys::ma_device) {

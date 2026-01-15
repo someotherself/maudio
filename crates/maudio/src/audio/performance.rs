@@ -1,6 +1,6 @@
 use maudio_sys::ffi as sys;
 
-use crate::MaError;
+use crate::{ErrorKinds, MaudioError};
 
 /// Performance tuning profile for audio processing.
 ///
@@ -45,7 +45,7 @@ impl From<PerformanceProfile> for sys::ma_performance_profile {
 }
 
 impl TryFrom<sys::ma_performance_profile> for PerformanceProfile {
-    type Error = MaError;
+    type Error = MaudioError;
 
     fn try_from(value: sys::ma_performance_profile) -> Result<Self, Self::Error> {
         match value {
@@ -55,7 +55,7 @@ impl TryFrom<sys::ma_performance_profile> for PerformanceProfile {
             sys::ma_performance_profile_ma_performance_profile_conservative => {
                 Ok(PerformanceProfile::Conservative)
             }
-            _ => Err(MaError(sys::ma_result_MA_INVALID_ARGS)),
+            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidPerformanceProfile)),
         }
     }
 }
@@ -63,7 +63,7 @@ impl TryFrom<sys::ma_performance_profile> for PerformanceProfile {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sys;
+    use crate::{MaError, sys};
 
     #[test]
     fn test_performance_profile_from_rust_to_sys_low_latency() {
@@ -106,6 +106,6 @@ mod tests {
         let invalid: sys::ma_performance_profile = 0x7FFF as sys::ma_performance_profile;
 
         let err = PerformanceProfile::try_from(invalid).unwrap_err();
-        assert_eq!(err, MaError(sys::ma_result_MA_INVALID_ARGS));
+        assert_eq!(err, MaError(sys::ma_result_MA_ERROR));
     }
 }

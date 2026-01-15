@@ -2,7 +2,16 @@ use std::marker::PhantomData;
 
 use maudio_sys::ffi as sys;
 
-use crate::{Binding, Result, engine::{AllocationCallbacks, node_graph::{AsNodeGraphPtr, NodeGraph, nodes::NodeRef}}};
+use crate::{
+    Binding, MaResult,
+    engine::{
+        AllocationCallbacks,
+        node_graph::{
+            AsNodeGraphPtr, NodeGraph,
+            nodes::{AsNodePtr, NodeRef},
+        },
+    },
+};
 
 pub(crate) struct DataSourceNode<'a> {
     inner: *mut sys::ma_data_source_node,
@@ -23,17 +32,22 @@ impl Binding for DataSourceNode<'_> {
     }
 }
 
+impl AsNodePtr for DataSourceNode<'_> {
+    fn as_node_ptr(&self) -> *mut sys::ma_node {
+        self.as_node().to_raw()
+    }
+}
+
 impl<'a> DataSourceNode<'a> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &DataSourceNodeBuilder<'_, N>,
         alloc: Option<&'a AllocationCallbacks>,
-    ) -> Result<Self> {
+    ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
 
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_data_source_node>> = Box::new_uninit();
-
 
         n_datasource_ffi::ma_data_source_node_init(
             node_graph,
@@ -78,7 +92,10 @@ impl<'a> DataSourceNode<'a> {
 pub(crate) mod n_datasource_ffi {
     use maudio_sys::ffi as sys;
 
-    use crate::{Binding, MaRawResult, Result, engine::node_graph::{AsNodeGraphPtr, nodes::source::data_source::DataSourceNode}};
+    use crate::{
+        Binding, MaRawResult, MaResult,
+        engine::node_graph::{AsNodeGraphPtr, nodes::source::data_source::DataSourceNode},
+    };
 
     #[inline]
     pub fn ma_data_source_node_init<N: AsNodeGraphPtr + ?Sized>(
@@ -86,11 +103,11 @@ pub(crate) mod n_datasource_ffi {
         config: *const sys::ma_data_source_node_config,
         alloc_cb: *const sys::ma_allocation_callbacks,
         node: *mut sys::ma_data_source_node,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe {
             sys::ma_data_source_node_init(node_graph.as_nodegraph_ptr(), config, alloc_cb, node)
         };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]

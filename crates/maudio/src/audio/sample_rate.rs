@@ -1,8 +1,6 @@
 // ma_standard_sample_rate (SampleRate helpers???)
 
-use maudio_sys::ffi as sys;
-
-use crate::MaError;
+use crate::{ErrorKinds, MaudioError};
 
 /// Common standard audio sample rates.
 ///
@@ -91,7 +89,8 @@ impl From<SampleRate> for u32 {
 }
 
 impl TryFrom<u32> for SampleRate {
-    type Error = MaError;
+    type Error = MaudioError;
+
     fn try_from(value: u32) -> Result<Self, Self::Error> {
         match value {
             48_000 => Ok(SampleRate::Sr48000),
@@ -108,13 +107,14 @@ impl TryFrom<u32> for SampleRate {
             8_000 => Ok(SampleRate::Sr8000),
             352_800 => Ok(SampleRate::Sr352800),
             384_000 => Ok(SampleRate::Sr384000),
-            _ => Err(MaError(sys::ma_result_MA_INVALID_ARGS)),
+            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidSampleRate)),
         }
     }
 }
 
 impl TryFrom<i32> for SampleRate {
-    type Error = MaError;
+    type Error = MaudioError;
+
     fn try_from(value: i32) -> Result<Self, Self::Error> {
         match value {
             48_000 => Ok(SampleRate::Sr48000),
@@ -131,13 +131,15 @@ impl TryFrom<i32> for SampleRate {
             8_000 => Ok(SampleRate::Sr8000),
             352_800 => Ok(SampleRate::Sr352800),
             384_000 => Ok(SampleRate::Sr384000),
-            _ => Err(MaError(sys::ma_result_MA_INVALID_ARGS)),
+            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidSampleRate)),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::MaError;
+
     use super::*;
     use maudio_sys::ffi as sys;
 

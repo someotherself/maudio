@@ -3,7 +3,7 @@ use std::marker::PhantomData;
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, Result,
+    Binding, MaResult,
     engine::{
         AllocationCallbacks,
         node_graph::{AsNodeGraphPtr, NodeGraph, nodes::NodeRef},
@@ -99,7 +99,7 @@ impl<'a> DelayNode<'a> {
         node_graph: &N,
         config: Option<&DelayNodeBuilder<N>>,
         alloc: Option<&'a AllocationCallbacks>,
-    ) -> Result<Self> {
+    ) -> MaResult<Self> {
         let config: *const sys::ma_delay_node_config =
             config.map_or(core::ptr::null(), |c| c.to_raw());
         let alloc_cb: *const sys::ma_allocation_callbacks =
@@ -128,7 +128,7 @@ impl<'a> DelayNode<'a> {
 
 pub(crate) mod n_delay_ffi {
     use crate::{
-        Binding, MaRawResult, Result,
+        Binding, MaRawResult, MaResult,
         engine::node_graph::{AsNodeGraphPtr, nodes::effects::delay::DelayNode},
     };
     use maudio_sys::ffi as sys;
@@ -139,11 +139,11 @@ pub(crate) mod n_delay_ffi {
         config: *const sys::ma_delay_node_config,
         alloc_cb: *const sys::ma_allocation_callbacks,
         node: *mut sys::ma_delay_node,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe {
             sys::ma_delay_node_init(node_graph.as_nodegraph_ptr(), config, alloc_cb, node)
         };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
@@ -299,7 +299,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> DelayNodeBuilder<'a, N> {
         self
     }
 
-    pub fn build(self) -> Result<DelayNode<'a>> {
+    pub fn build(self) -> MaResult<DelayNode<'a>> {
         DelayNode::new_with_cfg_alloc_internal(self.node_graph, Some(&self), None)
     }
 
@@ -399,7 +399,7 @@ mod test {
             .unwrap();
 
         let node_ref = delay.as_node();
-        assert!(!node_ref.as_engine_ptr().is_null());
+        assert!(!node_ref.as_node_ptr().is_null());
         let _ = node_ref;
     }
 

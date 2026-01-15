@@ -22,7 +22,7 @@ pub mod prelude {
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaRawResult, Result,
+    Binding, MaRawResult, MaResult,
     engine::{
         AllocationCallbacks, Engine,
         node_graph::{node_graph_builder::NodeGraphConfig, nodes::NodeRef},
@@ -145,18 +145,8 @@ pub trait NodeGraphOps: AsNodeGraphPtr {
         graph_ffi::ma_node_graph_get_endpoint(self)
     }
 
-    fn read_pcm_frames_f32(
-        &mut self,
-        _frames_out: &mut [f32],
-        _frame_count: u64,
-        _channels_out: u32,
-    ) {
-        // let res = graph_ffi::ma_node_graph_read_pcm_frames(
-        //     &mut self,
-        //     frames_out,
-        //     frame_count,
-        //     frames_read,
-        // );
+    fn read_pcm_frames(&mut self, frame_count: u64) -> MaResult<(Vec<f32>, u64)> {
+        graph_ffi::ma_node_graph_read_pcm_frames(self, frame_count)
     }
 
     fn channels(&self) -> u32 {
@@ -167,22 +157,22 @@ pub trait NodeGraphOps: AsNodeGraphPtr {
         graph_ffi::ma_node_graph_get_time(self)
     }
 
-    fn set_time(&mut self, global_time: u64) -> Result<()> {
+    fn set_time(&mut self, global_time: u64) -> MaResult<()> {
         let res = graph_ffi::ma_node_graph_set_time(self, global_time);
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 }
 
 // These should not be available to NodeGraphRef
 impl<'a> NodeGraph<'a> {
-    pub fn new(config: &NodeGraphConfig) -> Result<Self> {
+    pub fn new(config: &NodeGraphConfig) -> MaResult<Self> {
         NodeGraph::with_alloc_callbacks(config, None)
     }
 
     fn with_alloc_callbacks(
         config: &NodeGraphConfig,
         alloc: Option<&'a AllocationCallbacks>,
-    ) -> Result<Self> {
+    ) -> MaResult<Self> {
         let mut mem: Box<MaybeUninit<sys::ma_node_graph>> = Box::new_uninit();
 
         let alloc_cb: *const sys::ma_allocation_callbacks =
@@ -211,8 +201,8 @@ mod graph_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        Binding, MaRawResult, Result,
-        engine::node_graph::{AsNodeGraphPtr, nodes::NodeRef},
+        Binding, MaRawResult, MaResult,
+        engine::node_graph::{AsNodeGraphPtr, NodeGraphOps, nodes::NodeRef},
     };
 
     #[inline]
@@ -220,9 +210,9 @@ mod graph_ffi {
         config: *const sys::ma_node_graph_config,
         alloc_cb: *const sys::ma_allocation_callbacks,
         node_graph: *mut sys::ma_node_graph,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe { sys::ma_node_graph_init(config, alloc_cb, node_graph) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 
     #[inline]
@@ -248,18 +238,21 @@ mod graph_ffi {
     #[inline]
     pub(crate) fn ma_node_graph_read_pcm_frames<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &mut N,
-        frames_out: *mut core::ffi::c_void,
         frame_count: u64,
-        frames_read: *mut u64,
-    ) -> i32 {
-        unsafe {
+    ) -> MaResult<(Vec<f32>, u64)> {
+        let channels = node_graph.channels();
+        let mut buffer = vec![0.0f32; (frame_count * channels as u64) as usize];
+        let mut frames_read = 0;
+        let res = unsafe {
             sys::ma_node_graph_read_pcm_frames(
                 node_graph.as_nodegraph_ptr(),
-                frames_out,
+                buffer.as_mut_ptr() as *mut std::ffi::c_void,
                 frame_count,
-                frames_read,
+                &mut frames_read,
             )
-        }
+        };
+        MaRawResult::check(res)?;
+        Ok((buffer, frames_read))
     }
 
     #[inline]

@@ -2,7 +2,7 @@ use std::{cell::Cell, marker::PhantomData};
 
 use maudio_sys::ffi as sys;
 
-use crate::{Binding, LogLevel, Result};
+use crate::{Binding, LogLevel, MaResult};
 
 pub mod backend;
 
@@ -32,7 +32,7 @@ impl Binding for Context {
 }
 
 impl Context {
-    fn new_internal() -> Result<Self> {
+    fn new_internal() -> MaResult<Self> {
         // let mut mem: Box<std::mem::MaybeUninit<sys::ma_context>> = Box::new_uninit();
 
         todo!()
@@ -41,9 +41,9 @@ impl Context {
     // fn context_init(
     //     c_config: &sys::ma_context_config,
     //     ctx: &mut MaybeUninit<sys::ma_context>,
-    // ) -> Result<()> {
+    // ) -> MaResult<()> {
     //     let res = unsafe { sys::ma_context_init(std::ptr::null(), 1, c_config, ctx.as_mut_ptr()) };
-    //     MaRawResult::resolve(res)
+    //     MaRawResult::check(res)
     // }
 }
 
@@ -60,7 +60,7 @@ impl Context {
 //     use super::*;
 
 //     #[test]
-//     fn context_works() -> Result<()> {
+//     fn context_works() -> MaResult<()> {
 //         let res = Context::new();
 //         assert!(res.is_ok());
 //         res.unwrap();
@@ -71,15 +71,15 @@ impl Context {
 pub(crate) mod context_ffi {
     use maudio_sys::ffi as sys;
 
-    use crate::{MaRawResult, Result};
+    use crate::{MaRawResult, MaResult};
 
     pub fn ma_context_init(
         backends: *const sys::ma_backend,
         backend_count: u32,
         config: *const sys::ma_context_config,
         context: *mut sys::ma_context,
-    ) -> Result<()> {
+    ) -> MaResult<()> {
         let res = unsafe { sys::ma_context_init(backends, backend_count, config, context) };
-        MaRawResult::resolve(res)
+        MaRawResult::check(res)
     }
 }
