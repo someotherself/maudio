@@ -48,7 +48,10 @@
 //! The engine runs an internal audio callback on a real-time thread. Care should
 //! be taken to avoid heavy work or allocations in contexts that must remain
 //! real-time safe.
-use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit, path::Path};
+use std::{
+    cell::Cell, marker::PhantomData, mem::MaybeUninit, path::Path, sync::mpsc::Sender,
+    thread::JoinHandle,
+};
 
 use crate::{
     Binding, ErrorKinds, MaResult,
@@ -140,6 +143,8 @@ pub struct EngineRef<'a> {
     _not_sync: PhantomData<Cell<()>>,
 }
 
+unsafe impl Send for Engine {}
+
 impl<'a> Binding for EngineRef<'a> {
     type Raw = *mut sys::ma_engine;
 
@@ -175,19 +180,19 @@ impl AsEnginePtr for EngineRef<'_> {
 impl<T: AsEnginePtr + ?Sized> EngineOps for T {}
 
 pub trait EngineOps: AsEnginePtr {
-    fn set_volume(&mut self, volume: f32) -> MaResult<()> {
+    fn set_volume(&self, volume: f32) -> MaResult<()> {
         engine_ffi::ma_engine_set_volume(self, volume)
     }
 
-    fn volume(&mut self) -> f32 {
+    fn volume(&self) -> f32 {
         engine_ffi::ma_engine_get_volume(self)
     }
 
-    fn set_gain_db(&mut self, db_gain: f32) -> MaResult<()> {
+    fn set_gain_db(&self, db_gain: f32) -> MaResult<()> {
         engine_ffi::ma_engine_set_gain_db(self, db_gain)
     }
 
-    fn gain_db(&mut self) -> f32 {
+    fn gain_db(&self) -> f32 {
         engine_ffi::ma_engine_get_gain_db(self)
     }
 
@@ -199,7 +204,7 @@ pub trait EngineOps: AsEnginePtr {
         engine_ffi::ma_engine_find_closest_listener(self, position)
     }
 
-    fn set_position(&mut self, listener: u32, position: Vec3) {
+    fn set_position(&self, listener: u32, position: Vec3) {
         engine_ffi::ma_engine_listener_set_position(self, listener, position);
     }
 
@@ -207,15 +212,15 @@ pub trait EngineOps: AsEnginePtr {
         engine_ffi::ma_engine_listener_get_position(self, listener)
     }
 
-    fn set_direction(&mut self, listener: u32, position: Vec3) {
-        engine_ffi::ma_engine_listener_set_direction(self, listener, position);
+    fn set_direction(&self, listener: u32, direction: Vec3) {
+        engine_ffi::ma_engine_listener_set_direction(self, listener, direction);
     }
 
     fn direction(&self, listener: u32) -> Vec3 {
-        engine_ffi::ma_engine_listener_get_position(self, listener)
+        engine_ffi::ma_engine_listener_get_direction(self, listener)
     }
 
-    fn set_velocity(&mut self, listener: u32, position: Vec3) {
+    fn set_velocity(&self, listener: u32, position: Vec3) {
         engine_ffi::ma_engine_listener_set_velocity(self, listener, position);
     }
 
@@ -223,7 +228,7 @@ pub trait EngineOps: AsEnginePtr {
         engine_ffi::ma_engine_listener_get_velocity(self, listener)
     }
 
-    fn set_cone(&mut self, listener: u32, cone: Cone) {
+    fn set_cone(&self, listener: u32, cone: Cone) {
         engine_ffi::ma_engine_listener_set_cone(self, listener, cone);
     }
 
@@ -231,7 +236,7 @@ pub trait EngineOps: AsEnginePtr {
         engine_ffi::ma_engine_listener_get_cone(self, listener)
     }
 
-    fn set_world_up(&mut self, listener: u32, up_direction: Vec3) {
+    fn set_world_up(&self, listener: u32, up_direction: Vec3) {
         engine_ffi::ma_engine_listener_set_world_up(self, listener, up_direction);
     }
 
@@ -239,7 +244,7 @@ pub trait EngineOps: AsEnginePtr {
         engine_ffi::ma_engine_listener_get_world_up(self, listener)
     }
 
-    fn toggle_listener(&mut self, listener: u32, enabled: bool) {
+    fn toggle_listener(&self, listener: u32, enabled: bool) {
         engine_ffi::ma_engine_listener_set_enabled(self, listener, enabled);
     }
 
@@ -251,7 +256,19 @@ pub trait EngineOps: AsEnginePtr {
         engine_ffi::ma_engine_get_node_graph(self)
     }
 
-    fn read_pcm_frames(&mut self, frame_count: u64) -> MaResult<(Vec<f32>, u64)> {
+    /// Renders audio from the engine into a newly allocated buffer.
+    ///
+    /// This function pulls audio from the engine’s internal node graph and returns
+    /// up to `frame_count` frames of interleaved PCM samples.
+    ///
+    /// ### Semantics
+    ///
+    /// - This is a **pull-based render operation**.
+    /// - The engine will attempt to render `frame_count` frames, but it may return
+    ///   **fewer frames**.
+    /// - The number of frames actually rendered is returned alongside the samples.
+    ///
+    fn read_pcm_frames(&self, frame_count: u64) -> MaResult<(Vec<f32>, u64)> {
         engine_ffi::ma_engine_read_pcm_frames(self, frame_count)
     }
 
@@ -269,7 +286,7 @@ pub trait EngineOps: AsEnginePtr {
     /// ## Lifetime
     /// The returned [`NodeRef`] borrows the engine mutably and cannot outlive it.
     /// Only one mutable access to the node graph may exist at a time.
-    fn endpoint(&mut self) -> Option<NodeRef<'_>> {
+    fn endpoint(&self) -> Option<NodeRef<'_>> {
         engine_ffi::ma_engine_get_endpoint(self)
     }
 
@@ -315,7 +332,7 @@ pub trait EngineOps: AsEnginePtr {
     /// ## Note
     /// Changing engine time while audio is playing may cause audible artifacts,
     /// depending on the active nodes and sounds.
-    fn set_time_pcm(&mut self, time: u64) {
+    fn set_time_pcm(&self, time: u64) {
         engine_ffi::ma_engine_set_time_in_pcm_frames(self, time);
     }
 
@@ -327,7 +344,7 @@ pub trait EngineOps: AsEnginePtr {
     /// ## Notes
     /// - Internally converted to PCM frames.
     /// - Precision may be lower than [`set_time_pcm`].
-    fn set_time_mili(&mut self, time: u64) {
+    fn set_time_mili(&self, time: u64) {
         engine_ffi::ma_engine_set_time_in_milliseconds(self, time);
     }
 
@@ -488,14 +505,14 @@ impl Drop for Engine {
 #[cfg(unix)]
 pub(crate) fn cstring_from_path(path: &Path) -> MaResult<std::ffi::CString> {
     use std::os::unix::ffi::OsStrExt;
-    std::ffi::CString::new(path.as_os_str().as_bytes()).map_err(|_| crate::MaudioError::new_ma_error(ErrorKinds::InvalidCString))
+    std::ffi::CString::new(path.as_os_str().as_bytes())
+        .map_err(|_| crate::MaudioError::new_ma_error(ErrorKinds::InvalidCString))
 }
 
 #[cfg(windows)]
 pub(crate) fn wide_null_terminated(path: &Path) -> Vec<u16> {
     use std::os::windows::ffi::OsStrExt;
 
-    // UTF-16 + trailing NUL
     path.as_os_str()
         .encode_wide()
         .chain(std::iter::once(0))
@@ -525,20 +542,263 @@ pub struct AllocationCallbacks {
 
 #[cfg(test)]
 mod test {
+    use super::*;
 
-    #[test]
-    fn engine_test_works_with_default() {
-        use super::*;
-
-        let _engine = Engine::new_for_tests().unwrap();
+    fn assert_f32_eq(a: f32, b: f32) {
+        assert!(
+            (a - b).abs() <= 1.0e-6,
+            "expected {a} ~= {b}, diff={}",
+            (a - b).abs()
+        );
     }
 
     #[test]
-    fn engine_test_init_engine_and_sound() {
-        use super::*;
+    fn engine_test_works_with_default() {
+        let _engine = Engine::new_for_tests().unwrap();
+    }
 
+    fn assert_vec3_eq(a: Vec3, b: Vec3) {
+        assert_f32_eq(a.x, b.x);
+        assert_f32_eq(a.y, b.y);
+        assert_f32_eq(a.z, b.z);
+    }
+
+    #[test]
+    fn test_engine_test_init_engine_and_sound() {
         let engine = Engine::new_for_tests().unwrap();
         let _sound = engine.new_sound().unwrap();
+    }
+
+    #[test]
+    fn test_engine_volume_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+
+        engine.set_volume(0.25).unwrap();
+        assert_f32_eq(engine.volume(), 0.25);
+
+        engine.set_volume(1.0).unwrap();
+        assert_f32_eq(engine.volume(), 1.0);
+    }
+
+    #[test]
+    fn test_engine_gain_db_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+
+        engine.set_gain_db(-6.0).unwrap();
+        assert_f32_eq(engine.gain_db(), -6.0);
+
+        engine.set_gain_db(0.0).unwrap();
+        assert_f32_eq(engine.gain_db(), 0.0);
+    }
+
+    #[test]
+    fn test_engine_listener_count_and_enabled_toggle() {
+        let engine = Engine::new_for_tests().unwrap();
+
+        let n = engine.listener_count();
+        assert!(n >= 1, "engine should have at least 1 listener");
+
+        // Toggle first listener (should always exist if n>=1).
+        engine.toggle_listener(0, false);
+        assert_eq!(engine.listener_enabled(0), false);
+
+        engine.toggle_listener(0, true);
+        assert_eq!(engine.listener_enabled(0), true);
+    }
+
+    #[test]
+    fn test_engine_listener_position_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+
+        let p = Vec3 {
+            x: 1.0,
+            y: 2.0,
+            z: 3.0,
+        };
+        engine.set_position(0, p);
+
+        let got = engine.position(0);
+        assert_vec3_eq(got, p);
+    }
+
+    #[test]
+    fn test_engine_listener_velocity_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+
+        let v = Vec3 {
+            x: -1.0,
+            y: 0.5,
+            z: 10.0,
+        };
+        engine.set_velocity(0, v);
+
+        let got = engine.velocity(0);
+        assert_vec3_eq(got, v);
+    }
+
+    #[test]
+    fn test_engine_listener_world_up_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+
+        let up = Vec3 {
+            x: 0.0,
+            y: 1.0,
+            z: 0.0,
+        };
+        engine.set_world_up(0, up);
+
+        let got = engine.get_world_up(0);
+        assert_vec3_eq(got, up);
+    }
+
+    #[test]
+    fn test_engine_listener_cone_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+
+        // Adjust field names if your Cone differs; the point is roundtripping.
+        let cone = Cone {
+            inner_angle_rad: 0.5,
+            outer_angle_rad: 1.0,
+            outer_gain: 0.25,
+        };
+
+        engine.set_cone(0, cone);
+        let got = engine.cone(0);
+
+        assert_f32_eq(got.inner_angle_rad, cone.inner_angle_rad);
+        assert_f32_eq(got.outer_angle_rad, cone.outer_angle_rad);
+        assert_f32_eq(got.outer_gain, cone.outer_gain);
+    }
+
+    #[test]
+    fn test_engine_closest_listener_basic() {
+        let engine = Engine::new_for_tests().unwrap();
+
+        // If only 1 listener, the only valid answer is 0.
+        let n = engine.listener_count();
+        if n < 2 {
+            let idx = engine.closest_listener(Vec3 {
+                x: 100.0,
+                y: 0.0,
+                z: 0.0,
+            });
+            assert_eq!(idx, 0);
+            return;
+        }
+
+        // If >=2 listeners, we can make a meaningful test.
+        engine.set_position(
+            0,
+            Vec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+        );
+        engine.set_position(
+            1,
+            Vec3 {
+                x: 1000.0,
+                y: 0.0,
+                z: 0.0,
+            },
+        );
+
+        let idx = engine.closest_listener(Vec3 {
+            x: 0.1,
+            y: 0.0,
+            z: 0.0,
+        });
+        assert_eq!(idx, 0);
+
+        let idx = engine.closest_listener(Vec3 {
+            x: 999.9,
+            y: 0.0,
+            z: 0.0,
+        });
+        assert_eq!(idx, 1);
+    }
+
+    #[test]
+    fn test_engine_node_graph_and_endpoint_exist() {
+        let engine = Engine::new_for_tests().unwrap();
+
+        let graph = engine.as_node_graph();
+        assert!(graph.is_some(), "engine should expose a node graph");
+
+        let endpoint = engine.endpoint();
+        assert!(endpoint.is_some(), "engine should expose an endpoint node");
+    }
+
+    #[test]
+    fn test_engine_read_pcm_frames_shapes_output() {
+        let engine = Engine::new_for_tests().unwrap();
+
+        let requested = 256u64;
+        let (samples, frames) = engine.read_pcm_frames(requested).unwrap();
+
+        assert!(
+            frames <= requested,
+            "engine returned more frames than requested"
+        );
+
+        let channels = engine.channels() as u64;
+        assert!(channels >= 1);
+
+        let expected_len = (frames * channels) as usize;
+        assert_eq!(
+            samples.len(),
+            expected_len,
+            "samples must be interleaved: len == frames * channels"
+        );
+    }
+
+    #[test]
+    fn test_engine_time_pcm_set_get() {
+        let engine = Engine::new_for_tests().unwrap();
+
+        engine.set_time_pcm(12345);
+        assert_eq!(engine.time_pcm(), 12345);
+
+        engine.set_time_pcm(0);
+        assert_eq!(engine.time_pcm(), 0);
+    }
+
+    #[test]
+    fn test_engine_time_mili_set_get() {
+        let engine = Engine::new_for_tests().unwrap();
+
+        engine.set_time_mili(500);
+        assert_eq!(engine.time_mili(), 500);
+
+        engine.set_time_mili(0);
+        assert_eq!(engine.time_mili(), 0);
+    }
+
+    #[test]
+    fn test_engine_channels_and_sample_rate_are_sane() {
+        let engine = Engine::new_for_tests().unwrap();
+
+        let ch = engine.channels();
+        let sr = engine.sample_rate();
+
+        assert!(ch >= 1, "channels must be >= 1");
+        assert!(sr >= 8000, "sample rate looks wrong: {sr}");
+    }
+
+    #[test]
+    fn test_engine_listener_direction_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+
+        let dir = Vec3 {
+            x: 0.0,
+            y: 0.0,
+            z: -1.0,
+        };
+        engine.set_direction(0, dir);
+
+        let got = engine.direction(0);
+        assert_vec3_eq(got, dir);
     }
 }
 
@@ -567,7 +827,7 @@ pub(crate) mod engine_ffi {
     }
 
     #[inline]
-    pub fn engine_uninit(engine: &mut Engine) {
+    pub fn engine_uninit(engine: &Engine) {
         unsafe {
             sys::ma_engine_uninit(engine.to_raw());
         }
@@ -575,7 +835,7 @@ pub(crate) mod engine_ffi {
 
     #[inline]
     pub fn ma_engine_read_pcm_frames<E: AsEnginePtr + ?Sized>(
-        engine: &mut E,
+        engine: &E,
         frame_count: u64,
     ) -> MaResult<(Vec<f32>, u64)> {
         let channels = engine.channels();
@@ -669,12 +929,14 @@ pub(crate) mod engine_ffi {
         unsafe { sys::ma_engine_get_sample_rate(engine.as_engine_ptr() as *const _) }
     }
 
+    // TODO: Not in the public API
     #[inline]
     pub fn ma_engine_start(engine: &mut Engine) -> MaResult<()> {
         let res = unsafe { sys::ma_engine_start(engine.to_raw()) };
         MaRawResult::check(res)
     }
 
+    // TODO: Not in the public API
     #[inline]
     pub fn ma_engine_stop(engine: &mut Engine) -> MaResult<()> {
         let res = unsafe { sys::ma_engine_stop(engine.to_raw()) };
@@ -682,22 +944,19 @@ pub(crate) mod engine_ffi {
     }
 
     #[inline]
-    pub fn ma_engine_set_volume<E: AsEnginePtr + ?Sized>(
-        engine: &mut E,
-        volume: f32,
-    ) -> MaResult<()> {
+    pub fn ma_engine_set_volume<E: AsEnginePtr + ?Sized>(engine: &E, volume: f32) -> MaResult<()> {
         let res = unsafe { sys::ma_engine_set_volume(engine.as_engine_ptr(), volume) };
         MaRawResult::check(res)
     }
 
     #[inline]
-    pub fn ma_engine_get_volume<E: AsEnginePtr + ?Sized>(engine: &mut E) -> f32 {
+    pub fn ma_engine_get_volume<E: AsEnginePtr + ?Sized>(engine: &E) -> f32 {
         unsafe { sys::ma_engine_get_volume(engine.as_engine_ptr()) }
     }
 
     #[inline]
     pub fn ma_engine_set_gain_db<E: AsEnginePtr + ?Sized>(
-        engine: &mut E,
+        engine: &E,
         db_gain: f32,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_engine_set_gain_db(engine.as_engine_ptr(), db_gain) };
@@ -705,7 +964,7 @@ pub(crate) mod engine_ffi {
     }
 
     #[inline]
-    pub fn ma_engine_get_gain_db<E: AsEnginePtr + ?Sized>(engine: &mut E) -> f32 {
+    pub fn ma_engine_get_gain_db<E: AsEnginePtr + ?Sized>(engine: &E) -> f32 {
         unsafe { sys::ma_engine_get_gain_db(engine.as_engine_ptr()) }
     }
 
@@ -731,7 +990,7 @@ pub(crate) mod engine_ffi {
 
     #[inline]
     pub fn ma_engine_listener_set_position<E: AsEnginePtr + ?Sized>(
-        engine: &mut E,
+        engine: &E,
         listener: u32,
         position: Vec3,
     ) {
@@ -759,7 +1018,7 @@ pub(crate) mod engine_ffi {
 
     #[inline]
     pub fn ma_engine_listener_set_direction<E: AsEnginePtr + ?Sized>(
-        engine: &mut E,
+        engine: &E,
         listener: u32,
         position: Vec3,
     ) {
@@ -787,7 +1046,7 @@ pub(crate) mod engine_ffi {
 
     #[inline]
     pub fn ma_engine_listener_set_velocity<E: AsEnginePtr + ?Sized>(
-        engine: &mut E,
+        engine: &E,
         listener: u32,
         position: Vec3,
     ) {
@@ -815,7 +1074,7 @@ pub(crate) mod engine_ffi {
 
     #[inline]
     pub fn ma_engine_listener_set_cone<E: AsEnginePtr + ?Sized>(
-        engine: &mut E,
+        engine: &E,
         listener: u32,
         cone: Cone,
     ) {
@@ -855,7 +1114,7 @@ pub(crate) mod engine_ffi {
 
     #[inline]
     pub fn ma_engine_listener_set_world_up<E: AsEnginePtr + ?Sized>(
-        engine: &mut E,
+        engine: &E,
         listener: u32,
         vec: Vec3,
     ) {
@@ -883,7 +1142,7 @@ pub(crate) mod engine_ffi {
 
     #[inline]
     pub fn ma_engine_listener_set_enabled<E: AsEnginePtr + ?Sized>(
-        engine: &mut E,
+        engine: &E,
         listener: u32,
         enabled: bool,
     ) {

@@ -9,12 +9,12 @@ use crate::{
         math::vec3::Vec3,
         spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
     },
+    data_source::DataFormat,
     engine::{Engine, EngineRef, node_graph::nodes::NodeRef},
-    sound::{data_source::DataFormat, sound_flags::SoundFlags, sound_group::SoundGroup},
+    sound::{sound_flags::SoundFlags, sound_group::SoundGroup},
     util::fence::Fence,
 };
 
-pub mod data_source;
 pub mod sound_builder;
 pub mod sound_flags;
 pub mod sound_group;
@@ -308,7 +308,7 @@ impl<'a> Sound<'a> {
         sound_ffi::ma_sound_set_start_time_in_pcm_frames(self, abs_time_frames);
     }
 
-    pub fn set_start_time_mili(&mut self, abs_time_millis: u64) {
+    pub fn set_start_time_millis(&mut self, abs_time_millis: u64) {
         sound_ffi::ma_sound_set_start_time_in_milliseconds(self, abs_time_millis);
     }
 
@@ -316,7 +316,7 @@ impl<'a> Sound<'a> {
         sound_ffi::ma_sound_set_stop_time_in_pcm_frames(self, abs_time_frames);
     }
 
-    pub fn set_stop_time_mili(&mut self, abs_time_millis: u64) {
+    pub fn set_stop_time_millis(&mut self, abs_time_millis: u64) {
         sound_ffi::ma_sound_set_stop_time_in_milliseconds(self, abs_time_millis);
     }
 
@@ -344,11 +344,11 @@ impl<'a> Sound<'a> {
         sound_ffi::ma_sound_is_playing(self)
     }
 
-    pub fn time_pcm(&mut self) -> u64 {
+    pub fn time_pcm(&self) -> u64 {
         sound_ffi::ma_sound_get_time_in_pcm_frames(self)
     }
 
-    pub fn time_millis(&mut self) -> u64 {
+    pub fn time_millis(&self) -> u64 {
         sound_ffi::ma_sound_get_time_in_milliseconds(self)
     }
 
@@ -364,8 +364,8 @@ impl<'a> Sound<'a> {
         sound_ffi::ma_sound_at_end(self)
     }
 
-    pub fn seek_to_pcm(&mut self, seek_point_frames: u64) -> MaResult<()> {
-        sound_ffi::ma_sound_seek_to_pcm_frame(self, seek_point_frames)
+    pub fn seek_to_pcm(&mut self, frame_index: u64) -> MaResult<()> {
+        sound_ffi::ma_sound_seek_to_pcm_frame(self, frame_index)
     }
 
     pub fn seek_to_second(&mut self, seek_point_seconds: f32) -> MaResult<()> {
@@ -471,7 +471,7 @@ pub(crate) mod sound_ffi {
     use crate::audio::spatial::{
         attenuation::AttenuationModel, cone::Cone, positioning::Positioning,
     };
-    use crate::sound::data_source::DataFormat;
+    use crate::data_source::DataFormat;
     use crate::util::fence::Fence;
     use crate::{
         MaRawResult,
@@ -1144,7 +1144,28 @@ pub(crate) mod sound_ffi {
 
 #[cfg(test)]
 mod test {
-    use crate::engine::{Engine, node_graph::nodes::NodeOps};
+    use crate::{
+        audio::{
+            dsp::pan::PanMode,
+            math::vec3::Vec3,
+            spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
+        },
+        engine::{Engine, EngineOps, node_graph::nodes::NodeOps},
+    };
+
+    fn assert_f32_eq(a: f32, b: f32) {
+        assert!(
+            (a - b).abs() <= 1.0e-6,
+            "expected {a} ~= {b}, diff={}",
+            (a - b).abs()
+        );
+    }
+
+    fn assert_vec3_eq(a: Vec3, b: Vec3) {
+        assert_f32_eq(a.x, b.x);
+        assert_f32_eq(a.y, b.y);
+        assert_f32_eq(a.z, b.z);
+    }
 
     #[test]
     fn sound_test_cast_to_node() {
@@ -1153,7 +1174,364 @@ mod test {
         let node_ref = sound.as_node();
         let state = node_ref.state();
         assert!(state.is_ok());
-        let state = state.unwrap();
-        println!("node state is: {:?}", state);
+        let _state = state.unwrap();
+    }
+
+    #[test]
+    fn test_sound_play_stop_smoke() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        sound.play_sound().unwrap();
+        let _ = sound.is_playing();
+
+        sound.stop_sound().unwrap();
+        let _ = sound.is_playing();
+    }
+
+    #[test]
+    fn test_sound_stop_with_fade_smoke() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        sound.play_sound().unwrap();
+
+        sound.stop_at_with_fade_frames(128).unwrap();
+        sound.stop_at_with_fade_millis(10).unwrap();
+    }
+
+    #[test]
+    fn test_sound_volume_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        sound.set_volume(0.25);
+        assert_f32_eq(sound.volume(), 0.25);
+
+        sound.set_volume(1.0);
+        assert_f32_eq(sound.volume(), 1.0);
+    }
+
+    #[test]
+    fn test_sound_pan_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        sound.set_pan(-0.5);
+        assert_f32_eq(sound.pan(), -0.5);
+
+        sound.set_pan(0.5);
+        assert_f32_eq(sound.pan(), 0.5);
+    }
+
+    #[test]
+    fn test_sound_pan_mode_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        sound.set_pan_mode(PanMode::Pan);
+        assert_eq!(sound.pan_mode().unwrap(), PanMode::Pan);
+
+        sound.set_pan_mode(PanMode::Balance);
+        assert_eq!(sound.pan_mode().unwrap(), PanMode::Balance);
+    }
+
+    #[test]
+    fn test_sound_pitch_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        sound.set_pitch(0.75);
+        assert_f32_eq(sound.pitch(), 0.75);
+
+        sound.set_pitch(1.25);
+        assert_f32_eq(sound.pitch(), 1.25);
+    }
+
+    #[test]
+    fn test_sound_spatialization_toggle() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        sound.set_spatialization(false);
+        assert_eq!(sound.spatialization(), false);
+
+        sound.set_spatialization(true);
+        assert_eq!(sound.spatialization(), true);
+    }
+
+    #[test]
+    fn test_sound_pinned_listener_set_get() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        // If the engine only has 1 listener, 0 is the only valid value.
+        let n = engine.listener_count();
+        if n < 2 {
+            sound.set_pinned_listener(0);
+            assert_eq!(sound.pinned_listener(), 0);
+            return;
+        }
+
+        sound.set_pinned_listener(0);
+        assert_eq!(sound.pinned_listener(), 0);
+
+        sound.set_pinned_listener(1);
+        assert_eq!(sound.pinned_listener(), 1);
+    }
+
+    #[test]
+    fn test_sound_listener_index_smoke() {
+        let engine = Engine::new_for_tests().unwrap();
+        let sound = engine.new_sound().unwrap();
+
+        let idx = sound.listener();
+        assert!(idx < engine.listener_count());
+    }
+
+    #[test]
+    fn test_sound_direction_to_listener_smoke() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        // Give it a non-zero position so direction is better defined.
+        sound.set_position(Vec3 {
+            x: 1.0,
+            y: 0.0,
+            z: 0.0,
+        });
+        let _dir = sound.direction_to_listener();
+        // Should not assert exact values because listener positions can vary by backend/config.
+    }
+
+    #[test]
+    fn test_sound_position_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        let p = Vec3 {
+            x: 1.0,
+            y: 2.0,
+            z: 3.0,
+        };
+        sound.set_position(p);
+        assert_vec3_eq(sound.position(), p);
+    }
+
+    #[test]
+    fn test_sound_direction_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        let d = Vec3 {
+            x: 0.0,
+            y: 0.0,
+            z: -1.0,
+        };
+        sound.set_direction(d);
+        assert_vec3_eq(sound.direction(), d);
+    }
+
+    #[test]
+    fn test_sound_velocity_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        let v = Vec3 {
+            x: -1.0,
+            y: 0.5,
+            z: 10.0,
+        };
+        sound.set_velocity(v);
+        assert_vec3_eq(sound.velocity(), v);
+    }
+
+    #[test]
+    fn test_sound_attenuation_model_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        sound.set_attenuation(AttenuationModel::Inverse);
+        assert_eq!(sound.attenuation().unwrap(), AttenuationModel::Inverse);
+
+        sound.set_attenuation(AttenuationModel::Linear);
+        assert_eq!(sound.attenuation().unwrap(), AttenuationModel::Linear);
+    }
+
+    #[test]
+    fn test_sound_positioning_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        sound.set_positioning(Positioning::Absolute);
+        assert_eq!(sound.positioning().unwrap(), Positioning::Absolute);
+
+        sound.set_positioning(Positioning::Relative);
+        assert_eq!(sound.positioning().unwrap(), Positioning::Relative);
+    }
+
+    #[test]
+    fn test_sound_rolloff_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        sound.set_rolloff(0.5);
+        assert_f32_eq(sound.rolloff(), 0.5);
+
+        sound.set_rolloff(2.0);
+        assert_f32_eq(sound.rolloff(), 2.0);
+    }
+
+    #[test]
+    fn test_sound_min_max_gain_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        sound.set_min_gain(0.1);
+        assert_f32_eq(sound.min_gain(), 0.1);
+
+        sound.set_max_gain(0.9);
+        assert_f32_eq(sound.max_gain(), 0.9);
+    }
+
+    #[test]
+    fn test_sound_min_max_distance_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        sound.set_min_distance(1.0);
+        assert_f32_eq(sound.min_distance(), 1.0);
+
+        sound.set_max_distance(100.0);
+        assert_f32_eq(sound.max_distance(), 100.0);
+    }
+
+    #[test]
+    fn test_sound_cone_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        let cone = Cone {
+            inner_angle_rad: 0.5,
+            outer_angle_rad: 1.0,
+            outer_gain: 0.25,
+        };
+
+        sound.set_cone(cone);
+        let got = sound.cone();
+
+        assert_f32_eq(got.inner_angle_rad, cone.inner_angle_rad);
+        assert_f32_eq(got.outer_angle_rad, cone.outer_angle_rad);
+        assert_f32_eq(got.outer_gain, cone.outer_gain);
+    }
+
+    #[test]
+    fn test_sound_doppler_factor_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        sound.set_doppler_factor(0.25);
+        assert_f32_eq(sound.doppler_factor(), 0.25);
+
+        sound.set_doppler_factor(2.0);
+        assert_f32_eq(sound.doppler_factor(), 2.0);
+    }
+
+    #[test]
+    fn test_sound_directional_attenuation_roundtrip() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        sound.set_directional_attenuation(0.2);
+        assert_f32_eq(sound.directional_attenuation(), 0.2);
+
+        sound.set_directional_attenuation(1.0);
+        assert_f32_eq(sound.directional_attenuation(), 1.0);
+    }
+
+    #[test]
+    fn test_sound_fade_apis_smoke() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        sound.set_fade_pcm(1.0, 0.0, 128);
+        sound.set_fade_mili(1.0, 0.0, 10);
+
+        sound.set_fade_start_pcm(1.0, 0.0, 128, 0);
+        sound.set_fade_start_millis(1.0, 0.0, 10, 0);
+
+        let _ = sound.current_fade_volume();
+    }
+
+    #[test]
+    fn test_sound_start_stop_times_smoke() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        sound.set_start_time_pcm(0);
+        sound.set_start_time_millis(0);
+
+        sound.set_stop_time_pcm(0);
+        sound.set_stop_time_millis(0);
+
+        sound.set_stop_time_with_fade_pcm(0, 128);
+        sound.set_stop_time_with_fade_millis(0, 10);
+    }
+
+    #[test]
+    fn test_sound_looping_toggle() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        sound.set_looping(false);
+        assert_eq!(sound.looping(), false);
+
+        // TODO: Use a propper data source for this test
+        // sound.set_looping(true);
+        // assert_eq!(sound.looping(), true);
+    }
+
+    #[test]
+    fn test_sound_time_queries_smoke() {
+        let engine = Engine::new_for_tests().unwrap();
+        let sound = engine.new_sound().unwrap();
+
+        let _t0 = sound.time_pcm();
+        let _t1 = sound.time_millis();
+    }
+
+    #[test]
+    fn test_sound_ended_smoke() {
+        let engine = Engine::new_for_tests().unwrap();
+        let sound = engine.new_sound().unwrap();
+
+        let _ = sound.ended();
+    }
+
+    #[test]
+    fn test_sound_seek_apis_smoke() {
+        let engine = Engine::new_for_tests().unwrap();
+        let mut sound = engine.new_sound().unwrap();
+
+        let _ = sound.seek_to_pcm(0);
+        let _ = sound.seek_to_second(0.0);
+    }
+
+    #[test]
+    fn test_sound_data_format_and_ranges_smoke() {
+        let engine = Engine::new_for_tests().unwrap();
+        let sound = engine.new_sound().unwrap();
+
+        // These may fail depending on how your test sound is created.
+        // Still valuable: if they succeed, basic sanity checks; if not, no panic.
+        if let Ok(df) = sound.data_format() {
+            // Optional: assert df.channels > 0 etc, depending on your DataFormat type.
+            let _ = df;
+        }
+
+        let _ = sound.cursor_pcm();
+        let _ = sound.length_pcm();
+        let _ = sound.cursor_seconds();
+        let _ = sound.length_seconds();
     }
 }

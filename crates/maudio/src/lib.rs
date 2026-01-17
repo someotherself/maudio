@@ -2,6 +2,7 @@
 
 pub mod audio;
 pub mod context;
+pub mod data_source;
 pub mod device;
 pub mod engine;
 pub mod sound;
@@ -43,7 +44,10 @@ impl MaRawResult {
 
 impl MaudioError {
     pub(crate) fn new_ma_error(native: ErrorKinds) -> Self {
-        Self { native: Some(native), ma_result: MaError(sys::ma_result_MA_ERROR) }
+        Self {
+            native: Some(native),
+            ma_result: MaError(sys::ma_result_MA_ERROR),
+        }
     }
 }
 
@@ -150,20 +154,39 @@ impl MaError {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum ErrorKinds {
+    /// Used by Handle types. Error during a recv
+    ChannelRecieveError,
+    /// Used by Handle types. Erro during a send
+    ChannelSendError,
+    /// TryFrom error converting raw miniaudio value to Maudio
     InvalidSampleRate,
+    /// TryFrom error converting raw miniaudio value to Maudio
     InvalidBackend,
+    /// TryFrom error converting raw miniaudio value to Maudio
     InvalidPerformanceProfile,
+    /// TryFrom error converting raw miniaudio value to Maudio
     InvalidDither,
+    /// TryFrom error converting raw miniaudio value to Maudio
     InvalidFormat,
+    /// TryFrom error converting raw miniaudio value to Maudio
     InvalidChannelMap,
+    /// TryFrom error converting raw miniaudio value to Maudio
     InvalidChannelMixMode,
+    /// TryFrom error converting raw miniaudio value to Maudio
     InvalidAttenuationModel,
+    /// TryFrom error converting raw miniaudio value to Maudio
     InvalidHandedness,
+    /// TryFrom error converting raw miniaudio value to Maudio
     InvalidStreamLayout,
+    /// TryFrom error converting raw miniaudio value to Maudio
     InvalidPanMode,
+    /// TryFrom error converting raw miniaudio value to Maudio
     InvalidStreamFormat,
+    /// TryFrom error converting raw miniaudio value to Maudio
     InvalidNodeState,
+    /// TryFrom error converting raw miniaudio value to Maudio
     InvalidPositioning,
+    /// Error coverting Path to CString
     InvalidCString,
 }
 

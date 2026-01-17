@@ -38,7 +38,7 @@ use crate::{
 /// Unlike a traditional “pipeline” where audio is pushed into a graph,
 /// a `NodeGraph` has **no external input**. Instead, audio is generated
 /// on demand when the graph is read (for example by an audio device or
-/// by calling `ma_node_graph_read_pcm_frames`) TODO.
+/// by calling `ma_node_graph_read_pcm_frames`).
 ///
 /// ## How audio flows
 ///
@@ -103,6 +103,7 @@ impl Binding for NodeGraph<'_> {
 pub struct NodeGraphRef<'e> {
     ptr: *mut sys::ma_node_graph,
     _engine: PhantomData<&'e mut Engine>,
+    // Should Ref also be not_sync?
     _not_sync: PhantomData<Cell<()>>,
 }
 
