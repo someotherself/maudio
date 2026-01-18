@@ -55,7 +55,9 @@ impl TryFrom<sys::ma_performance_profile> for PerformanceProfile {
             sys::ma_performance_profile_ma_performance_profile_conservative => {
                 Ok(PerformanceProfile::Conservative)
             }
-            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidPerformanceProfile)),
+            _ => Err(MaudioError::new_ma_error(
+                ErrorKinds::InvalidPerformanceProfile,
+            )),
         }
     }
 }

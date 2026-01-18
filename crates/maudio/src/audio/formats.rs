@@ -1,6 +1,6 @@
 use maudio_sys::ffi as sys;
 
-use crate::{ErrorKinds, MaudioError};
+use crate::{ErrorKinds, MaResult, MaudioError};
 
 /// Sample format (numeric representation of audio samples).
 ///
@@ -14,25 +14,119 @@ use crate::{ErrorKinds, MaudioError};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 pub enum Format {
-    Unknown,
     U8,
     S16,
     S24,
     S32,
     F32,
-    Count,
+}
+
+impl Format {
+    pub fn with_len(&self, channels: u32, frame_count: u64) -> MaResult<Samples> {
+        let ch = channels as usize;
+        let frames = frame_count as usize;
+
+        match self {
+            Format::U8 => Ok(Samples::U8(vec![
+                0u8;
+                frames.checked_mul(ch).ok_or(
+                    MaudioError::new_ma_error(ErrorKinds::InvalidFormat)
+                )?
+            ])),
+            Format::S16 => Ok(Samples::S16(vec![
+                0i16;
+                frames.checked_mul(ch).ok_or(
+                    MaudioError::new_ma_error(ErrorKinds::InvalidFormat)
+                )?
+            ])),
+            Format::S24 => {
+                let len = frames
+                    .checked_mul(ch)
+                    .ok_or(MaudioError::new_ma_error(ErrorKinds::InvalidFormat))?
+                    .checked_mul(3)
+                    .ok_or(MaudioError::new_ma_error(ErrorKinds::InvalidFormat))?;
+                Ok(Samples::S24(vec![0u8; len]))
+            }
+            Format::S32 => Ok(Samples::S32(vec![
+                0i32;
+                frames.checked_mul(ch).ok_or(
+                    MaudioError::new_ma_error(ErrorKinds::InvalidFormat)
+                )?
+            ])),
+            Format::F32 => Ok(Samples::F32(vec![
+                0f32;
+                frames.checked_mul(ch).ok_or(
+                    MaudioError::new_ma_error(ErrorKinds::InvalidFormat)
+                )?
+            ])),
+        }
+    }
+}
+
+mod sealed {
+    pub trait Buffer {}
+    impl Buffer for u8 {}
+    impl Buffer for i16 {}
+    impl Buffer for i32 {}
+    impl Buffer for f32 {}
+}
+
+pub enum Samples {
+    U8(Vec<u8>),
+    S16(Vec<i16>),
+    S24(Vec<u8>),
+    S32(Vec<i32>),
+    F32(Vec<f32>),
+}
+
+impl Samples {
+    pub fn as_mut_ptr(&mut self) -> *mut core::ffi::c_void {
+        match self {
+            Samples::U8(v) => v.as_mut_ptr() as *mut core::ffi::c_void,
+            Samples::S16(v) => v.as_mut_ptr() as *mut core::ffi::c_void,
+            Samples::S24(v) => v.as_mut_ptr() as *mut core::ffi::c_void,
+            Samples::S32(v) => v.as_mut_ptr() as *mut core::ffi::c_void,
+            Samples::F32(v) => v.as_mut_ptr() as *mut core::ffi::c_void,
+        }
+    }
+
+    pub fn truncate_to_frames(&mut self, frames_read: u64, channels: u32) {
+        let frames = frames_read as usize;
+        match self {
+            Samples::U8(v) => v.truncate(frames * channels as usize),
+            Samples::S16(v) => v.truncate(frames * channels as usize),
+            Samples::S24(v) => v.truncate(frames * channels as usize * 3),
+            Samples::S32(v) => v.truncate(frames * channels as usize),
+            Samples::F32(v) => v.truncate(frames * channels as usize),
+        }
+    }
+}
+
+impl Sample for u8 {
+    const FORMAT: Format = Format::U8;
+}
+impl Sample for i16 {
+    const FORMAT: Format = Format::S16;
+}
+impl Sample for i32 {
+    const FORMAT: Format = Format::S32;
+}
+impl Sample for f32 {
+    const FORMAT: Format = Format::F32;
+}
+
+pub trait Sample: sealed::Buffer {
+    const FORMAT: Format;
 }
 
 impl From<Format> for sys::ma_format {
     fn from(value: Format) -> Self {
         match value {
-            Format::Unknown => sys::ma_format_ma_format_unknown,
             Format::U8 => sys::ma_format_ma_format_u8,
             Format::S16 => sys::ma_format_ma_format_s16,
             Format::S24 => sys::ma_format_ma_format_s24,
             Format::S32 => sys::ma_format_ma_format_s32,
             Format::F32 => sys::ma_format_ma_format_f32,
-            Format::Count => sys::ma_format_ma_format_count,
         }
     }
 }
@@ -41,7 +135,6 @@ impl TryFrom<sys::ma_format> for Format {
     type Error = MaudioError;
     fn try_from(value: sys::ma_format) -> Result<Self, Self::Error> {
         match value {
-            sys::ma_format_ma_format_unknown => Ok(Format::Unknown),
             sys::ma_format_ma_format_u8 => Ok(Format::U8),
             sys::ma_format_ma_format_s16 => Ok(Format::S16),
             sys::ma_format_ma_format_s24 => Ok(Format::S24),
@@ -130,10 +223,6 @@ mod tests {
     #[test]
     fn test_formats_format_into_sys_matches_expected_constants() {
         assert_eq!(
-            sys::ma_format::from(Format::Unknown),
-            sys::ma_format_ma_format_unknown
-        );
-        assert_eq!(
             sys::ma_format::from(Format::U8),
             sys::ma_format_ma_format_u8
         );
@@ -153,18 +242,10 @@ mod tests {
             sys::ma_format::from(Format::F32),
             sys::ma_format_ma_format_f32
         );
-        assert_eq!(
-            sys::ma_format::from(Format::Count),
-            sys::ma_format_ma_format_count
-        );
     }
 
     #[test]
     fn test_formats_format_try_from_sys_accepts_known_values() {
-        assert_eq!(
-            Format::try_from(sys::ma_format_ma_format_unknown).unwrap(),
-            Format::Unknown
-        );
         assert_eq!(
             Format::try_from(sys::ma_format_ma_format_u8).unwrap(),
             Format::U8
