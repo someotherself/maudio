@@ -48,10 +48,7 @@
 //! The engine runs an internal audio callback on a real-time thread. Care should
 //! be taken to avoid heavy work or allocations in contexts that must remain
 //! real-time safe.
-use std::{
-    cell::Cell, marker::PhantomData, mem::MaybeUninit, path::Path, sync::mpsc::Sender,
-    thread::JoinHandle,
-};
+use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit, path::Path};
 
 use crate::{
     Binding, ErrorKinds, MaResult,
@@ -72,6 +69,9 @@ use crate::{
 use maudio_sys::ffi as sys;
 
 pub mod engine_builder;
+#[cfg(feature = "engine_host")]
+pub mod engine_host;
+
 pub mod node_graph;
 
 /// Prelude for the [`engine`](super) module.
@@ -537,7 +537,7 @@ pub(crate) fn wide_null_terminated(path: &Path) -> Vec<u16> {
 /// This matters because miniaudio requires the same allocation callbacks to be passed
 /// again during uninitialization so it can free any internal allocations consistently.
 pub struct AllocationCallbacks {
-    inner: sys::ma_allocation_callbacks,
+    pub(crate) inner: sys::ma_allocation_callbacks,
 }
 
 #[cfg(test)]

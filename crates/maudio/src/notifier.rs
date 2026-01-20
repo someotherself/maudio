@@ -2,14 +2,15 @@ use std::sync::{Arc, atomic::AtomicBool};
 
 use maudio_sys::ffi as sys;
 
-
 pub struct EndNotifier {
     flag: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl EndNotifier {
     pub(crate) fn new() -> Self {
-        Self { flag: Arc::new(AtomicBool::new(false)) }
+        Self {
+            flag: Arc::new(AtomicBool::new(false)),
+        }
     }
 
     pub(crate) fn clone_flag(&self) -> Arc<AtomicBool> {
@@ -28,8 +29,6 @@ impl EndNotifier {
         if self.is_notified() {
             self.flag.store(false, std::sync::atomic::Ordering::Release);
             f();
-            println!("hello");
-            return;
         }
     }
 
@@ -48,4 +47,3 @@ pub(crate) unsafe extern "C" fn on_end_callback(
     let flag = unsafe { &*(user_data as *const std::sync::atomic::AtomicBool) };
     flag.store(true, std::sync::atomic::Ordering::Release);
 }
-

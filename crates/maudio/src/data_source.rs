@@ -24,9 +24,8 @@ pub type GetNextCallback = sys::ma_data_source_get_next_proc;
 impl Binding for DataSource {
     type Raw = *mut sys::ma_data_source;
 
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
+    fn from_ptr(raw: Self::Raw) -> Self {
+        Self { inner: raw }
     }
 
     fn to_raw(&self) -> Self::Raw {
@@ -327,6 +326,21 @@ pub(crate) mod data_source_ffi {
     }
 
     #[inline]
+    pub fn ma_data_source_set_range_in_pcm_frames<S: AsSourcePtr + ?Sized>(
+        source: &S,
+        range: core::ops::Range<u64>,
+    ) -> MaResult<()> {
+        let res = unsafe {
+            sys::ma_data_source_set_range_in_pcm_frames(
+                source.as_source_ptr(),
+                range.start,
+                range.end,
+            )
+        };
+        MaRawResult::check(res)
+    }
+
+    #[inline]
     pub fn ma_data_source_get_range_in_pcm_frames<S: AsSourcePtr + ?Sized>(
         source: &S,
     ) -> core::ops::Range<u64> {
@@ -449,9 +463,11 @@ pub struct DataSourceRef<'a> {
 impl<'a> Binding for DataSourceRef<'a> {
     type Raw = *mut sys::ma_data_source;
 
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
+    fn from_ptr(raw: Self::Raw) -> Self {
+        Self {
+            inner: raw,
+            _marker: PhantomData,
+        }
     }
 
     fn to_raw(&self) -> Self::Raw {

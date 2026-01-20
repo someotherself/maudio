@@ -3,7 +3,7 @@ use std::{cell::Cell, marker::PhantomData, path::Path};
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaResult,
+    Binding, MaRawResult, MaResult,
     audio::{
         dsp::pan::PanMode,
         math::vec3::Vec3,
@@ -11,6 +11,7 @@ use crate::{
     },
     data_source::DataFormat,
     engine::{Engine, EngineRef, node_graph::nodes::NodeRef},
+    notifier::EndNotifier,
     sound::{sound_flags::SoundFlags, sound_group::SoundGroup},
     util::fence::Fence,
 };
@@ -36,6 +37,9 @@ pub struct Sound<'a> {
     inner: *mut sys::ma_sound,
     _engine: PhantomData<&'a Engine>,
     _not_sync: PhantomData<Cell<()>>,
+    // Miniaudio stores only one ma_sound_end_proc and pUserData per ma_sound.
+    // One end_notifier at a time will be ok
+    end_notifier: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
 }
 
 impl Binding for Sound<'_> {
@@ -46,6 +50,7 @@ impl Binding for Sound<'_> {
             inner: raw,
             _engine: PhantomData,
             _not_sync: PhantomData,
+            end_notifier: None,
         }
     }
 
@@ -392,13 +397,22 @@ impl<'a> Sound<'a> {
         sound_ffi::ma_sound_get_length_in_seconds(self)
     }
 
-    // TODO
-    fn set_end_callback(
-        &mut self,
-        callback: sys::ma_sound_end_proc,
-        user_data: *mut core::ffi::c_void,
-    ) -> MaResult<()> {
-        sound_ffi::ma_sound_set_end_callback(self, callback, user_data)
+    pub fn set_end_callback(&mut self) -> MaResult<EndNotifier> {
+        let notifier = EndNotifier::new();
+        self.end_notifier = Some(notifier.clone_flag());
+
+        let user_data = notifier.as_user_data_ptr();
+
+        let res = unsafe {
+            sys::ma_sound_set_end_callback(
+                self.to_raw(),
+                Some(crate::notifier::on_end_callback),
+                user_data,
+            )
+        };
+        MaRawResult::check(res)?;
+
+        Ok(notifier)
     }
 }
 
@@ -410,7 +424,7 @@ impl<'a> Sound<'a> {
         path: &Path,
         flags: SoundFlags,
         sound_group: &mut Option<&SoundGroup>,
-        fence: Option<&mut Fence>,
+        fence: Option<&mut Fence>, // TODO: Implement fence
     ) -> MaResult<()> {
         #[cfg(unix)]
         {
@@ -427,7 +441,6 @@ impl<'a> Sound<'a> {
             sound_ffi::ma_sound_init_from_file_w(engine, &path, flags, sound_group, fence, sound)
         }
 
-        // TODO. What other platforms can be added
         #[cfg(not(any(unix, windows)))]
         compile_error!("init_sound_from_file is only supported on unix and windows");
     }
@@ -1130,7 +1143,6 @@ pub(crate) mod sound_ffi {
         Ok(length)
     }
 
-    // TODO
     #[inline]
     pub fn ma_sound_set_end_callback(
         sound: &mut Sound,

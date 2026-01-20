@@ -5,6 +5,7 @@ pub mod context;
 pub mod data_source;
 pub mod device;
 pub mod engine;
+pub mod notifier;
 pub mod sound;
 pub mod util;
 
@@ -154,6 +155,8 @@ impl MaError {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum ErrorKinds {
+    /// Size mismatch between data.len() and frames * channels
+    BufferSizeError,
     /// Used by Handle types. Error during a recv
     ChannelRecieveError,
     /// Used by Handle types. Erro during a send

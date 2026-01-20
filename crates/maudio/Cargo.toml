@@ -7,6 +7,7 @@ categories = ["multimedia::audio", "multimedia"]
 
 [features]
 ci-tests = [] # disable the backend for the github CI
+engine_host = [] # enables a thread safe engine instance with spawn()
 
 [dependencies]
 maudio-sys = { path = "../maudio-sys"}
