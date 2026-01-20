@@ -32,6 +32,7 @@ impl<T> AsRef<[T]> for SampleBuffer<T> {
         self.as_slice()
     }
 }
+
 impl<T> AsMut<[T]> for SampleBuffer<T> {
     fn as_mut(&mut self) -> &mut [T] {
         self.as_mut_slice()
@@ -161,7 +162,7 @@ impl Format {
         channels: u32,
         frames: u64,
         // sample_rate: SampleRate,
-    ) -> MaResult<SampleBuffer<u16>> {
+    ) -> MaResult<SampleBuffer<i16>> {
         debug_assert!(
             matches!(self, Format::S16),
             "Format::new_s16 called on {self:?}"
@@ -175,7 +176,7 @@ impl Format {
             .ok_or(MaudioError::new_ma_error(ErrorKinds::InvalidFormat))?;
 
         Ok(SampleBuffer {
-            data: vec![0u16; len as usize],
+            data: vec![0i16; len as usize],
             channels,
             // sample_rate,
         })
@@ -186,7 +187,7 @@ impl Format {
         channels: u32,
         frames: u64,
         // sample_rate: SampleRate,
-    ) -> MaResult<SampleBuffer<u32>> {
+    ) -> MaResult<SampleBuffer<i32>> {
         debug_assert!(
             matches!(self, Format::S32),
             "Format::new_s32 called on {self:?}"
@@ -200,7 +201,7 @@ impl Format {
             .ok_or(MaudioError::new_ma_error(ErrorKinds::InvalidFormat))?;
 
         Ok(SampleBuffer {
-            data: vec![0u32; len as usize],
+            data: vec![0i32; len as usize],
             channels,
             // sample_rate,
         })

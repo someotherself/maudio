@@ -162,6 +162,8 @@ pub enum ErrorKinds {
     /// Used by Handle types. Erro during a send
     ChannelSendError,
     /// TryFrom error converting raw miniaudio value to Maudio
+    InvalidSWaveFormType,
+    /// TryFrom error converting raw miniaudio value to Maudio
     InvalidSampleRate,
     /// TryFrom error converting raw miniaudio value to Maudio
     InvalidBackend,

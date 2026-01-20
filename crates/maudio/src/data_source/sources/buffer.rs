@@ -99,7 +99,7 @@ pub trait AudioBufferOps: AsAudioBufferPtr {
         &mut self,
         frame_count: u64,
         looping: bool,
-    ) -> MaResult<(SampleBuffer<u16>, u64)> {
+    ) -> MaResult<(SampleBuffer<i16>, u64)> {
         buffer_ffi::ma_audio_buffer_read_pcm_frames_u16(self, frame_count, looping)
     }
 
@@ -107,7 +107,7 @@ pub trait AudioBufferOps: AsAudioBufferPtr {
         &mut self,
         frame_count: u64,
         looping: bool,
-    ) -> MaResult<(SampleBuffer<u32>, u64)> {
+    ) -> MaResult<(SampleBuffer<i32>, u64)> {
         buffer_ffi::ma_audio_buffer_read_pcm_frames_u32(self, frame_count, looping)
     }
 
@@ -238,7 +238,7 @@ pub(crate) mod buffer_ffi {
         audio_buffer: &mut A,
         frame_count: u64,
         looping: bool,
-    ) -> MaResult<(SampleBuffer<u16>, u64)> {
+    ) -> MaResult<(SampleBuffer<i16>, u64)> {
         let mut buffer = audio_buffer
             .format()
             .new_s16(audio_buffer.channels(), frame_count)?;
@@ -256,7 +256,7 @@ pub(crate) mod buffer_ffi {
         audio_buffer: &mut A,
         frame_count: u64,
         looping: bool,
-    ) -> MaResult<(SampleBuffer<u32>, u64)> {
+    ) -> MaResult<(SampleBuffer<i32>, u64)> {
         let mut buffer = audio_buffer
             .format()
             .new_s32(audio_buffer.channels(), frame_count)?;

@@ -96,7 +96,7 @@ pub trait DecoderOps: AsDecoderPtr {
         decoder_ffi::ma_decoder_read_pcm_frames_u8(self, frame_count)
     }
 
-    fn read_pcm_frames_s16(&mut self, frame_count: u64) -> MaResult<(SampleBuffer<u16>, u64)> {
+    fn read_pcm_frames_s16(&mut self, frame_count: u64) -> MaResult<(SampleBuffer<i16>, u64)> {
         decoder_ffi::ma_decoder_read_pcm_frames_s16(self, frame_count)
     }
 
@@ -104,7 +104,7 @@ pub trait DecoderOps: AsDecoderPtr {
         decoder_ffi::ma_decoder_read_pcm_frames_s24(self, frame_count)
     }
 
-    fn read_pcm_frames_s32(&mut self, frame_count: u64) -> MaResult<(SampleBuffer<u32>, u64)> {
+    fn read_pcm_frames_s32(&mut self, frame_count: u64) -> MaResult<(SampleBuffer<i32>, u64)> {
         decoder_ffi::ma_decoder_read_pcm_frames_s32(self, frame_count)
     }
 
@@ -329,7 +329,7 @@ pub(crate) mod decoder_ffi {
     pub fn ma_decoder_read_pcm_frames_s16<D: AsDecoderPtr + ?Sized>(
         decoder: &mut D,
         frame_count: u64,
-    ) -> MaResult<(SampleBuffer<u16>, u64)> {
+    ) -> MaResult<(SampleBuffer<i16>, u64)> {
         let mut buffer = decoder.format().new_s16(decoder.channels(), frame_count)?;
         let frames_read =
             ma_decoder_read_pcm_frames_internal(decoder, frame_count, buffer.as_mut_ptr())?;
@@ -340,7 +340,7 @@ pub(crate) mod decoder_ffi {
     pub fn ma_decoder_read_pcm_frames_s32<D: AsDecoderPtr + ?Sized>(
         decoder: &mut D,
         frame_count: u64,
-    ) -> MaResult<(SampleBuffer<u32>, u64)> {
+    ) -> MaResult<(SampleBuffer<i32>, u64)> {
         let mut buffer = decoder.format().new_s32(decoder.channels(), frame_count)?;
         let frames_read =
             ma_decoder_read_pcm_frames_internal(decoder, frame_count, buffer.as_mut_ptr())?;
@@ -565,7 +565,10 @@ pub(crate) mod decoder_b_ffi {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{fs, time::{SystemTime, UNIX_EPOCH}};
+    use std::{
+        fs,
+        time::{SystemTime, UNIX_EPOCH},
+    };
 
     // --- Helpers -------------------------------------------------------------
 
@@ -601,8 +604,8 @@ mod tests {
 
         // fmt chunk
         out.extend_from_slice(b"fmt ");
-        out.extend_from_slice(&16u32.to_le_bytes());        // PCM fmt chunk size
-        out.extend_from_slice(&1u16.to_le_bytes());         // AudioFormat = 1 (PCM)
+        out.extend_from_slice(&16u32.to_le_bytes()); // PCM fmt chunk size
+        out.extend_from_slice(&1u16.to_le_bytes()); // AudioFormat = 1 (PCM)
         out.extend_from_slice(&channels.to_le_bytes());
         out.extend_from_slice(&sample_rate.to_le_bytes());
         out.extend_from_slice(&byte_rate.to_le_bytes());
@@ -638,11 +641,7 @@ mod tests {
         let wav = tiny_test_wav_mono(frames_total);
 
         // Adjust these if your constructors differ:
-        let builder = DecoderBuilder::new(
-            Format::F32,
-            1,
-            SampleRate::Sr48000,
-        );
+        let builder = DecoderBuilder::new(Format::F32, 1, SampleRate::Sr48000);
 
         let mut dec = Decoder::init_from_memory(&wav, &builder).unwrap();
 
@@ -687,11 +686,7 @@ mod tests {
         let frames_total: usize = 32;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let builder = DecoderBuilder::new(
-            Format::S16,
-            1,
-            SampleRate::Sr48000,
-        );
+        let builder = DecoderBuilder::new(Format::S16, 1, SampleRate::Sr48000);
 
         // Create a short-lived slice binding and ensure decoder works beyond it.
         let mut dec_ref = {
@@ -712,11 +707,7 @@ mod tests {
         let path = unique_tmp_path("wav");
         fs::write(&path, &wav).unwrap();
 
-        let builder = DecoderBuilder::new(
-            Format::F32,
-            1,
-            SampleRate::Sr48000,
-        );
+        let builder = DecoderBuilder::new(Format::F32, 1, SampleRate::Sr48000);
 
         let mut dec = Decoder::init_from_file(&path, &builder).unwrap();
 
@@ -729,55 +720,55 @@ mod tests {
         // cleanup
         let _ = fs::remove_file(&path);
     }
-#[test]
-fn test_decoder_read_variants_return_expected_lengths() {
-    let frames_total: usize = 16;
-    let wav = tiny_test_wav_mono(frames_total);
+    #[test]
+    fn test_decoder_read_variants_return_expected_lengths() {
+        let frames_total: usize = 16;
+        let wav = tiny_test_wav_mono(frames_total);
 
-    let cases = [
-        (Format::U8,  "u8"),
-        (Format::S16, "s16"),
-        (Format::S24, "s24"),
-        (Format::S32, "s32"),
-        (Format::F32, "f32"),
-    ];
+        let cases = [
+            (Format::U8, "u8"),
+            (Format::S16, "s16"),
+            (Format::S24, "s24"),
+            (Format::S32, "s32"),
+            (Format::F32, "f32"),
+        ];
 
-    for (fmt, _name) in cases {
-        let builder = DecoderBuilder::new(fmt, 1, SampleRate::Sr48000);
-        let mut dec = Decoder::init_from_memory(&wav, &builder).unwrap();
+        for (fmt, _name) in cases {
+            let builder = DecoderBuilder::new(fmt, 1, SampleRate::Sr48000);
+            let mut dec = Decoder::init_from_memory(&wav, &builder).unwrap();
 
-        let (len_units, read) = match fmt {
-            Format::U8 => {
-                let (b, r) = dec.read_pcm_frames_u8(5).unwrap();
-                (b.len_samples(), r)
-            }
-            Format::S16 => {
-                let (b, r) = dec.read_pcm_frames_s16(5).unwrap();
-                (b.len_samples(), r)
-            }
-            Format::S24 => {
-                let (b, r) = dec.read_pcm_frames_s24(5).unwrap();
-                (b.len_samples(), r)
-            }
-            Format::S32 => {
-                let (b, r) = dec.read_pcm_frames_s32(5).unwrap();
-                (b.len_samples(), r)
-            }
-            Format::F32 => {
-                let (b, r) = dec.read_pcm_frames_f32(5).unwrap();
-                (b.len_samples(), r)
-            }
-        };
+            let (len_units, read) = match fmt {
+                Format::U8 => {
+                    let (b, r) = dec.read_pcm_frames_u8(5).unwrap();
+                    (b.len_samples(), r)
+                }
+                Format::S16 => {
+                    let (b, r) = dec.read_pcm_frames_s16(5).unwrap();
+                    (b.len_samples(), r)
+                }
+                Format::S24 => {
+                    let (b, r) = dec.read_pcm_frames_s24(5).unwrap();
+                    (b.len_samples(), r)
+                }
+                Format::S32 => {
+                    let (b, r) = dec.read_pcm_frames_s32(5).unwrap();
+                    (b.len_samples(), r)
+                }
+                Format::F32 => {
+                    let (b, r) = dec.read_pcm_frames_f32(5).unwrap();
+                    (b.len_samples(), r)
+                }
+            };
 
-        assert_eq!(read, 5);
+            assert_eq!(read, 5);
 
-        // Key: expected "units" depends on how the buffer stores samples.
-        let expected_units = match fmt {
-            Format::S24 => 5 * 1 * 3,
-            _ => 5 * 1,
-        };
+            // Key: expected "units" depends on how the buffer stores samples.
+            let expected_units = match fmt {
+                Format::S24 => 5 * 1 * 3,
+                _ => 5 * 1,
+            };
 
-        assert_eq!(len_units, expected_units);
+            assert_eq!(len_units, expected_units);
+        }
     }
-}
 }
