@@ -44,6 +44,13 @@ impl MaRawResult {
 }
 
 impl MaudioError {
+    pub(crate) fn from_ma_result(error: MaError) -> Self {
+        Self {
+            native: None,
+            ma_result: error,
+        }
+    }
+
     pub(crate) fn new_ma_error(native: ErrorKinds) -> Self {
         Self {
             native: Some(native),
