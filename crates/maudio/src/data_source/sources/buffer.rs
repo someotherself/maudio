@@ -662,7 +662,7 @@ mod test {
         assert_eq!(buf.cursor_pcm().unwrap(), 0);
         assert_eq!(buf.length_pcm().unwrap(), 100);
         assert_eq!(buf.available_frames().unwrap(), 100);
-        assert_eq!(buf.ended(), false);
+        assert!(!buf.ended());
     }
 
     #[test]
@@ -676,7 +676,7 @@ mod test {
         assert_eq!(buf.cursor_pcm().unwrap(), 0);
         assert_eq!(buf.length_pcm().unwrap(), 100);
         assert_eq!(buf.available_frames().unwrap(), 100);
-        assert_eq!(buf.ended(), false);
+        assert!(!buf.ended());
 
         // buf is dropped before data due to scope order; should compile.
         drop(buf);

@@ -538,7 +538,7 @@ pub(crate) mod sound_ffi {
         path: &[u16],
         flags: SoundFlags,
         s_group: Option<&SoundGroup>,
-        done_fence: Option<&mut Fence>,
+        done_fence: Option<&    Fence>,
         sound: *mut sys::ma_sound,
     ) -> MaResult<()> {
         let s_group: *mut sys::ma_sound_group =
@@ -1278,10 +1278,10 @@ mod test {
         let mut sound = engine.new_sound().unwrap();
 
         sound.set_spatialization(false);
-        assert_eq!(sound.spatialization(), false);
+        assert!(!sound.spatialization());
 
         sound.set_spatialization(true);
-        assert_eq!(sound.spatialization(), true);
+        assert!(sound.spatialization());
     }
 
     #[test]
@@ -1528,10 +1528,10 @@ mod test {
         let mut sound = engine.sound().data_source(&src).build().unwrap();
 
         sound.set_looping(false);
-        assert_eq!(sound.looping(), false);
+        assert!(!sound.looping());
 
         sound.set_looping(true);
-        assert_eq!(sound.looping(), true);
+        assert!(sound.looping());
     }
 
     #[test]

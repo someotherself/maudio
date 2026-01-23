@@ -166,7 +166,7 @@ impl<'a> SoundBuilder<'a> {
             #[cfg(unix)]
             SoundSource::FileUtf8(_) => self.engine.new_sound_with_config_internal(Some(self))?,
             #[cfg(windows)]
-            SoundSource::FileWide(path) => {
+            SoundSource::FileWide(_) => {
                 self.engine.new_sound_with_config_internal(Some(self))?
             }
             SoundSource::None => {

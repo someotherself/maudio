@@ -51,7 +51,7 @@
 use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit, path::Path};
 
 use crate::{
-    Binding, ErrorKinds, MaResult,
+    Binding, MaResult,
     audio::{math::vec3::Vec3, sample_rate::SampleRate, spatial::cone::Cone},
     data_source::DataSource,
     engine::{
@@ -547,7 +547,7 @@ impl Drop for Engine {
 pub(crate) fn cstring_from_path(path: &Path) -> MaResult<std::ffi::CString> {
     use std::os::unix::ffi::OsStrExt;
     std::ffi::CString::new(path.as_os_str().as_bytes())
-        .map_err(|_| crate::MaudioError::new_ma_error(ErrorKinds::InvalidCString))
+        .map_err(|_| crate::MaudioError::new_ma_error(crate::ErrorKinds::InvalidCString))
 }
 
 #[cfg(windows)]
@@ -641,10 +641,10 @@ mod test {
 
         // Toggle first listener (should always exist if n>=1).
         engine.toggle_listener(0, false);
-        assert_eq!(engine.listener_enabled(0), false);
+        assert!(!engine.listener_enabled(0));
 
         engine.toggle_listener(0, true);
-        assert_eq!(engine.listener_enabled(0), true);
+        assert!(engine.listener_enabled(0));
     }
 
     #[test]

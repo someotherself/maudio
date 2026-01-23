@@ -954,7 +954,7 @@ mod tests {
                 .unwrap();
             let (buf, frames_read) = w.read_pcm_frames(1).unwrap();
             assert_eq!(frames_read, 1);
-            assert_eq!(buf.len(), 1 * 2);
+            assert_eq!(buf.len(), 2);
         }
 
         // I16
@@ -965,7 +965,7 @@ mod tests {
                 .unwrap();
             let (buf, frames_read) = w.read_pcm_frames(1).unwrap();
             assert_eq!(frames_read, 1);
-            assert_eq!(buf.len(), 1 * 2);
+            assert_eq!(buf.len(), 2);
         }
 
         // I32
@@ -976,7 +976,7 @@ mod tests {
                 .unwrap();
             let (buf, frames_read) = w.read_pcm_frames(1).unwrap();
             assert_eq!(frames_read, 1);
-            assert_eq!(buf.len(), 1 * 2);
+            assert_eq!(buf.len(), 2);
         }
 
         // S24
@@ -987,7 +987,7 @@ mod tests {
                 .unwrap();
             let (buf, frames_read) = w.read_pcm_frames(1).unwrap();
             assert_eq!(frames_read, 1);
-            assert_eq!(buf.len(), 1 * 2 * 3);
+            assert_eq!(buf.len(), 6);
         }
 
         // F32
@@ -998,7 +998,7 @@ mod tests {
                 .unwrap();
             let (buf, frames_read) = w.read_pcm_frames(1).unwrap();
             assert_eq!(frames_read, 1);
-            assert_eq!(buf.len(), 1 * 2);
+            assert_eq!(buf.len(), 2);
         }
     }
 

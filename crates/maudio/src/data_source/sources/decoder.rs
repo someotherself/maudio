@@ -336,7 +336,7 @@ pub(crate) mod decoder_ffi {
     #[inline]
     #[cfg(windows)]
     pub fn ma_decoder_init_file_w(
-        decoder: &mut Decoder,
+        decoder: *mut sys::ma_decoder,
         path: &[u16],
         config: &DecoderBuilder,
     ) -> MaResult<()> {
@@ -344,7 +344,7 @@ pub(crate) mod decoder_ffi {
             sys::ma_decoder_init_file_w(
                 path.as_ptr(),
                 &config.to_raw() as *const _,
-                decoder.to_raw(),
+                decoder,
             )
         };
         MaRawResult::check(res)
@@ -719,7 +719,7 @@ mod tests {
         // read a few frames
         let (buf, read) = dec.read_pcm_frames_f32(10).unwrap();
         assert_eq!(read, 10);
-        assert_eq!(buf.len_samples(), 10 * 1);
+        assert_eq!(buf.len_samples(), 10);
 
         let cursor1 = dec.cursor_pcm().unwrap();
         assert_eq!(cursor1, 10);
@@ -751,7 +751,7 @@ mod tests {
 
         let (buf, read) = dec_ref.read_pcm_frames_s16(12).unwrap();
         assert_eq!(read, 12);
-        assert_eq!(buf.len_samples(), 12 * 1);
+        assert_eq!(buf.len_samples(), 12);
     }
 
     #[test]
@@ -819,7 +819,7 @@ mod tests {
 
             // Key: expected "units" depends on how the buffer stores samples.
             let expected_units = match fmt {
-                Format::S24 => 5 * 1 * 3,
+                Format::S24 => 15,
                 _ => 5 * 1,
             };
 
