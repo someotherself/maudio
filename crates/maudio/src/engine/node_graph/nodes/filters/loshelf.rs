@@ -9,7 +9,7 @@ use crate::{
         AllocationCallbacks,
         node_graph::{
             AsNodeGraphPtr, NodeGraph,
-            nodes::{AsNodePtr, NodeRef},
+            nodes::{AsNodePtr, NodeRef, private_node::LoShelfNodeProvider},
         },
     },
 };
@@ -61,10 +61,9 @@ impl Binding for LoShelfNode<'_> {
     }
 }
 
+#[doc(hidden)]
 impl AsNodePtr for LoShelfNode<'_> {
-    fn as_node_ptr(&self) -> *mut sys::ma_node {
-        self.as_node().to_raw()
-    }
+    type __PtrProvider = LoShelfNodeProvider;
 }
 
 impl<'a> LoShelfNode<'a> {
@@ -133,7 +132,9 @@ pub(crate) mod n_loshelf_ffi {
 
     use crate::{
         Binding, MaRawResult, MaResult,
-        engine::node_graph::{AsNodeGraphPtr, nodes::filters::loshelf::LoShelfNode},
+        engine::node_graph::{
+            AsNodeGraphPtr, nodes::filters::loshelf::LoShelfNode, private_node_graph,
+        },
     };
 
     #[inline]
@@ -144,7 +145,12 @@ pub(crate) mod n_loshelf_ffi {
         node: *mut sys::ma_loshelf_node,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_loshelf_node_init(node_graph.as_nodegraph_ptr(), config, alloc_cb, node)
+            sys::ma_loshelf_node_init(
+                private_node_graph::node_graph_ptr(node_graph),
+                config,
+                alloc_cb,
+                node,
+            )
         };
         MaRawResult::check(res)
     }

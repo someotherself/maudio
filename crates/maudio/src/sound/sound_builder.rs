@@ -1,12 +1,21 @@
-use std::path::Path;
+use std::{
+    path::Path,
+    sync::{Arc, atomic::AtomicBool},
+};
 
 use maudio_sys::ffi as sys;
 
 use crate::{
     Binding, MaResult,
     audio::math::vec3::Vec3,
-    engine::{Engine, EngineOps},
-    sound::{Sound, SoundSource, sound_flags::SoundFlags},
+    data_source::{AsSourcePtr, DataSourceRef, private_data_source},
+    engine::{
+        Engine, EngineOps,
+        node_graph::nodes::{AsNodePtr, private_node},
+    },
+    notifier::EndNotifier,
+    sound::{Sound, SoundSource, sound_flags::SoundFlags, sound_group::SoundGroup},
+    util::fence::Fence,
 };
 
 /// Builder for constructing a [`Sound`]
@@ -61,7 +70,8 @@ use crate::{
 /// ```no_run
 /// # use maudio::engine::Engine;
 /// # use maudio::sound::sound_builder::SoundBuilder;
-/// # fn demo(engine: &Engine, ds: *mut maudio_sys::ffi::ma_data_source) -> maudio::MaResult<()> {
+/// # use maudio::data_source::sources::buffer::AudioBuffer;
+/// # fn demo(engine: &Engine, ds: &AudioBuffer) -> maudio::MaResult<()> {
 /// let sound = SoundBuilder::new(&engine).data_source(ds).build()?;
 /// # Ok(())
 /// # }
@@ -87,6 +97,11 @@ pub struct SoundBuilder<'a> {
     inner: sys::ma_sound_config,
     engine: &'a Engine,
     source: SoundSource<'a>,
+    owned_path: OwnedPathBuf,
+    fence: Option<&'a Fence>,
+    flags: SoundFlags,
+    group: Option<&'a SoundGroup>,
+    end_notifier: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
     sound_state: SoundState,
 }
 
@@ -101,23 +116,82 @@ struct SoundState {
     start_playing: bool,
 }
 
+// Keeps the ptr to the path alive
+#[derive(Default)]
+enum OwnedPathBuf {
+    #[default]
+    None,
+    #[cfg(unix)]
+    Utf8(std::ffi::CString),
+    #[cfg(windows)]
+    Wide(Vec<u16>),
+}
+
+// TODO: Doc how this can be used to create a sound group
+// TODO: Add ma_mono_expansion_mode
 impl<'a> SoundBuilder<'a> {
     pub fn new(engine: &'a Engine) -> Self {
         SoundBuilder::init(engine)
     }
 
-    // TODO: Write a documentation on why it doesn't take a sound group
-    // TODO: and how this can be used to create a sound group
-    // TODO: Add method to edit pInitialAttachment and initialAttachmentInputBusIndex fields
-    // TODO: If build_from_file and source are not implemented, remove the Self::group()?
-    pub fn build(mut self) -> MaResult<Sound<'a>> {
-        self.set_source()?;
+    fn set_end_notifier(&mut self) -> EndNotifier {
+        let notifier = EndNotifier::new();
+        self.end_notifier = Some(notifier.clone_flag());
 
-        let mut sound = self.engine.new_sound_with_config_internal(Some(&self))?;
+        self.inner.pEndCallbackUserData = notifier.as_user_data_ptr();
+        self.inner.endCallback = Some(crate::notifier::on_end_callback);
+
+        notifier
+    }
+
+    pub fn with_end_notifier(mut self) -> MaResult<(Sound<'a>, EndNotifier)> {
+        self.set_source()?;
+        let notifier = self.set_end_notifier();
+
+        let sound = self.start_sound(Some(notifier.clone_flag()))?;
+
+        Ok((sound, notifier))
+    }
+
+    fn start_sound(&mut self, notif: Option<Arc<AtomicBool>>) -> MaResult<Sound<'a>> {
+        let mut sound = match self.source {
+            SoundSource::DataSource(_) => {
+                if self.fence.is_some() {
+                    return Err(crate::MaudioError::from_ma_result(
+                        sys::ma_result_MA_INVALID_ARGS,
+                    ));
+                }
+                self.engine.new_sound_with_config_internal(Some(self))?
+            }
+            #[cfg(unix)]
+            SoundSource::FileUtf8(_) => self.engine.new_sound_with_config_internal(Some(self))?,
+            #[cfg(windows)]
+            SoundSource::FileWide(path) => {
+                self.engine.new_sound_with_config_internal(Some(self))?
+            }
+            SoundSource::None => {
+                self.check_flags_without_source()?;
+
+                if self.fence.is_some() || self.sound_state.start_playing {
+                    return Err(crate::MaudioError::from_ma_result(
+                        sys::ma_result_MA_INVALID_ARGS,
+                    ));
+                }
+                self.engine.new_sound_with_config_internal(Some(self))?
+            }
+        };
 
         self.configure_sound(&mut sound);
-
+        sound.end_notifier = notif;
+        if self.source.is_valid() && self.sound_state.start_playing {
+            sound.play_sound()?;
+        }
         Ok(sound)
+    }
+
+    pub fn build(mut self) -> MaResult<Sound<'a>> {
+        self.set_source()?;
+        self.start_sound(None)
     }
 
     /// Explicitly sets the sound to have no playback source.
@@ -151,7 +225,6 @@ impl<'a> SoundBuilder<'a> {
         self
     }
 
-    // TODO: wrap ma_data_source
     /// Sets the source of the sound as a data source (ma_data_source)
     ///
     /// In miniaudio, a data source is an abstraction used to supply decoded audio data
@@ -167,10 +240,8 @@ impl<'a> SoundBuilder<'a> {
     /// # Lifetime
     /// The provided `source` must:
     ///
-    /// - point to a valid, initialized `ma_data_source` (TODO)
+    /// - point to a valid, initialized [`DataSource`]
     /// - remain alive for the entire lifetime of the created sound
-    ///
-    /// The sound does **not** take ownership of the data source.
     ///
     /// # When to use this
     /// This method is intended for more advanced use cases, such as:
@@ -180,23 +251,33 @@ impl<'a> SoundBuilder<'a> {
     /// - reusing a single data source across multiple sounds
     ///
     /// For simple file playback, prefer initializing the sound from a file path.
-    pub fn data_source(mut self, source: *mut sys::ma_data_source) -> Self {
-        self.source = SoundSource::DataSource(source);
-        // self.inner.pDataSource = core::ptr::null_mut();
-        // self.inner.pFilePath = core::ptr::null();
-        // self.inner.pFilePathW = core::ptr::null();
+    pub fn data_source<S: AsSourcePtr + ?Sized>(mut self, source: &'a S) -> Self {
+        self.source = SoundSource::DataSource(DataSourceRef::from_ptr(
+            private_data_source::source_ptr(source),
+        ));
+        self
+    }
 
-        // self.inner.pDataSource = source;
-
-        // self.path_utf8 = None;
-        // self.path_wide = None;
+    pub fn sound_group(mut self, group: &'a SoundGroup) -> Self {
+        self.inner.pInitialAttachment = private_node::node_ptr(&group.as_node());
+        self.group = Some(group);
 
         self
     }
 
-    // TODO: Wrap ma_node to provide safety for node and input bus
+    /// Attach a [`Fence`] that will be signaled when asynchronous sound loading completes.
+    ///
+    /// This implicitly enables [`SoundFlags::ASYNC`].
+    ///
+    /// A fence is only meaningful when the sound is created from a file.
+    /// Using a fence without a file source will result in a runtime error.
+    pub fn fence(mut self, fence: &'a Fence) -> Self {
+        self.fence = Some(fence);
+        self.async_load(true)
+    }
+
     /// By default, a newly created sound is attached to the engine's main output graph,
-    /// unless `SoundFlags::NO_DEFAULT_ATTACHMENT` is set in `flags`.
+    /// unless [`SoundFlags::NO_DEFAULT_ATTACHMENT`] is set in `flags`.
     ///
     /// Calling this method allows you to override that behavior (regardless of the flag) and immediately connect
     /// the sound to a specific miniaudio node instead.
@@ -210,15 +291,17 @@ impl<'a> SoundBuilder<'a> {
     /// If you are simply playing sounds through the engine's default output (the most
     /// common case), you should not call this method. The engine will automatically
     /// attach the sound for you.
-    pub fn initial_attachment(mut self, node: *mut sys::ma_node, input_bus: u32) -> Self {
-        self.inner.pInitialAttachment = node;
+    pub fn initial_attachment<N: AsNodePtr + ?Sized>(mut self, node: &N, input_bus: u32) -> Self {
+        self.inner.pInitialAttachment = private_node::node_ptr(node);
         self.inner.initialAttachmentInputBusIndex = input_bus;
         self
     }
 
     /// Sets the number of input channels for the sound node.
     ///
-    /// The "channel" does not refer to a speaker, sound channel or does it control spatialization directly.
+    /// The "channel" does not refer to a speaker, sound channel and it does not control spatialization directly.
+    ///
+    /// Is ignored if source is a [`DataSource`]
     ///
     /// This controls how many channels miniaudio expects from the sound's data source.
     /// In most cases this should be left at `0`, which allows miniaudio to infer the
@@ -229,9 +312,10 @@ impl<'a> SoundBuilder<'a> {
         self.inner.channelsIn = ch;
         self
     }
+
     /// Sets the number of output channels for the sound node.
     ///
-    /// The "channel" does not refer to a speaker, sound channel or does it control spatialization directly.
+    /// The "channel" does not refer to a speaker, sound channel and it does not control spatialization directly.
     ///
     /// This controls how many channels the sound outputs into the node graph.
     /// A value of `0` means "use the engine's native channel count", which is the
@@ -244,14 +328,10 @@ impl<'a> SoundBuilder<'a> {
         self
     }
 
-    /// See [`SoundFlags`]
+    /// Sets the [`SoundFlags`]
     pub fn flags(mut self, flags: SoundFlags) -> Self {
         self.inner.flags = flags.bits();
-        self
-    }
-
-    pub fn looping(mut self, looping: bool) -> Self {
-        self.inner.isLooping = looping as u32;
+        self.flags = flags;
         self
     }
 
@@ -353,6 +433,22 @@ impl<'a> SoundBuilder<'a> {
         self
     }
 
+    /// Equivalent to adding [SoundFlags::LOOPING]
+    ///
+    /// Does not modify any other existing flags
+    pub fn looping(mut self, yes: bool) -> Self {
+        // self.inner.isLooping is deprecated
+        let mut flags = SoundFlags::from_bits(self.inner.flags);
+        if yes {
+            flags.insert(SoundFlags::LOOPING);
+        } else {
+            flags.remove(SoundFlags::LOOPING);
+        }
+        self.inner.flags = flags.bits();
+        self.flags = flags;
+        self
+    }
+
     /// Equivalent to adding [SoundFlags::STREAM]
     ///
     /// Does not modify any other existing flags
@@ -364,6 +460,7 @@ impl<'a> SoundBuilder<'a> {
             flags.remove(SoundFlags::STREAM);
         }
         self.inner.flags = flags.bits();
+        self.flags = flags;
         self
     }
 
@@ -378,6 +475,7 @@ impl<'a> SoundBuilder<'a> {
             flags.remove(SoundFlags::DECODE);
         }
         self.inner.flags = flags.bits();
+        self.flags = flags;
         self
     }
 
@@ -392,6 +490,7 @@ impl<'a> SoundBuilder<'a> {
             flags.remove(SoundFlags::ASYNC);
         }
         self.inner.flags = flags.bits();
+        self.flags = flags;
         self
     }
 
@@ -443,6 +542,12 @@ impl<'a> SoundBuilder<'a> {
         self
     }
 
+    /// Equivalent to calling [`Sound::play_sound()`] after sound is initialized
+    pub fn start_playing(mut self, yes: bool) -> Self {
+        self.sound_state.start_playing = yes;
+        self
+    }
+
     #[inline]
     fn millis_to_frames(&self, millis: f64) -> u64 {
         if !millis.is_finite() || millis <= 0.0 {
@@ -461,7 +566,7 @@ impl<'a> SoundBuilder<'a> {
         (seconds.max(0.0) * sr).round() as u64
     }
 
-    fn configure_sound(self, sound: &mut Sound) {
+    fn configure_sound(&self, sound: &mut Sound) {
         if let Some(min_d) = self.sound_state.min_distance {
             sound.set_min_distance(min_d)
         };
@@ -482,6 +587,21 @@ impl<'a> SoundBuilder<'a> {
         }
     }
 
+    /// Some flags don't make sense without a source.
+    fn check_flags_without_source(&self) -> MaResult<()> {
+        let invalid_flags: SoundFlags =
+            SoundFlags::STREAM | SoundFlags::DECODE | SoundFlags::ASYNC | SoundFlags::WAIT_INIT;
+
+        if self.flags.intersects(invalid_flags) {
+            return Err(crate::MaudioError::from_ma_result(
+                sys::ma_result_MA_INVALID_ARGS,
+            ));
+        }
+
+        Ok(())
+    }
+
+    /// Sets the source in the config. This way, we can call ma_sound_init_ex for all source types (including None)
     fn set_source(&mut self) -> MaResult<()> {
         let null_fields = |cfg: &mut SoundBuilder| {
             cfg.inner.pDataSource = core::ptr::null_mut();
@@ -492,19 +612,21 @@ impl<'a> SoundBuilder<'a> {
             SoundSource::None => null_fields(self),
             SoundSource::DataSource(src) => {
                 null_fields(self);
-                self.inner.pDataSource = src;
+                self.inner.pDataSource = private_data_source::source_ptr(&src);
             }
             #[cfg(unix)]
             SoundSource::FileUtf8(p) => {
                 null_fields(self);
                 let cstring = crate::engine::cstring_from_path(p)?;
                 self.inner.pFilePath = cstring.as_ptr();
+                self.owned_path = OwnedPathBuf::Utf8(cstring); // keep the pointer alive
             }
             #[cfg(windows)]
             SoundSource::FileWide(p) => {
                 null_fields(self);
                 let wide_path = crate::engine::wide_null_terminated(p);
                 self.inner.pFilePathW = wide_path.as_ptr();
+                self.owned_path = OwnedPathBuf::Wide(wide); // keep the pointer alive
             }
         }
         Ok(())
@@ -519,6 +641,11 @@ impl<'a> SoundBuilder<'a> {
             inner: ptr,
             engine: inner,
             source: SoundSource::None,
+            owned_path: OwnedPathBuf::None,
+            group: None,
+            fence: None,
+            flags: SoundFlags::NONE,
+            end_notifier: None,
             sound_state: state,
         }
     }
@@ -538,11 +665,11 @@ impl Binding for SoundBuilder<'_> {
 
 #[cfg(test)]
 mod test {
-    use crate::{engine::Engine, sound::sound_builder::SoundBuilder};
+    use crate::engine::Engine;
 
     #[test]
     fn sound_builder_test_basic() {
         let engine = Engine::new_for_tests().unwrap();
-        let _s_config = SoundBuilder::new(&engine).channels_in(1);
+        let _sound = engine.sound().channels_in(1).build().unwrap();
     }
 }

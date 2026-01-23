@@ -5,13 +5,14 @@ use maudio_sys::ffi as sys;
 use crate::{
     Binding, ErrorKinds, MaResult, MaudioError,
     audio::formats::{Format, SampleBuffer, SampleBufferS24},
+    data_source::{AsSourcePtr, DataSourceRef, private_data_source},
     engine::AllocationCallbacks,
 };
 
 pub struct AudioBuffer {
     inner: *mut sys::ma_audio_buffer,
-    format: Format,
-    channels: u32,
+    pub format: Format,
+    pub channels: u32,
     // It may be helpful to avoid lifetimes on this type
     _alloc_keepalive: Option<std::sync::Arc<AllocationCallbacks>>,
 }
@@ -31,8 +32,8 @@ impl Binding for AudioBuffer {
 
 pub struct AudioBufferRef<'a> {
     inner: *mut sys::ma_audio_buffer,
-    format: Format,
-    channels: u32,
+    pub format: Format,
+    pub channels: u32,
     _marker: PhantomData<&'a [u8]>,
     _alloc_marker: PhantomData<&'a AllocationCallbacks>,
 }
@@ -50,16 +51,58 @@ impl Binding for AudioBufferRef<'_> {
     }
 }
 
+// Keeps the as_buffer_ptr method on AsAudioBufferPtr private
+mod private_abuffer {
+    use super::*;
+    use maudio_sys::ffi as sys;
+
+    pub trait AudioBufferProvider<T: ?Sized> {
+        fn as_buffer_ptr(t: &T) -> *mut sys::ma_audio_buffer;
+    }
+
+    pub struct AudioBufferPtrPrivider;
+    pub struct AudioBufferRefPtrPrivider;
+
+    impl AudioBufferProvider<AudioBuffer> for AudioBufferPtrPrivider {
+        fn as_buffer_ptr(t: &AudioBuffer) -> *mut sys::ma_audio_buffer {
+            t.to_raw()
+        }
+    }
+
+    impl<'a> AudioBufferProvider<AudioBufferRef<'a>> for AudioBufferRefPtrPrivider {
+        fn as_buffer_ptr(t: &AudioBufferRef<'a>) -> *mut sys::ma_audio_buffer {
+            t.to_raw()
+        }
+    }
+
+    pub fn buffer_ptr<T: AsAudioBufferPtr + ?Sized>(t: &T) -> *mut sys::ma_audio_buffer {
+        <T as AsAudioBufferPtr>::__PtrProvider::as_buffer_ptr(t)
+    }
+}
+
+// Allows AudioBuffer to pass as a DataSource
+#[doc(hidden)]
+impl AsSourcePtr for AudioBuffer {
+    type __PtrProvider = private_data_source::AudioBufferProvider;
+}
+
+// Allows AudioBufferRef to pass as a DataSource
+#[doc(hidden)]
+impl<'a> AsSourcePtr for AudioBufferRef<'a> {
+    type __PtrProvider = private_data_source::AudioBufferRefProvider;
+}
+
+// Allows both AudioBuffer and AudioBufferRef to access the same methods
 pub trait AsAudioBufferPtr {
-    fn as_buffer_ptr(&self) -> *mut sys::ma_audio_buffer;
+    #[doc(hidden)]
+    type __PtrProvider: private_abuffer::AudioBufferProvider<Self>;
     fn format(&self) -> Format;
     fn channels(&self) -> u32;
 }
 
 impl AsAudioBufferPtr for AudioBuffer {
-    fn as_buffer_ptr(&self) -> *mut sys::ma_audio_buffer {
-        self.to_raw()
-    }
+    #[doc(hidden)]
+    type __PtrProvider = private_abuffer::AudioBufferPtrPrivider;
 
     fn format(&self) -> Format {
         self.format
@@ -71,9 +114,8 @@ impl AsAudioBufferPtr for AudioBuffer {
 }
 
 impl AsAudioBufferPtr for AudioBufferRef<'_> {
-    fn as_buffer_ptr(&self) -> *mut sys::ma_audio_buffer {
-        self.to_raw()
-    }
+    #[doc(hidden)]
+    type __PtrProvider = private_abuffer::AudioBufferRefPtrPrivider;
 
     fn format(&self) -> Format {
         self.format
@@ -84,9 +126,9 @@ impl AsAudioBufferPtr for AudioBufferRef<'_> {
     }
 }
 
-impl<T: AsAudioBufferPtr + ?Sized> AudioBufferOps for T {}
+impl<T: AsAudioBufferPtr + AsSourcePtr + ?Sized> AudioBufferOps for T {}
 
-pub trait AudioBufferOps: AsAudioBufferPtr {
+pub trait AudioBufferOps: AsAudioBufferPtr + AsSourcePtr {
     fn read_pcm_frames_u8(
         &mut self,
         frame_count: u64,
@@ -146,6 +188,12 @@ pub trait AudioBufferOps: AsAudioBufferPtr {
     fn available_frames(&self) -> MaResult<u64> {
         buffer_ffi::ma_audio_buffer_get_available_frames(self)
     }
+
+    fn as_source(&self) -> DataSourceRef<'_> {
+        debug_assert!(!private_abuffer::buffer_ptr(self).is_null());
+        let ptr = private_abuffer::buffer_ptr(self).cast::<sys::ma_data_source>();
+        DataSourceRef::from_ptr(ptr)
+    }
 }
 
 impl<'a> AudioBufferRef<'a> {
@@ -187,7 +235,10 @@ pub(crate) mod buffer_ffi {
     use crate::{
         Binding, MaRawResult, MaResult,
         audio::formats::{SampleBuffer, SampleBufferS24},
-        data_source::sources::buffer::{AsAudioBufferPtr, AudioBuffer, AudioBufferBuilder},
+        data_source::{
+            AsSourcePtr,
+            sources::buffer::{AsAudioBufferPtr, AudioBuffer, AudioBufferBuilder, private_abuffer},
+        },
     };
     use maudio_sys::ffi as sys;
 
@@ -210,9 +261,9 @@ pub(crate) mod buffer_ffi {
     }
 
     #[inline]
-    pub fn ma_audio_buffer_uninit<A: AsAudioBufferPtr + ?Sized>(buffer: &mut A) {
+    pub fn ma_audio_buffer_uninit<A: AsAudioBufferPtr + AsSourcePtr + ?Sized>(buffer: &mut A) {
         unsafe {
-            sys::ma_audio_buffer_uninit(buffer.as_buffer_ptr());
+            sys::ma_audio_buffer_uninit(private_abuffer::buffer_ptr(buffer));
         }
     }
 
@@ -316,7 +367,7 @@ pub(crate) mod buffer_ffi {
         let looping = looping as u32;
         let frames_read = unsafe {
             sys::ma_audio_buffer_read_pcm_frames(
-                audio_buffer.as_buffer_ptr(),
+                private_abuffer::buffer_ptr(audio_buffer),
                 buffer,
                 frame_count,
                 looping,
@@ -330,8 +381,9 @@ pub(crate) mod buffer_ffi {
         buffer: &mut A,
         frame_index: u64,
     ) -> MaResult<()> {
-        let res =
-            unsafe { sys::ma_audio_buffer_seek_to_pcm_frame(buffer.as_buffer_ptr(), frame_index) };
+        let res = unsafe {
+            sys::ma_audio_buffer_seek_to_pcm_frame(private_abuffer::buffer_ptr(buffer), frame_index)
+        };
         MaRawResult::check(res)
     }
 
@@ -355,7 +407,8 @@ pub(crate) mod buffer_ffi {
 
     #[inline]
     pub fn ma_audio_buffer_at_end<A: AsAudioBufferPtr + ?Sized>(buffer: &A) -> bool {
-        let res = unsafe { sys::ma_audio_buffer_at_end(buffer.as_buffer_ptr() as *const _) };
+        let res =
+            unsafe { sys::ma_audio_buffer_at_end(private_abuffer::buffer_ptr(buffer) as *const _) };
         res == 1
     }
 
@@ -366,7 +419,7 @@ pub(crate) mod buffer_ffi {
         let mut cursor = 0;
         let res = unsafe {
             sys::ma_audio_buffer_get_cursor_in_pcm_frames(
-                buffer.as_buffer_ptr() as *const _,
+                private_abuffer::buffer_ptr(buffer) as *const _,
                 &mut cursor,
             )
         };
@@ -381,7 +434,7 @@ pub(crate) mod buffer_ffi {
         let mut length = 0;
         let res = unsafe {
             sys::ma_audio_buffer_get_length_in_pcm_frames(
-                buffer.as_buffer_ptr() as *const _,
+                private_abuffer::buffer_ptr(buffer) as *const _,
                 &mut length,
             )
         };
@@ -396,7 +449,7 @@ pub(crate) mod buffer_ffi {
         let mut frames = 0;
         let res = unsafe {
             sys::ma_audio_buffer_get_available_frames(
-                buffer.as_buffer_ptr() as *const _,
+                private_abuffer::buffer_ptr(buffer) as *const _,
                 &mut frames,
             )
         };

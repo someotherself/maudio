@@ -1,12 +1,16 @@
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaError, MaResult, MaudioError,
+    Binding, MaResult, MaudioError,
     audio::{formats::Format, sample_rate::SampleRate, waveform::WaveformType},
+    data_source::{
+        AsSourcePtr, DataSourceRef, private_data_source,
+        sources::waveform::private_wave::WaveFormPtrProvider,
+    },
 };
 
 pub trait AsWaveFormPtr {
-    fn as_waveform_ptr(&self) -> *mut sys::ma_waveform;
+    type __PtrProvider: WaveFormPtrProvider<Self>;
     fn channels(&self) -> u32;
 }
 
@@ -22,6 +26,55 @@ pub(crate) struct WaveState {
     frequency: f64,
 }
 
+mod private_wave {
+    use super::*;
+    use maudio_sys::ffi as sys;
+
+    pub trait WaveFormPtrProvider<T: ?Sized> {
+        fn as_waveform_ptr(t: &T) -> *mut sys::ma_waveform;
+    }
+
+    pub struct WaveFormU8Provider;
+    pub struct WaveFormI16Provider;
+    pub struct WaveFormI32Provider;
+    pub struct WaveFormS24Provider;
+    pub struct WaveFormF32Provider;
+
+    impl WaveFormPtrProvider<WaveFormU8> for WaveFormU8Provider {
+        fn as_waveform_ptr(t: &WaveFormU8) -> *mut sys::ma_waveform {
+            t.inner.ptr
+        }
+    }
+
+    impl WaveFormPtrProvider<WaveFormI16> for WaveFormI16Provider {
+        fn as_waveform_ptr(t: &WaveFormI16) -> *mut sys::ma_waveform {
+            t.inner.ptr
+        }
+    }
+
+    impl WaveFormPtrProvider<WaveFormI32> for WaveFormI32Provider {
+        fn as_waveform_ptr(t: &WaveFormI32) -> *mut sys::ma_waveform {
+            t.inner.ptr
+        }
+    }
+
+    impl WaveFormPtrProvider<WaveFormS24> for WaveFormS24Provider {
+        fn as_waveform_ptr(t: &WaveFormS24) -> *mut sys::ma_waveform {
+            t.inner.ptr
+        }
+    }
+
+    impl WaveFormPtrProvider<WaveFormF32> for WaveFormF32Provider {
+        fn as_waveform_ptr(t: &WaveFormF32) -> *mut sys::ma_waveform {
+            t.inner.ptr
+        }
+    }
+
+    pub fn waveform_ptr<T: AsWaveFormPtr + ?Sized>(t: &T) -> *mut sys::ma_waveform {
+        <T as AsWaveFormPtr>::__PtrProvider::as_waveform_ptr(t)
+    }
+}
+
 pub struct WaveFormU8 {
     inner: WaveFormInner,
     format: Format,
@@ -29,13 +82,17 @@ pub struct WaveFormU8 {
 }
 
 impl AsWaveFormPtr for WaveFormU8 {
-    fn as_waveform_ptr(&self) -> *mut sys::ma_waveform {
-        self.inner.ptr
-    }
+    #[doc(hidden)]
+    type __PtrProvider = private_wave::WaveFormU8Provider;
 
     fn channels(&self) -> u32 {
         self.state.channels
     }
+}
+
+#[doc(hidden)]
+impl AsSourcePtr for WaveFormU8 {
+    type __PtrProvider = private_data_source::WaveFormU8Provider;
 }
 
 impl WaveFormU8 {
@@ -51,13 +108,17 @@ pub struct WaveFormI16 {
 }
 
 impl AsWaveFormPtr for WaveFormI16 {
-    fn as_waveform_ptr(&self) -> *mut sys::ma_waveform {
-        self.inner.ptr
-    }
+    #[doc(hidden)]
+    type __PtrProvider = private_wave::WaveFormI16Provider;
 
     fn channels(&self) -> u32 {
         self.state.channels
     }
+}
+
+#[doc(hidden)]
+impl AsSourcePtr for WaveFormI16 {
+    type __PtrProvider = private_data_source::WaveFormI16Provider;
 }
 
 impl WaveFormI16 {
@@ -73,13 +134,17 @@ pub struct WaveFormI32 {
 }
 
 impl AsWaveFormPtr for WaveFormI32 {
-    fn as_waveform_ptr(&self) -> *mut sys::ma_waveform {
-        self.inner.ptr
-    }
+    #[doc(hidden)]
+    type __PtrProvider = private_wave::WaveFormI32Provider;
 
     fn channels(&self) -> u32 {
         self.state.channels
     }
+}
+
+#[doc(hidden)]
+impl AsSourcePtr for WaveFormI32 {
+    type __PtrProvider = private_data_source::WaveFormI32Provider;
 }
 
 impl WaveFormI32 {
@@ -95,13 +160,17 @@ pub struct WaveFormS24 {
 }
 
 impl AsWaveFormPtr for WaveFormS24 {
-    fn as_waveform_ptr(&self) -> *mut sys::ma_waveform {
-        self.inner.ptr
-    }
+    #[doc(hidden)]
+    type __PtrProvider = private_wave::WaveFormS24Provider;
 
     fn channels(&self) -> u32 {
         self.state.channels
     }
+}
+
+#[doc(hidden)]
+impl AsSourcePtr for WaveFormS24 {
+    type __PtrProvider = private_data_source::WaveFormS24Provider;
 }
 
 impl WaveFormS24 {
@@ -117,13 +186,18 @@ pub struct WaveFormF32 {
 }
 
 impl AsWaveFormPtr for WaveFormF32 {
-    fn as_waveform_ptr(&self) -> *mut sys::ma_waveform {
-        self.inner.ptr
-    }
+    #[doc(hidden)]
+    type __PtrProvider = private_wave::WaveFormF32Provider;
 
     fn channels(&self) -> u32 {
         self.state.channels
     }
+}
+
+#[doc(hidden)]
+impl AsSourcePtr for WaveFormF32 {
+    #[doc(hidden)]
+    type __PtrProvider = private_data_source::WaveFormF32Provider;
 }
 
 impl WaveFormF32 {
@@ -132,9 +206,9 @@ impl WaveFormF32 {
     }
 }
 
-impl<T: AsWaveFormPtr + ?Sized> WaveFormOps for T {}
+impl<T: AsWaveFormPtr + AsSourcePtr + ?Sized> WaveFormOps for T {}
 
-pub trait WaveFormOps: AsWaveFormPtr {
+pub trait WaveFormOps: AsWaveFormPtr + AsSourcePtr {
     fn seek_to_pcm_frame(&mut self, frame_index: u64) -> MaResult<()> {
         waveform_ffi::ma_waveform_seek_to_pcm_frame(self, frame_index)
     }
@@ -154,13 +228,21 @@ pub trait WaveFormOps: AsWaveFormPtr {
     fn set_sample_rate(&mut self, sample_rate: SampleRate) -> MaResult<()> {
         waveform_ffi::ma_waveform_set_sample_rate(self, sample_rate)
     }
+
+    fn as_source(&self) -> DataSourceRef<'_> {
+        debug_assert!(!private_wave::waveform_ptr(self).is_null());
+        let ptr = private_wave::waveform_ptr(self).cast::<sys::ma_data_source>();
+        DataSourceRef::from_ptr(ptr)
+    }
 }
 
 pub(crate) mod waveform_ffi {
     use crate::{
         Binding, MaRawResult, MaResult,
         audio::{sample_rate::SampleRate, waveform::WaveformType},
-        data_source::sources::waveform::{AsWaveFormPtr, WaveFormBuilder, WaveFormInner},
+        data_source::sources::waveform::{
+            AsWaveFormPtr, WaveFormBuilder, WaveFormInner, private_wave,
+        },
     };
     use maudio_sys::ffi as sys;
 
@@ -265,7 +347,7 @@ pub(crate) mod waveform_ffi {
         let mut frames_read = 0;
         let res = unsafe {
             sys::ma_waveform_read_pcm_frames(
-                waveform.as_waveform_ptr(),
+                private_wave::waveform_ptr(waveform),
                 buffer,
                 frame_count,
                 &mut frames_read,
@@ -280,8 +362,9 @@ pub(crate) mod waveform_ffi {
         waveform: &mut W,
         frame_index: u64,
     ) -> MaResult<()> {
-        let res =
-            unsafe { sys::ma_waveform_seek_to_pcm_frame(waveform.as_waveform_ptr(), frame_index) };
+        let res = unsafe {
+            sys::ma_waveform_seek_to_pcm_frame(private_wave::waveform_ptr(waveform), frame_index)
+        };
         MaRawResult::check(res)
     }
 
@@ -290,7 +373,9 @@ pub(crate) mod waveform_ffi {
         waveform: &mut W,
         amplitude: f64,
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_waveform_set_amplitude(waveform.as_waveform_ptr(), amplitude) };
+        let res = unsafe {
+            sys::ma_waveform_set_amplitude(private_wave::waveform_ptr(waveform), amplitude)
+        };
         MaRawResult::check(res)
     }
 
@@ -299,7 +384,9 @@ pub(crate) mod waveform_ffi {
         waveform: &mut W,
         frequency: f64,
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_waveform_set_frequency(waveform.as_waveform_ptr(), frequency) };
+        let res = unsafe {
+            sys::ma_waveform_set_frequency(private_wave::waveform_ptr(waveform), frequency)
+        };
         MaRawResult::check(res)
     }
 
@@ -308,8 +395,9 @@ pub(crate) mod waveform_ffi {
         waveform: &mut W,
         wave_type: WaveformType,
     ) -> MaResult<()> {
-        let res =
-            unsafe { sys::ma_waveform_set_type(waveform.as_waveform_ptr(), wave_type.into()) };
+        let res = unsafe {
+            sys::ma_waveform_set_type(private_wave::waveform_ptr(waveform), wave_type.into())
+        };
         MaRawResult::check(res)
     }
 
@@ -319,7 +407,10 @@ pub(crate) mod waveform_ffi {
         sample_rate: SampleRate,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_waveform_set_sample_rate(waveform.as_waveform_ptr(), sample_rate.into())
+            sys::ma_waveform_set_sample_rate(
+                private_wave::waveform_ptr(waveform),
+                sample_rate.into(),
+            )
         };
         MaRawResult::check(res)
     }
@@ -515,9 +606,7 @@ impl WaveFormBuilder {
             self.format
         );
         if !matches!(self.format, Format::U8) {
-            return Err(MaudioError::from_ma_result(MaError(
-                sys::ma_result_MA_INVALID_ARGS,
-            )));
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
         }
         let inner = self.new_inner()?;
         let state: WaveState = WaveState {
@@ -541,9 +630,7 @@ impl WaveFormBuilder {
             self.format
         );
         if !matches!(self.format, Format::S16) {
-            return Err(MaudioError::from_ma_result(MaError(
-                sys::ma_result_MA_INVALID_ARGS,
-            )));
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
         }
         let inner = self.new_inner()?;
         let state: WaveState = WaveState {
@@ -567,9 +654,7 @@ impl WaveFormBuilder {
             self.format
         );
         if !matches!(self.format, Format::S32) {
-            return Err(MaudioError::from_ma_result(MaError(
-                sys::ma_result_MA_INVALID_ARGS,
-            )));
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
         }
         let inner = self.new_inner()?;
         let state: WaveState = WaveState {
@@ -593,9 +678,7 @@ impl WaveFormBuilder {
             self.format
         );
         if !matches!(self.format, Format::S24) {
-            return Err(MaudioError::from_ma_result(MaError(
-                sys::ma_result_MA_INVALID_ARGS,
-            )));
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
         }
         let inner = self.new_inner()?;
         let state: WaveState = WaveState {
@@ -619,9 +702,7 @@ impl WaveFormBuilder {
             self.format
         );
         if !matches!(self.format, Format::F32) {
-            return Err(MaudioError::from_ma_result(MaError(
-                sys::ma_result_MA_INVALID_ARGS,
-            )));
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
         }
         let inner = self.new_inner()?;
         let state: WaveState = WaveState {

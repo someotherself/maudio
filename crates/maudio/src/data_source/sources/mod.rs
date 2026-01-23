@@ -2,4 +2,5 @@ pub mod buffer;
 pub mod decoder;
 pub mod noise;
 pub mod pulsewave;
+pub mod ring_buffer;
 pub mod waveform;

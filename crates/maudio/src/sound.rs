@@ -9,7 +9,7 @@ use crate::{
         math::vec3::Vec3,
         spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
     },
-    data_source::DataFormat,
+    data_source::{DataFormat, DataSourceRef},
     engine::{Engine, EngineRef, node_graph::nodes::NodeRef},
     notifier::EndNotifier,
     sound::{sound_flags::SoundFlags, sound_group::SoundGroup},
@@ -30,7 +30,13 @@ pub enum SoundSource<'a> {
     FileUtf8(&'a Path),
     #[cfg(windows)]
     FileWide(&'a Path),
-    DataSource(*mut sys::ma_data_source),
+    DataSource(DataSourceRef<'a>),
+}
+
+impl SoundSource<'_> {
+    pub(crate) fn is_valid(&self) -> bool {
+        !matches!(self, Self::None)
+    }
 }
 
 pub struct Sound<'a> {
@@ -87,8 +93,9 @@ impl<'a> Sound<'a> {
         NodeRef::from_ptr(ptr)
     }
 
-    // TODO: Implement data source
-    pub fn data_source(&mut self) {}
+    pub fn data_source(&mut self) -> Option<DataSourceRef<'_>> {
+        sound_ffi::ma_sound_get_data_source(self)
+    }
 
     pub fn play_sound(&mut self) -> MaResult<()> {
         sound_ffi::ma_sound_start(self)
@@ -423,8 +430,8 @@ impl<'a> Sound<'a> {
         engine: &Engine,
         path: &Path,
         flags: SoundFlags,
-        sound_group: &mut Option<&SoundGroup>,
-        fence: Option<&mut Fence>, // TODO: Implement fence
+        sound_group: Option<&SoundGroup>,
+        fence: Option<&Fence>,
     ) -> MaResult<()> {
         #[cfg(unix)]
         {
@@ -484,7 +491,7 @@ pub(crate) mod sound_ffi {
     use crate::audio::spatial::{
         attenuation::AttenuationModel, cone::Cone, positioning::Positioning,
     };
-    use crate::data_source::DataFormat;
+    use crate::data_source::{DataFormat, DataSource, DataSourceRef, private_data_source};
     use crate::util::fence::Fence;
     use crate::{
         MaRawResult,
@@ -501,8 +508,8 @@ pub(crate) mod sound_ffi {
         engine: &Engine,
         path: std::ffi::CString,
         flags: SoundFlags,
-        s_group: &mut Option<&SoundGroup>,
-        done_fence: Option<&mut Fence>,
+        s_group: Option<&SoundGroup>,
+        done_fence: Option<&Fence>,
         sound: *mut sys::ma_sound,
     ) -> MaResult<()> {
         let s_group: *mut sys::ma_sound_group =
@@ -530,7 +537,7 @@ pub(crate) mod sound_ffi {
         engine: &Engine,
         path: &[u16],
         flags: SoundFlags,
-        s_group: &mut Option<&SoundGroup>,
+        s_group: Option<&SoundGroup>,
         done_fence: Option<&mut Fence>,
         sound: *mut sys::ma_sound,
     ) -> MaResult<()> {
@@ -574,22 +581,24 @@ pub(crate) mod sound_ffi {
         MaRawResult::check(res)
     }
 
-    // TODO: Implement data sources
     #[inline]
     pub fn ma_sound_init_from_data_source(
         engine: &Engine,
-        data_source: *mut sys::ma_data_source,
+        data_source: &DataSource,
         flags: SoundFlags,
-        s_group: &mut SoundGroup,
-        sound: &Sound,
+        s_group: Option<&SoundGroup>,
+        sound: *mut sys::ma_sound,
     ) -> MaResult<()> {
+        let s_group: *mut sys::ma_sound_group =
+            s_group.map_or(core::ptr::null_mut(), |g| g.to_raw());
+
         let res = unsafe {
             sys::ma_sound_init_from_data_source(
                 engine.to_raw(),
-                data_source,
+                private_data_source::source_ptr(data_source),
                 flags.bits(),
-                s_group.to_raw(),
-                sound.to_raw(),
+                s_group,
+                sound,
             )
         };
         MaRawResult::check(res)
@@ -615,12 +624,14 @@ pub(crate) mod sound_ffi {
         }
     }
 
-    // TODO: Implement DataSource and DataSourceRef
     #[inline]
-    pub fn ma_sound_get_data_source(_sound: &mut Sound) -> Option<*mut sys::ma_data_source> {
-        // let ptr = unsafe { sys::ma_sound_get_data_source(sound.assume_init_ptr()) };
-        // NonNull::new(ptr).map(|nn| DataSourceRef::from_ptr(nn))
-        todo!()
+    pub fn ma_sound_get_data_source<'a>(sound: &'a mut Sound) -> Option<DataSourceRef<'a>> {
+        let ptr = unsafe { sys::ma_sound_get_data_source(sound.to_raw() as *const _) };
+        if ptr.is_null() {
+            None
+        } else {
+            Some(DataSourceRef::from_ptr(ptr))
+        }
     }
 
     #[inline]
@@ -1162,6 +1173,7 @@ mod test {
             math::vec3::Vec3,
             spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
         },
+        data_source::sources::buffer::{AudioBufferBuilder, AudioBufferOps},
         engine::{Engine, EngineOps, node_graph::nodes::NodeOps},
     };
 
@@ -1490,17 +1502,36 @@ mod test {
         sound.set_stop_time_with_fade_millis(0, 10);
     }
 
+    fn ramp_f32_interleaved(channels: u32, frames: u64) -> Vec<f32> {
+        let mut data = vec![0.0f32; (channels as usize) * (frames as usize)];
+        for f in 0..frames as usize {
+            for c in 0..channels as usize {
+                // unique value per (frame, channel)
+                data[f * channels as usize + c] = (f as f32) * 10.0 + (c as f32);
+            }
+        }
+        data
+    }
+
     #[test]
     fn test_sound_looping_toggle() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let data = ramp_f32_interleaved(2, 32);
+
+        let buf = AudioBufferBuilder::from_f32(2, 32, &data)
+            .unwrap()
+            .build_copy()
+            .unwrap();
+
+        let src = buf.as_source();
+
+        let mut sound = engine.sound().data_source(&src).build().unwrap();
 
         sound.set_looping(false);
         assert_eq!(sound.looping(), false);
 
-        // TODO: Use a propper data source for this test
-        // sound.set_looping(true);
-        // assert_eq!(sound.looping(), true);
+        sound.set_looping(true);
+        assert_eq!(sound.looping(), true);
     }
 
     #[test]

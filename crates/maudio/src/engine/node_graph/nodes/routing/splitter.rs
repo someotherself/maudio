@@ -8,7 +8,7 @@ use crate::{
         AllocationCallbacks,
         node_graph::{
             AsNodeGraphPtr, NodeGraph,
-            nodes::{AsNodePtr, NodeRef},
+            nodes::{AsNodePtr, NodeRef, private_node::SplitterNodeProvider},
         },
     },
 };
@@ -73,10 +73,9 @@ impl Binding for SplitterNode<'_> {
     }
 }
 
+#[doc(hidden)]
 impl AsNodePtr for SplitterNode<'_> {
-    fn as_node_ptr(&self) -> *mut sys::ma_node {
-        self.as_node().to_raw()
-    }
+    type __PtrProvider = SplitterNodeProvider;
 }
 
 impl<'a> SplitterNode<'a> {
@@ -133,7 +132,9 @@ impl<'a> SplitterNode<'a> {
 pub(crate) mod n_splitter_ffi {
     use crate::{
         Binding, MaRawResult, MaResult,
-        engine::node_graph::{AsNodeGraphPtr, nodes::routing::splitter::SplitterNode},
+        engine::node_graph::{
+            AsNodeGraphPtr, nodes::routing::splitter::SplitterNode, private_node_graph,
+        },
     };
     use maudio_sys::ffi as sys;
 
@@ -145,7 +146,12 @@ pub(crate) mod n_splitter_ffi {
         node: *mut sys::ma_splitter_node,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_splitter_node_init(node_graph.as_nodegraph_ptr(), config, alloc_cb, node)
+            sys::ma_splitter_node_init(
+                private_node_graph::node_graph_ptr(node_graph),
+                config,
+                alloc_cb,
+                node,
+            )
         };
         MaRawResult::check(res)
     }

@@ -9,7 +9,7 @@ use crate::{
         AllocationCallbacks,
         node_graph::{
             AsNodeGraphPtr, NodeGraph,
-            nodes::{AsNodePtr, NodeRef},
+            nodes::{AsNodePtr, NodeRef, private_node},
         },
     },
 };
@@ -61,10 +61,9 @@ impl Binding for LpfNode<'_> {
     }
 }
 
+#[doc(hidden)]
 impl AsNodePtr for LpfNode<'_> {
-    fn as_node_ptr(&self) -> *mut sys::ma_node {
-        self.as_node().to_raw()
-    }
+    type __PtrProvider = private_node::LpfNodeProvider;
 }
 
 impl<'a> LpfNode<'a> {
@@ -126,7 +125,7 @@ pub(crate) mod n_lpf_ffi {
 
     use crate::{
         Binding, MaRawResult, MaResult,
-        engine::node_graph::{AsNodeGraphPtr, nodes::filters::lpf::LpfNode},
+        engine::node_graph::{AsNodeGraphPtr, nodes::filters::lpf::LpfNode, private_node_graph},
     };
 
     #[inline]
@@ -136,8 +135,14 @@ pub(crate) mod n_lpf_ffi {
         alloc_cb: *const sys::ma_allocation_callbacks,
         node: *mut sys::ma_lpf_node,
     ) -> MaResult<()> {
-        let res =
-            unsafe { sys::ma_lpf_node_init(node_graph.as_nodegraph_ptr(), config, alloc_cb, node) };
+        let res = unsafe {
+            sys::ma_lpf_node_init(
+                private_node_graph::node_graph_ptr(node_graph),
+                config,
+                alloc_cb,
+                node,
+            )
+        };
         MaRawResult::check(res)
     }
 

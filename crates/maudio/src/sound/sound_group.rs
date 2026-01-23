@@ -9,7 +9,7 @@ use crate::{
         math::vec3::Vec3,
         spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
     },
-    engine::EngineRef,
+    engine::{EngineRef, node_graph::nodes::NodeRef},
 };
 
 // TODO: Needs a lifetime to engine
@@ -250,6 +250,21 @@ impl SoundGroup {
 
     pub fn time_pcm(&mut self) -> u64 {
         s_group_ffi::ma_sound_group_get_time_in_pcm_frames(self)
+    }
+
+    // Safe to cast as ma_node in version 0.11.23
+    /// Returns a **borrowed view** as a node in the engine's node graph.
+    ///
+    /// ### What this is for
+    ///
+    /// Use `as_node()` when you want to:
+    /// - connect this to other nodes (effects, mixers, splitters, etc.)
+    /// - insert into a custom routing graph
+    /// - query node-level state exposed by the graph
+    pub fn as_node(&self) -> NodeRef<'_> {
+        debug_assert!(!self.inner.is_null());
+        let ptr = self.inner.cast::<sys::ma_node>();
+        NodeRef::from_ptr(ptr)
     }
 }
 

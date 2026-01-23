@@ -18,6 +18,11 @@ impl Binding for Fence {
     }
 }
 
+pub struct FenceGuard<'a> {
+    inner: &'a Fence,
+    active: bool,
+}
+
 impl Fence {
     pub fn new() -> MaResult<Fence> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_fence>> = Box::new_uninit();
@@ -29,16 +34,19 @@ impl Fence {
         Ok(Fence::from_ptr(inner))
     }
 
-    // TODO: Implement a FenceGuard
-    fn acquire(&mut self) -> MaResult<()> {
-        fence_ffi::ma_fence_acquire(self)
+    pub fn acquire(&self) -> MaResult<FenceGuard<'_>> {
+        fence_ffi::ma_fence_acquire(self)?;
+        Ok(FenceGuard {
+            inner: self,
+            active: true,
+        })
     }
 
-    fn release(&mut self) -> MaResult<()> {
+    fn release(&self) -> MaResult<()> {
         fence_ffi::ma_fence_release(self)
     }
 
-    pub fn wait(&mut self) -> MaResult<()> {
+    pub fn wait(&self) -> MaResult<()> {
         fence_ffi::ma_fence_wait(self)
     }
 }
@@ -53,23 +61,23 @@ pub(crate) mod fence_ffi {
         MaRawResult::check(res)
     }
 
-    pub fn ma_fence_uninit(fence: &mut Fence) {
+    pub fn ma_fence_uninit(fence: &Fence) {
         unsafe {
             sys::ma_fence_uninit(fence.to_raw());
         }
     }
 
-    pub fn ma_fence_acquire(fence: &mut Fence) -> MaResult<()> {
+    pub fn ma_fence_acquire(fence: &Fence) -> MaResult<()> {
         let res = unsafe { sys::ma_fence_acquire(fence.to_raw()) };
         MaRawResult::check(res)
     }
 
-    pub fn ma_fence_release(fence: &mut Fence) -> MaResult<()> {
+    pub fn ma_fence_release(fence: &Fence) -> MaResult<()> {
         let res = unsafe { sys::ma_fence_release(fence.to_raw()) };
         MaRawResult::check(res)
     }
 
-    pub fn ma_fence_wait(fence: &mut Fence) -> MaResult<()> {
+    pub fn ma_fence_wait(fence: &Fence) -> MaResult<()> {
         let res = unsafe { sys::ma_fence_wait(fence.to_raw()) };
         MaRawResult::check(res)
     }
@@ -79,5 +87,13 @@ impl Drop for Fence {
     fn drop(&mut self) {
         fence_ffi::ma_fence_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
+    }
+}
+
+impl Drop for FenceGuard<'_> {
+    fn drop(&mut self) {
+        if self.active {
+            let _ = self.inner.release();
+        }
     }
 }

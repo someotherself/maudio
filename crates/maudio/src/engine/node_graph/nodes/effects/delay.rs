@@ -6,7 +6,10 @@ use crate::{
     Binding, MaResult,
     engine::{
         AllocationCallbacks,
-        node_graph::{AsNodeGraphPtr, NodeGraph, nodes::NodeRef},
+        node_graph::{
+            AsNodeGraphPtr, NodeGraph,
+            nodes::{AsNodePtr, NodeRef, private_node},
+        },
     },
 };
 
@@ -36,6 +39,11 @@ impl Binding for DelayNode<'_> {
     fn to_raw(&self) -> Self::Raw {
         self.inner
     }
+}
+
+#[doc(hidden)]
+impl AsNodePtr for DelayNode<'_> {
+    type __PtrProvider = private_node::DelayNodeProvider;
 }
 
 impl<'a> DelayNode<'a> {
@@ -129,7 +137,9 @@ impl<'a> DelayNode<'a> {
 pub(crate) mod n_delay_ffi {
     use crate::{
         Binding, MaRawResult, MaResult,
-        engine::node_graph::{AsNodeGraphPtr, nodes::effects::delay::DelayNode},
+        engine::node_graph::{
+            AsNodeGraphPtr, nodes::effects::delay::DelayNode, private_node_graph,
+        },
     };
     use maudio_sys::ffi as sys;
 
@@ -141,7 +151,12 @@ pub(crate) mod n_delay_ffi {
         node: *mut sys::ma_delay_node,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_delay_node_init(node_graph.as_nodegraph_ptr(), config, alloc_cb, node)
+            sys::ma_delay_node_init(
+                private_node_graph::node_graph_ptr(node_graph),
+                config,
+                alloc_cb,
+                node,
+            )
         };
         MaRawResult::check(res)
     }
@@ -312,11 +327,10 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> DelayNodeBuilder<'a, N> {
 
 #[cfg(test)]
 mod test {
-    use crate::engine::{Engine, EngineOps, node_graph::nodes::AsNodePtr};
+    use crate::engine::{Engine, EngineOps, node_graph::nodes::private_node};
 
     use super::*;
 
-    // Tiny float helper for comparisons.
     fn assert_approx_eq(a: f32, b: f32, eps: f32) {
         assert!(
             (a - b).abs() <= eps,
@@ -366,7 +380,6 @@ mod test {
         delay.set_dry(0.75);
         assert_approx_eq(delay.dry(), 0.75, 1e-6);
 
-        // Not clamped: negative should round-trip (phase inversion use-case).
         delay.set_dry(-0.5);
         assert_approx_eq(delay.dry(), -0.5, 1e-6);
     }
@@ -385,7 +398,6 @@ mod test {
         delay.set_decay_frames(0.4);
         assert_approx_eq(delay.decay_frames(), 0.4, 1e-6);
 
-        // Not clamped: >= 1.0 may be unstable in audio terms, but API should accept it.
         delay.set_decay_frames(1.1);
         assert_approx_eq(delay.decay_frames(), 1.1, 1e-6);
     }
@@ -399,123 +411,7 @@ mod test {
             .unwrap();
 
         let node_ref = delay.as_node();
-        assert!(!node_ref.as_node_ptr().is_null());
+        assert!(!private_node::node_ptr(&node_ref).is_null());
         let _ = node_ref;
-    }
-
-    struct FakeGraph;
-    impl AsNodeGraphPtr for FakeGraph {
-        fn as_nodegraph_ptr(&self) -> *mut sys::ma_node_graph {
-            core::ptr::null_mut()
-        }
-    }
-
-    fn builder_with(sr: u32) -> DelayNodeBuilder<'static, FakeGraph> {
-        // Safety: 'static for tests; the FakeGraph is a plain value in this module.
-        static G: FakeGraph = FakeGraph;
-        DelayNodeBuilder::new(&G, 2, sr, 123, 0.5)
-    }
-
-    #[test]
-    fn test_delay_builder_mix_clamps_and_overwrites_wet_dry() {
-        let b = builder_with(48_000).wet(0.9).dry(0.1).mix(-1.0);
-
-        // mix(-1.0) clamps to 0.0
-        assert_approx_eq(b.inner.delay.wet, 0.0, 1e-6);
-        assert_approx_eq(b.inner.delay.dry, 1.0, 1e-6);
-
-        let b = builder_with(48_000).mix(2.0);
-        // mix(2.0) clamps to 1.0
-        assert_approx_eq(b.inner.delay.wet, 1.0, 1e-6);
-        assert_approx_eq(b.inner.delay.dry, 0.0, 1e-6);
-
-        let b = builder_with(48_000).mix(0.25);
-        assert_approx_eq(b.inner.delay.wet, 0.25, 1e-6);
-        assert_approx_eq(b.inner.delay.dry, 0.75, 1e-6);
-    }
-
-    #[test]
-    fn test_delay_builder_wet_dry_are_not_clamped() {
-        let b = builder_with(48_000).wet(1.5).dry(-0.5);
-        assert_approx_eq(b.inner.delay.wet, 1.5, 1e-6);
-        assert_approx_eq(b.inner.delay.dry, -0.5, 1e-6);
-    }
-
-    #[test]
-    fn test_delay_builder_decay_accepts_nan_and_infinity_without_panic() {
-        // You’re not clamping/validating decay in the builder, so the test here is:
-        // it should not panic and should store the value.
-        let b = builder_with(48_000).decay(f32::NAN);
-        assert!(b.inner.delay.decay.is_nan());
-
-        let b = builder_with(48_000).decay(f32::INFINITY);
-        assert!(b.inner.delay.decay.is_infinite());
-
-        let b = builder_with(48_000).decay(-10.0);
-        assert_approx_eq(b.inner.delay.decay, -10.0, 1e-6);
-    }
-
-    #[test]
-    fn test_delay_builder_millis_to_frames_rounding_works() {
-        // Use 44.1k to ensure non-integer frames per ms.
-        // frames = round(ms * sr / 1000) in integer form via +500.
-        let b = builder_with(44_100);
-
-        // 1ms at 44.1kHz = 44.1 frames => rounds to 44
-        let b1 = b.clone_for_test().delay_milli(1);
-        assert_eq!(b1.inner.delay.delayInFrames, 44);
-
-        // 5ms at 44.1kHz = 220.5 frames => rounds to 221 (this demonstrates the +500 behavior)
-        let b2 = b.clone_for_test().delay_milli(5);
-        assert_eq!(b2.inner.delay.delayInFrames, 221);
-
-        // 0ms => 0 frames
-        let b3 = b.clone_for_test().delay_milli(0);
-        assert_eq!(b3.inner.delay.delayInFrames, 0);
-    }
-
-    // Small helper since the builder consumes self in setters.
-    trait CloneForTest {
-        fn clone_for_test(&self) -> Self;
-    }
-    impl CloneForTest for DelayNodeBuilder<'static, FakeGraph> {
-        fn clone_for_test(&self) -> Self {
-            Self {
-                inner: self.inner,
-                node_graph: self.node_graph,
-            }
-        }
-    }
-
-    #[test]
-    fn test_delay_builder_new_abuse_inputs_does_not_panic() {
-        static G: FakeGraph = FakeGraph;
-
-        // Extreme channels/sample rates/delay frames - the builder should construct without panicking.
-        let _ = DelayNodeBuilder::new(&G, 0, 0, 0, 0.0);
-        let _ = DelayNodeBuilder::new(&G, u32::MAX, u32::MAX, u32::MAX, 0.0);
-
-        // Weird decay values should also not panic at construction time.
-        let _ = DelayNodeBuilder::new(&G, 2, 48_000, 10_000, f32::NAN);
-        let _ = DelayNodeBuilder::new(&G, 2, 48_000, 10_000, f32::INFINITY);
-        let _ = DelayNodeBuilder::new(&G, 2, 48_000, 10_000, -1.0);
-    }
-
-    #[test]
-    fn test_delay_builder_delay_start_sets_flag_field() {
-        let b = builder_with(48_000).delay_start(false);
-        assert_eq!(b.inner.delay.delayStart, 0);
-
-        let b = builder_with(48_000).delay_start(true);
-        assert_eq!(b.inner.delay.delayStart, 1);
-    }
-
-    #[test]
-    fn test_delay_builder_start_frame_currently_sets_delay_length_field() {
-        // This test reflects your CURRENT implementation.
-        // If you meant start_frame() to set delayStart, then this test should be updated
-        // after you fix the implementation.
-        let b = builder_with(48_000).start_frame(1234);
-        assert_eq!(b.inner.delay.delayInFrames, 1234);
     }
 }

@@ -110,6 +110,7 @@ impl Binding for Node<'_> {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct NodeRef<'a> {
     ptr: *mut sys::ma_node,
     _marker: PhantomData<&'a ()>,
@@ -132,20 +133,149 @@ impl Binding for NodeRef<'_> {
     }
 }
 
+/// Allows the AsNodePtr trait to stay public and the node_ptr mothod to stay private
+///
+/// node_ptr allows any custom node to be passed around as a Node and access the methods on NodeOps implicitly
+pub(crate) mod private_node {
+    use crate::engine::node_graph::nodes::{
+        effects::delay::DelayNode,
+        filters::{
+            biquad::BiquadNode, hishelf::HiShelfNode, hpf::HpfNode, loshelf::LoShelfNode,
+            lpf::LpfNode, notch::NotchNode, peak::PeakNode,
+        },
+        routing::splitter::SplitterNode,
+        source::data_source::DataSourceNode,
+    };
+
+    use super::*;
+    use maudio_sys::ffi as sys;
+
+    pub trait NodePtrProvider<T: ?Sized> {
+        fn as_node_ptr(t: &T) -> *mut sys::ma_node;
+    }
+
+    pub struct NodeProvider;
+    pub struct NodeRefProvider;
+    pub struct DelayNodeProvider;
+    pub struct BiquadNodeProvider;
+    pub struct HiShelfNodeProvider;
+    pub struct HpfNodeProvider;
+    pub struct LoShelfNodeProvider;
+    pub struct LpfNodeProvider;
+    pub struct NotchNodeProvider;
+    pub struct PeakNodeProvider;
+    pub struct SplitterNodeProvider;
+    pub struct DataSourceNodeProvider;
+
+    impl<'a> NodePtrProvider<Node<'a>> for NodeProvider {
+        #[inline]
+        fn as_node_ptr(t: &Node<'a>) -> *mut sys::ma_node {
+            t.to_raw()
+        }
+    }
+
+    impl<'a> NodePtrProvider<NodeRef<'a>> for NodeRefProvider {
+        #[inline]
+        fn as_node_ptr(t: &NodeRef<'a>) -> *mut sys::ma_node {
+            t.to_raw()
+        }
+    }
+
+    impl<'a> NodePtrProvider<DelayNode<'a>> for DelayNodeProvider {
+        #[inline]
+        fn as_node_ptr(t: &DelayNode<'a>) -> *mut sys::ma_node {
+            t.as_node().to_raw()
+        }
+    }
+
+    impl<'a> NodePtrProvider<BiquadNode<'a>> for BiquadNodeProvider {
+        #[inline]
+        fn as_node_ptr(t: &BiquadNode<'a>) -> *mut sys::ma_node {
+            t.as_node().to_raw()
+        }
+    }
+
+    impl<'a> NodePtrProvider<HiShelfNode<'a>> for HiShelfNodeProvider {
+        #[inline]
+        fn as_node_ptr(t: &HiShelfNode<'a>) -> *mut sys::ma_node {
+            t.as_node().to_raw()
+        }
+    }
+
+    impl<'a> NodePtrProvider<HpfNode<'a>> for HpfNodeProvider {
+        #[inline]
+        fn as_node_ptr(t: &HpfNode<'a>) -> *mut sys::ma_node {
+            t.as_node().to_raw()
+        }
+    }
+
+    impl<'a> NodePtrProvider<LoShelfNode<'a>> for HiShelfNodeProvider {
+        #[inline]
+        fn as_node_ptr(t: &LoShelfNode<'a>) -> *mut sys::ma_node {
+            t.as_node().to_raw()
+        }
+    }
+
+    impl<'a> NodePtrProvider<LoShelfNode<'a>> for LoShelfNodeProvider {
+        #[inline]
+        fn as_node_ptr(t: &LoShelfNode<'a>) -> *mut sys::ma_node {
+            t.as_node().to_raw()
+        }
+    }
+
+    impl<'a> NodePtrProvider<LpfNode<'a>> for LpfNodeProvider {
+        #[inline]
+        fn as_node_ptr(t: &LpfNode<'a>) -> *mut sys::ma_node {
+            t.as_node().to_raw()
+        }
+    }
+
+    impl<'a> NodePtrProvider<NotchNode<'a>> for NotchNodeProvider {
+        #[inline]
+        fn as_node_ptr(t: &NotchNode<'a>) -> *mut sys::ma_node {
+            t.as_node().to_raw()
+        }
+    }
+
+    impl<'a> NodePtrProvider<PeakNode<'a>> for PeakNodeProvider {
+        #[inline]
+        fn as_node_ptr(t: &PeakNode<'a>) -> *mut sys::ma_node {
+            t.as_node().to_raw()
+        }
+    }
+
+    impl<'a> NodePtrProvider<SplitterNode<'a>> for SplitterNodeProvider {
+        #[inline]
+        fn as_node_ptr(t: &SplitterNode<'a>) -> *mut sys::ma_node {
+            t.as_node().to_raw()
+        }
+    }
+
+    impl<'a> NodePtrProvider<DataSourceNode<'a>> for DataSourceNodeProvider {
+        #[inline]
+        fn as_node_ptr(t: &DataSourceNode<'a>) -> *mut sys::ma_node {
+            t.as_node().to_raw()
+        }
+    }
+
+    pub fn node_ptr<T: AsNodePtr + ?Sized>(t: &T) -> *mut sys::ma_node {
+        <T as AsNodePtr>::__PtrProvider::as_node_ptr(t)
+    }
+}
+
+#[doc(hidden)]
 pub trait AsNodePtr {
-    fn as_node_ptr(&self) -> *mut sys::ma_node;
+    type __PtrProvider: private_node::NodePtrProvider<Self>;
 }
 
+#[doc(hidden)]
 impl AsNodePtr for Node<'_> {
-    fn as_node_ptr(&self) -> *mut sys::ma_node {
-        self.to_raw()
-    }
+    type __PtrProvider = private_node::NodeProvider;
 }
 
+#[doc(hidden)]
 impl AsNodePtr for NodeRef<'_> {
-    fn as_node_ptr(&self) -> *mut sys::ma_node {
-        self.to_raw()
-    }
+    type __PtrProvider = private_node::NodeRefProvider;
 }
 
 impl<T: AsNodePtr + ?Sized> NodeOps for T {}
@@ -261,7 +391,7 @@ pub(super) mod node_ffi {
         engine::node_graph::{
             NodeGraph, NodeGraphRef,
             node_builder::NodeState,
-            nodes::{AsNodePtr, Node},
+            nodes::{AsNodePtr, Node, private_node},
         },
     };
 
@@ -310,7 +440,7 @@ pub(super) mod node_ffi {
     pub(crate) fn ma_node_get_node_graph<'a, P: AsNodePtr + ?Sized>(
         node: &'a P,
     ) -> Option<NodeGraphRef<'a>> {
-        let ptr = unsafe { sys::ma_node_get_node_graph(node.as_node_ptr() as *const _) };
+        let ptr = unsafe { sys::ma_node_get_node_graph(private_node::node_ptr(node) as *const _) };
         if ptr.is_null() {
             None
         } else {
@@ -320,12 +450,12 @@ pub(super) mod node_ffi {
 
     #[inline]
     pub(crate) fn ma_node_get_input_bus_count<P: AsNodePtr + ?Sized>(node: &P) -> u32 {
-        unsafe { sys::ma_node_get_input_bus_count(node.as_node_ptr() as *const _) }
+        unsafe { sys::ma_node_get_input_bus_count(private_node::node_ptr(node) as *const _) }
     }
 
     #[inline]
     pub(crate) fn ma_node_get_output_bus_count<P: AsNodePtr + ?Sized>(node: &P) -> u32 {
-        unsafe { sys::ma_node_get_output_bus_count(node.as_node_ptr() as *const _) }
+        unsafe { sys::ma_node_get_output_bus_count(private_node::node_ptr(node) as *const _) }
     }
 
     #[inline]
@@ -333,7 +463,12 @@ pub(super) mod node_ffi {
         node: &P,
         input_bus_index: u32,
     ) -> u32 {
-        unsafe { sys::ma_node_get_input_channels(node.as_node_ptr() as *const _, input_bus_index) }
+        unsafe {
+            sys::ma_node_get_input_channels(
+                private_node::node_ptr(node) as *const _,
+                input_bus_index,
+            )
+        }
     }
 
     #[inline]
@@ -342,7 +477,10 @@ pub(super) mod node_ffi {
         output_bus_index: u32,
     ) -> u32 {
         unsafe {
-            sys::ma_node_get_output_channels(node.as_node_ptr() as *const _, output_bus_index)
+            sys::ma_node_get_output_channels(
+                private_node::node_ptr(node) as *const _,
+                output_bus_index,
+            )
         }
     }
 
@@ -355,9 +493,9 @@ pub(super) mod node_ffi {
     ) -> MaResult<()> {
         unsafe {
             let res = sys::ma_node_attach_output_bus(
-                node.as_node_ptr(),
+                private_node::node_ptr(node),
                 output_bus_index,
-                other_node.as_node_ptr(),
+                private_node::node_ptr(other_node),
                 other_node_input_bus_index,
             );
             MaRawResult::check(res)
@@ -369,7 +507,9 @@ pub(super) mod node_ffi {
         node: &mut P,
         output_bus_index: u32,
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_node_detach_output_bus(node.as_node_ptr(), output_bus_index) };
+        let res = unsafe {
+            sys::ma_node_detach_output_bus(private_node::node_ptr(node), output_bus_index)
+        };
         MaRawResult::check(res)
     }
 
@@ -377,7 +517,7 @@ pub(super) mod node_ffi {
     pub(crate) fn ma_node_detach_all_output_buses<P: AsNodePtr + ?Sized>(
         node: &mut P,
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_node_detach_all_output_buses(node.as_node_ptr()) };
+        let res = unsafe { sys::ma_node_detach_all_output_buses(private_node::node_ptr(node)) };
         MaRawResult::check(res)
     }
 
@@ -388,7 +528,11 @@ pub(super) mod node_ffi {
         volume: f32,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_node_set_output_bus_volume(node.as_node_ptr(), output_bus_index, volume)
+            sys::ma_node_set_output_bus_volume(
+                private_node::node_ptr(node),
+                output_bus_index,
+                volume,
+            )
         };
         MaRawResult::check(res)
     }
@@ -398,7 +542,9 @@ pub(super) mod node_ffi {
         node: &mut P,
         output_bus_index: sys::ma_uint32,
     ) -> f32 {
-        unsafe { sys::ma_node_get_output_bus_volume(node.as_node_ptr(), output_bus_index) }
+        unsafe {
+            sys::ma_node_get_output_bus_volume(private_node::node_ptr(node), output_bus_index)
+        }
     }
 
     #[inline]
@@ -406,13 +552,13 @@ pub(super) mod node_ffi {
         node: &mut P,
         state: NodeState,
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_node_set_state(node.as_node_ptr(), state.into()) };
+        let res = unsafe { sys::ma_node_set_state(private_node::node_ptr(node), state.into()) };
         MaRawResult::check(res)
     }
 
     #[inline]
     pub(crate) fn ma_node_get_state<P: AsNodePtr + ?Sized>(node: &P) -> MaResult<NodeState> {
-        let res = unsafe { sys::ma_node_get_state(node.as_node_ptr() as *const _) };
+        let res = unsafe { sys::ma_node_get_state(private_node::node_ptr(node) as *const _) };
         res.try_into()
     }
 
@@ -422,14 +568,17 @@ pub(super) mod node_ffi {
         state: NodeState,
         global_time: u64,
     ) -> MaResult<()> {
-        let res =
-            unsafe { sys::ma_node_set_state_time(node.as_node_ptr(), state.into(), global_time) };
+        let res = unsafe {
+            sys::ma_node_set_state_time(private_node::node_ptr(node), state.into(), global_time)
+        };
         MaRawResult::check(res)
     }
 
     #[inline]
     pub(crate) fn ma_node_get_state_time<P: AsNodePtr + ?Sized>(node: &P, state: NodeState) -> u64 {
-        unsafe { sys::ma_node_get_state_time(node.as_node_ptr() as *const _, state.into()) }
+        unsafe {
+            sys::ma_node_get_state_time(private_node::node_ptr(node) as *const _, state.into())
+        }
     }
 
     #[inline]
@@ -437,8 +586,9 @@ pub(super) mod node_ffi {
         node: &P,
         global_time: u64,
     ) -> MaResult<NodeState> {
-        let res =
-            unsafe { sys::ma_node_get_state_by_time(node.as_node_ptr() as *const _, global_time) };
+        let res = unsafe {
+            sys::ma_node_get_state_by_time(private_node::node_ptr(node) as *const _, global_time)
+        };
         res.try_into()
     }
 
@@ -450,7 +600,7 @@ pub(super) mod node_ffi {
     ) -> MaResult<NodeState> {
         unsafe {
             let res = sys::ma_node_get_state_by_time_range(
-                node.as_node_ptr() as *const _,
+                private_node::node_ptr(node) as *const _,
                 global_time_beg,
                 global_time_end,
             );
@@ -460,7 +610,7 @@ pub(super) mod node_ffi {
 
     #[inline]
     pub(crate) fn ma_node_get_time<P: AsNodePtr + ?Sized>(node: &P) -> u64 {
-        unsafe { sys::ma_node_get_time(node.as_node_ptr() as *const _) }
+        unsafe { sys::ma_node_get_time(private_node::node_ptr(node) as *const _) }
     }
 
     #[inline]
@@ -468,7 +618,7 @@ pub(super) mod node_ffi {
         node: &mut P,
         local_time: u64,
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_node_set_time(node.as_node_ptr(), local_time) };
+        let res = unsafe { sys::ma_node_set_time(private_node::node_ptr(node), local_time) };
         MaRawResult::check(res)
     }
 }

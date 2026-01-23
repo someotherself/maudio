@@ -15,6 +15,7 @@ pub struct DataFormat {
     pub channel_map: Vec<sys::ma_channel>,
 }
 
+#[derive(PartialEq)]
 pub struct DataSource {
     inner: *mut sys::ma_data_source,
 }
@@ -33,20 +34,173 @@ impl Binding for DataSource {
     }
 }
 
+// Keeps the methods on AsSourcePtr private
+pub(crate) mod private_data_source {
+    use crate::data_source::sources::{
+        buffer::{AudioBuffer, AudioBufferOps, AudioBufferRef},
+        decoder::{Decoder, DecoderOps, DecoderRef},
+        pulsewave::{
+            PulseWaveF32, PulseWaveI16, PulseWaveI32, PulseWaveOps, PulseWaveS24, PulseWaveU8,
+        },
+        waveform::{WaveFormF32, WaveFormI16, WaveFormI32, WaveFormOps, WaveFormS24, WaveFormU8},
+    };
+
+    use super::*;
+    use maudio_sys::ffi as sys;
+
+    pub trait DataSourcePtrProvider<T: ?Sized> {
+        fn as_source_ptr(t: &T) -> *mut sys::ma_data_source;
+    }
+
+    pub struct DataSourceProvider;
+    pub struct DataSourceRefProvider;
+    pub struct AudioBufferProvider;
+    pub struct AudioBufferRefProvider;
+    pub struct DecoderProvider;
+    pub struct DecoderRefProvider;
+    pub struct PulseWaveU8Provider;
+    pub struct PulseWaveI16Provider;
+    pub struct PulseWaveI32Provider;
+    pub struct PulseWaveS24Provider;
+    pub struct PulseWaveF32Provider;
+    pub struct WaveFormU8Provider;
+    pub struct WaveFormI16Provider;
+    pub struct WaveFormI32Provider;
+    pub struct WaveFormS24Provider;
+    pub struct WaveFormF32Provider;
+
+    // DataSource
+
+    impl DataSourcePtrProvider<DataSource> for DataSourceProvider {
+        #[inline]
+        fn as_source_ptr(t: &DataSource) -> *mut sys::ma_data_source {
+            t.to_raw()
+        }
+    }
+
+    impl<'a> DataSourcePtrProvider<DataSourceRef<'a>> for DataSourceRefProvider {
+        #[inline]
+        fn as_source_ptr(t: &DataSourceRef) -> *mut sys::ma_data_source {
+            t.to_raw()
+        }
+    }
+
+    impl DataSourcePtrProvider<AudioBuffer> for AudioBufferProvider {
+        #[inline]
+        fn as_source_ptr(t: &AudioBuffer) -> *mut sys::ma_data_source {
+            t.as_source().to_raw()
+        }
+    }
+
+    impl<'a> DataSourcePtrProvider<AudioBufferRef<'a>> for AudioBufferRefProvider {
+        #[inline]
+        fn as_source_ptr(t: &AudioBufferRef) -> *mut sys::ma_data_source {
+            t.as_source().to_raw()
+        }
+    }
+
+    impl DataSourcePtrProvider<Decoder> for DecoderProvider {
+        #[inline]
+        fn as_source_ptr(t: &Decoder) -> *mut sys::ma_data_source {
+            t.as_source().to_raw()
+        }
+    }
+
+    impl<'a> DataSourcePtrProvider<DecoderRef<'a>> for DecoderRefProvider {
+        #[inline]
+        fn as_source_ptr(t: &DecoderRef<'a>) -> *mut sys::ma_data_source {
+            t.as_source().to_raw()
+        }
+    }
+
+    impl DataSourcePtrProvider<PulseWaveU8> for PulseWaveU8Provider {
+        #[inline]
+        fn as_source_ptr(t: &PulseWaveU8) -> *mut sys::ma_data_source {
+            t.as_source().to_raw()
+        }
+    }
+
+    impl DataSourcePtrProvider<PulseWaveI16> for PulseWaveI16Provider {
+        #[inline]
+        fn as_source_ptr(t: &PulseWaveI16) -> *mut sys::ma_data_source {
+            t.as_source().to_raw()
+        }
+    }
+
+    impl DataSourcePtrProvider<PulseWaveI32> for PulseWaveI32Provider {
+        #[inline]
+        fn as_source_ptr(t: &PulseWaveI32) -> *mut sys::ma_data_source {
+            t.as_source().to_raw()
+        }
+    }
+
+    impl DataSourcePtrProvider<PulseWaveS24> for PulseWaveS24Provider {
+        #[inline]
+        fn as_source_ptr(t: &PulseWaveS24) -> *mut sys::ma_data_source {
+            t.as_source().to_raw()
+        }
+    }
+
+    impl DataSourcePtrProvider<PulseWaveF32> for PulseWaveF32Provider {
+        #[inline]
+        fn as_source_ptr(t: &PulseWaveF32) -> *mut sys::ma_data_source {
+            t.as_source().to_raw()
+        }
+    }
+
+    impl DataSourcePtrProvider<WaveFormU8> for WaveFormU8Provider {
+        #[inline]
+        fn as_source_ptr(t: &WaveFormU8) -> *mut sys::ma_data_source {
+            t.as_source().to_raw()
+        }
+    }
+
+    impl DataSourcePtrProvider<WaveFormI16> for WaveFormI16Provider {
+        #[inline]
+        fn as_source_ptr(t: &WaveFormI16) -> *mut sys::ma_data_source {
+            t.as_source().to_raw()
+        }
+    }
+
+    impl DataSourcePtrProvider<WaveFormI32> for WaveFormI32Provider {
+        #[inline]
+        fn as_source_ptr(t: &WaveFormI32) -> *mut sys::ma_data_source {
+            t.as_source().to_raw()
+        }
+    }
+
+    impl DataSourcePtrProvider<WaveFormS24> for WaveFormS24Provider {
+        #[inline]
+        fn as_source_ptr(t: &WaveFormS24) -> *mut sys::ma_data_source {
+            t.as_source().to_raw()
+        }
+    }
+
+    impl DataSourcePtrProvider<WaveFormF32> for WaveFormF32Provider {
+        #[inline]
+        fn as_source_ptr(t: &WaveFormF32) -> *mut sys::ma_data_source {
+            t.as_source().to_raw()
+        }
+    }
+
+    pub fn source_ptr<T: AsSourcePtr + ?Sized>(t: &T) -> *mut sys::ma_data_source {
+        <T as AsSourcePtr>::__PtrProvider::as_source_ptr(t)
+    }
+}
+
+#[doc(hidden)]
 pub trait AsSourcePtr {
-    fn as_source_ptr(&self) -> *mut sys::ma_data_source;
+    type __PtrProvider: private_data_source::DataSourcePtrProvider<Self>;
 }
 
+#[doc(hidden)]
 impl AsSourcePtr for DataSource {
-    fn as_source_ptr(&self) -> *mut sys::ma_data_source {
-        self.to_raw()
-    }
+    type __PtrProvider = private_data_source::DataSourceProvider;
 }
 
+#[doc(hidden)]
 impl<'a> AsSourcePtr for DataSourceRef<'a> {
-    fn as_source_ptr(&self) -> *mut sys::ma_data_source {
-        self.to_raw()
-    }
+    type __PtrProvider = private_data_source::DataSourceRefProvider;
 }
 
 impl<T: AsSourcePtr + ?Sized> DataSourceOps for T {}
@@ -145,7 +299,10 @@ pub(crate) mod data_source_ffi {
 
     use crate::{
         Binding, MaRawResult, MaResult,
-        data_source::{AsSourcePtr, DataFormat, DataSource, DataSourceRef, GetNextCallback},
+        data_source::{
+            AsSourcePtr, DataFormat, DataSource, DataSourceRef, GetNextCallback,
+            private_data_source,
+        },
     };
 
     #[inline]
@@ -174,7 +331,7 @@ pub(crate) mod data_source_ffi {
         let mut frames_read = 0;
         let res = unsafe {
             sys::ma_data_source_read_pcm_frames(
-                source.as_source_ptr(),
+                private_data_source::source_ptr(source),
                 buffer.as_mut_ptr() as *mut std::ffi::c_void,
                 frame_count,
                 &mut frames_read,
@@ -192,7 +349,7 @@ pub(crate) mod data_source_ffi {
         let mut frames_seeked = 0;
         let res = unsafe {
             sys::ma_data_source_seek_pcm_frames(
-                source.as_source_ptr(),
+                private_data_source::source_ptr(source),
                 frame_count,
                 &mut frames_seeked,
             )
@@ -206,8 +363,12 @@ pub(crate) mod data_source_ffi {
         source: &mut S,
         frame_index: u64,
     ) -> MaResult<()> {
-        let res =
-            unsafe { sys::ma_data_source_seek_to_pcm_frame(source.as_source_ptr(), frame_index) };
+        let res = unsafe {
+            sys::ma_data_source_seek_to_pcm_frame(
+                private_data_source::source_ptr(source),
+                frame_index,
+            )
+        };
         MaRawResult::check(res)
     }
 
@@ -218,7 +379,11 @@ pub(crate) mod data_source_ffi {
     ) -> MaResult<f32> {
         let mut seconds_seeked = 0.0f32;
         let res = unsafe {
-            sys::ma_data_source_seek_seconds(source.as_source_ptr(), seconds, &mut seconds_seeked)
+            sys::ma_data_source_seek_seconds(
+                private_data_source::source_ptr(source),
+                seconds,
+                &mut seconds_seeked,
+            )
         };
         MaRawResult::check(res)?;
         Ok(seconds_seeked)
@@ -229,7 +394,9 @@ pub(crate) mod data_source_ffi {
         source: &mut S,
         seek_point: f32,
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_data_source_seek_to_second(source.as_source_ptr(), seek_point) };
+        let res = unsafe {
+            sys::ma_data_source_seek_to_second(private_data_source::source_ptr(source), seek_point)
+        };
         MaRawResult::check(res)
     }
 
@@ -242,7 +409,7 @@ pub(crate) mod data_source_ffi {
         let mut channel_map = vec![0 as sys::ma_channel; sys::MA_MAX_CHANNELS as usize];
         let res = unsafe {
             sys::ma_data_source_get_data_format(
-                source.as_source_ptr(),
+                private_data_source::source_ptr(source),
                 &mut format_raw,
                 &mut channels,
                 &mut sample_rate,
@@ -267,7 +434,10 @@ pub(crate) mod data_source_ffi {
     ) -> MaResult<u64> {
         let mut cursor = 0;
         let res = unsafe {
-            sys::ma_data_source_get_cursor_in_pcm_frames(source.as_source_ptr(), &mut cursor)
+            sys::ma_data_source_get_cursor_in_pcm_frames(
+                private_data_source::source_ptr(source),
+                &mut cursor,
+            )
         };
         MaRawResult::check(res)?;
         Ok(cursor)
@@ -279,7 +449,10 @@ pub(crate) mod data_source_ffi {
     ) -> MaResult<u64> {
         let mut length = 0;
         let res = unsafe {
-            sys::ma_data_source_get_length_in_pcm_frames(source.as_source_ptr(), &mut length)
+            sys::ma_data_source_get_length_in_pcm_frames(
+                private_data_source::source_ptr(source),
+                &mut length,
+            )
         };
         MaRawResult::check(res)?;
         Ok(length)
@@ -291,7 +464,10 @@ pub(crate) mod data_source_ffi {
     ) -> MaResult<f32> {
         let mut cursor = 0.0f32;
         let res = unsafe {
-            sys::ma_data_source_get_cursor_in_seconds(source.as_source_ptr(), &mut cursor)
+            sys::ma_data_source_get_cursor_in_seconds(
+                private_data_source::source_ptr(source),
+                &mut cursor,
+            )
         };
         MaRawResult::check(res)?;
         Ok(cursor)
@@ -303,7 +479,10 @@ pub(crate) mod data_source_ffi {
     ) -> MaResult<f32> {
         let mut length = 0.0f32;
         let res = unsafe {
-            sys::ma_data_source_get_length_in_seconds(source.as_source_ptr(), &mut length)
+            sys::ma_data_source_get_length_in_seconds(
+                private_data_source::source_ptr(source),
+                &mut length,
+            )
         };
         MaRawResult::check(res)?;
         Ok(length)
@@ -315,13 +494,17 @@ pub(crate) mod data_source_ffi {
         is_looping: bool,
     ) -> MaResult<()> {
         let is_looping = is_looping as u32;
-        let res = unsafe { sys::ma_data_source_set_looping(source.as_source_ptr(), is_looping) };
+        let res = unsafe {
+            sys::ma_data_source_set_looping(private_data_source::source_ptr(source), is_looping)
+        };
         MaRawResult::check(res)
     }
 
     #[inline]
     pub fn ma_data_source_is_looping<S: AsSourcePtr + ?Sized>(source: &S) -> bool {
-        let res = unsafe { sys::ma_data_source_is_looping(source.as_source_ptr() as *const _) };
+        let res = unsafe {
+            sys::ma_data_source_is_looping(private_data_source::source_ptr(source) as *const _)
+        };
         res == 1
     }
 
@@ -332,7 +515,7 @@ pub(crate) mod data_source_ffi {
     ) -> MaResult<()> {
         let res = unsafe {
             sys::ma_data_source_set_range_in_pcm_frames(
-                source.as_source_ptr(),
+                private_data_source::source_ptr(source),
                 range.start,
                 range.end,
             )
@@ -348,7 +531,7 @@ pub(crate) mod data_source_ffi {
         let mut end = 0;
         unsafe {
             sys::ma_data_source_get_range_in_pcm_frames(
-                source.as_source_ptr() as *const _,
+                private_data_source::source_ptr(source) as *const _,
                 &mut begin,
                 &mut end,
             );
@@ -363,7 +546,11 @@ pub(crate) mod data_source_ffi {
         end: u64,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_data_source_set_loop_point_in_pcm_frames(source.as_source_ptr(), begin, end)
+            sys::ma_data_source_set_loop_point_in_pcm_frames(
+                private_data_source::source_ptr(source),
+                begin,
+                end,
+            )
         };
         MaRawResult::check(res)
     }
@@ -376,7 +563,7 @@ pub(crate) mod data_source_ffi {
         let mut end: u64 = 0;
         unsafe {
             sys::ma_data_source_get_loop_point_in_pcm_frames(
-                source.as_source_ptr() as *const _,
+                private_data_source::source_ptr(source) as *const _,
                 &mut begin,
                 &mut end,
             );
@@ -390,7 +577,10 @@ pub(crate) mod data_source_ffi {
         current: &mut C,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_data_source_set_current(source.as_source_ptr(), current.as_source_ptr())
+            sys::ma_data_source_set_current(
+                private_data_source::source_ptr(source),
+                private_data_source::source_ptr(current),
+            )
         };
         MaRawResult::check(res)
     }
@@ -399,7 +589,9 @@ pub(crate) mod data_source_ffi {
     pub fn ma_data_source_get_current<'a, S: AsSourcePtr + ?Sized>(
         source: &'a S,
     ) -> Option<DataSourceRef<'a>> {
-        let ptr = unsafe { sys::ma_data_source_get_current(source.as_source_ptr() as *const _) };
+        let ptr = unsafe {
+            sys::ma_data_source_get_current(private_data_source::source_ptr(source) as *const _)
+        };
         if ptr.is_null() {
             None
         } else {
@@ -415,8 +607,12 @@ pub(crate) mod data_source_ffi {
         source: &mut S,
         next: &mut N,
     ) -> MaResult<()> {
-        let res =
-            unsafe { sys::ma_data_source_set_next(source.as_source_ptr(), next.as_source_ptr()) };
+        let res = unsafe {
+            sys::ma_data_source_set_next(
+                private_data_source::source_ptr(source),
+                private_data_source::source_ptr(next),
+            )
+        };
         MaRawResult::check(res)
     }
 
@@ -424,7 +620,9 @@ pub(crate) mod data_source_ffi {
     pub fn ma_data_source_get_next<'a, S: AsSourcePtr + ?Sized>(
         source: &'a S,
     ) -> Option<DataSourceRef<'a>> {
-        let ptr = unsafe { sys::ma_data_source_get_next(source.as_source_ptr() as *const _) };
+        let ptr = unsafe {
+            sys::ma_data_source_get_next(private_data_source::source_ptr(source) as *const _)
+        };
         if ptr.is_null() {
             None
         } else {
@@ -441,8 +639,12 @@ pub(crate) mod data_source_ffi {
         source: &mut S,
         get_next_cb: GetNextCallback,
     ) -> MaResult<()> {
-        let res =
-            unsafe { sys::ma_data_source_set_next_callback(source.as_source_ptr(), get_next_cb) };
+        let res = unsafe {
+            sys::ma_data_source_set_next_callback(
+                private_data_source::source_ptr(source),
+                get_next_cb,
+            )
+        };
         MaRawResult::check(res)
     }
 
@@ -451,10 +653,15 @@ pub(crate) mod data_source_ffi {
     pub fn ma_data_source_get_next_callback<S: AsSourcePtr + ?Sized>(
         source: &S,
     ) -> GetNextCallback {
-        unsafe { sys::ma_data_source_get_next_callback(source.as_source_ptr() as *const _) }
+        unsafe {
+            sys::ma_data_source_get_next_callback(
+                private_data_source::source_ptr(source) as *const _
+            )
+        }
     }
 }
 
+#[derive(PartialEq, Copy, Clone)]
 pub struct DataSourceRef<'a> {
     inner: *mut sys::ma_data_source,
     _marker: PhantomData<&'a ()>,

@@ -1,12 +1,13 @@
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaError, MaResult, MaudioError,
+    Binding, MaResult, MaudioError,
     audio::{formats::Format, sample_rate::SampleRate},
+    data_source::{AsSourcePtr, DataSourceRef, private_data_source},
 };
 
 pub trait AsPulseWavePtr {
-    fn as_pulsewave_ptr(&self) -> *mut sys::ma_pulsewave;
+    type __PtrProvider: private_pulsew::PulseWavePtrProvider<Self>;
     fn channels(&self) -> u32;
 }
 
@@ -23,6 +24,55 @@ pub(crate) struct PulseWaveState {
     duty_cycle: f64,
 }
 
+mod private_pulsew {
+    use super::*;
+    use maudio_sys::ffi as sys;
+
+    pub trait PulseWavePtrProvider<T: ?Sized> {
+        fn as_pulsewave_ptr(t: &T) -> *mut sys::ma_pulsewave;
+    }
+
+    pub struct PulseWaveU8Provider;
+    pub struct PulseWaveI16Provider;
+    pub struct PulseWaveI32Provider;
+    pub struct PulseWaveS24Provider;
+    pub struct PulseWaveF32Provider;
+
+    impl PulseWavePtrProvider<PulseWaveU8> for PulseWaveU8Provider {
+        fn as_pulsewave_ptr(t: &PulseWaveU8) -> *mut sys::ma_pulsewave {
+            t.inner.ptr
+        }
+    }
+
+    impl PulseWavePtrProvider<PulseWaveI16> for PulseWaveI16Provider {
+        fn as_pulsewave_ptr(t: &PulseWaveI16) -> *mut sys::ma_pulsewave {
+            t.inner.ptr
+        }
+    }
+
+    impl PulseWavePtrProvider<PulseWaveI32> for PulseWaveI32Provider {
+        fn as_pulsewave_ptr(t: &PulseWaveI32) -> *mut sys::ma_pulsewave {
+            t.inner.ptr
+        }
+    }
+
+    impl PulseWavePtrProvider<PulseWaveS24> for PulseWaveS24Provider {
+        fn as_pulsewave_ptr(t: &PulseWaveS24) -> *mut sys::ma_pulsewave {
+            t.inner.ptr
+        }
+    }
+
+    impl PulseWavePtrProvider<PulseWaveF32> for PulseWaveF32Provider {
+        fn as_pulsewave_ptr(t: &PulseWaveF32) -> *mut sys::ma_pulsewave {
+            t.inner.ptr
+        }
+    }
+
+    pub fn pulsewave_ptr<T: AsPulseWavePtr + ?Sized>(t: &T) -> *mut sys::ma_pulsewave {
+        <T as AsPulseWavePtr>::__PtrProvider::as_pulsewave_ptr(t)
+    }
+}
+
 pub struct PulseWaveU8 {
     inner: PulseWaveInner,
     format: Format,
@@ -30,12 +80,16 @@ pub struct PulseWaveU8 {
 }
 
 impl AsPulseWavePtr for PulseWaveU8 {
-    fn as_pulsewave_ptr(&self) -> *mut sys::ma_pulsewave {
-        self.inner.ptr
-    }
+    #[doc(hidden)]
+    type __PtrProvider = private_pulsew::PulseWaveU8Provider;
     fn channels(&self) -> u32 {
         self.state.channels
     }
+}
+
+#[doc(hidden)]
+impl AsSourcePtr for PulseWaveU8 {
+    type __PtrProvider = private_data_source::PulseWaveU8Provider;
 }
 
 impl PulseWaveU8 {
@@ -50,12 +104,16 @@ pub struct PulseWaveI16 {
     state: PulseWaveState,
 }
 impl AsPulseWavePtr for PulseWaveI16 {
-    fn as_pulsewave_ptr(&self) -> *mut sys::ma_pulsewave {
-        self.inner.ptr
-    }
+    #[doc(hidden)]
+    type __PtrProvider = private_pulsew::PulseWaveI16Provider;
     fn channels(&self) -> u32 {
         self.state.channels
     }
+}
+
+#[doc(hidden)]
+impl AsSourcePtr for PulseWaveI16 {
+    type __PtrProvider = private_data_source::PulseWaveI16Provider;
 }
 
 impl PulseWaveI16 {
@@ -70,12 +128,16 @@ pub struct PulseWaveI32 {
     state: PulseWaveState,
 }
 impl AsPulseWavePtr for PulseWaveI32 {
-    fn as_pulsewave_ptr(&self) -> *mut sys::ma_pulsewave {
-        self.inner.ptr
-    }
+    #[doc(hidden)]
+    type __PtrProvider = private_pulsew::PulseWaveI32Provider;
     fn channels(&self) -> u32 {
         self.state.channels
     }
+}
+
+#[doc(hidden)]
+impl AsSourcePtr for PulseWaveI32 {
+    type __PtrProvider = private_data_source::PulseWaveI32Provider;
 }
 
 impl PulseWaveI32 {
@@ -90,13 +152,18 @@ pub struct PulseWaveS24 {
     state: PulseWaveState,
 }
 
+#[doc(hidden)]
 impl AsPulseWavePtr for PulseWaveS24 {
-    fn as_pulsewave_ptr(&self) -> *mut sys::ma_pulsewave {
-        self.inner.ptr
-    }
+    #[doc(hidden)]
+    type __PtrProvider = private_pulsew::PulseWaveS24Provider;
     fn channels(&self) -> u32 {
         self.state.channels
     }
+}
+
+#[doc(hidden)]
+impl AsSourcePtr for PulseWaveS24 {
+    type __PtrProvider = private_data_source::PulseWaveS24Provider;
 }
 
 impl PulseWaveS24 {
@@ -112,12 +179,16 @@ pub struct PulseWaveF32 {
 }
 
 impl AsPulseWavePtr for PulseWaveF32 {
-    fn as_pulsewave_ptr(&self) -> *mut sys::ma_pulsewave {
-        self.inner.ptr
-    }
+    #[doc(hidden)]
+    type __PtrProvider = private_pulsew::PulseWaveF32Provider;
     fn channels(&self) -> u32 {
         self.state.channels
     }
+}
+
+#[doc(hidden)]
+impl AsSourcePtr for PulseWaveF32 {
+    type __PtrProvider = private_data_source::PulseWaveF32Provider;
 }
 
 impl PulseWaveF32 {
@@ -126,9 +197,9 @@ impl PulseWaveF32 {
     }
 }
 
-impl<T: AsPulseWavePtr + ?Sized> PulseWaveOps for T {}
+impl<T: AsPulseWavePtr + AsSourcePtr + ?Sized> PulseWaveOps for T {}
 
-pub trait PulseWaveOps: AsPulseWavePtr {
+pub trait PulseWaveOps: AsPulseWavePtr + AsSourcePtr {
     fn seek_to_pcm_frame(&mut self, frame_index: u64) -> MaResult<()> {
         pulsewave_ffi::ma_pulsewave_seek_to_pcm_frame(self, frame_index)
     }
@@ -148,6 +219,12 @@ pub trait PulseWaveOps: AsPulseWavePtr {
     fn set_sample_rate(&mut self, sample_rate: SampleRate) -> MaResult<()> {
         pulsewave_ffi::ma_pulsewave_set_sample_rate(self, sample_rate)
     }
+
+    fn as_source(&self) -> DataSourceRef<'_> {
+        debug_assert!(!private_pulsew::pulsewave_ptr(self).is_null());
+        let ptr = private_pulsew::pulsewave_ptr(self).cast::<sys::ma_data_source>();
+        DataSourceRef::from_ptr(ptr)
+    }
 }
 
 pub(crate) mod pulsewave_ffi {
@@ -156,7 +233,9 @@ pub(crate) mod pulsewave_ffi {
     use crate::{
         Binding, MaRawResult, MaResult,
         audio::sample_rate::SampleRate,
-        data_source::sources::pulsewave::{AsPulseWavePtr, PulseWaveBuilder, PulseWaveInner},
+        data_source::sources::pulsewave::{
+            AsPulseWavePtr, PulseWaveBuilder, PulseWaveInner, private_pulsew,
+        },
     };
 
     #[inline]
@@ -252,7 +331,7 @@ pub(crate) mod pulsewave_ffi {
         let mut frames_read = 0;
         let res = unsafe {
             sys::ma_pulsewave_read_pcm_frames(
-                pw.as_pulsewave_ptr(),
+                private_pulsew::pulsewave_ptr(pw),
                 buffer,
                 frame_count,
                 &mut frames_read,
@@ -267,8 +346,9 @@ pub(crate) mod pulsewave_ffi {
         pw: &mut W,
         frame_index: u64,
     ) -> MaResult<()> {
-        let res =
-            unsafe { sys::ma_pulsewave_seek_to_pcm_frame(pw.as_pulsewave_ptr(), frame_index) };
+        let res = unsafe {
+            sys::ma_pulsewave_seek_to_pcm_frame(private_pulsew::pulsewave_ptr(pw), frame_index)
+        };
         MaRawResult::check(res)
     }
 
@@ -277,7 +357,9 @@ pub(crate) mod pulsewave_ffi {
         pw: &mut W,
         amplitude: f64,
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_pulsewave_set_amplitude(pw.as_pulsewave_ptr(), amplitude) };
+        let res = unsafe {
+            sys::ma_pulsewave_set_amplitude(private_pulsew::pulsewave_ptr(pw), amplitude)
+        };
         MaRawResult::check(res)
     }
 
@@ -286,7 +368,9 @@ pub(crate) mod pulsewave_ffi {
         pw: &mut W,
         frequency: f64,
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_pulsewave_set_frequency(pw.as_pulsewave_ptr(), frequency) };
+        let res = unsafe {
+            sys::ma_pulsewave_set_frequency(private_pulsew::pulsewave_ptr(pw), frequency)
+        };
         MaRawResult::check(res)
     }
 
@@ -295,7 +379,9 @@ pub(crate) mod pulsewave_ffi {
         pw: &mut W,
         duty_cycle: f64,
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_pulsewave_set_duty_cycle(pw.as_pulsewave_ptr(), duty_cycle) };
+        let res = unsafe {
+            sys::ma_pulsewave_set_duty_cycle(private_pulsew::pulsewave_ptr(pw), duty_cycle)
+        };
         MaRawResult::check(res)
     }
 
@@ -304,8 +390,9 @@ pub(crate) mod pulsewave_ffi {
         pw: &mut W,
         sample_rate: SampleRate,
     ) -> MaResult<()> {
-        let res =
-            unsafe { sys::ma_pulsewave_set_sample_rate(pw.as_pulsewave_ptr(), sample_rate.into()) };
+        let res = unsafe {
+            sys::ma_pulsewave_set_sample_rate(private_pulsew::pulsewave_ptr(pw), sample_rate.into())
+        };
         MaRawResult::check(res)
     }
 }
@@ -401,9 +488,7 @@ impl PulseWaveBuilder {
             self.format
         );
         if !matches!(self.format, Format::U8) {
-            return Err(MaudioError::from_ma_result(MaError(
-                sys::ma_result_MA_INVALID_ARGS,
-            )));
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
         }
         let inner = self.new_inner()?;
         let state = PulseWaveState {
@@ -428,9 +513,7 @@ impl PulseWaveBuilder {
             self.format
         );
         if !matches!(self.format, Format::S16) {
-            return Err(MaudioError::from_ma_result(MaError(
-                sys::ma_result_MA_INVALID_ARGS,
-            )));
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
         }
         let inner = self.new_inner()?;
         let state = PulseWaveState {
@@ -455,9 +538,7 @@ impl PulseWaveBuilder {
             self.format
         );
         if !matches!(self.format, Format::S32) {
-            return Err(MaudioError::from_ma_result(MaError(
-                sys::ma_result_MA_INVALID_ARGS,
-            )));
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
         }
         let inner = self.new_inner()?;
         let state = PulseWaveState {
@@ -482,9 +563,7 @@ impl PulseWaveBuilder {
             self.format
         );
         if !matches!(self.format, Format::S24) {
-            return Err(MaudioError::from_ma_result(MaError(
-                sys::ma_result_MA_INVALID_ARGS,
-            )));
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
         }
         let inner = self.new_inner()?;
         let state = PulseWaveState {
@@ -509,9 +588,7 @@ impl PulseWaveBuilder {
             self.format
         );
         if !matches!(self.format, Format::F32) {
-            return Err(MaudioError::from_ma_result(MaError(
-                sys::ma_result_MA_INVALID_ARGS,
-            )));
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
         }
         let inner = self.new_inner()?;
         let state = PulseWaveState {

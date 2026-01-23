@@ -44,10 +44,10 @@ impl MaRawResult {
 }
 
 impl MaudioError {
-    pub(crate) fn from_ma_result(error: MaError) -> Self {
+    pub(crate) fn from_ma_result(error: sys::ma_result) -> Self {
         Self {
             native: None,
-            ma_result: error,
+            ma_result: MaError(error),
         }
     }
 

@@ -9,7 +9,7 @@ use crate::{
         AllocationCallbacks,
         node_graph::{
             AsNodeGraphPtr, NodeGraph,
-            nodes::{AsNodePtr, NodeRef},
+            nodes::{AsNodePtr, NodeRef, private_node::HiShelfNodeProvider},
         },
     },
 };
@@ -61,10 +61,9 @@ impl Binding for HiShelfNode<'_> {
     }
 }
 
+#[doc(hidden)]
 impl AsNodePtr for HiShelfNode<'_> {
-    fn as_node_ptr(&self) -> *mut sys::ma_node {
-        self.as_node().to_raw()
-    }
+    type __PtrProvider = HiShelfNodeProvider;
 }
 
 impl<'a> HiShelfNode<'a> {
@@ -135,7 +134,9 @@ pub(crate) mod n_hishelf_ffi {
 
     use crate::{
         Binding, MaRawResult, MaResult,
-        engine::node_graph::{AsNodeGraphPtr, nodes::filters::hishelf::HiShelfNode},
+        engine::node_graph::{
+            AsNodeGraphPtr, nodes::filters::hishelf::HiShelfNode, private_node_graph,
+        },
     };
 
     #[inline]
@@ -146,7 +147,12 @@ pub(crate) mod n_hishelf_ffi {
         node: *mut sys::ma_hishelf_node,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_hishelf_node_init(node_graph.as_nodegraph_ptr(), config, alloc_cb, node)
+            sys::ma_hishelf_node_init(
+                private_node_graph::node_graph_ptr(node_graph),
+                config,
+                alloc_cb,
+                node,
+            )
         };
         MaRawResult::check(res)
     }

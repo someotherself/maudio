@@ -100,6 +100,7 @@ impl Binding for NodeGraph<'_> {
 ///
 /// This type exists to safely model miniaudio APIs that return pointers to
 /// internally managed node graphs (for example `ma_engine_get_node_graph`).
+#[derive(Clone, Copy)]
 pub struct NodeGraphRef<'e> {
     ptr: *mut sys::ma_node_graph,
     _engine: PhantomData<&'e mut Engine>,
@@ -123,20 +124,49 @@ impl Binding for NodeGraphRef<'_> {
     }
 }
 
+pub(crate) mod private_node_graph {
+    use super::*;
+    use maudio_sys::ffi as sys;
+
+    pub trait NodeGraphPtrProvider<T: ?Sized> {
+        fn as_node_graph_ptr(t: &T) -> *mut sys::ma_node_graph;
+    }
+
+    pub struct NodeGraphProvider;
+    pub struct NodeGraphRefProvider;
+
+    impl<'a> NodeGraphPtrProvider<NodeGraph<'a>> for NodeGraphProvider {
+        #[inline]
+        fn as_node_graph_ptr(t: &NodeGraph) -> *mut sys::ma_node_graph {
+            t.to_raw()
+        }
+    }
+
+    impl<'a> NodeGraphPtrProvider<NodeGraphRef<'a>> for NodeGraphRefProvider {
+        #[inline]
+        fn as_node_graph_ptr(t: &NodeGraphRef) -> *mut sys::ma_node_graph {
+            t.to_raw()
+        }
+    }
+
+    pub fn node_graph_ptr<T: AsNodeGraphPtr + ?Sized>(t: &T) -> *mut sys::ma_node_graph {
+        <T as AsNodeGraphPtr>::__PtrProvider::as_node_graph_ptr(t)
+    }
+}
+
+#[doc(hidden)]
 pub trait AsNodeGraphPtr {
-    fn as_nodegraph_ptr(&self) -> *mut sys::ma_node_graph;
+    type __PtrProvider: private_node_graph::NodeGraphPtrProvider<Self>;
 }
 
+#[doc(hidden)]
 impl AsNodeGraphPtr for NodeGraph<'_> {
-    fn as_nodegraph_ptr(&self) -> *mut sys::ma_node_graph {
-        self.to_raw()
-    }
+    type __PtrProvider = private_node_graph::NodeGraphProvider;
 }
 
+#[doc(hidden)]
 impl AsNodeGraphPtr for NodeGraphRef<'_> {
-    fn as_nodegraph_ptr(&self) -> *mut sys::ma_node_graph {
-        self.to_raw()
-    }
+    type __PtrProvider = private_node_graph::NodeGraphRefProvider;
 }
 
 impl<T: AsNodeGraphPtr + ?Sized> NodeGraphOps for T {}
@@ -166,7 +196,7 @@ pub trait NodeGraphOps: AsNodeGraphPtr {
 
 // These should not be available to NodeGraphRef
 impl<'a> NodeGraph<'a> {
-    pub fn new(config: &NodeGraphConfig) -> MaResult<Self> {
+    fn new(config: &NodeGraphConfig) -> MaResult<Self> {
         NodeGraph::with_alloc_callbacks(config, None)
     }
 
@@ -203,7 +233,7 @@ mod graph_ffi {
 
     use crate::{
         Binding, MaRawResult, MaResult,
-        engine::node_graph::{AsNodeGraphPtr, NodeGraphOps, nodes::NodeRef},
+        engine::node_graph::{AsNodeGraphPtr, NodeGraphOps, nodes::NodeRef, private_node_graph},
     };
 
     #[inline]
@@ -228,7 +258,9 @@ mod graph_ffi {
     pub(crate) fn ma_node_graph_get_endpoint<'a, N: AsNodeGraphPtr + ?Sized>(
         node_graph: &'a N,
     ) -> Option<NodeRef<'a>> {
-        let ptr = unsafe { sys::ma_node_graph_get_endpoint(node_graph.as_nodegraph_ptr()) };
+        let ptr = unsafe {
+            sys::ma_node_graph_get_endpoint(private_node_graph::node_graph_ptr(node_graph))
+        };
         if ptr.is_null() {
             None
         } else {
@@ -246,7 +278,7 @@ mod graph_ffi {
         let mut frames_read = 0;
         let res = unsafe {
             sys::ma_node_graph_read_pcm_frames(
-                node_graph.as_nodegraph_ptr(),
+                private_node_graph::node_graph_ptr(node_graph),
                 buffer.as_mut_ptr() as *mut std::ffi::c_void,
                 frame_count,
                 &mut frames_read,
@@ -258,12 +290,18 @@ mod graph_ffi {
 
     #[inline]
     pub(crate) fn ma_node_graph_get_channels<N: AsNodeGraphPtr + ?Sized>(node_graph: &N) -> u32 {
-        unsafe { sys::ma_node_graph_get_channels(node_graph.as_nodegraph_ptr() as *const _) }
+        unsafe {
+            sys::ma_node_graph_get_channels(
+                private_node_graph::node_graph_ptr(node_graph) as *const _
+            )
+        }
     }
 
     #[inline]
     pub(crate) fn ma_node_graph_get_time<N: AsNodeGraphPtr + ?Sized>(node_graph: &N) -> u64 {
-        unsafe { sys::ma_node_graph_get_time(node_graph.as_nodegraph_ptr() as *const _) }
+        unsafe {
+            sys::ma_node_graph_get_time(private_node_graph::node_graph_ptr(node_graph) as *const _)
+        }
     }
 
     #[inline]
@@ -271,7 +309,9 @@ mod graph_ffi {
         node_graph: &mut N,
         global_time: u64,
     ) -> i32 {
-        unsafe { sys::ma_node_graph_set_time(node_graph.as_nodegraph_ptr(), global_time) }
+        unsafe {
+            sys::ma_node_graph_set_time(private_node_graph::node_graph_ptr(node_graph), global_time)
+        }
     }
 }
 

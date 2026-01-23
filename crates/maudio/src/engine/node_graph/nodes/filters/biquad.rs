@@ -9,7 +9,7 @@ use crate::{
         AllocationCallbacks,
         node_graph::{
             AsNodeGraphPtr, NodeGraph,
-            nodes::{AsNodePtr, NodeRef},
+            nodes::{AsNodePtr, NodeRef, private_node::BiquadNodeProvider},
         },
     },
 };
@@ -71,10 +71,9 @@ impl Binding for BiquadNode<'_> {
     }
 }
 
+#[doc(hidden)]
 impl AsNodePtr for BiquadNode<'_> {
-    fn as_node_ptr(&self) -> *mut sys::ma_node {
-        self.as_node().to_raw()
-    }
+    type __PtrProvider = BiquadNodeProvider;
 }
 
 impl<'a> BiquadNode<'a> {
@@ -132,7 +131,9 @@ impl<'a> BiquadNode<'a> {
 pub(crate) mod n_biquad_ffi {
     use crate::{
         Binding, MaRawResult, MaResult,
-        engine::node_graph::{AsNodeGraphPtr, nodes::filters::biquad::BiquadNode},
+        engine::node_graph::{
+            AsNodeGraphPtr, nodes::filters::biquad::BiquadNode, private_node_graph,
+        },
     };
     use maudio_sys::ffi as sys;
 
@@ -144,7 +145,12 @@ pub(crate) mod n_biquad_ffi {
         node: *mut sys::ma_biquad_node,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_biquad_node_init(node_graph.as_nodegraph_ptr(), config, alloc_cb, node)
+            sys::ma_biquad_node_init(
+                private_node_graph::node_graph_ptr(node_graph),
+                config,
+                alloc_cb,
+                node,
+            )
         };
         MaRawResult::check(res)
     }

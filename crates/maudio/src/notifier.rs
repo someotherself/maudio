@@ -1,9 +1,20 @@
-use std::sync::{Arc, atomic::AtomicBool};
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
 use maudio_sys::ffi as sys;
 
 pub struct EndNotifier {
-    flag: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    flag: Arc<AtomicBool>,
+}
+
+impl Clone for EndNotifier {
+    fn clone(&self) -> Self {
+        Self {
+            flag: self.flag.clone(),
+        }
+    }
 }
 
 impl EndNotifier {
@@ -18,13 +29,23 @@ impl EndNotifier {
     }
 
     pub fn is_notified(&self) -> bool {
-        self.flag.load(std::sync::atomic::Ordering::Acquire)
+        self.flag.load(Ordering::Acquire)
     }
 
-    pub fn reset(&self) {
-        self.flag.store(false, std::sync::atomic::Ordering::Release);
+    #[inline]
+    pub fn peek(&self) -> bool {
+        self.flag.load(Ordering::Acquire)
     }
 
+    #[inline]
+    pub fn take(&self) -> bool {
+        self.flag.swap(false, Ordering::AcqRel)
+    }
+
+    #[inline]
+    pub fn clear(&self) {
+        self.flag.store(false, Ordering::Release);
+    }
     pub fn call_if_notified<F: FnOnce()>(&self, f: F) {
         if self.is_notified() {
             self.flag.store(false, std::sync::atomic::Ordering::Release);

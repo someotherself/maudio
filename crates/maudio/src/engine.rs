@@ -53,6 +53,7 @@ use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit, path::Path};
 use crate::{
     Binding, ErrorKinds, MaResult,
     audio::{math::vec3::Vec3, sample_rate::SampleRate, spatial::cone::Cone},
+    data_source::DataSource,
     engine::{
         engine_builder::EngineBuilder,
         node_graph::{NodeGraphRef, nodes::NodeRef},
@@ -64,6 +65,7 @@ use crate::{
         sound_flags::SoundFlags,
         sound_group::{SoundGroup, SoundGroupConfig, s_group_cfg_ffi, s_group_ffi},
     },
+    util::fence::Fence,
 };
 
 use maudio_sys::ffi as sys;
@@ -99,24 +101,6 @@ pub mod prelude {
 /// - load or create sounds
 /// - control playback and volume
 /// - optionally interact with the engine’s endpoint node / node graph for effects
-///
-/// ## Threading model
-/// Miniaudio runs an internal audio callback on a real-time thread (created by
-/// the backend). Methods on `Engine` generally forward to the underlying
-/// `ma_engine` and may be called while audio is running.
-///
-/// This type does **not** automatically guarantee that every method is
-/// real-time safe. Avoid doing allocations or other heavy work from contexts
-/// that must be real-time safe.
-///
-/// ## Pinning and FFI safety
-/// `ma_engine` contains self-references and pointers to internal state, and must
-/// not be moved after initialization. To uphold this invariant, `Engine` stores
-/// the underlying engine in a pinned allocation.
-///
-/// Any references returned from the engine (for example, endpoint / node graph
-/// accessors) are **borrows** into engine-owned state and cannot outlive the
-/// engine.
 pub struct Engine {
     inner: *mut sys::ma_engine,
     _not_sync: PhantomData<Cell<()>>,
@@ -137,6 +121,7 @@ impl Binding for Engine {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct EngineRef<'a> {
     ptr: *mut sys::ma_engine,
     _marker: PhantomData<&'a ()>,
@@ -161,20 +146,48 @@ impl<'a> Binding for EngineRef<'a> {
     }
 }
 
+pub(crate) mod private_engine {
+    use super::*;
+    use maudio_sys::ffi as sys;
+
+    pub trait EnginePtrProvider<T: ?Sized> {
+        fn as_engine_ptr(t: &T) -> *mut sys::ma_engine;
+    }
+
+    pub struct EngineProvider;
+    pub struct EngineRefProvider;
+
+    impl EnginePtrProvider<Engine> for EngineProvider {
+        #[inline]
+        fn as_engine_ptr(t: &Engine) -> *mut sys::ma_engine {
+            t.to_raw()
+        }
+    }
+
+    impl<'a> EnginePtrProvider<EngineRef<'a>> for EngineRefProvider {
+        fn as_engine_ptr(t: &EngineRef<'a>) -> *mut sys::ma_engine {
+            t.to_raw()
+        }
+    }
+
+    pub fn engine_ptr<T: AsEnginePtr + ?Sized>(t: &T) -> *mut sys::ma_engine {
+        <T as AsEnginePtr>::__PtrProvider::as_engine_ptr(t)
+    }
+}
+
+#[doc(hidden)]
 pub trait AsEnginePtr {
-    fn as_engine_ptr(&self) -> *mut sys::ma_engine;
+    type __PtrProvider: private_engine::EnginePtrProvider<Self>;
 }
 
+#[doc(hidden)]
 impl AsEnginePtr for Engine {
-    fn as_engine_ptr(&self) -> *mut sys::ma_engine {
-        self.to_raw()
-    }
+    type __PtrProvider = private_engine::EngineProvider;
 }
 
+#[doc(hidden)]
 impl AsEnginePtr for EngineRef<'_> {
-    fn as_engine_ptr(&self) -> *mut sys::ma_engine {
-        self.to_raw()
-    }
+    type __PtrProvider = private_engine::EngineRefProvider;
 }
 
 impl<T: AsEnginePtr + ?Sized> EngineOps for T {}
@@ -256,18 +269,13 @@ pub trait EngineOps: AsEnginePtr {
         engine_ffi::ma_engine_get_node_graph(self)
     }
 
-    /// Renders audio from the engine into a newly allocated buffer.
-    ///
     /// This function pulls audio from the engine’s internal node graph and returns
     /// up to `frame_count` frames of interleaved PCM samples.
-    ///
-    /// ### Semantics
     ///
     /// - This is a **pull-based render operation**.
     /// - The engine will attempt to render `frame_count` frames, but it may return
     ///   **fewer frames**.
     /// - The number of frames actually rendered is returned alongside the samples.
-    ///
     fn read_pcm_frames(&self, frame_count: u64) -> MaResult<(Vec<f32>, u64)> {
         engine_ffi::ma_engine_read_pcm_frames(self, frame_count)
     }
@@ -282,10 +290,6 @@ pub trait EngineOps: AsEnginePtr {
     /// - Inspect or modify the engine’s node graph
     /// - Attach custom processing nodes (effects, mixers, etc.)
     /// - Query graph-level properties
-    ///
-    /// ## Lifetime
-    /// The returned [`NodeRef`] borrows the engine mutably and cannot outlive it.
-    /// Only one mutable access to the node graph may exist at a time.
     fn endpoint(&self) -> Option<NodeRef<'_>> {
         engine_ffi::ma_engine_get_endpoint(self)
     }
@@ -406,28 +410,36 @@ impl Engine {
         Ok(Self::from_ptr(inner))
     }
 
+    /// Equivalent to calling [`SoundBuilder::new()`]
+    pub fn sound(&self) -> SoundBuilder<'_> {
+        SoundBuilder::init(self)
+    }
+
     pub fn new_sound(&self) -> MaResult<Sound<'_>> {
         self.new_sound_with_config_internal(None)
     }
 
     pub fn new_sound_from_file(&self, path: &Path) -> MaResult<Sound<'_>> {
-        self.new_sound_with_file_internal(path, SoundFlags::NONE, &mut None)
+        self.new_sound_with_file_internal(path, SoundFlags::NONE, None, None)
     }
 
     pub fn new_sound_from_file_with_group<'a>(
         &'a self,
         path: &Path,
         sound_group: &'a SoundGroup,
+        done_fence: Option<&Fence>,
     ) -> MaResult<Sound<'a>> {
-        self.new_sound_with_file_internal(path, SoundFlags::NONE, &mut Some(sound_group))
+        self.new_sound_with_file_internal(path, SoundFlags::NONE, Some(sound_group), done_fence)
     }
 
+    /// Adding a Fence also requires setting the [`SoundFlags::ASYNC`] flag
     pub fn new_sound_from_file_with_flags(
         &self,
         path: &Path,
         flags: SoundFlags,
+        done_fence: Option<&Fence>,
     ) -> MaResult<Sound<'_>> {
-        self.new_sound_with_file_internal(path, flags, &mut None)
+        self.new_sound_with_file_internal(path, flags, None, done_fence)
     }
 
     pub(crate) fn new_sound_with_config_internal(
@@ -445,15 +457,44 @@ impl Engine {
         Ok(Sound::from_ptr(inner))
     }
 
+    pub(crate) fn new_sound_with_source_internal<'a>(
+        &'a self,
+        flags: SoundFlags,
+        sound_group: Option<&'a SoundGroup>,
+        data_source: &DataSource,
+    ) -> MaResult<Sound<'a>> {
+        let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new_uninit();
+
+        sound_ffi::ma_sound_init_from_data_source(
+            self,
+            data_source,
+            flags,
+            sound_group,
+            mem.as_mut_ptr(),
+        )?;
+
+        let mem: Box<sys::ma_sound> = unsafe { mem.assume_init() };
+        let inner = Box::into_raw(mem);
+        Ok(Sound::from_ptr(inner))
+    }
+
     pub(crate) fn new_sound_with_file_internal<'a>(
         &'a self,
         path: &Path,
         flags: SoundFlags,
-        sound_group: &mut Option<&'a SoundGroup>,
+        sound_group: Option<&'a SoundGroup>,
+        done_fence: Option<&Fence>,
     ) -> MaResult<Sound<'a>> {
         let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new_uninit();
 
-        Sound::init_from_file_internal(mem.as_mut_ptr(), self, path, flags, sound_group, None)?;
+        Sound::init_from_file_internal(
+            mem.as_mut_ptr(),
+            self,
+            path,
+            flags,
+            sound_group,
+            done_fence,
+        )?;
 
         let mem: Box<sys::ma_sound> = unsafe { mem.assume_init() };
         let inner = Box::into_raw(mem);
@@ -812,6 +853,7 @@ pub(crate) mod engine_ffi {
             AsEnginePtr, Binding, Engine, EngineOps,
             engine_builder::EngineBuilder,
             node_graph::{NodeGraphRef, nodes::NodeRef},
+            private_engine,
         },
     };
 
@@ -843,7 +885,7 @@ pub(crate) mod engine_ffi {
         let mut frames_read = 0;
         let res = unsafe {
             sys::ma_engine_read_pcm_frames(
-                engine.as_engine_ptr(),
+                private_engine::engine_ptr(engine),
                 buffer.as_mut_ptr() as *mut std::ffi::c_void,
                 frame_count,
                 &mut frames_read,
@@ -858,7 +900,7 @@ pub(crate) mod engine_ffi {
     pub fn ma_engine_get_node_graph<'a, E: AsEnginePtr + ?Sized>(
         engine: &'a E,
     ) -> Option<NodeGraphRef<'a>> {
-        let ptr = unsafe { sys::ma_engine_get_node_graph(engine.as_engine_ptr()) };
+        let ptr = unsafe { sys::ma_engine_get_node_graph(private_engine::engine_ptr(engine)) };
         if ptr.is_null() {
             None
         } else {
@@ -891,7 +933,7 @@ pub(crate) mod engine_ffi {
     pub fn ma_engine_get_endpoint<'a, E: AsEnginePtr + ?Sized>(
         engine: &'a E,
     ) -> Option<NodeRef<'a>> {
-        let ptr = unsafe { sys::ma_engine_get_endpoint(engine.as_engine_ptr()) };
+        let ptr = unsafe { sys::ma_engine_get_endpoint(private_engine::engine_ptr(engine)) };
         if ptr.is_null() {
             None
         } else {
@@ -901,32 +943,38 @@ pub(crate) mod engine_ffi {
 
     #[inline]
     pub fn ma_engine_get_time_in_pcm_frames<E: AsEnginePtr + ?Sized>(engine: &E) -> u64 {
-        unsafe { sys::ma_engine_get_time_in_pcm_frames(engine.as_engine_ptr() as *const _) }
+        unsafe {
+            sys::ma_engine_get_time_in_pcm_frames(private_engine::engine_ptr(engine) as *const _)
+        }
     }
 
     #[inline]
     pub fn ma_engine_get_time_in_milliseconds<E: AsEnginePtr + ?Sized>(engine: &E) -> u64 {
-        unsafe { sys::ma_engine_get_time_in_milliseconds(engine.as_engine_ptr() as *const _) }
+        unsafe {
+            sys::ma_engine_get_time_in_milliseconds(private_engine::engine_ptr(engine) as *const _)
+        }
     }
 
     #[inline]
     pub fn ma_engine_set_time_in_pcm_frames<E: AsEnginePtr + ?Sized>(engine: &E, time: u64) {
-        unsafe { sys::ma_engine_set_time_in_pcm_frames(engine.as_engine_ptr(), time) };
+        unsafe { sys::ma_engine_set_time_in_pcm_frames(private_engine::engine_ptr(engine), time) };
     }
 
     #[inline]
     pub fn ma_engine_set_time_in_milliseconds<E: AsEnginePtr + ?Sized>(engine: &E, time: u64) {
-        unsafe { sys::ma_engine_set_time_in_milliseconds(engine.as_engine_ptr(), time) };
+        unsafe {
+            sys::ma_engine_set_time_in_milliseconds(private_engine::engine_ptr(engine), time)
+        };
     }
 
     #[inline]
     pub fn ma_engine_get_channels<E: AsEnginePtr + ?Sized>(engine: &E) -> u32 {
-        unsafe { sys::ma_engine_get_channels(engine.as_engine_ptr() as *const _) }
+        unsafe { sys::ma_engine_get_channels(private_engine::engine_ptr(engine) as *const _) }
     }
 
     #[inline]
     pub fn ma_engine_get_sample_rate<E: AsEnginePtr + ?Sized>(engine: &E) -> u32 {
-        unsafe { sys::ma_engine_get_sample_rate(engine.as_engine_ptr() as *const _) }
+        unsafe { sys::ma_engine_get_sample_rate(private_engine::engine_ptr(engine) as *const _) }
     }
 
     // TODO: Not in the public API
@@ -945,13 +993,13 @@ pub(crate) mod engine_ffi {
 
     #[inline]
     pub fn ma_engine_set_volume<E: AsEnginePtr + ?Sized>(engine: &E, volume: f32) -> MaResult<()> {
-        let res = unsafe { sys::ma_engine_set_volume(engine.as_engine_ptr(), volume) };
+        let res = unsafe { sys::ma_engine_set_volume(private_engine::engine_ptr(engine), volume) };
         MaRawResult::check(res)
     }
 
     #[inline]
     pub fn ma_engine_get_volume<E: AsEnginePtr + ?Sized>(engine: &E) -> f32 {
-        unsafe { sys::ma_engine_get_volume(engine.as_engine_ptr()) }
+        unsafe { sys::ma_engine_get_volume(private_engine::engine_ptr(engine)) }
     }
 
     #[inline]
@@ -959,18 +1007,19 @@ pub(crate) mod engine_ffi {
         engine: &E,
         db_gain: f32,
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_engine_set_gain_db(engine.as_engine_ptr(), db_gain) };
+        let res =
+            unsafe { sys::ma_engine_set_gain_db(private_engine::engine_ptr(engine), db_gain) };
         MaRawResult::check(res)
     }
 
     #[inline]
     pub fn ma_engine_get_gain_db<E: AsEnginePtr + ?Sized>(engine: &E) -> f32 {
-        unsafe { sys::ma_engine_get_gain_db(engine.as_engine_ptr()) }
+        unsafe { sys::ma_engine_get_gain_db(private_engine::engine_ptr(engine)) }
     }
 
     #[inline]
     pub fn ma_engine_get_listener_count<E: AsEnginePtr + ?Sized>(engine: &E) -> u32 {
-        unsafe { sys::ma_engine_get_listener_count(engine.as_engine_ptr() as *const _) }
+        unsafe { sys::ma_engine_get_listener_count(private_engine::engine_ptr(engine) as *const _) }
     }
 
     #[inline]
@@ -980,7 +1029,7 @@ pub(crate) mod engine_ffi {
     ) -> u32 {
         unsafe {
             sys::ma_engine_find_closest_listener(
-                engine.as_engine_ptr() as *const _,
+                private_engine::engine_ptr(engine) as *const _,
                 position.x,
                 position.y,
                 position.z,
@@ -996,7 +1045,7 @@ pub(crate) mod engine_ffi {
     ) {
         unsafe {
             sys::ma_engine_listener_set_position(
-                engine.as_engine_ptr(),
+                private_engine::engine_ptr(engine),
                 listener,
                 position.x,
                 position.y,
@@ -1011,7 +1060,10 @@ pub(crate) mod engine_ffi {
         listener: u32,
     ) -> Vec3 {
         let vec = unsafe {
-            sys::ma_engine_listener_get_position(engine.as_engine_ptr() as *const _, listener)
+            sys::ma_engine_listener_get_position(
+                private_engine::engine_ptr(engine) as *const _,
+                listener,
+            )
         };
         vec.into()
     }
@@ -1024,7 +1076,7 @@ pub(crate) mod engine_ffi {
     ) {
         unsafe {
             sys::ma_engine_listener_set_direction(
-                engine.as_engine_ptr(),
+                private_engine::engine_ptr(engine),
                 listener,
                 position.x,
                 position.y,
@@ -1039,7 +1091,10 @@ pub(crate) mod engine_ffi {
         listener: u32,
     ) -> Vec3 {
         let vec = unsafe {
-            sys::ma_engine_listener_get_direction(engine.as_engine_ptr() as *const _, listener)
+            sys::ma_engine_listener_get_direction(
+                private_engine::engine_ptr(engine) as *const _,
+                listener,
+            )
         };
         vec.into()
     }
@@ -1052,7 +1107,7 @@ pub(crate) mod engine_ffi {
     ) {
         unsafe {
             sys::ma_engine_listener_set_velocity(
-                engine.as_engine_ptr(),
+                private_engine::engine_ptr(engine),
                 listener,
                 position.x,
                 position.y,
@@ -1067,7 +1122,10 @@ pub(crate) mod engine_ffi {
         listener: u32,
     ) -> Vec3 {
         let vec = unsafe {
-            sys::ma_engine_listener_get_velocity(engine.as_engine_ptr() as *const _, listener)
+            sys::ma_engine_listener_get_velocity(
+                private_engine::engine_ptr(engine) as *const _,
+                listener,
+            )
         };
         vec.into()
     }
@@ -1080,7 +1138,7 @@ pub(crate) mod engine_ffi {
     ) {
         unsafe {
             sys::ma_engine_listener_set_cone(
-                engine.as_engine_ptr(),
+                private_engine::engine_ptr(engine),
                 listener,
                 cone.inner_angle_rad,
                 cone.outer_angle_rad,
@@ -1097,7 +1155,7 @@ pub(crate) mod engine_ffi {
 
         unsafe {
             sys::ma_engine_listener_get_cone(
-                engine.as_engine_ptr() as *const _,
+                private_engine::engine_ptr(engine) as *const _,
                 listener,
                 &mut inner,
                 &mut outer,
@@ -1120,7 +1178,7 @@ pub(crate) mod engine_ffi {
     ) {
         unsafe {
             sys::ma_engine_listener_set_world_up(
-                engine.as_engine_ptr(),
+                private_engine::engine_ptr(engine),
                 listener,
                 vec.x,
                 vec.y,
@@ -1135,7 +1193,10 @@ pub(crate) mod engine_ffi {
         listener: u32,
     ) -> Vec3 {
         let vec = unsafe {
-            sys::ma_engine_listener_get_world_up(engine.as_engine_ptr() as *const _, listener)
+            sys::ma_engine_listener_get_world_up(
+                private_engine::engine_ptr(engine) as *const _,
+                listener,
+            )
         };
         vec.into()
     }
@@ -1147,7 +1208,11 @@ pub(crate) mod engine_ffi {
         enabled: bool,
     ) {
         unsafe {
-            sys::ma_engine_listener_set_enabled(engine.as_engine_ptr(), listener, enabled as u32)
+            sys::ma_engine_listener_set_enabled(
+                private_engine::engine_ptr(engine),
+                listener,
+                enabled as u32,
+            )
         }
     }
 
@@ -1157,7 +1222,10 @@ pub(crate) mod engine_ffi {
         listener: u32,
     ) -> bool {
         let res = unsafe {
-            sys::ma_engine_listener_is_enabled(engine.as_engine_ptr() as *const _, listener)
+            sys::ma_engine_listener_is_enabled(
+                private_engine::engine_ptr(engine) as *const _,
+                listener,
+            )
         };
         res == 1
     }

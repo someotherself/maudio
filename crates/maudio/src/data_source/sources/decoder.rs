@@ -8,7 +8,7 @@ use crate::{
         formats::{Format, SampleBuffer, SampleBufferS24},
         sample_rate::SampleRate,
     },
-    data_source::DataFormat,
+    data_source::{AsSourcePtr, DataFormat, DataSourceRef, private_data_source},
 };
 
 pub struct Decoder {
@@ -55,16 +55,58 @@ impl Binding for DecoderRef<'_> {
     }
 }
 
+// Keeps the as_decoder_ptr method on AsAudioBufferPtr private
+mod private_decoder {
+    use super::*;
+    use maudio_sys::ffi as sys;
+
+    pub trait DecoderProvider<T: ?Sized> {
+        fn as_decoder_ptr(t: &T) -> *mut sys::ma_decoder;
+    }
+
+    pub struct DecoderPtrProvider;
+    pub struct DecoderRefPtrProvider;
+
+    impl DecoderProvider<Decoder> for DecoderPtrProvider {
+        fn as_decoder_ptr(t: &Decoder) -> *mut sys::ma_decoder {
+            t.to_raw()
+        }
+    }
+
+    impl<'a> DecoderProvider<DecoderRef<'a>> for DecoderRefPtrProvider {
+        fn as_decoder_ptr(t: &DecoderRef<'a>) -> *mut sys::ma_decoder {
+            t.to_raw()
+        }
+    }
+
+    pub fn decoder_ptr<T: AsDecoderPtr + ?Sized>(t: &T) -> *mut sys::ma_decoder {
+        <T as AsDecoderPtr>::__PtrProvider::as_decoder_ptr(t)
+    }
+}
+
+// Allows Decoder to pass as a DataSource
+#[doc(hidden)]
+impl AsSourcePtr for Decoder {
+    type __PtrProvider = private_data_source::DecoderProvider;
+}
+
+// Allows DecoderRef to pass as a DataSource
+#[doc(hidden)]
+impl<'a> AsSourcePtr for DecoderRef<'a> {
+    type __PtrProvider = private_data_source::DecoderRefProvider;
+}
+
+// Allows both Decoder and DecoderRef to access the same methods
 pub trait AsDecoderPtr {
-    fn as_decoder_ptr(&self) -> *mut sys::ma_decoder;
+    #[doc(hidden)]
+    type __PtrProvider: private_decoder::DecoderProvider<Self>;
     fn format(&self) -> Format;
     fn channels(&self) -> u32;
 }
 
 impl AsDecoderPtr for Decoder {
-    fn as_decoder_ptr(&self) -> *mut sys::ma_decoder {
-        self.inner
-    }
+    #[doc(hidden)]
+    type __PtrProvider = private_decoder::DecoderPtrProvider;
 
     fn format(&self) -> Format {
         self.format
@@ -76,9 +118,8 @@ impl AsDecoderPtr for Decoder {
 }
 
 impl AsDecoderPtr for DecoderRef<'_> {
-    fn as_decoder_ptr(&self) -> *mut sys::ma_decoder {
-        self.inner
-    }
+    #[doc(hidden)]
+    type __PtrProvider = private_decoder::DecoderRefPtrProvider;
 
     fn format(&self) -> Format {
         self.format
@@ -89,9 +130,9 @@ impl AsDecoderPtr for DecoderRef<'_> {
     }
 }
 
-impl<T: AsDecoderPtr + ?Sized> DecoderOps for T {}
+impl<T: AsDecoderPtr + AsSourcePtr + ?Sized> DecoderOps for T {}
 
-pub trait DecoderOps: AsDecoderPtr {
+pub trait DecoderOps: AsDecoderPtr + AsSourcePtr {
     fn read_pcm_frames_u8(&mut self, frame_count: u64) -> MaResult<(SampleBuffer<u8>, u64)> {
         decoder_ffi::ma_decoder_read_pcm_frames_u8(self, frame_count)
     }
@@ -130,6 +171,12 @@ pub trait DecoderOps: AsDecoderPtr {
 
     fn available_frames(&mut self) -> MaResult<u64> {
         decoder_ffi::ma_decoder_get_available_frames(self)
+    }
+
+    fn as_source(&self) -> DataSourceRef<'_> {
+        debug_assert!(!private_decoder::decoder_ptr(self).is_null());
+        let ptr = private_decoder::decoder_ptr(self).cast::<sys::ma_data_source>();
+        DataSourceRef::from_ptr(ptr)
     }
 }
 
@@ -231,7 +278,7 @@ pub(crate) mod decoder_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::audio::formats::{SampleBuffer, SampleBufferS24};
-    use crate::data_source::sources::decoder::{AsDecoderPtr, DecoderBuilder};
+    use crate::data_source::sources::decoder::{AsDecoderPtr, DecoderBuilder, private_decoder};
     use crate::{Binding, MaRawResult, MaResult, data_source::DataFormat};
 
     #[inline]
@@ -256,7 +303,7 @@ pub(crate) mod decoder_ffi {
 
     #[inline]
     pub fn ma_decoder_uninit<D: AsDecoderPtr + ?Sized>(decoder: &mut D) -> MaResult<()> {
-        let res = unsafe { sys::ma_decoder_uninit(decoder.as_decoder_ptr()) };
+        let res = unsafe { sys::ma_decoder_uninit(private_decoder::decoder_ptr(decoder)) };
         MaRawResult::check(res)
     }
 
@@ -379,7 +426,7 @@ pub(crate) mod decoder_ffi {
         let mut frames_read = 0;
         let res = unsafe {
             sys::ma_decoder_read_pcm_frames(
-                decoder.as_decoder_ptr(),
+                private_decoder::decoder_ptr(decoder),
                 buffer,
                 frame_count,
                 &mut frames_read,
@@ -394,8 +441,9 @@ pub(crate) mod decoder_ffi {
         decoder: &mut D,
         frame_index: u64,
     ) -> MaResult<()> {
-        let res =
-            unsafe { sys::ma_decoder_seek_to_pcm_frame(decoder.as_decoder_ptr(), frame_index) };
+        let res = unsafe {
+            sys::ma_decoder_seek_to_pcm_frame(private_decoder::decoder_ptr(decoder), frame_index)
+        };
         MaRawResult::check(res)
     }
 
@@ -411,7 +459,7 @@ pub(crate) mod decoder_ffi {
 
         let res = unsafe {
             sys::ma_decoder_get_data_format(
-                decoder.as_decoder_ptr(),
+                private_decoder::decoder_ptr(decoder),
                 &mut format_raw,
                 &mut channels,
                 &mut sample_rate,
@@ -436,7 +484,10 @@ pub(crate) mod decoder_ffi {
     ) -> MaResult<u64> {
         let mut cursor = 0;
         let res = unsafe {
-            sys::ma_decoder_get_cursor_in_pcm_frames(decoder.as_decoder_ptr(), &mut cursor)
+            sys::ma_decoder_get_cursor_in_pcm_frames(
+                private_decoder::decoder_ptr(decoder),
+                &mut cursor,
+            )
         };
         MaRawResult::check(res)?;
         Ok(cursor)
@@ -447,7 +498,10 @@ pub(crate) mod decoder_ffi {
     ) -> MaResult<u64> {
         let mut length = 0;
         let res = unsafe {
-            sys::ma_decoder_get_length_in_pcm_frames(decoder.as_decoder_ptr(), &mut length)
+            sys::ma_decoder_get_length_in_pcm_frames(
+                private_decoder::decoder_ptr(decoder),
+                &mut length,
+            )
         };
         MaRawResult::check(res)?;
         Ok(length)
@@ -457,8 +511,9 @@ pub(crate) mod decoder_ffi {
         decoder: &mut D,
     ) -> MaResult<u64> {
         let mut frames = 0;
-        let res =
-            unsafe { sys::ma_decoder_get_available_frames(decoder.as_decoder_ptr(), &mut frames) };
+        let res = unsafe {
+            sys::ma_decoder_get_available_frames(private_decoder::decoder_ptr(decoder), &mut frames)
+        };
         MaRawResult::check(res)?;
         Ok(frames)
     }
