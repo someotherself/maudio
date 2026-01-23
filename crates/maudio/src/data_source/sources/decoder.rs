@@ -336,9 +336,9 @@ pub(crate) mod decoder_ffi {
     #[inline]
     #[cfg(windows)]
     pub fn ma_decoder_init_file_w(
-        decoder: *mut sys::ma_decoder,
         path: &[u16],
         config: &DecoderBuilder,
+        decoder: *mut sys::ma_decoder,
     ) -> MaResult<()> {
         let res = unsafe {
             sys::ma_decoder_init_file_w(path.as_ptr(), &config.to_raw() as *const _, decoder)

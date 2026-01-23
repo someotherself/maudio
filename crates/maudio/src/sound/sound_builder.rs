@@ -624,7 +624,7 @@ impl<'a> SoundBuilder<'a> {
                 null_fields(self);
                 let wide_path = crate::engine::wide_null_terminated(p);
                 self.inner.pFilePathW = wide_path.as_ptr();
-                self.owned_path = OwnedPathBuf::Wide(wide); // keep the pointer alive
+                self.owned_path = OwnedPathBuf::Wide(wide_path); // keep the pointer alive
             }
         }
         Ok(())
