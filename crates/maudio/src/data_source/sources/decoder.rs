@@ -241,7 +241,7 @@ impl Decoder {
 
             let path = wide_null_terminated(path);
 
-            decoder_ffi::ma_decoder_init_file_w(path, config, decoder)?;
+            decoder_ffi::ma_decoder_init_file_w(&path, config, decoder)?;
             Ok(())
         }
 
@@ -816,7 +816,7 @@ mod tests {
             // Key: expected "units" depends on how the buffer stores samples.
             let expected_units = match fmt {
                 Format::S24 => 15,
-                _ => 5 * 1,
+                _ => 5,
             };
 
             assert_eq!(len_units, expected_units);
