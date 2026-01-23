@@ -341,11 +341,7 @@ pub(crate) mod decoder_ffi {
         config: &DecoderBuilder,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_decoder_init_file_w(
-                path.as_ptr(),
-                &config.to_raw() as *const _,
-                decoder,
-            )
+            sys::ma_decoder_init_file_w(path.as_ptr(), &config.to_raw() as *const _, decoder)
         };
         MaRawResult::check(res)
     }

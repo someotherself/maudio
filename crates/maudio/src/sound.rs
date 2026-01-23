@@ -538,7 +538,7 @@ pub(crate) mod sound_ffi {
         path: &[u16],
         flags: SoundFlags,
         s_group: Option<&SoundGroup>,
-        done_fence: Option<&    Fence>,
+        done_fence: Option<&Fence>,
         sound: *mut sys::ma_sound,
     ) -> MaResult<()> {
         let s_group: *mut sys::ma_sound_group =
