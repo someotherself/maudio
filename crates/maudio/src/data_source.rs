@@ -205,6 +205,7 @@ impl<'a> AsSourcePtr for DataSourceRef<'a> {
 
 impl<T: AsSourcePtr + ?Sized> DataSourceOps for T {}
 
+/// The DataSourceOps trait contains shared methods for [`DataSource`], [`DataSourceRef`] and all data source types which can be cast to a `ma_data_source`
 pub trait DataSourceOps: AsSourcePtr {
     fn read_pcm_frames(&mut self, frame_count: u64, channels: u32) -> MaResult<(Vec<f32>, u64)> {
         data_source_ffi::ma_data_source_read_pcm_frames(self, frame_count, channels)

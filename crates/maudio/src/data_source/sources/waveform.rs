@@ -1,3 +1,14 @@
+//! Procedural waveform generator.
+//!
+//! Generates common waveforms (sine, square, triangle, sawtooth, etc.) and
+//! exposes them as a [`DataSource`](crate::data_source::DataSource).
+//!
+//! This is useful for synthesis, testing, and generating example audio without
+//! loading external files.
+//!
+//! The waveform can be controlled at runtime via [`WaveFormOps`] (type,
+//! amplitude, frequency, and sample rate) and can be seeked like any other
+//! source.
 use maudio_sys::ffi as sys;
 
 use crate::{
@@ -9,11 +20,6 @@ use crate::{
     },
 };
 
-pub trait AsWaveFormPtr {
-    type __PtrProvider: WaveFormPtrProvider<Self>;
-    fn channels(&self) -> u32;
-}
-
 pub(crate) struct WaveFormInner {
     ptr: *mut sys::ma_waveform,
 }
@@ -24,6 +30,13 @@ pub(crate) struct WaveState {
     wave_type: WaveformType,
     amplitude: f64,
     frequency: f64,
+}
+
+/// Allows all WaveForm types to access the same methods
+pub trait AsWaveFormPtr {
+    #[doc(hidden)]
+    type __PtrProvider: WaveFormPtrProvider<Self>;
+    fn channels(&self) -> u32;
 }
 
 mod private_wave {
@@ -75,6 +88,7 @@ mod private_wave {
     }
 }
 
+/// Waveform generator producing [`Format::U8`] samples.
 pub struct WaveFormU8 {
     inner: WaveFormInner,
     format: Format,
@@ -101,6 +115,7 @@ impl WaveFormU8 {
     }
 }
 
+/// Waveform generator producing [`Format::S16`] samples.
 pub struct WaveFormI16 {
     inner: WaveFormInner,
     format: Format,
@@ -127,6 +142,7 @@ impl WaveFormI16 {
     }
 }
 
+/// Waveform generator producing [`Format::S32`] samples.
 pub struct WaveFormI32 {
     inner: WaveFormInner,
     format: Format,
@@ -153,6 +169,7 @@ impl WaveFormI32 {
     }
 }
 
+/// Waveform generator producing [`Format::S24`] samples.
 pub struct WaveFormS24 {
     inner: WaveFormInner,
     format: Format,
@@ -179,6 +196,7 @@ impl WaveFormS24 {
     }
 }
 
+/// Waveform generator producing [`Format::F32`] samples.
 pub struct WaveFormF32 {
     inner: WaveFormInner,
     format: Format,
@@ -208,6 +226,7 @@ impl WaveFormF32 {
 
 impl<T: AsWaveFormPtr + AsSourcePtr + ?Sized> WaveFormOps for T {}
 
+/// The WaveFormOps trait contains shared methods for all WaveForm types for each data format.
 pub trait WaveFormOps: AsWaveFormPtr + AsSourcePtr {
     fn seek_to_pcm_frame(&mut self, frame_index: u64) -> MaResult<()> {
         waveform_ffi::ma_waveform_seek_to_pcm_frame(self, frame_index)

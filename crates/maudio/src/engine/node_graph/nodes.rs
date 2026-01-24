@@ -280,6 +280,7 @@ impl AsNodePtr for NodeRef<'_> {
 
 impl<T: AsNodePtr + ?Sized> NodeOps for T {}
 
+/// NodeOps trait contains shared methods for `Node` and [`NodeRef`]
 pub trait NodeOps: AsNodePtr {
     fn attach_output_bus<P: AsNodePtr + ?Sized>(
         &mut self,

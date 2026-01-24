@@ -35,7 +35,7 @@
 //! endpoint.
 //! See [`node_graph::NodeGraph`]
 //!
-//! Advanced users can access the endpoint node via [`Engine::endpoint`] to
+//! Advanced users can access the endpoint node via [`EngineOps::endpoint()`] to
 //! attach custom processing or inspect the graph.
 //!
 //! ## Time
@@ -306,7 +306,7 @@ pub trait EngineOps: AsEnginePtr {
     ///
     /// ## Notes
     /// - The time is monotonic unless explicitly modified with
-    ///   [`set_time_pcm`].
+    ///   [`EngineOps::set_time_pcm()`].
     /// - The value is independent of any individual sound’s playback position
     fn time_pcm(&self) -> u64 {
         engine_ffi::ma_engine_get_time_in_pcm_frames(self)
@@ -317,9 +317,7 @@ pub trait EngineOps: AsEnginePtr {
     /// This is a convenience wrapper over the engine’s internal PCM-frame
     /// clock, converted to milliseconds using the engine’s sample rate.
     ///
-    /// ## Notes
-    /// - This value may lose precision compared to [`time_pcm`].
-    /// - For sample-accurate work, prefer [`time_pcm`].
+    /// - For sample-accurate work, prefer [`EngineOps::time_pcm()`].
     fn time_mili(&self) -> u64 {
         engine_ffi::ma_engine_get_time_in_milliseconds(self)
     }
@@ -347,7 +345,7 @@ pub trait EngineOps: AsEnginePtr {
     ///
     /// ## Notes
     /// - Internally converted to PCM frames.
-    /// - Precision may be lower than [`set_time_pcm`].
+    /// - Precision may be lower than [`EngineOps::set_time_pcm()`].
     fn set_time_mili(&self, time: u64) {
         engine_ffi::ma_engine_set_time_in_milliseconds(self, time);
     }

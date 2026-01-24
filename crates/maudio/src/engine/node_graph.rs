@@ -11,7 +11,7 @@ pub mod nodes;
 /// so they can be imported with a single global import.
 ///
 /// Import this when you want access to [`NodeGraph`] and [`NodeGraphRef`] and all shared engine
-/// methods (provided by [`EngineOps`]) without having to import each item
+/// methods (provided by [`EngineOps`](crate::engine)) without having to import each item
 /// individually.
 /// This is purely a convenience module; importing directly
 /// works just as well if you prefer explicit imports.

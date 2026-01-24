@@ -1,3 +1,12 @@
+//! Pulse wave signal generator.
+//!
+//! Produces a procedural pulse (square) wave and exposes it as a [`DataSource`](crate::data_source::DataSource).
+//! This is useful for synthesis, testing, and generating example audio without
+//! loading files.
+//!
+//! The generator can be controlled at runtime via [`PulseWaveOps`] (amplitude,
+//! frequency, duty cycle, and sample rate) and can be seeked like any other
+//! source.
 use maudio_sys::ffi as sys;
 
 use crate::{
@@ -5,11 +14,6 @@ use crate::{
     audio::{formats::Format, sample_rate::SampleRate},
     data_source::{AsSourcePtr, DataSourceRef, private_data_source},
 };
-
-pub trait AsPulseWavePtr {
-    type __PtrProvider: private_pulsew::PulseWavePtrProvider<Self>;
-    fn channels(&self) -> u32;
-}
 
 pub(crate) struct PulseWaveInner {
     ptr: *mut sys::ma_pulsewave,
@@ -22,6 +26,13 @@ pub(crate) struct PulseWaveState {
     amplitude: f64,
     frequency: f64,
     duty_cycle: f64,
+}
+
+/// Allows all PulseWave types to access the same methods
+pub trait AsPulseWavePtr {
+    #[doc(hidden)]
+    type __PtrProvider: private_pulsew::PulseWavePtrProvider<Self>;
+    fn channels(&self) -> u32;
 }
 
 mod private_pulsew {
@@ -73,6 +84,7 @@ mod private_pulsew {
     }
 }
 
+/// Pulse wave generator producing [`Format::U8`] samples.
 pub struct PulseWaveU8 {
     inner: PulseWaveInner,
     format: Format,
@@ -98,6 +110,7 @@ impl PulseWaveU8 {
     }
 }
 
+/// Pulse wave generator producing [`Format::S16`] samples.
 pub struct PulseWaveI16 {
     inner: PulseWaveInner,
     format: Format,
@@ -122,6 +135,7 @@ impl PulseWaveI16 {
     }
 }
 
+/// Pulse wave generator producing [`Format::S32`] samples.
 pub struct PulseWaveI32 {
     inner: PulseWaveInner,
     format: Format,
@@ -146,6 +160,7 @@ impl PulseWaveI32 {
     }
 }
 
+/// Pulse wave generator producing [`Format::S24`] samples.
 pub struct PulseWaveS24 {
     inner: PulseWaveInner,
     format: Format,
@@ -172,6 +187,7 @@ impl PulseWaveS24 {
     }
 }
 
+/// Pulse wave generator producing [`Format::F32`] samples.
 pub struct PulseWaveF32 {
     inner: PulseWaveInner,
     format: Format,
@@ -199,6 +215,7 @@ impl PulseWaveF32 {
 
 impl<T: AsPulseWavePtr + AsSourcePtr + ?Sized> PulseWaveOps for T {}
 
+/// The PulseWaveOps trait contains shared methods for all PulseWave types for each data format.
 pub trait PulseWaveOps: AsPulseWavePtr + AsSourcePtr {
     fn seek_to_pcm_frame(&mut self, frame_index: u64) -> MaResult<()> {
         pulsewave_ffi::ma_pulsewave_seek_to_pcm_frame(self, frame_index)

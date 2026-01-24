@@ -31,7 +31,7 @@ use crate::{
 ///   (In many EQs this is related to Q; miniaudio exposes it as a shelf slope.)
 ///
 /// ## Notes
-/// After creating the filter, use [`Self::reinit`] and [`LoShelfNodeParams`] to change the values of the coefficients.
+/// After creating the filter, use [`Self::reinit()`] and [`LoShelfNodeParams`] to change the values of the coefficients.
 /// This reinitializes the filter coefficients without clearing the internal state.
 /// This allows filter parameters to be updated in real time without causing
 /// audible artifacts such as clicks or pops.
@@ -101,7 +101,7 @@ impl<'a> LoShelfNode<'a> {
     }
 
     /// See [`LoShelfNodeParams`] for creating a config
-    fn reinit(&mut self, config: &LoShelfNodeParams) -> MaResult<()> {
+    pub fn reinit(&mut self, config: &LoShelfNodeParams) -> MaResult<()> {
         n_loshelf_ffi::ma_loshelf_node_reinit(config.to_raw(), self)
     }
 

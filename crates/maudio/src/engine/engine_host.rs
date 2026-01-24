@@ -203,9 +203,10 @@ impl EngineHandle {
     ///
     /// ## Notes
     /// - The time is monotonic unless explicitly modified with
-    ///   [`set_time_pcm`].
+    ///   [`EngineHost::set_time_pcm()`].
     /// - The value is independent of any individual sound’s playback position
     fn time_pcm(&self) -> MaResult<u64> {
+        self.set_time_pcm();
         self.call(move |e| e.time_pcm())
     }
 
@@ -214,9 +215,7 @@ impl EngineHandle {
     /// This is a convenience wrapper over the engine’s internal PCM-frame
     /// clock, converted to milliseconds using the engine’s sample rate.
     ///
-    /// ## Notes
-    /// - This value may lose precision compared to [`time_pcm`].
-    /// - For sample-accurate work, prefer [`time_pcm`].
+    /// - For sample-accurate work, prefer [`EngineHost::set_time_pcm()`].
     fn time_mili(&self) -> MaResult<u64> {
         self.call(move |e| e.time_mili())
     }
@@ -244,7 +243,7 @@ impl EngineHandle {
     ///
     /// ## Notes
     /// - Internally converted to PCM frames.
-    /// - Precision may be lower than [`set_time_pcm`].
+    /// - Precision may be lower than [`set_time_pcm`](Self).
     fn set_time_mili(&self, time: u64) -> MaResult<()> {
         self.post(move |e| e.set_time_mili(time))
     }

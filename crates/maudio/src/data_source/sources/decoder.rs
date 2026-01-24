@@ -1,3 +1,13 @@
+//! Streaming audio decoder.
+//!
+//! A `Decoder` reads encoded audio data and decodes it into PCM frames on demand.
+//! It does not load the entire audio stream into memory.
+//!
+//! Use a decoder when working with large audio files or when streaming audio
+//! data. For small, fully-loaded audio, consider using [`AudioBuffer`](crate::data_source::sources::buffer::AudioBuffer) instead.
+//!
+//! A decoder implements [`DataSource`](crate::data_source::DataSource), allowing it to be used directly by
+//! sounds and node graphs.
 use std::{marker::PhantomData, path::Path, sync::Arc};
 
 use maudio_sys::ffi as sys;
@@ -11,6 +21,12 @@ use crate::{
     data_source::{AsSourcePtr, DataFormat, DataSourceRef, private_data_source},
 };
 
+/// Owned streaming audio decoder.
+///
+/// This decoder is self-contained: it keeps any required input data alive for
+/// as long as the decoder exists.
+///
+/// Use this when you need an easy-to-store decoder without borrowing.
 pub struct Decoder {
     inner: *mut sys::ma_decoder,
     format: Format,
@@ -33,6 +49,13 @@ impl Binding for Decoder {
     }
 }
 
+/// Borrowed (zero-copy) streaming audio decoder.
+///
+/// `DecoderRef` does not own the underlying input data. It references existing
+/// audio data, so the backing data must remain alive for as long as this decoder
+/// is used (`'a`).
+///
+/// Use this when decoding from already-owned data without copying.
 pub struct DecoderRef<'a> {
     inner: *mut sys::ma_decoder,
     format: Format,
@@ -96,7 +119,7 @@ impl<'a> AsSourcePtr for DecoderRef<'a> {
     type __PtrProvider = private_data_source::DecoderRefProvider;
 }
 
-// Allows both Decoder and DecoderRef to access the same methods
+/// Allows both Decoder and DecoderRef to access the same methods
 pub trait AsDecoderPtr {
     #[doc(hidden)]
     type __PtrProvider: private_decoder::DecoderProvider<Self>;
@@ -132,6 +155,7 @@ impl AsDecoderPtr for DecoderRef<'_> {
 
 impl<T: AsDecoderPtr + AsSourcePtr + ?Sized> DecoderOps for T {}
 
+/// DecoderOps trait contains shared methods for [`Decoder`] and [`DecoderRef`]
 pub trait DecoderOps: AsDecoderPtr + AsSourcePtr {
     fn read_pcm_frames_u8(&mut self, frame_count: u64) -> MaResult<(SampleBuffer<u8>, u64)> {
         decoder_ffi::ma_decoder_read_pcm_frames_u8(self, frame_count)

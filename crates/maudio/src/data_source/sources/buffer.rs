@@ -1,3 +1,7 @@
+//! In-memory PCM audio buffer.
+//!
+//! An `AudioBuffer` stores decoded audio samples and can be read, seeked, or
+//! used as a [`DataSource`](crate::data_source::DataSource) by the engine.
 use std::marker::PhantomData;
 
 use maudio_sys::ffi as sys;
@@ -9,6 +13,10 @@ use crate::{
     engine::AllocationCallbacks,
 };
 
+/// Owned in-memory PCM audio buffer.
+///
+/// This type owns the underlying buffer allocation, so it is self-contained and
+/// can outlive whatever was used to create it.
 pub struct AudioBuffer {
     inner: *mut sys::ma_audio_buffer,
     pub format: Format,
@@ -30,6 +38,13 @@ impl Binding for AudioBuffer {
     }
 }
 
+/// Borrowed (zero-copy) PCM audio buffer.
+///
+/// `AudioBufferRef` does not own the underlying samples. It references an
+/// existing buffer, so the original backing data (and any associated allocation
+/// state) must outlive `'a`.
+///
+/// Use this when you want to work with an existing buffer without copying.
 pub struct AudioBufferRef<'a> {
     inner: *mut sys::ma_audio_buffer,
     pub format: Format,
@@ -92,7 +107,7 @@ impl<'a> AsSourcePtr for AudioBufferRef<'a> {
     type __PtrProvider = private_data_source::AudioBufferRefProvider;
 }
 
-// Allows both AudioBuffer and AudioBufferRef to access the same methods
+/// Allows both AudioBuffer and AudioBufferRef to access the same methods
 pub trait AsAudioBufferPtr {
     #[doc(hidden)]
     type __PtrProvider: private_abuffer::AudioBufferProvider<Self>;
@@ -128,6 +143,7 @@ impl AsAudioBufferPtr for AudioBufferRef<'_> {
 
 impl<T: AsAudioBufferPtr + AsSourcePtr + ?Sized> AudioBufferOps for T {}
 
+/// AudioBufferOps trait contains shared methods for [`AudioBuffer`] and [`AudioBufferRef`]
 pub trait AudioBufferOps: AsAudioBufferPtr + AsSourcePtr {
     fn read_pcm_frames_u8(
         &mut self,

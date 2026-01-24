@@ -9,6 +9,9 @@ pub mod notifier;
 pub mod sound;
 pub mod util;
 
+#[doc(hidden)]
+pub extern crate maudio_sys;
+
 use maudio_sys::ffi as sys;
 
 pub(crate) trait Binding: Sized {

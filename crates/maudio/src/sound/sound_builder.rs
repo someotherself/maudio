@@ -238,7 +238,7 @@ impl<'a> SoundBuilder<'a> {
     /// # Lifetime
     /// The provided `source` must:
     ///
-    /// - point to a valid, initialized [`DataSource`]
+    /// - point to a valid, initialized [`DataSource`](crate::data_source::DataSource)
     /// - remain alive for the entire lifetime of the created sound
     ///
     /// # When to use this
@@ -299,7 +299,7 @@ impl<'a> SoundBuilder<'a> {
     ///
     /// The "channel" does not refer to a speaker, sound channel and it does not control spatialization directly.
     ///
-    /// Is ignored if source is a [`DataSource`]
+    /// Is ignored if source is a [`DataSource`](crate::data_source::DataSource)
     ///
     /// This controls how many channels miniaudio expects from the sound's data source.
     /// In most cases this should be left at `0`, which allows miniaudio to infer the
