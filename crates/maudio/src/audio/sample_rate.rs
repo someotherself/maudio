@@ -210,23 +210,23 @@ mod tests {
     #[test]
     fn test_sample_rate_try_from_sys_accepts_concrete_values() {
         assert_eq!(
-            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_48000 as u32)
+            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_48000)
                 .unwrap(),
             SampleRate::Sr48000
         );
         assert_eq!(
-            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_44100 as u32)
+            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_44100)
                 .unwrap(),
             SampleRate::Sr44100
         );
         assert_eq!(
-            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_8000 as u32)
+            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_8000)
                 .unwrap(),
             SampleRate::Sr8000
         );
         assert_eq!(
             SampleRate::try_from(
-                sys::ma_standard_sample_rate_ma_standard_sample_rate_384000 as u32
+                sys::ma_standard_sample_rate_ma_standard_sample_rate_384000
             )
             .unwrap(),
             SampleRate::Sr384000
@@ -265,26 +265,26 @@ mod tests {
     #[test]
     fn test_sample_rate_try_from_sys_accepts_concrete_values_u32() {
         assert_eq!(
-            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_48000 as u32)
+            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_48000)
                 .unwrap(),
             SampleRate::Sr48000
         );
 
         assert_eq!(
-            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_44100 as u32)
+            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_44100)
                 .unwrap(),
             SampleRate::Sr44100
         );
 
         assert_eq!(
-            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_8000 as u32)
+            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_8000)
                 .unwrap(),
             SampleRate::Sr8000
         );
 
         assert_eq!(
             SampleRate::try_from(
-                sys::ma_standard_sample_rate_ma_standard_sample_rate_384000 as u32
+                sys::ma_standard_sample_rate_ma_standard_sample_rate_384000
             )
             .unwrap(),
             SampleRate::Sr384000
@@ -294,9 +294,9 @@ mod tests {
     #[test]
     fn test_sample_rate_try_from_sys_rejects_invalid_values() {
         let bogus_i32 =
-            (sys::ma_standard_sample_rate_ma_standard_sample_rate_48000 as i32) + 12_345;
+            (sys::ma_standard_sample_rate_ma_standard_sample_rate_48000) + 12_345;
         let bogus_u32 =
-            (sys::ma_standard_sample_rate_ma_standard_sample_rate_48000 as u32) + 12_345;
+            (sys::ma_standard_sample_rate_ma_standard_sample_rate_48000) + 12_345;
 
         let err_i32 = SampleRate::try_from(bogus_i32).unwrap_err();
         let err_u32 = SampleRate::try_from(bogus_u32).unwrap_err();
@@ -306,7 +306,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sample_rate_roundtrip_sys_to_rust_to_sys() {
+        fn test_sample_rate_roundtrip_sys_to_rust_to_sys() {
         let cases = [
             sys::ma_standard_sample_rate_ma_standard_sample_rate_48000,
             sys::ma_standard_sample_rate_ma_standard_sample_rate_44100,
@@ -331,9 +331,9 @@ mod tests {
             assert_eq!(back_i32, v as i32);
 
             // u32 roundtrip
-            let rust_u32 = SampleRate::try_from(v as u32).unwrap();
+            let rust_u32 = SampleRate::try_from(v).unwrap();
             let back_u32: u32 = rust_u32.into();
-            assert_eq!(back_u32, v as u32);
+            assert_eq!(back_u32, v);
         }
     }
 

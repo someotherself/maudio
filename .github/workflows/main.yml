@@ -63,3 +63,54 @@ jobs:
 
       - name: Run tests
         run: cargo test --features "${{ matrix.features }}" --all-targets
+
+  android:
+    name: Android (${{ matrix.target }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - aarch64-linux-android
+          - armv7-linux-androideabi
+          - x86_64-linux-android
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install Rust (with Android target)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          # optional but nice: keep caches separate per target
+          shared-key: android-${{ matrix.target }}
+
+      - name: Setup Android NDK
+        id: setup-ndk
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r25c
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      - name: Build (release)
+        env:
+          ANDROID_NDK_HOME: ${{ steps.setup-ndk.outputs.ndk-path }}
+          ANDROID_NDK_ROOT: ${{ steps.setup-ndk.outputs.ndk-path }}
+        run: |
+          cargo ndk -t ${{ matrix.target }} -p 21 build --release
+
+      - name: Upload artifacts (.so)
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-${{ matrix.target }}
+          path: |
+            target/${{ matrix.target }}/release/*.so
+            target/${{ matrix.target }}/release/*.a
