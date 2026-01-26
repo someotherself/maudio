@@ -1,3 +1,4 @@
+//! Flags that control how a sound is initialized
 use maudio_sys::ffi as sys;
 
 pub type SoundFlagsRaw = sys::ma_sound_flags;

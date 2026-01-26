@@ -45,15 +45,15 @@ impl Binding for AudioBuffer {
 /// state) must outlive `'a`.
 ///
 /// Use this when you want to work with an existing buffer without copying.
-pub struct AudioBufferRef<'a> {
+pub struct AudioBufferRef<'a, 'alloc> {
     inner: *mut sys::ma_audio_buffer,
     pub format: Format,
     pub channels: u32,
     _marker: PhantomData<&'a [u8]>,
-    _alloc_marker: PhantomData<&'a AllocationCallbacks>,
+    alloc_cb: Option<&'alloc AllocationCallbacks>,
 }
 
-impl Binding for AudioBufferRef<'_> {
+impl Binding for AudioBufferRef<'_, '_> {
     type Raw = *mut sys::ma_audio_buffer;
 
     /// !!! unimplemented !!!
@@ -84,8 +84,8 @@ mod private_abuffer {
         }
     }
 
-    impl<'a> AudioBufferProvider<AudioBufferRef<'a>> for AudioBufferRefPtrPrivider {
-        fn as_buffer_ptr(t: &AudioBufferRef<'a>) -> *mut sys::ma_audio_buffer {
+    impl<'a, 'alloc> AudioBufferProvider<AudioBufferRef<'a, 'alloc>> for AudioBufferRefPtrPrivider {
+        fn as_buffer_ptr(t: &AudioBufferRef<'a, 'alloc>) -> *mut sys::ma_audio_buffer {
             t.to_raw()
         }
     }
@@ -103,7 +103,7 @@ impl AsSourcePtr for AudioBuffer {
 
 // Allows AudioBufferRef to pass as a DataSource
 #[doc(hidden)]
-impl<'a> AsSourcePtr for AudioBufferRef<'a> {
+impl<'a, 'alloc> AsSourcePtr for AudioBufferRef<'a, 'alloc> {
     type __PtrProvider = private_data_source::AudioBufferRefProvider;
 }
 
@@ -128,7 +128,7 @@ impl AsAudioBufferPtr for AudioBuffer {
     }
 }
 
-impl AsAudioBufferPtr for AudioBufferRef<'_> {
+impl AsAudioBufferPtr for AudioBufferRef<'_, '_> {
     #[doc(hidden)]
     type __PtrProvider = private_abuffer::AudioBufferRefPtrPrivider;
 
@@ -212,10 +212,10 @@ pub trait AudioBufferOps: AsAudioBufferPtr + AsSourcePtr {
     }
 }
 
-impl<'a> AudioBufferRef<'a> {
-    fn new_with_cfg_internal(config: &AudioBufferBuilder<'a>) -> MaResult<Self> {
+impl<'a, 'alloc> AudioBufferRef<'a, 'alloc> {
+    fn new_with_cfg_internal(mut config: AudioBufferBuilder<'a, 'alloc>) -> MaResult<Self> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_audio_buffer>> = Box::new_uninit();
-        buffer_ffi::ma_audio_buffer_init(config, mem.as_mut_ptr())?;
+        buffer_ffi::ma_audio_buffer_init(&config, mem.as_mut_ptr())?;
 
         let ptr: Box<sys::ma_audio_buffer> = unsafe { mem.assume_init() };
         let inner: *mut sys::ma_audio_buffer = Box::into_raw(ptr);
@@ -225,14 +225,15 @@ impl<'a> AudioBufferRef<'a> {
             format: config.inner.format.try_into()?,
             channels: config.inner.channels,
             _marker: PhantomData,
-            _alloc_marker: PhantomData,
+            alloc_cb: config.alloc_cb.take(),
         })
     }
 }
 
 impl AudioBuffer {
-    fn new_with_cfg_internal(config: &AudioBufferBuilder) -> MaResult<Self> {
+    fn copy_with_cfg_internal(config: &AudioBufferBuilder) -> MaResult<Self> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_audio_buffer>> = Box::new_uninit();
+
         buffer_ffi::ma_audio_buffer_init_copy(config, mem.as_mut_ptr())?;
 
         let ptr: Box<sys::ma_audio_buffer> = unsafe { mem.assume_init() };
@@ -481,22 +482,22 @@ impl Drop for AudioBuffer {
     }
 }
 
-impl<'a> Drop for AudioBufferRef<'a> {
+impl<'a, 'alloc> Drop for AudioBufferRef<'a, 'alloc> {
     fn drop(&mut self) {
         buffer_ffi::ma_audio_buffer_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
     }
 }
 
-pub struct AudioBufferBuilder<'a> {
+pub struct AudioBufferBuilder<'a, 'alloc> {
     inner: sys::ma_audio_buffer_config,
-    alloc_cb: Option<&'a AllocationCallbacks>,
+    alloc_cb: Option<&'alloc AllocationCallbacks>,
     // This type and AudioBufferRef must keep a lifetime to the data provided to AudioBufferBuilder
     // Otherwise, the data can be dropped and result in a dangling pointer
     _marker: PhantomData<&'a [u8]>,
 }
 
-impl<'a> Binding for AudioBufferBuilder<'a> {
+impl Binding for AudioBufferBuilder<'_, '_> {
     type Raw = sys::ma_audio_buffer_config;
 
     fn from_ptr(raw: Self::Raw) -> Self {
@@ -512,7 +513,7 @@ impl<'a> Binding for AudioBufferBuilder<'a> {
     }
 }
 
-impl<'a> AudioBufferBuilder<'a> {
+impl<'a, 'alloc> AudioBufferBuilder<'a, 'alloc> {
     #[inline]
     fn from_typed<T>(format: Format, channels: u32, frames: u64, data: &'a [T]) -> MaResult<Self> {
         let expected = (frames as usize)
@@ -573,11 +574,11 @@ impl<'a> AudioBufferBuilder<'a> {
     }
 
     pub fn build_copy(self) -> MaResult<AudioBuffer> {
-        AudioBuffer::new_with_cfg_internal(&self)
+        AudioBuffer::copy_with_cfg_internal(&self)
     }
 
-    pub fn build_ref(self) -> MaResult<AudioBufferRef<'a>> {
-        AudioBufferRef::new_with_cfg_internal(&self)
+    pub fn build_ref(self) -> MaResult<AudioBufferRef<'a, 'alloc>> {
+        AudioBufferRef::new_with_cfg_internal(self)
     }
 
     pub(crate) fn init(
@@ -585,7 +586,7 @@ impl<'a> AudioBufferBuilder<'a> {
         channels: u32,
         size_frames: u64,
         data: *const core::ffi::c_void,
-        alloc_cb: Option<&'a AllocationCallbacks>,
+        alloc_cb: Option<&'alloc AllocationCallbacks>,
     ) -> Self {
         let alloc: *const sys::ma_allocation_callbacks =
             alloc_cb.map_or(core::ptr::null(), |c| &c.inner as *const _);

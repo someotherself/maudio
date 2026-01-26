@@ -25,7 +25,7 @@ use crate::{
     Binding, MaRawResult, MaResult,
     engine::{
         AllocationCallbacks, Engine,
-        node_graph::{node_graph_builder::NodeGraphConfig, nodes::NodeRef},
+        node_graph::{node_graph_builder::NodeGraphBuilder, nodes::NodeRef},
     },
 };
 
@@ -70,9 +70,9 @@ use crate::{
 /// - non-standard processing graphs
 /// - offline rendering of audio
 /// - fine-grained control over how audio is evaluated
-pub struct NodeGraph<'a> {
+pub struct NodeGraph<'alloc> {
     inner: *mut sys::ma_node_graph,
-    alloc_cb: Option<&'a AllocationCallbacks>,
+    alloc_cb: Option<&'alloc AllocationCallbacks>,
     _not_sync: PhantomData<Cell<()>>,
 }
 
@@ -135,7 +135,7 @@ pub(crate) mod private_node_graph {
     pub struct NodeGraphProvider;
     pub struct NodeGraphRefProvider;
 
-    impl<'a> NodeGraphPtrProvider<NodeGraph<'a>> for NodeGraphProvider {
+    impl<'alloc> NodeGraphPtrProvider<NodeGraph<'alloc>> for NodeGraphProvider {
         #[inline]
         fn as_node_graph_ptr(t: &NodeGraph) -> *mut sys::ma_node_graph {
             t.to_raw()
@@ -195,20 +195,16 @@ pub trait NodeGraphOps: AsNodeGraphPtr {
 }
 
 // These should not be available to NodeGraphRef
-impl<'a> NodeGraph<'a> {
-    fn new(config: &NodeGraphConfig) -> MaResult<Self> {
-        NodeGraph::with_alloc_callbacks(config, None)
-    }
-
+impl<'alloc> NodeGraph<'alloc> {
     fn with_alloc_callbacks(
-        config: &NodeGraphConfig,
-        alloc: Option<&'a AllocationCallbacks>,
+        config: &NodeGraphBuilder,
+        alloc: Option<&'alloc AllocationCallbacks>,
     ) -> MaResult<Self> {
         let mut mem: Box<MaybeUninit<sys::ma_node_graph>> = Box::new_uninit();
 
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
-        graph_ffi::ma_node_graph_init(config.get_raw(), alloc_cb, mem.as_mut_ptr())?;
+        graph_ffi::ma_node_graph_init(&config.to_raw() as *const _, alloc_cb, mem.as_mut_ptr())?;
         let mem: Box<sys::ma_node_graph> = unsafe { mem.assume_init() };
         let inner = Box::into_raw(mem);
 
@@ -315,7 +311,7 @@ mod graph_ffi {
     }
 }
 
-impl<'a> Drop for NodeGraph<'a> {
+impl<'alloc> Drop for NodeGraph<'alloc> {
     fn drop(&mut self) {
         graph_ffi::ma_node_graph_uninit(self.to_raw(), self.alloc_cb_ptr());
         drop(unsafe { Box::from_raw(self.to_raw()) });

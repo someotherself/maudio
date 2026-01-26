@@ -1,3 +1,33 @@
+//! Builder for constructing a [`Sound`]
+//!
+//! Use this when the convenience constructors aren’t enough (custom attachment,
+//! channel configuration, async loading fence, start-on-build, etc.).
+//!
+//! ## Source selection (exactly one)
+//! A sound is initialized from **at most one** source:
+//! - [`SoundBuilder::file_path`]
+//! - [`SoundBuilder::data_source`] (via a `DataSource` type)
+//! - [`SoundBuilder::no_source`] (no playback source; some flags become invalid)
+//!
+//! Calling a source setter replaces any previously set source.
+//!
+//! ## Platform path ownership
+//! When using [`SoundBuilder::file_path`], the builder stores an owned, platform-specific
+//! copy of the path (UTF-8 `CString` on Unix, wide + NUL on Windows) so the raw pointer
+//! inside `ma_sound_config` remains valid until [`SoundBuilder::build`] completes.
+//!
+//! ## Async loading and fences
+//! [`SoundBuilder::fence`] is only valid for file-based sounds. It implicitly enables
+//! [`SoundFlags::ASYNC`]. Using a fence with [`SoundBuilder::data_source`] or
+//! [`SoundBuilder::no_source`] returns `MA_INVALID_ARGS`.
+//!
+//! ## Start playing on build
+//! [`SoundBuilder::start_playing`] will call `sound.play_sound()` after initialization,
+//! but only when a real source is set. It is rejected for [`SoundBuilder::no_source`].
+//!
+//! ## End notifications
+//! [`SoundBuilder::with_end_notifier`] builds the sound and returns an [`EndNotifier`]
+//! that becomes `true` once the sound reaches the end callback.
 use std::{
     path::Path,
     sync::{Arc, atomic::AtomicBool},
@@ -13,39 +43,13 @@ use crate::{
         Engine, EngineOps,
         node_graph::nodes::{AsNodePtr, private_node},
     },
-    notifier::EndNotifier,
-    sound::{Sound, SoundSource, sound_flags::SoundFlags, sound_group::SoundGroup},
+    sound::{
+        Sound, SoundSource, notifier::EndNotifier, sound_flags::SoundFlags, sound_group::SoundGroup,
+    },
     util::fence::Fence,
 };
 
 /// Builder for constructing a [`Sound`]
-///
-/// # What this is for
-/// Miniaudio exposes `ma_sound_config` as a configuration struct that is filled out
-/// and then used to create a sound (ma_sound). `SoundBuilder` is the wrapper around that pattern:
-///
-/// - You configure *how the sound should be initialized*
-/// - Then you "build" it once, producing a fully initialized [`Sound`].
-///
-/// This is especially useful when you need more control than the convenience
-/// constructors (for example: attaching the sound to a specific node/bus, selecting
-/// input/output channel behavior, or initializing from a custom data source).
-///
-/// # What this is NOT
-/// `SoundBuilder` configures *initialization-time* options only. Runtime properties
-/// like volume, pitch, pan/spatialization, and looping state are controlled via
-/// methods on [`Sound`] after it has been built (e.g. `sound.set_volume(...)`)
-///
-/// # Sound sources
-/// A sound can be initialized from **at most one** of:
-///
-/// - a file path (`pFilePath` / `pFilePathW`)
-/// - an existing miniaudio data source (`pDataSource`)
-///
-///
-/// `SoundBuilder` keeps an owned copy of the path (`CString` on Unix, wide buffer on
-/// Windows) so the raw pointer inside `ma_sound_config` remains valid until
-/// [`SoundBuilder::build`] is called.
 ///
 /// # Examples
 ///
@@ -100,7 +104,7 @@ pub struct SoundBuilder<'a> {
     owned_path: OwnedPathBuf,
     fence: Option<&'a Fence>,
     flags: SoundFlags,
-    group: Option<&'a SoundGroup>,
+    group: Option<&'a SoundGroup<'a>>,
     end_notifier: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
     sound_state: SoundState,
 }
@@ -139,7 +143,7 @@ impl<'a> SoundBuilder<'a> {
         self.end_notifier = Some(notifier.clone_flag());
 
         self.inner.pEndCallbackUserData = notifier.as_user_data_ptr();
-        self.inner.endCallback = Some(crate::notifier::on_end_callback);
+        self.inner.endCallback = Some(crate::sound::notifier::on_end_callback);
 
         notifier
     }
@@ -333,67 +337,91 @@ impl<'a> SoundBuilder<'a> {
         self
     }
 
+    /// Sets the volume smoothing time, in PCM frames.
+    ///
+    /// Larger values smooth abrupt volume changes over a longer period.
     pub fn volume_smooth_frames(mut self, pcm_frames: u32) -> Self {
         self.inner.volumeSmoothTimeInPCMFrames = pcm_frames;
         self
     }
 
+    /// Sets the first PCM frame that can be played.
+    ///
+    /// Frames before this point are skipped during playback.
     pub fn range_begin_frames(mut self, pcm_frames: u64) -> Self {
         self.inner.rangeBegInPCMFrames = pcm_frames;
         self
     }
 
+    /// Sets the last PCM frame that can be played.
+    ///
+    /// Playback stops when this frame is reached.
     pub fn range_end_frames(mut self, pcm_frames: u64) -> Self {
         self.inner.rangeEndInPCMFrames = pcm_frames;
         self
     }
 
+    /// Sets the loop start position, in PCM frames.
+    ///
+    /// Only meaningful when looping is enabled.
     pub fn loop_begin_frames(mut self, pcm_frames: u64) -> Self {
         self.inner.loopPointBegInPCMFrames = pcm_frames;
         self
     }
 
+    /// Sets the loop end position, in PCM frames.
+    ///
+    /// When reached, playback jumps back to the loop begin frame.
     pub fn loop_end_frames(mut self, pcm_frames: u64) -> Self {
         self.inner.loopPointEndInPCMFrames = pcm_frames;
         self
     }
 
+    /// Sets the initial seek position, in PCM frames.
+    ///
+    /// Playback starts from this frame instead of the beginning.
     pub fn seek_point_frames(mut self, pcm_frames: u64) -> Self {
         self.inner.initialSeekPointInPCMFrames = pcm_frames;
         self
     }
 
-    /// Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
+    /// Sets the volume smoothing time, in PCM frames.
+    ///
+    /// Alternative to `range_begin_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
     pub fn volume_smooth_millis(mut self, millis: f64) -> Self {
         self.inner.volumeSmoothTimeInPCMFrames = self.millis_to_frames(millis) as u32;
         self
     }
 
-    /// Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
+    /// Anything before this point is skipped during playback.
+    ///
+    /// Alternative to `range_begin_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
     pub fn range_begin_millis(mut self, millis: f64) -> Self {
         self.inner.rangeBegInPCMFrames = self.millis_to_frames(millis);
         self
     }
 
-    /// Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
+    /// Playback stops when this frame is reached.
+    ///
+    /// Alternative to `range_end_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
     pub fn range_end_millis(mut self, millis: f64) -> Self {
         self.inner.rangeEndInPCMFrames = self.millis_to_frames(millis);
         self
     }
 
-    /// Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
+    /// Alternative to `loop_begin_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
     pub fn loop_begin_millis(mut self, millis: f64) -> Self {
         self.inner.loopPointBegInPCMFrames = self.millis_to_frames(millis);
         self
     }
 
-    /// Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
+    /// Alternative to `loop_end_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
     pub fn loop_end_millis(mut self, millis: f64) -> Self {
         self.inner.loopPointEndInPCMFrames = self.millis_to_frames(millis);
         self
     }
 
-    /// Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
+    /// Alternative to `seek_point_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
     pub fn seek_point_millis(mut self, millis: f64) -> Self {
         self.inner.initialSeekPointInPCMFrames = self.millis_to_frames(millis);
         self

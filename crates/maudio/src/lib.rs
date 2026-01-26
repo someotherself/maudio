@@ -5,7 +5,6 @@ pub mod context;
 pub mod data_source;
 pub mod device;
 pub mod engine;
-pub mod notifier;
 pub mod sound;
 pub mod util;
 

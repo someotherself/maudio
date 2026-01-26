@@ -90,14 +90,14 @@ pub mod routing;
 pub mod source;
 
 // Would be used for fully custom nodes. Not used for now
-struct Node<'a> {
+struct Node<'a, 'alloc> {
     inner: *mut sys::ma_node,
-    alloc_cb: Option<&'a AllocationCallbacks>,
+    alloc_cb: Option<&'alloc AllocationCallbacks>,
     _marker: PhantomData<&'a NodeGraph<'a>>,
     _not_sync: PhantomData<Cell<()>>,
 }
 
-impl Binding for Node<'_> {
+impl Binding for Node<'_, '_> {
     type Raw = *mut sys::ma_node;
 
     /// !! unimplemented !!
@@ -144,7 +144,7 @@ pub(crate) mod private_node {
             lpf::LpfNode, notch::NotchNode, peak::PeakNode,
         },
         routing::splitter::SplitterNode,
-        source::data_source::DataSourceNode,
+        source::data_source::SourceNode,
     };
 
     use super::*;
@@ -165,11 +165,11 @@ pub(crate) mod private_node {
     pub struct NotchNodeProvider;
     pub struct PeakNodeProvider;
     pub struct SplitterNodeProvider;
-    pub struct DataSourceNodeProvider;
+    pub struct SourceNodeProvider;
 
-    impl<'a> NodePtrProvider<Node<'a>> for NodeProvider {
+    impl<'a, 'alloc> NodePtrProvider<Node<'a, 'alloc>> for NodeProvider {
         #[inline]
-        fn as_node_ptr(t: &Node<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &Node<'a, 'alloc>) -> *mut sys::ma_node {
             t.to_raw()
         }
     }
@@ -181,79 +181,72 @@ pub(crate) mod private_node {
         }
     }
 
-    impl<'a> NodePtrProvider<DelayNode<'a>> for DelayNodeProvider {
+    impl<'a, 'alloc> NodePtrProvider<DelayNode<'a, 'alloc>> for DelayNodeProvider {
         #[inline]
-        fn as_node_ptr(t: &DelayNode<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &DelayNode<'a, 'alloc>) -> *mut sys::ma_node {
             t.as_node().to_raw()
         }
     }
 
-    impl<'a> NodePtrProvider<BiquadNode<'a>> for BiquadNodeProvider {
+    impl<'a, 'alloc> NodePtrProvider<BiquadNode<'a, 'alloc>> for BiquadNodeProvider {
         #[inline]
-        fn as_node_ptr(t: &BiquadNode<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &BiquadNode<'a, 'alloc>) -> *mut sys::ma_node {
             t.as_node().to_raw()
         }
     }
 
-    impl<'a> NodePtrProvider<HiShelfNode<'a>> for HiShelfNodeProvider {
+    impl<'a, 'alloc> NodePtrProvider<HiShelfNode<'a, 'alloc>> for HiShelfNodeProvider {
         #[inline]
-        fn as_node_ptr(t: &HiShelfNode<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &HiShelfNode<'a, 'alloc>) -> *mut sys::ma_node {
             t.as_node().to_raw()
         }
     }
 
-    impl<'a> NodePtrProvider<HpfNode<'a>> for HpfNodeProvider {
+    impl<'a, 'alloc> NodePtrProvider<HpfNode<'a, 'alloc>> for HpfNodeProvider {
         #[inline]
-        fn as_node_ptr(t: &HpfNode<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &HpfNode<'a, 'alloc>) -> *mut sys::ma_node {
             t.as_node().to_raw()
         }
     }
 
-    impl<'a> NodePtrProvider<LoShelfNode<'a>> for HiShelfNodeProvider {
+    impl<'a, 'alloc> NodePtrProvider<LoShelfNode<'a, 'alloc>> for LoShelfNodeProvider {
         #[inline]
-        fn as_node_ptr(t: &LoShelfNode<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &LoShelfNode<'a, 'alloc>) -> *mut sys::ma_node {
             t.as_node().to_raw()
         }
     }
 
-    impl<'a> NodePtrProvider<LoShelfNode<'a>> for LoShelfNodeProvider {
+    impl<'a, 'alloc> NodePtrProvider<LpfNode<'a, 'alloc>> for LpfNodeProvider {
         #[inline]
-        fn as_node_ptr(t: &LoShelfNode<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &LpfNode<'a, 'alloc>) -> *mut sys::ma_node {
             t.as_node().to_raw()
         }
     }
 
-    impl<'a> NodePtrProvider<LpfNode<'a>> for LpfNodeProvider {
+    impl<'a, 'alloc> NodePtrProvider<NotchNode<'a, 'alloc>> for NotchNodeProvider {
         #[inline]
-        fn as_node_ptr(t: &LpfNode<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &NotchNode<'a, 'alloc>) -> *mut sys::ma_node {
             t.as_node().to_raw()
         }
     }
 
-    impl<'a> NodePtrProvider<NotchNode<'a>> for NotchNodeProvider {
+    impl<'a, 'alloc> NodePtrProvider<PeakNode<'a, 'alloc>> for PeakNodeProvider {
         #[inline]
-        fn as_node_ptr(t: &NotchNode<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &PeakNode<'a, 'alloc>) -> *mut sys::ma_node {
             t.as_node().to_raw()
         }
     }
 
-    impl<'a> NodePtrProvider<PeakNode<'a>> for PeakNodeProvider {
+    impl<'a, 'alloc> NodePtrProvider<SplitterNode<'a, 'alloc>> for SplitterNodeProvider {
         #[inline]
-        fn as_node_ptr(t: &PeakNode<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &SplitterNode<'a, 'alloc>) -> *mut sys::ma_node {
             t.as_node().to_raw()
         }
     }
 
-    impl<'a> NodePtrProvider<SplitterNode<'a>> for SplitterNodeProvider {
+    impl<'a, 'alloc> NodePtrProvider<SourceNode<'a, 'alloc>> for SourceNodeProvider {
         #[inline]
-        fn as_node_ptr(t: &SplitterNode<'a>) -> *mut sys::ma_node {
-            t.as_node().to_raw()
-        }
-    }
-
-    impl<'a> NodePtrProvider<DataSourceNode<'a>> for DataSourceNodeProvider {
-        #[inline]
-        fn as_node_ptr(t: &DataSourceNode<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &SourceNode<'a, 'alloc>) -> *mut sys::ma_node {
             t.as_node().to_raw()
         }
     }
@@ -269,7 +262,7 @@ pub trait AsNodePtr {
 }
 
 #[doc(hidden)]
-impl AsNodePtr for Node<'_> {
+impl AsNodePtr for Node<'_, '_> {
     type __PtrProvider = private_node::NodeProvider;
 }
 
@@ -365,8 +358,11 @@ pub trait NodeOps: AsNodePtr {
 }
 
 // These should be not available to NodeRef
-impl<'a> Node<'a> {
-    pub(crate) fn new(inner: *mut sys::ma_node, alloc_cb: Option<&'a AllocationCallbacks>) -> Self {
+impl<'a, 'alloc> Node<'a, 'alloc> {
+    pub(crate) fn new(
+        inner: *mut sys::ma_node,
+        alloc_cb: Option<&'alloc AllocationCallbacks>,
+    ) -> Self {
         Self {
             inner,
             alloc_cb,

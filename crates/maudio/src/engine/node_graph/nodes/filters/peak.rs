@@ -40,9 +40,9 @@ use crate::{
 /// real-time parameter changes with minimal risk of audible artifacts (clicks/pops).
 ///
 /// Use [`PeakNodeBuilder`] to initialize.
-pub struct PeakNode<'a> {
+pub struct PeakNode<'a, 'alloc> {
     inner: *mut sys::ma_peak_node,
-    alloc_cb: Option<&'a AllocationCallbacks>,
+    alloc_cb: Option<&'alloc AllocationCallbacks>,
     _marker: PhantomData<&'a NodeGraph<'a>>,
     // Below is needed during a reinit
     channels: u32,
@@ -52,7 +52,7 @@ pub struct PeakNode<'a> {
     sample_rate: SampleRate,
 }
 
-impl Binding for PeakNode<'_> {
+impl Binding for PeakNode<'_, '_> {
     type Raw = *mut sys::ma_peak_node;
 
     /// !!! unimplemented !!!
@@ -66,15 +66,15 @@ impl Binding for PeakNode<'_> {
 }
 
 #[doc(hidden)]
-impl AsNodePtr for PeakNode<'_> {
+impl AsNodePtr for PeakNode<'_, '_> {
     type __PtrProvider = PeakNodeProvider;
 }
 
-impl<'a> PeakNode<'a> {
+impl<'a, 'alloc> PeakNode<'a, 'alloc> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &PeakNodeBuilder<'_, N>,
-        alloc: Option<&'a AllocationCallbacks>,
+        alloc: Option<&'alloc AllocationCallbacks>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
@@ -166,7 +166,7 @@ pub(crate) mod n_peak_ffi {
     }
 }
 
-impl<'a> Drop for PeakNode<'a> {
+impl<'a, 'alloc> Drop for PeakNode<'a, 'alloc> {
     fn drop(&mut self) {
         n_peak_ffi::ma_peak_node_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -190,7 +190,7 @@ impl<N: AsNodeGraphPtr + ?Sized> Binding for PeakNodeBuilder<'_, N> {
     }
 }
 
-impl<'a, N: AsNodeGraphPtr + ?Sized> PeakNodeBuilder<'a, N> {
+impl<'a, 'alloc, N: AsNodeGraphPtr + ?Sized> PeakNodeBuilder<'a, N> {
     pub fn new(
         node_graph: &'a N,
         channels: u32,
@@ -208,7 +208,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> PeakNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(self) -> MaResult<PeakNode<'a>> {
+    pub fn build(self) -> MaResult<PeakNode<'a, 'alloc>> {
         PeakNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
     }
 }

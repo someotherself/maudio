@@ -1,3 +1,10 @@
+//! Sound playback primitives.
+//!
+//! This module defines [`Sound`], an engine-managed audio voice.
+//!
+//! Sounds can be loaded synchronously, or asynchronously with [`SoundFlags::ASYNC`]. When async
+//! loading is used, creation may return before the sound is ready; a [`Fence`] can be supplied
+//! to wait for completion via [`Fence::wait`].
 use std::{cell::Cell, marker::PhantomData, path::Path};
 
 use maudio_sys::ffi as sys;
@@ -11,11 +18,11 @@ use crate::{
     },
     data_source::{DataFormat, DataSourceRef},
     engine::{Engine, EngineRef, node_graph::nodes::NodeRef},
-    notifier::EndNotifier,
-    sound::{sound_flags::SoundFlags, sound_group::SoundGroup},
+    sound::{notifier::EndNotifier, sound_flags::SoundFlags, sound_group::SoundGroup},
     util::fence::Fence,
 };
 
+pub mod notifier;
 pub mod sound_builder;
 pub mod sound_flags;
 pub mod sound_group;
@@ -384,23 +391,23 @@ impl<'a> Sound<'a> {
         sound_ffi::ma_sound_seek_to_second(self, seek_point_seconds)
     }
 
-    fn data_format(&self) -> MaResult<DataFormat> {
+    pub fn data_format(&self) -> MaResult<DataFormat> {
         sound_ffi::ma_sound_get_data_format(self)
     }
 
-    fn cursor_pcm(&self) -> MaResult<u64> {
+    pub fn cursor_pcm(&self) -> MaResult<u64> {
         sound_ffi::ma_sound_get_cursor_in_pcm_frames(self)
     }
 
-    fn length_pcm(&self) -> MaResult<u64> {
+    pub fn length_pcm(&self) -> MaResult<u64> {
         sound_ffi::ma_sound_get_length_in_pcm_frames(self)
     }
 
-    fn cursor_seconds(&self) -> MaResult<f32> {
+    pub fn cursor_seconds(&self) -> MaResult<f32> {
         sound_ffi::ma_sound_get_cursor_in_seconds(self)
     }
 
-    fn length_seconds(&self) -> MaResult<f32> {
+    pub fn length_seconds(&self) -> MaResult<f32> {
         sound_ffi::ma_sound_get_length_in_seconds(self)
     }
 
@@ -413,7 +420,7 @@ impl<'a> Sound<'a> {
         let res = unsafe {
             sys::ma_sound_set_end_callback(
                 self.to_raw(),
-                Some(crate::notifier::on_end_callback),
+                Some(crate::sound::notifier::on_end_callback),
                 user_data,
             )
         };
@@ -491,7 +498,8 @@ pub(crate) mod sound_ffi {
     use crate::audio::spatial::{
         attenuation::AttenuationModel, cone::Cone, positioning::Positioning,
     };
-    use crate::data_source::{DataFormat, DataSource, DataSourceRef, private_data_source};
+    use crate::data_source::AsSourcePtr;
+    use crate::data_source::{DataFormat, DataSourceRef, private_data_source};
     use crate::util::fence::Fence;
     use crate::{
         MaRawResult,
@@ -582,9 +590,9 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_init_from_data_source(
+    pub fn ma_sound_init_from_data_source<D: AsSourcePtr + ?Sized>(
         engine: &Engine,
-        data_source: &DataSource,
+        data_source: &D,
         flags: SoundFlags,
         s_group: Option<&SoundGroup>,
         sound: *mut sys::ma_sound,
@@ -1514,7 +1522,7 @@ mod test {
     }
 
     #[test]
-    fn test_sound_looping_toggle() {
+    fn test_sound_builder_data_source() {
         let engine = Engine::new_for_tests().unwrap();
         let data = ramp_f32_interleaved(2, 32);
 
@@ -1526,6 +1534,27 @@ mod test {
         let src = buf.as_source();
 
         let mut sound = engine.sound().data_source(&src).build().unwrap();
+
+        sound.set_looping(false);
+        assert!(!sound.looping());
+
+        sound.set_looping(true);
+        assert!(sound.looping());
+    }
+
+    #[test]
+    fn test_sound_data_source() {
+        let engine = Engine::new_for_tests().unwrap();
+        let data = ramp_f32_interleaved(2, 32);
+
+        let buf = AudioBufferBuilder::from_f32(2, 32, &data)
+            .unwrap()
+            .build_copy()
+            .unwrap();
+
+        let src = buf.as_source();
+
+        let mut sound = engine.new_sound_from_source(&src).unwrap();
 
         sound.set_looping(false);
         assert!(!sound.looping());

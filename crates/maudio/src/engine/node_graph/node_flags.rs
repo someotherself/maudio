@@ -46,21 +46,10 @@ impl NodeFlags {
     pub const CONTINUOUS_PROCESSING: Self =
         Self(sys::ma_node_flags_MA_NODE_FLAG_CONTINUOUS_PROCESSING);
 
-    /// Allows the processing callback to receive `NULL` input buffers.
+    /// Allows the node to continue processing when no input is connected.
     ///
-    /// This flag is used in conjunction with [`CONTINUOUS_PROCESSING`].
-    ///
-    /// ## Behavior
-    /// - **When set**: `ppFramesIn` (TODO) will be `NULL` (TODO) when no input data is available
-    /// - **When unset**: silence is supplied instead
-    ///
-    /// # Typical uses
-    /// - Procedural generators
-    /// - Nodes that explicitly distinguish "no input" from "silent input"
-    /// - Advanced DSP where silence is not equivalent to absence of data
-    ///
-    /// If your node treats silence and missing input the same way, this
-    /// flag is usually unnecessary.
+    /// This flag currently has no observable effect in the public API, but is
+    /// preserved for compatibility with miniaudio and future custom node support.
     pub const ALLOW_NULL_INPUT: Self = Self(sys::ma_node_flags_MA_NODE_FLAG_ALLOW_NULL_INPUT);
 
     /// Indicates that the node processes input and output frames at

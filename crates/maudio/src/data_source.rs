@@ -92,7 +92,7 @@ pub(crate) mod private_data_source {
         }
     }
 
-    impl<'a> DataSourcePtrProvider<AudioBufferRef<'a>> for AudioBufferRefProvider {
+    impl<'a, 'alloc> DataSourcePtrProvider<AudioBufferRef<'a, 'alloc>> for AudioBufferRefProvider {
         #[inline]
         fn as_source_ptr(t: &AudioBufferRef) -> *mut sys::ma_data_source {
             t.as_source().to_raw()

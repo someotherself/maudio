@@ -1,4 +1,4 @@
-//! Audio engine.
+//! High level audio engine.
 //!
 //! [`Engine`] is the main entry point for playback and mixing. It wraps
 //! miniaudio’s `ma_engine` and provides access to the engine’s global clock,
@@ -15,7 +15,7 @@
 //! # fn main() -> maudio::MaResult<()> {
 //! let engine = Engine::new()?;
 //! // let mut sound = engine.new_sound_from_file("music.ogg")?;
-//! // sound.start()?;
+//! // sound.play_sound()?;
 //! /* block the main thread while the sound is playing */
 //! # Ok(())
 //! # }
@@ -48,15 +48,16 @@
 //! The engine runs an internal audio callback on a real-time thread. Care should
 //! be taken to avoid heavy work or allocations in contexts that must remain
 //! real-time safe.
-use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit, path::Path};
+use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit, path::Path, sync::Arc};
 
 use crate::{
     Binding, MaResult,
     audio::{math::vec3::Vec3, sample_rate::SampleRate, spatial::cone::Cone},
-    data_source::DataSource,
+    data_source::AsSourcePtr,
     engine::{
         engine_builder::EngineBuilder,
         node_graph::{NodeGraphRef, nodes::NodeRef},
+        process_notifier::ProcessState,
     },
     sound::{
         Sound,
@@ -75,6 +76,7 @@ pub mod engine_builder;
 pub mod engine_host;
 
 pub mod node_graph;
+pub mod process_notifier;
 
 /// Prelude for the [`engine`](super) module.
 ///
@@ -103,17 +105,16 @@ pub mod prelude {
 /// - optionally interact with the engine’s endpoint node / node graph for effects
 pub struct Engine {
     inner: *mut sys::ma_engine,
+    process_notifier: Option<Arc<ProcessState>>,
     _not_sync: PhantomData<Cell<()>>,
 }
 
 impl Binding for Engine {
     type Raw = *mut sys::ma_engine;
 
-    fn from_ptr(raw: Self::Raw) -> Self {
-        Self {
-            inner: raw,
-            _not_sync: PhantomData,
-        }
+    /// !!! unimplemented !!!
+    fn from_ptr(_raw: Self::Raw) -> Self {
+        unimplemented!()
     }
 
     fn to_raw(&self) -> Self::Raw {
@@ -405,7 +406,11 @@ impl Engine {
         // Safety: If mem is not initialized, engine_init will return an error
         let mem: Box<sys::ma_engine> = unsafe { mem.assume_init() };
         let inner = Box::into_raw(mem);
-        Ok(Self::from_ptr(inner))
+        Ok(Self {
+            inner,
+            process_notifier: None,
+            _not_sync: PhantomData,
+        })
     }
 
     /// Equivalent to calling [`SoundBuilder::new()`]
@@ -419,6 +424,30 @@ impl Engine {
 
     pub fn new_sound_from_file(&self, path: &Path) -> MaResult<Sound<'_>> {
         self.new_sound_with_file_internal(path, SoundFlags::NONE, None, None)
+    }
+
+    pub fn new_sound_from_source<D: AsSourcePtr + ?Sized>(
+        &self,
+        source: &D,
+    ) -> MaResult<Sound<'_>> {
+        self.new_sound_with_source_internal(SoundFlags::NONE, None, source)
+    }
+
+    /// Manually starts the engine
+    ///
+    /// By default, an engine will be created with `no_auto_start` to false.
+    /// Setting [`EngineBuilder::no_auto_start()`] will require a manual start
+    ///
+    /// Start and stop operations on an engine with no device will result in an error
+    pub fn start(&self) -> MaResult<()> {
+        engine_ffi::ma_engine_start(self)
+    }
+
+    /// Manually stops the engine
+    ///
+    /// Start and stop operations on an engine with no device will result in an error
+    pub fn stop(&self) -> MaResult<()> {
+        engine_ffi::ma_engine_stop(self)
     }
 
     pub fn new_sound_from_file_with_group<'a>(
@@ -455,11 +484,11 @@ impl Engine {
         Ok(Sound::from_ptr(inner))
     }
 
-    pub(crate) fn new_sound_with_source_internal<'a>(
+    pub(crate) fn new_sound_with_source_internal<'a, D: AsSourcePtr + ?Sized>(
         &'a self,
         flags: SoundFlags,
         sound_group: Option<&'a SoundGroup>,
-        data_source: &DataSource,
+        data_source: &D,
     ) -> MaResult<Sound<'a>> {
         let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new_uninit();
 
@@ -518,7 +547,7 @@ impl Engine {
         Ok(Sound::from_ptr(inner))
     }
 
-    pub fn new_sound_group(&self) -> MaResult<SoundGroup> {
+    pub fn new_sound_group(&self) -> MaResult<SoundGroup<'_>> {
         let mut mem: Box<MaybeUninit<sys::ma_sound_group>> = Box::new_uninit();
         let config = self.new_sound_group_config();
 
@@ -975,16 +1004,14 @@ pub(crate) mod engine_ffi {
         unsafe { sys::ma_engine_get_sample_rate(private_engine::engine_ptr(engine) as *const _) }
     }
 
-    // TODO: Not in the public API
     #[inline]
-    pub fn ma_engine_start(engine: &mut Engine) -> MaResult<()> {
+    pub fn ma_engine_start(engine: &Engine) -> MaResult<()> {
         let res = unsafe { sys::ma_engine_start(engine.to_raw()) };
         MaRawResult::check(res)
     }
 
-    // TODO: Not in the public API
     #[inline]
-    pub fn ma_engine_stop(engine: &mut Engine) -> MaResult<()> {
+    pub fn ma_engine_stop(engine: &Engine) -> MaResult<()> {
         let res = unsafe { sys::ma_engine_stop(engine.to_raw()) };
         MaRawResult::check(res)
     }

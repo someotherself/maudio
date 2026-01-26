@@ -9,22 +9,24 @@ use crate::{
         math::vec3::Vec3,
         spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
     },
-    engine::{EngineRef, node_graph::nodes::NodeRef},
+    engine::{Engine, EngineRef, node_graph::nodes::NodeRef},
 };
 
 // TODO: Needs a lifetime to engine
-pub struct SoundGroup {
+pub struct SoundGroup<'a> {
     inner: *mut sys::ma_sound_group,
     _not_sync: PhantomData<Cell<()>>,
+    _marker: PhantomData<&'a Engine>,
 }
 
-impl Binding for SoundGroup {
+impl Binding for SoundGroup<'_> {
     type Raw = *mut sys::ma_sound_group;
 
     fn from_ptr(raw: Self::Raw) -> Self {
         Self {
             inner: raw,
             _not_sync: PhantomData,
+            _marker: PhantomData,
         }
     }
 
@@ -33,7 +35,7 @@ impl Binding for SoundGroup {
     }
 }
 
-impl SoundGroup {
+impl SoundGroup<'_> {
     pub fn engine(&mut self) -> Option<EngineRef<'_>> {
         s_group_ffi::ma_sound_group_get_engine(self)
     }
@@ -253,14 +255,6 @@ impl SoundGroup {
     }
 
     // Safe to cast as ma_node in version 0.11.23
-    /// Returns a **borrowed view** as a node in the engine's node graph.
-    ///
-    /// ### What this is for
-    ///
-    /// Use `as_node()` when you want to:
-    /// - connect this to other nodes (effects, mixers, splitters, etc.)
-    /// - insert into a custom routing graph
-    /// - query node-level state exposed by the graph
     pub fn as_node(&self) -> NodeRef<'_> {
         debug_assert!(!self.inner.is_null());
         let ptr = self.inner.cast::<sys::ma_node>();
@@ -268,7 +262,7 @@ impl SoundGroup {
     }
 }
 
-impl Drop for SoundGroup {
+impl Drop for SoundGroup<'_> {
     fn drop(&mut self) {
         s_group_ffi::ma_sound_group_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -694,7 +688,7 @@ mod test {
             math::vec3::Vec3,
             spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
         },
-        engine::Engine,
+        engine::{Engine, engine_builder::EngineBuilder},
     };
 
     fn approx_eq(a: f32, b: f32, eps: f32) -> bool {
@@ -793,36 +787,19 @@ mod test {
         assert!(s_group.spatialization());
     }
 
-    // #[test] // TODO
-    // fn test_sound_group_pinned_listener_roundtrip() {
-    //     let engine = Engine::new_for_tests().unwrap();
-    //     let mut s_group = engine.new_sound_group().unwrap();
+    #[test]
+    fn test_sound_group_pinned_listener_roundtrip() {
+        let engine = EngineBuilder::new()
+            .listener_count(2)
+            .build_for_tests()
+            .unwrap();
+        let mut s_group = engine.new_sound_group().unwrap();
 
-    //     s_group.set_pinned_listener(0);
-    //     assert_eq!(s_group.pinned_listener(), 0);
-
-    //     s_group.set_pinned_listener(2);
-    //     assert_eq!(s_group.pinned_listener(), 2);
-    // }
-
-    // #[test] // TODO
-    // fn test_sound_group_pinned_listener_roundtrip() {
-    //     let engine = Engine::new_for_tests().unwrap();
-    //     let mut s_group = engine.new_sound_group().unwrap();
-
-    //     s_group.set_pinned_listener(0);
-    //     assert_eq!(s_group.pinned_listener(), 0);
-
-    //     let listener_count = engine.listener_count();
-    //     if listener_count > 1 {
-    //         s_group.set_pinned_listener(1);
-    //         assert_eq!(s_group.pinned_listener(), 1);
-    //     } else {
-    //         // With only one listener, setting to 1 is invalid => should remain 0.
-    //         s_group.set_pinned_listener(1);
-    //         assert_eq!(s_group.pinned_listener(), 0);
-    //     }
-    // }
+        s_group.set_pinned_listener(0);
+        assert_eq!(s_group.pinned_listener(), 0);
+        s_group.set_pinned_listener(1);
+        assert_eq!(s_group.pinned_listener(), 1);
+    }
 
     #[test]
     fn test_sound_group_listener_index_smoke() {

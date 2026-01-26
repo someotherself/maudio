@@ -37,9 +37,9 @@ use crate::{
 /// audible artifacts such as clicks or pops.
 ///
 /// Use [`LoShelfNodeBuilder`] to initialize
-pub struct LoShelfNode<'a> {
+pub struct LoShelfNode<'a, 'alloc> {
     inner: *mut sys::ma_loshelf_node,
-    alloc_cb: Option<&'a AllocationCallbacks>,
+    alloc_cb: Option<&'alloc AllocationCallbacks>,
     _marker: PhantomData<&'a NodeGraph<'a>>,
     // Below is needed during a reinit
     channels: u32,
@@ -48,7 +48,7 @@ pub struct LoShelfNode<'a> {
     format: Format,
 }
 
-impl Binding for LoShelfNode<'_> {
+impl Binding for LoShelfNode<'_, '_> {
     type Raw = *mut sys::ma_loshelf_node;
 
     /// !!! unimplemented !!!
@@ -62,15 +62,15 @@ impl Binding for LoShelfNode<'_> {
 }
 
 #[doc(hidden)]
-impl AsNodePtr for LoShelfNode<'_> {
+impl AsNodePtr for LoShelfNode<'_, '_> {
     type __PtrProvider = LoShelfNodeProvider;
 }
 
-impl<'a> LoShelfNode<'a> {
+impl<'a, 'alloc> LoShelfNode<'a, 'alloc> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &LoShelfNodeBuilder<N>,
-        alloc: Option<&'a AllocationCallbacks>,
+        alloc: Option<&'alloc AllocationCallbacks>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
@@ -172,7 +172,7 @@ pub(crate) mod n_loshelf_ffi {
     }
 }
 
-impl<'a> Drop for LoShelfNode<'a> {
+impl<'a, 'alloc> Drop for LoShelfNode<'a, 'alloc> {
     fn drop(&mut self) {
         n_loshelf_ffi::ma_loshelf_node_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -197,7 +197,7 @@ impl<N: AsNodeGraphPtr + ?Sized> Binding for LoShelfNodeBuilder<'_, N> {
     }
 }
 
-impl<'a, N: AsNodeGraphPtr + ?Sized> LoShelfNodeBuilder<'a, N> {
+impl<'a, 'alloc, N: AsNodeGraphPtr + ?Sized> LoShelfNodeBuilder<'a, N> {
     pub fn new(
         node_graph: &'a N,
         channels: u32,
@@ -221,7 +221,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> LoShelfNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(self) -> MaResult<LoShelfNode<'a>> {
+    pub fn build(self) -> MaResult<LoShelfNode<'a, 'alloc>> {
         LoShelfNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
     }
 }

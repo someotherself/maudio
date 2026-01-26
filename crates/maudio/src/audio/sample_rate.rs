@@ -143,8 +143,8 @@ mod tests {
     use super::*;
     use maudio_sys::ffi as sys;
 
-    fn invalid_args() -> MaError {
-        MaError(sys::ma_result_MA_INVALID_ARGS)
+    fn ma_error() -> MaError {
+        MaError(sys::ma_result_MA_ERROR)
     }
 
     #[test]
@@ -207,62 +207,135 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn test_sample_rate_try_from_sys_accepts_concrete_values() {
-    //     assert_eq!(
-    //         SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_48000)
-    //             .unwrap(),
-    //         SampleRate::Sr48000
-    //     );
-    //     assert_eq!(
-    //         SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_44100)
-    //             .unwrap(),
-    //         SampleRate::Sr44100
-    //     );
-    //     assert_eq!(
-    //         SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_8000)
-    //             .unwrap(),
-    //         SampleRate::Sr8000
-    //     );
-    //     assert_eq!(
-    //         SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_384000)
-    //             .unwrap(),
-    //         SampleRate::Sr384000
-    //     );
-    // }
+    #[test]
+    fn test_sample_rate_try_from_sys_accepts_concrete_values() {
+        assert_eq!(
+            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_48000 as u32)
+                .unwrap(),
+            SampleRate::Sr48000
+        );
+        assert_eq!(
+            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_44100 as u32)
+                .unwrap(),
+            SampleRate::Sr44100
+        );
+        assert_eq!(
+            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_8000 as u32)
+                .unwrap(),
+            SampleRate::Sr8000
+        );
+        assert_eq!(
+            SampleRate::try_from(
+                sys::ma_standard_sample_rate_ma_standard_sample_rate_384000 as u32
+            )
+            .unwrap(),
+            SampleRate::Sr384000
+        );
+    }
 
-    // #[test]
-    // fn test_sample_rate_try_from_sys_rejects_invalid_values() {
-    //     let bogus = sys::ma_standard_sample_rate_ma_standard_sample_rate_48000 + 12345;
-    //     let err = SampleRate::try_from(bogus).unwrap_err();
-    //     assert_eq!(err, invalid_args());
-    // }
+    #[test]
+    fn test_sample_rate_try_from_sys_accepts_concrete_values_i32() {
+        assert_eq!(
+            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_48000 as i32)
+                .unwrap(),
+            SampleRate::Sr48000
+        );
 
-    // #[test]
-    // fn test_sample_rate_roundtrip_sys_to_rust_to_sys() {
-    //     let cases = [
-    //         sys::ma_standard_sample_rate_ma_standard_sample_rate_48000,
-    //         sys::ma_standard_sample_rate_ma_standard_sample_rate_44100,
-    //         sys::ma_standard_sample_rate_ma_standard_sample_rate_32000,
-    //         sys::ma_standard_sample_rate_ma_standard_sample_rate_24000,
-    //         sys::ma_standard_sample_rate_ma_standard_sample_rate_22050,
-    //         sys::ma_standard_sample_rate_ma_standard_sample_rate_88200,
-    //         sys::ma_standard_sample_rate_ma_standard_sample_rate_96000,
-    //         sys::ma_standard_sample_rate_ma_standard_sample_rate_176400,
-    //         sys::ma_standard_sample_rate_ma_standard_sample_rate_192000,
-    //         sys::ma_standard_sample_rate_ma_standard_sample_rate_16000,
-    //         sys::ma_standard_sample_rate_ma_standard_sample_rate_11025,
-    //         sys::ma_standard_sample_rate_ma_standard_sample_rate_8000,
-    //         sys::ma_standard_sample_rate_ma_standard_sample_rate_352800,
-    //         sys::ma_standard_sample_rate_ma_standard_sample_rate_384000,
-    //     ];
+        assert_eq!(
+            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_44100 as i32)
+                .unwrap(),
+            SampleRate::Sr44100
+        );
 
-    //     for &v in &cases {
-    //         let rust = SampleRate::try_from(v).unwrap();
-    //         let back = sys::ma_format::from(rust);
-    //         assert_eq!(back, v);
-    //     }
-    // }
+        assert_eq!(
+            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_8000 as i32)
+                .unwrap(),
+            SampleRate::Sr8000
+        );
+
+        assert_eq!(
+            SampleRate::try_from(
+                sys::ma_standard_sample_rate_ma_standard_sample_rate_384000 as i32
+            )
+            .unwrap(),
+            SampleRate::Sr384000
+        );
+    }
+
+    #[test]
+    fn test_sample_rate_try_from_sys_accepts_concrete_values_u32() {
+        assert_eq!(
+            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_48000 as u32)
+                .unwrap(),
+            SampleRate::Sr48000
+        );
+
+        assert_eq!(
+            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_44100 as u32)
+                .unwrap(),
+            SampleRate::Sr44100
+        );
+
+        assert_eq!(
+            SampleRate::try_from(sys::ma_standard_sample_rate_ma_standard_sample_rate_8000 as u32)
+                .unwrap(),
+            SampleRate::Sr8000
+        );
+
+        assert_eq!(
+            SampleRate::try_from(
+                sys::ma_standard_sample_rate_ma_standard_sample_rate_384000 as u32
+            )
+            .unwrap(),
+            SampleRate::Sr384000
+        );
+    }
+
+    #[test]
+    fn test_sample_rate_try_from_sys_rejects_invalid_values() {
+        let bogus_i32 =
+            (sys::ma_standard_sample_rate_ma_standard_sample_rate_48000 as i32) + 12_345;
+        let bogus_u32 =
+            (sys::ma_standard_sample_rate_ma_standard_sample_rate_48000 as u32) + 12_345;
+
+        let err_i32 = SampleRate::try_from(bogus_i32).unwrap_err();
+        let err_u32 = SampleRate::try_from(bogus_u32).unwrap_err();
+
+        assert_eq!(err_i32, ma_error());
+        assert_eq!(err_u32, ma_error());
+    }
+
+    #[test]
+    fn test_sample_rate_roundtrip_sys_to_rust_to_sys() {
+        let cases = [
+            sys::ma_standard_sample_rate_ma_standard_sample_rate_48000,
+            sys::ma_standard_sample_rate_ma_standard_sample_rate_44100,
+            sys::ma_standard_sample_rate_ma_standard_sample_rate_32000,
+            sys::ma_standard_sample_rate_ma_standard_sample_rate_24000,
+            sys::ma_standard_sample_rate_ma_standard_sample_rate_22050,
+            sys::ma_standard_sample_rate_ma_standard_sample_rate_88200,
+            sys::ma_standard_sample_rate_ma_standard_sample_rate_96000,
+            sys::ma_standard_sample_rate_ma_standard_sample_rate_176400,
+            sys::ma_standard_sample_rate_ma_standard_sample_rate_192000,
+            sys::ma_standard_sample_rate_ma_standard_sample_rate_16000,
+            sys::ma_standard_sample_rate_ma_standard_sample_rate_11025,
+            sys::ma_standard_sample_rate_ma_standard_sample_rate_8000,
+            sys::ma_standard_sample_rate_ma_standard_sample_rate_352800,
+            sys::ma_standard_sample_rate_ma_standard_sample_rate_384000,
+        ];
+
+        for &v in &cases {
+            // i32 roundtrip
+            let rust_i32 = SampleRate::try_from(v as i32).unwrap();
+            let back_i32: i32 = rust_i32.into();
+            assert_eq!(back_i32, v as i32);
+
+            // u32 roundtrip
+            let rust_u32 = SampleRate::try_from(v as u32).unwrap();
+            let back_u32: u32 = rust_u32.into();
+            assert_eq!(back_u32, v as u32);
+        }
+    }
 
     #[test]
     fn test_sample_rate_min_max_are_aliases() {

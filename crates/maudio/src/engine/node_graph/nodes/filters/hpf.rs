@@ -36,9 +36,9 @@ use crate::{
 /// audible artifacts such as clicks or pops.
 ///
 /// Use [`HpfNodeBuilder`] to initialize
-pub struct HpfNode<'a> {
+pub struct HpfNode<'a, 'alloc> {
     inner: *mut sys::ma_hpf_node,
-    alloc_cb: Option<&'a AllocationCallbacks>,
+    alloc_cb: Option<&'alloc AllocationCallbacks>,
     _marker: PhantomData<&'a NodeGraph<'a>>,
     // Below is needed during a reinit
     channels: u32,
@@ -48,7 +48,7 @@ pub struct HpfNode<'a> {
     order: u32,
 }
 
-impl Binding for HpfNode<'_> {
+impl Binding for HpfNode<'_, '_> {
     type Raw = *mut sys::ma_hpf_node;
 
     /// !!! unimplemented !!!
@@ -62,15 +62,15 @@ impl Binding for HpfNode<'_> {
 }
 
 #[doc(hidden)]
-impl AsNodePtr for HpfNode<'_> {
+impl AsNodePtr for HpfNode<'_, '_> {
     type __PtrProvider = HpfNodeProvider;
 }
 
-impl<'a> HpfNode<'a> {
+impl<'a, 'alloc> HpfNode<'a, 'alloc> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &HpfNodeBuilder<'_, N>,
-        alloc: Option<&'a AllocationCallbacks>,
+        alloc: Option<&'alloc AllocationCallbacks>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
@@ -164,7 +164,7 @@ pub(crate) mod n_hpf_ffi {
     }
 }
 
-impl<'a> Drop for HpfNode<'a> {
+impl<'a, 'alloc> Drop for HpfNode<'a, 'alloc> {
     fn drop(&mut self) {
         n_hpf_ffi::ma_hpf_node_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -189,7 +189,7 @@ impl<N: AsNodeGraphPtr + ?Sized> Binding for HpfNodeBuilder<'_, N> {
     }
 }
 
-impl<'a, N: AsNodeGraphPtr + ?Sized> HpfNodeBuilder<'a, N> {
+impl<'a, 'alloc, N: AsNodeGraphPtr + ?Sized> HpfNodeBuilder<'a, N> {
     // TODO: Create an enum for order???
     pub fn new(
         node_graph: &'a N,
@@ -207,7 +207,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> HpfNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(self) -> MaResult<HpfNode<'a>> {
+    pub fn build(self) -> MaResult<HpfNode<'a, 'alloc>> {
         HpfNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
     }
 }

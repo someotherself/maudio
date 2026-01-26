@@ -47,9 +47,9 @@ use crate::{
 ///   will result in an error.
 ///
 /// Use [`BiquadNodeBuilder`] to initialize
-pub struct BiquadNode<'a> {
+pub struct BiquadNode<'a, 'alloc> {
     inner: *mut sys::ma_biquad_node,
-    alloc_cb: Option<&'a AllocationCallbacks>,
+    alloc_cb: Option<&'alloc AllocationCallbacks>,
     _marker: PhantomData<&'a NodeGraph<'a>>,
     // Below is needed during a reinit
     channels: u32,
@@ -58,7 +58,7 @@ pub struct BiquadNode<'a> {
     format: Format,
 }
 
-impl Binding for BiquadNode<'_> {
+impl Binding for BiquadNode<'_, '_> {
     type Raw = *mut sys::ma_biquad_node;
 
     // !!! unimplemented !!!
@@ -72,15 +72,15 @@ impl Binding for BiquadNode<'_> {
 }
 
 #[doc(hidden)]
-impl AsNodePtr for BiquadNode<'_> {
+impl AsNodePtr for BiquadNode<'_, '_> {
     type __PtrProvider = BiquadNodeProvider;
 }
 
-impl<'a> BiquadNode<'a> {
+impl<'a, 'alloc> BiquadNode<'a, 'alloc> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &BiquadNodeBuilder<N>,
-        alloc: Option<&'a AllocationCallbacks>,
+        alloc: Option<&'alloc AllocationCallbacks>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
@@ -106,13 +106,6 @@ impl<'a> BiquadNode<'a> {
     }
 
     /// Returns a **borrowed view** as a node in the engine's node graph.
-    ///
-    /// ### What this is for
-    ///
-    /// Use `as_node()` when you want to:
-    /// - connect this to other nodes (effects, mixers, splitters, etc.)
-    /// - insert into a custom routing graph
-    /// - query node-level state exposed by the graph
     pub fn as_node(&self) -> NodeRef<'a> {
         debug_assert!(!self.inner.is_null());
         let ptr = self.inner.cast::<sys::ma_node>();
@@ -172,7 +165,7 @@ pub(crate) mod n_biquad_ffi {
     }
 }
 
-impl<'a> Drop for BiquadNode<'a> {
+impl<'a, 'alloc> Drop for BiquadNode<'a, 'alloc> {
     fn drop(&mut self) {
         n_biquad_ffi::ma_biquad_node_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -197,7 +190,7 @@ impl<N: AsNodeGraphPtr + ?Sized> Binding for BiquadNodeBuilder<'_, N> {
     }
 }
 
-impl<'a, N: AsNodeGraphPtr + ?Sized> BiquadNodeBuilder<'a, N> {
+impl<'a, 'alloc, N: AsNodeGraphPtr + ?Sized> BiquadNodeBuilder<'a, N> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         node_graph: &'a N,
@@ -216,7 +209,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> BiquadNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(self) -> MaResult<BiquadNode<'a>> {
+    pub fn build(self) -> MaResult<BiquadNode<'a, 'alloc>> {
         BiquadNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
     }
 }

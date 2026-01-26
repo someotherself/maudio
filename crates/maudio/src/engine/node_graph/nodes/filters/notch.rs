@@ -37,9 +37,9 @@ use crate::{
 /// audible artifacts such as clicks or pops.
 ///
 /// Use [`NotchNodeBuilder`] to initialize.
-pub struct NotchNode<'a> {
+pub struct NotchNode<'a, 'alloc> {
     inner: *mut sys::ma_notch_node,
-    alloc_cb: Option<&'a AllocationCallbacks>,
+    alloc_cb: Option<&'alloc AllocationCallbacks>,
     _marker: PhantomData<&'a NodeGraph<'a>>,
     // Below is needed during a reinit
     channels: u32,
@@ -49,7 +49,7 @@ pub struct NotchNode<'a> {
     sample_rate: SampleRate,
 }
 
-impl Binding for NotchNode<'_> {
+impl Binding for NotchNode<'_, '_> {
     type Raw = *mut sys::ma_notch_node;
 
     /// !!! unimplemented !!!
@@ -63,15 +63,15 @@ impl Binding for NotchNode<'_> {
 }
 
 #[doc(hidden)]
-impl AsNodePtr for NotchNode<'_> {
+impl AsNodePtr for NotchNode<'_, '_> {
     type __PtrProvider = NotchNodeProvider;
 }
 
-impl<'a> NotchNode<'a> {
+impl<'a, 'alloc> NotchNode<'a, 'alloc> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &NotchNodeBuilder<'_, N>,
-        alloc: Option<&'a AllocationCallbacks>,
+        alloc: Option<&'alloc AllocationCallbacks>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
@@ -166,7 +166,7 @@ pub(crate) mod n_notch_ffi {
     }
 }
 
-impl<'a> Drop for NotchNode<'a> {
+impl<'a, 'alloc> Drop for NotchNode<'a, 'alloc> {
     fn drop(&mut self) {
         n_notch_ffi::ma_notch_node_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -190,7 +190,7 @@ impl<N: AsNodeGraphPtr + ?Sized> Binding for NotchNodeBuilder<'_, N> {
         &self.inner as *const _
     }
 }
-impl<'a, N: AsNodeGraphPtr + ?Sized> NotchNodeBuilder<'a, N> {
+impl<'a, 'alloc, N: AsNodeGraphPtr + ?Sized> NotchNodeBuilder<'a, N> {
     pub fn new(
         node_graph: &'a N,
         channels: u32,
@@ -207,7 +207,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> NotchNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(self) -> MaResult<NotchNode<'a>> {
+    pub fn build(self) -> MaResult<NotchNode<'a, 'alloc>> {
         NotchNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
     }
 }
