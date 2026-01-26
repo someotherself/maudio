@@ -82,13 +82,12 @@ jobs:
 
       - name: Install Rust (with Android target)
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
 
-      - name: Cache cargo
+      - name: Add Rust target
+        run: rustup target add ${{ matrix.target }}
+
         uses: Swatinem/rust-cache@v2
         with:
-          # optional but nice: keep caches separate per target
           shared-key: android-${{ matrix.target }}
 
       - name: Setup Android NDK

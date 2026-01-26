@@ -326,7 +326,7 @@ mod tests {
 
             // u32 roundtrip
             let rust_u32 = SampleRate::try_from(v).unwrap();
-            assert_eq!(v as u32, rust_u32.into());
+            assert_eq!(v, rust_u32.into());
         }
     }
 
