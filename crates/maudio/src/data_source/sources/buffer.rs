@@ -143,6 +143,7 @@ impl AsAudioBufferPtr for AudioBufferRef<'_, '_> {
 
 impl<T: AsAudioBufferPtr + AsSourcePtr + ?Sized> AudioBufferOps for T {}
 
+// TODO: Figure out a better, typed way to deal with the formats in read_pcm without creating 12 structs
 /// AudioBufferOps trait contains shared methods for [`AudioBuffer`] and [`AudioBufferRef`]
 pub trait AudioBufferOps: AsAudioBufferPtr + AsSourcePtr {
     fn read_pcm_frames_u8(
@@ -150,23 +151,47 @@ pub trait AudioBufferOps: AsAudioBufferPtr + AsSourcePtr {
         frame_count: u64,
         looping: bool,
     ) -> MaResult<(SampleBuffer<u8>, u64)> {
+        debug_assert!(
+            matches!(self.format(), Format::U8),
+            "Cannot read U8 from buffer with {:?} ",
+            self.format()
+        );
+        if !matches!(self.format(), Format::U8) {
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
+        }
         buffer_ffi::ma_audio_buffer_read_pcm_frames_u8(self, frame_count, looping)
     }
 
-    fn read_pcm_frames_u16(
+    fn read_pcm_frames_i16(
         &mut self,
         frame_count: u64,
         looping: bool,
     ) -> MaResult<(SampleBuffer<i16>, u64)> {
-        buffer_ffi::ma_audio_buffer_read_pcm_frames_u16(self, frame_count, looping)
+        debug_assert!(
+            matches!(self.format(), Format::S16),
+            "Cannot read I16 from buffer with {:?} ",
+            self.format()
+        );
+        if !matches!(self.format(), Format::S16) {
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
+        }
+        buffer_ffi::ma_audio_buffer_read_pcm_frames_i16(self, frame_count, looping)
     }
 
-    fn read_pcm_frames_u32(
+    fn read_pcm_frames_i32(
         &mut self,
         frame_count: u64,
         looping: bool,
     ) -> MaResult<(SampleBuffer<i32>, u64)> {
-        buffer_ffi::ma_audio_buffer_read_pcm_frames_u32(self, frame_count, looping)
+        debug_assert!(
+            matches!(self.format(), Format::S32),
+            "Cannot read I32 from buffer with {:?} ",
+            self.format()
+        );
+        if !matches!(self.format(), Format::S32) {
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
+        }
+        buffer_ffi::ma_audio_buffer_read_pcm_frames_i32(self, frame_count, looping)
     }
 
     fn read_pcm_frames_f32(
@@ -174,6 +199,14 @@ pub trait AudioBufferOps: AsAudioBufferPtr + AsSourcePtr {
         frame_count: u64,
         looping: bool,
     ) -> MaResult<(SampleBuffer<f32>, u64)> {
+        debug_assert!(
+            matches!(self.format(), Format::F32),
+            "Cannot read F32 from buffer with {:?} ",
+            self.format()
+        );
+        if !matches!(self.format(), Format::F32) {
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
+        }
         buffer_ffi::ma_audio_buffer_read_pcm_frames_f32(self, frame_count, looping)
     }
 
@@ -182,6 +215,14 @@ pub trait AudioBufferOps: AsAudioBufferPtr + AsSourcePtr {
         frame_count: u64,
         looping: bool,
     ) -> MaResult<(SampleBufferS24, u64)> {
+        debug_assert!(
+            matches!(self.format(), Format::S24),
+            "Cannot read S24 from buffer with {:?} ",
+            self.format()
+        );
+        if !matches!(self.format(), Format::S24) {
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
+        }
         buffer_ffi::ma_audio_buffer_read_pcm_frames_s24(self, frame_count, looping)
     }
 
@@ -302,7 +343,7 @@ pub(crate) mod buffer_ffi {
         Ok((buffer, frames_read))
     }
 
-    pub fn ma_audio_buffer_read_pcm_frames_u16<A: AsAudioBufferPtr + ?Sized>(
+    pub fn ma_audio_buffer_read_pcm_frames_i16<A: AsAudioBufferPtr + ?Sized>(
         audio_buffer: &mut A,
         frame_count: u64,
         looping: bool,
@@ -320,7 +361,7 @@ pub(crate) mod buffer_ffi {
         Ok((buffer, frames_read))
     }
 
-    pub fn ma_audio_buffer_read_pcm_frames_u32<A: AsAudioBufferPtr + ?Sized>(
+    pub fn ma_audio_buffer_read_pcm_frames_i32<A: AsAudioBufferPtr + ?Sized>(
         audio_buffer: &mut A,
         frame_count: u64,
         looping: bool,

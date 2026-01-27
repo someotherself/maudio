@@ -10,7 +10,7 @@
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaResult, MaudioError,
+    Binding, MaResult,
     audio::{formats::Format, sample_rate::SampleRate},
     data_source::{AsSourcePtr, DataSourceRef, private_data_source},
 };
@@ -446,7 +446,6 @@ impl Binding for PulseWaveBuilder {
 
 impl PulseWaveBuilder {
     pub fn new(
-        format: Format,
         channels: u32,
         sample_rate: SampleRate,
         amplitude: f64,
@@ -455,7 +454,7 @@ impl PulseWaveBuilder {
     ) -> Self {
         let cfg = unsafe {
             sys::ma_pulsewave_config_init(
-                format.into(),
+                Format::F32.into(),
                 channels,
                 sample_rate.into(),
                 amplitude,
@@ -465,7 +464,7 @@ impl PulseWaveBuilder {
         };
         Self {
             inner: cfg,
-            format,
+            format: Format::F32,
             channels,
             sample_rate,
             amplitude,
@@ -498,15 +497,9 @@ impl PulseWaveBuilder {
         self
     }
 
-    pub fn build_u8(self) -> MaResult<PulseWaveU8> {
-        debug_assert!(
-            matches!(self.format, Format::U8),
-            "Cannot build PulseWaveU8 from {:?}",
-            self.format
-        );
-        if !matches!(self.format, Format::U8) {
-            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
-        }
+    pub fn build_u8(mut self) -> MaResult<PulseWaveU8> {
+        self.inner.format = Format::U8.into();
+
         let inner = self.new_inner()?;
         let state = PulseWaveState {
             channels: self.channels,
@@ -523,15 +516,9 @@ impl PulseWaveBuilder {
         })
     }
 
-    pub fn build_i16(self) -> MaResult<PulseWaveI16> {
-        debug_assert!(
-            matches!(self.format, Format::S16),
-            "Cannot build PulseWaveI16 from {:?}",
-            self.format
-        );
-        if !matches!(self.format, Format::S16) {
-            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
-        }
+    pub fn build_i16(mut self) -> MaResult<PulseWaveI16> {
+        self.inner.format = Format::S16.into();
+
         let inner = self.new_inner()?;
         let state = PulseWaveState {
             channels: self.channels,
@@ -548,15 +535,9 @@ impl PulseWaveBuilder {
         })
     }
 
-    pub fn build_i32(self) -> MaResult<PulseWaveI32> {
-        debug_assert!(
-            matches!(self.format, Format::S32),
-            "Cannot build PulseWaveI32 from {:?}",
-            self.format
-        );
-        if !matches!(self.format, Format::S32) {
-            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
-        }
+    pub fn build_i32(mut self) -> MaResult<PulseWaveI32> {
+        self.inner.format = Format::S32.into();
+
         let inner = self.new_inner()?;
         let state = PulseWaveState {
             channels: self.channels,
@@ -573,15 +554,9 @@ impl PulseWaveBuilder {
         })
     }
 
-    pub fn build_s24(self) -> MaResult<PulseWaveS24> {
-        debug_assert!(
-            matches!(self.format, Format::S24),
-            "Cannot build PulseWaveS24 from {:?}",
-            self.format
-        );
-        if !matches!(self.format, Format::S24) {
-            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
-        }
+    pub fn build_s24(mut self) -> MaResult<PulseWaveS24> {
+        self.inner.format = Format::S24.into();
+
         let inner = self.new_inner()?;
         let state = PulseWaveState {
             channels: self.channels,
@@ -598,15 +573,9 @@ impl PulseWaveBuilder {
         })
     }
 
-    pub fn build_f32(self) -> MaResult<PulseWaveF32> {
-        debug_assert!(
-            matches!(self.format, Format::F32),
-            "Cannot build PulseWaveF32 from {:?}",
-            self.format
-        );
-        if !matches!(self.format, Format::F32) {
-            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
-        }
+    pub fn build_f32(mut self) -> MaResult<PulseWaveF32> {
+        self.inner.format = Format::F32.into();
+
         let inner = self.new_inner()?;
         let state = PulseWaveState {
             channels: self.channels,
@@ -637,13 +606,13 @@ impl PulseWaveBuilder {
 #[cfg(test)]
 mod test {
     use crate::{
-        audio::{formats::Format, sample_rate::SampleRate},
+        audio::sample_rate::SampleRate,
         data_source::sources::pulsewave::{PulseWaveBuilder, PulseWaveOps},
     };
 
     #[test]
     fn test_pulsewave_basic_init() {
-        let _pw = PulseWaveBuilder::new(Format::F32, 2, SampleRate::Sr48000, 1.0, 440.0, 1.0)
+        let _pw = PulseWaveBuilder::new(2, SampleRate::Sr48000, 1.0, 440.0, 1.0)
             .build_f32()
             .unwrap();
     }
@@ -697,7 +666,7 @@ mod test {
 
     #[test]
     fn test_pulsewave_basic_init_f32() {
-        let _pw = PulseWaveBuilder::new(Format::F32, CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
+        let _pw = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
             .build_f32()
             .unwrap();
     }
@@ -708,31 +677,31 @@ mod test {
     fn test_pulsewave_build_mismatch_errors() {
         // Each build_* should reject mismatched Format with MA_INVALID_ARGS mapped into Err.
         assert!(
-            PulseWaveBuilder::new(Format::F32, CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
+            PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
                 .build_u8()
                 .is_err()
         );
 
         assert!(
-            PulseWaveBuilder::new(Format::U8, CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
+            PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
                 .build_i16()
                 .is_err()
         );
 
         assert!(
-            PulseWaveBuilder::new(Format::S16, CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
+            PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
                 .build_i32()
                 .is_err()
         );
 
         assert!(
-            PulseWaveBuilder::new(Format::S32, CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
+            PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
                 .build_s24()
                 .is_err()
         );
 
         assert!(
-            PulseWaveBuilder::new(Format::S24, CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
+            PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
                 .build_f32()
                 .is_err()
         );
@@ -740,7 +709,7 @@ mod test {
 
     #[test]
     fn test_pulsewave_read_pcm_frames_u8_sizing() {
-        let mut pw = PulseWaveBuilder::new(Format::U8, CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
+        let mut pw = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
             .build_u8()
             .unwrap();
 
@@ -750,7 +719,7 @@ mod test {
 
     #[test]
     fn test_pulsewave_read_pcm_frames_i16_sizing() {
-        let mut pw = PulseWaveBuilder::new(Format::S16, CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
+        let mut pw = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
             .build_i16()
             .unwrap();
 
@@ -760,7 +729,7 @@ mod test {
 
     #[test]
     fn test_pulsewave_read_pcm_frames_i32_sizing() {
-        let mut pw = PulseWaveBuilder::new(Format::S32, CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
+        let mut pw = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
             .build_i32()
             .unwrap();
 
@@ -770,7 +739,7 @@ mod test {
 
     #[test]
     fn test_pulsewave_read_pcm_frames_s24_sizing() {
-        let mut pw = PulseWaveBuilder::new(Format::S24, CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
+        let mut pw = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
             .build_s24()
             .unwrap();
 
@@ -780,7 +749,7 @@ mod test {
 
     #[test]
     fn test_pulsewave_read_pcm_frames_f32_sizing() {
-        let mut pw = PulseWaveBuilder::new(Format::F32, CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
+        let mut pw = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
             .build_f32()
             .unwrap();
 
@@ -790,7 +759,7 @@ mod test {
 
     #[test]
     fn test_pulsewave_seek_is_deterministic_f32() {
-        let mut pw = PulseWaveBuilder::new(Format::F32, CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
+        let mut pw = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
             .build_f32()
             .unwrap();
 
@@ -807,7 +776,7 @@ mod test {
 
     #[test]
     fn test_pulsewave_set_frequency_changes_output_f32() {
-        let mut pw = PulseWaveBuilder::new(Format::F32, CH, SampleRate::Sr48000, 0.8, 400.0, 0.5)
+        let mut pw = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 0.8, 400.0, 0.5)
             .build_f32()
             .unwrap();
 
@@ -824,40 +793,36 @@ mod test {
     #[test]
     fn test_pulsewave_set_amplitude_zero_silences_signed_and_float() {
         // F32 -> expect all zeros
-        let mut pw_f32 =
-            PulseWaveBuilder::new(Format::F32, CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
-                .build_f32()
-                .unwrap();
+        let mut pw_f32 = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
+            .build_f32()
+            .unwrap();
         pw_f32.set_amplitude(0.0).unwrap();
         pw_f32.seek_to_pcm_frame(0).unwrap();
         let (buf_f32, _) = pw_f32.read_pcm_frames(FRAMES).unwrap();
         assert!(buf_f32.iter().all(|&s| s == 0.0));
 
         // S16 -> expect all zeros
-        let mut pw_i16 =
-            PulseWaveBuilder::new(Format::S16, CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
-                .build_i16()
-                .unwrap();
+        let mut pw_i16 = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
+            .build_i16()
+            .unwrap();
         pw_i16.set_amplitude(0.0).unwrap();
         pw_i16.seek_to_pcm_frame(0).unwrap();
         let (buf_i16, _) = pw_i16.read_pcm_frames(FRAMES).unwrap();
         assert!(buf_i16.iter().all(|&s| s == 0));
 
         // S32 -> expect all zeros
-        let mut pw_i32 =
-            PulseWaveBuilder::new(Format::S32, CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
-                .build_i32()
-                .unwrap();
+        let mut pw_i32 = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
+            .build_i32()
+            .unwrap();
         pw_i32.set_amplitude(0.0).unwrap();
         pw_i32.seek_to_pcm_frame(0).unwrap();
         let (buf_i32, _) = pw_i32.read_pcm_frames(FRAMES).unwrap();
         assert!(buf_i32.iter().all(|&s| s == 0));
 
         // S24 -> expect all bytes zero
-        let mut pw_s24 =
-            PulseWaveBuilder::new(Format::S24, CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
-                .build_s24()
-                .unwrap();
+        let mut pw_s24 = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
+            .build_s24()
+            .unwrap();
         pw_s24.set_amplitude(0.0).unwrap();
         pw_s24.seek_to_pcm_frame(0).unwrap();
         let (buf_s24, _) = pw_s24.read_pcm_frames(FRAMES).unwrap();
@@ -868,7 +833,7 @@ mod test {
     fn test_pulsewave_set_amplitude_zero_u8_is_constant_midpointish() {
         // For unsigned 8-bit PCM, "silence" is typically centered around 128.
         // We don't assume the exact value here; we only assert it becomes constant.
-        let mut pw = PulseWaveBuilder::new(Format::U8, CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
+        let mut pw = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
             .build_u8()
             .unwrap();
 
@@ -886,7 +851,7 @@ mod test {
 
     #[test]
     fn test_pulsewave_setters_return_ok_f32() {
-        let mut pw = PulseWaveBuilder::new(Format::F32, CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
+        let mut pw = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
             .build_f32()
             .unwrap();
 
@@ -903,7 +868,7 @@ mod test {
     #[test]
     fn test_pulsewave_init_all_sample_rates_f32() {
         for sr in all_sample_rates() {
-            let mut pw = PulseWaveBuilder::new(Format::F32, 1, sr, 1.0, 440.0, 0.5)
+            let mut pw = PulseWaveBuilder::new(1, sr, 1.0, 440.0, 0.5)
                 .build_f32()
                 .unwrap();
 

@@ -12,7 +12,7 @@
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaResult, MaudioError,
+    Binding, MaResult,
     audio::{formats::Format, sample_rate::SampleRate, waveform::WaveformType},
     data_source::{
         AsSourcePtr, DataSourceRef, private_data_source,
@@ -466,8 +466,10 @@ impl Binding for WaveFormBuilder {
 }
 
 impl WaveFormBuilder {
-    fn new(
-        format: Format,
+    /// Creates a new waveform builder with fully configurable parameters.
+    ///
+    /// This is the most flexible way to construct a waveform.
+    pub fn new(
         channels: u32,
         sample_rate: SampleRate,
         wave_type: WaveformType,
@@ -476,7 +478,7 @@ impl WaveFormBuilder {
     ) -> Self {
         let ptr = unsafe {
             sys::ma_waveform_config_init(
-                format.into(),
+                Format::F32.into(),
                 channels,
                 sample_rate.into(),
                 wave_type.into(),
@@ -486,7 +488,7 @@ impl WaveFormBuilder {
         };
         Self {
             inner: ptr,
-            format,
+            format: Format::F32,
             channels,
             sample_rate,
             wave_type,
@@ -495,13 +497,17 @@ impl WaveFormBuilder {
         }
     }
 
-    fn new_sine(format: Format, sample_rate: SampleRate, frequency: f64) -> Self {
+    /// Convenience method for creating a `WaveformType::Sine` node with some default values:
+    /// - `channels`: 2
+    /// - `amplitude`: 0.2
+    /// - `format`: Format::F32
+    fn new_sine(sample_rate: SampleRate, frequency: f64) -> Self {
         let channels = 2;
         let wave_type = WaveformType::Sine;
-        let amplitude = 1.0;
+        let amplitude = 0.2;
         let ptr = unsafe {
             sys::ma_waveform_config_init(
-                format.into(),
+                Format::F32.into(),
                 channels,
                 sample_rate.into(),
                 wave_type.into(),
@@ -511,7 +517,7 @@ impl WaveFormBuilder {
         };
         Self {
             inner: ptr,
-            format,
+            format: Format::F32,
             channels,
             sample_rate,
             wave_type,
@@ -520,13 +526,17 @@ impl WaveFormBuilder {
         }
     }
 
-    fn new_square(format: Format, sample_rate: SampleRate, frequency: f64) -> Self {
+    /// Convenience method for creating a `WaveformType::Square` node with some default values:
+    /// - `channels`: 2
+    /// - `amplitude`: 0.2
+    /// - `format`: Format::F32
+    fn new_square(sample_rate: SampleRate, frequency: f64) -> Self {
         let channels = 2;
         let wave_type = WaveformType::Square;
-        let amplitude = 1.0;
+        let amplitude = 0.2;
         let ptr = unsafe {
             sys::ma_waveform_config_init(
-                format.into(),
+                Format::F32.into(),
                 channels,
                 sample_rate.into(),
                 wave_type.into(),
@@ -536,7 +546,7 @@ impl WaveFormBuilder {
         };
         Self {
             inner: ptr,
-            format,
+            format: Format::F32,
             channels,
             sample_rate,
             wave_type,
@@ -545,13 +555,17 @@ impl WaveFormBuilder {
         }
     }
 
-    fn new_sawtooth(format: Format, sample_rate: SampleRate, frequency: f64) -> Self {
+    /// Convenience method for creating a `WaveformType::Sawtooth` node with some default values:
+    /// - `channels`: 2
+    /// - `amplitude`: 0.2
+    /// - `format`: Format::F32
+    fn new_sawtooth(sample_rate: SampleRate, frequency: f64) -> Self {
         let channels = 2;
         let wave_type = WaveformType::Sawtooth;
-        let amplitude = 1.0;
+        let amplitude = 0.2;
         let ptr = unsafe {
             sys::ma_waveform_config_init(
-                format.into(),
+                Format::F32.into(),
                 channels,
                 sample_rate.into(),
                 wave_type.into(),
@@ -561,7 +575,7 @@ impl WaveFormBuilder {
         };
         Self {
             inner: ptr,
-            format,
+            format: Format::F32,
             channels,
             sample_rate,
             wave_type,
@@ -570,13 +584,17 @@ impl WaveFormBuilder {
         }
     }
 
-    fn new_triangle(format: Format, sample_rate: SampleRate, frequency: f64) -> Self {
+    /// Convenience method for creating a `WaveformType::Triangle` node with some default values:
+    /// - `channels`: 2
+    /// - `amplitude`: 0.2
+    /// - `format`: Format::F32
+    fn new_triangle(sample_rate: SampleRate, frequency: f64) -> Self {
         let channels = 2;
         let wave_type = WaveformType::Triangle;
-        let amplitude = 1.0;
+        let amplitude = 0.2;
         let ptr = unsafe {
             sys::ma_waveform_config_init(
-                format.into(),
+                Format::F32.into(),
                 channels,
                 sample_rate.into(),
                 wave_type.into(),
@@ -586,7 +604,7 @@ impl WaveFormBuilder {
         };
         Self {
             inner: ptr,
-            format,
+            format: Format::F32,
             channels,
             sample_rate,
             wave_type,
@@ -595,38 +613,37 @@ impl WaveFormBuilder {
         }
     }
 
+    /// Sets the waveform type.
     pub fn wave_type(mut self, t: WaveformType) -> Self {
         self.inner.type_ = t.into();
         self.wave_type = t;
         self
     }
+
+    /// Sets the waveform amplitude.
     pub fn amplitude(mut self, a: f64) -> Self {
         self.inner.amplitude = a;
         self.amplitude = a;
         self
     }
 
+    /// Sets the waveform frequency, in Hertz.
     pub fn frequency(mut self, f: f64) -> Self {
         self.inner.frequency = f;
         self.frequency = f;
         self
     }
 
+    /// Sets the number of output channels.
     pub fn channels(mut self, c: u32) -> Self {
         self.inner.channels = c;
         self.channels = c;
         self
     }
 
-    pub fn build_u8(self) -> MaResult<WaveFormU8> {
-        debug_assert!(
-            matches!(self.format, Format::U8),
-            "Cannot build WaveFormU8 from {:?}",
-            self.format
-        );
-        if !matches!(self.format, Format::U8) {
-            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
-        }
+    pub fn build_u8(mut self) -> MaResult<WaveFormU8> {
+        self.inner.format = Format::U8.into();
+
         let inner = self.new_inner()?;
         let state: WaveState = WaveState {
             channels: self.channels,
@@ -642,15 +659,9 @@ impl WaveFormBuilder {
         })
     }
 
-    pub fn build_i16(self) -> MaResult<WaveFormI16> {
-        debug_assert!(
-            matches!(self.format, Format::S16),
-            "Cannot build WaveFormI16 from {:?}",
-            self.format
-        );
-        if !matches!(self.format, Format::S16) {
-            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
-        }
+    pub fn build_i16(mut self) -> MaResult<WaveFormI16> {
+        self.inner.format = Format::S16.into();
+
         let inner = self.new_inner()?;
         let state: WaveState = WaveState {
             channels: self.channels,
@@ -666,15 +677,9 @@ impl WaveFormBuilder {
         })
     }
 
-    pub fn build_i32(self) -> MaResult<WaveFormI32> {
-        debug_assert!(
-            matches!(self.format, Format::S32),
-            "Cannot build WaveFormI32 from {:?}",
-            self.format
-        );
-        if !matches!(self.format, Format::S32) {
-            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
-        }
+    pub fn build_i32(mut self) -> MaResult<WaveFormI32> {
+        self.inner.format = Format::S32.into();
+
         let inner = self.new_inner()?;
         let state: WaveState = WaveState {
             channels: self.channels,
@@ -690,15 +695,9 @@ impl WaveFormBuilder {
         })
     }
 
-    pub fn build_s24(self) -> MaResult<WaveFormS24> {
-        debug_assert!(
-            matches!(self.format, Format::S24),
-            "Cannot build WaveFormS24 from {:?}",
-            self.format
-        );
-        if !matches!(self.format, Format::S24) {
-            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
-        }
+    pub fn build_s24(mut self) -> MaResult<WaveFormS24> {
+        self.inner.format = Format::S24.into();
+
         let inner = self.new_inner()?;
         let state: WaveState = WaveState {
             channels: self.channels,
@@ -714,15 +713,10 @@ impl WaveFormBuilder {
         })
     }
 
-    pub fn build_f32(self) -> MaResult<WaveFormF32> {
-        debug_assert!(
-            matches!(self.format, Format::F32),
-            "Cannot build WaveFormF32 from {:?}",
-            self.format
-        );
-        if !matches!(self.format, Format::F32) {
-            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
-        }
+    /// The native format of the `Engine`
+    pub fn build_f32(mut self) -> MaResult<WaveFormF32> {
+        self.inner.format = Format::F32.into();
+
         let inner = self.new_inner()?;
         let state: WaveState = WaveState {
             channels: self.channels,
@@ -768,24 +762,24 @@ mod tests {
         let sample_rate = SampleRate::Sr48000;
         let frequency = 440.0;
 
-        let b = WaveFormBuilder::new_sine(Format::F32, sample_rate, frequency);
+        let b = WaveFormBuilder::new_sine(sample_rate, frequency);
 
         assert_eq!(b.format, Format::F32);
         assert_eq!(b.channels, 2);
         assert_eq!(b.sample_rate, sample_rate);
         assert_eq!(b.wave_type, WaveformType::Sine);
-        assert_eq!(b.amplitude, 1.0);
+        assert_eq!(b.amplitude, 0.2);
         assert_eq!(b.frequency, frequency);
 
         // Ensure raw config mirrors as well.
         assert_eq!(b.inner.channels, 2);
-        assert_eq!(b.inner.amplitude, 1.0);
+        assert_eq!(b.inner.amplitude, 0.2);
         assert_eq!(b.inner.frequency, frequency);
     }
 
     #[test]
     fn test_waveform_builder_setters_update_mirrored_fields_and_raw_inner() {
-        let b = WaveFormBuilder::new_sine(Format::F32, SampleRate::Sr44100, 440.0)
+        let b = WaveFormBuilder::new_sine(SampleRate::Sr44100, 440.0)
             .channels(1)
             .amplitude(0.25)
             .frequency(880.0)
@@ -812,16 +806,9 @@ mod tests {
         let amplitude = 1.0;
         let frequency = 440.0;
 
-        let w = WaveFormBuilder::new(
-            Format::U8,
-            channels,
-            sample_rate,
-            wave_type,
-            amplitude,
-            frequency,
-        )
-        .build_u8()
-        .unwrap();
+        let w = WaveFormBuilder::new(channels, sample_rate, wave_type, amplitude, frequency)
+            .build_u8()
+            .unwrap();
 
         assert_eq!(w.format, Format::U8);
         assert_eq!(w.state.channels, channels);
@@ -833,7 +820,7 @@ mod tests {
 
     #[test]
     fn test_waveform_build_i16_sets_state_and_format() {
-        let w = WaveFormBuilder::new_sine(Format::S16, SampleRate::Sr48000, 440.0)
+        let w = WaveFormBuilder::new_sine(SampleRate::Sr48000, 440.0)
             .channels(2)
             .build_i16()
             .unwrap();
@@ -841,13 +828,13 @@ mod tests {
         assert_eq!(w.format, Format::S16);
         assert_eq!(w.state.channels, 2);
         assert_eq!(w.state.wave_type, WaveformType::Sine);
-        assert_eq!(w.state.amplitude, 1.0);
+        assert_eq!(w.state.amplitude, 0.2);
         assert_eq!(w.state.frequency, 440.0);
     }
 
     #[test]
     fn test_waveform_build_i32_sets_state_and_format() {
-        let w = WaveFormBuilder::new_sine(Format::S32, SampleRate::Sr48000, 440.0)
+        let w = WaveFormBuilder::new_sine(SampleRate::Sr48000, 440.0)
             .channels(2)
             .build_i32()
             .unwrap();
@@ -858,7 +845,7 @@ mod tests {
 
     #[test]
     fn test_waveform_build_s24_sets_state_and_format() {
-        let w = WaveFormBuilder::new_sine(Format::S24, SampleRate::Sr48000, 440.0)
+        let w = WaveFormBuilder::new_sine(SampleRate::Sr48000, 440.0)
             .channels(2)
             .build_s24()
             .unwrap();
@@ -869,7 +856,7 @@ mod tests {
 
     #[test]
     fn test_waveform_build_f32_sets_state_and_format() {
-        let w = WaveFormBuilder::new_sine(Format::F32, SampleRate::Sr48000, 440.0)
+        let w = WaveFormBuilder::new_sine(SampleRate::Sr48000, 440.0)
             .channels(2)
             .build_f32()
             .unwrap();
@@ -888,7 +875,7 @@ mod tests {
 
     #[test]
     fn test_waveform_read_pcm_frames_u8_len_matches_frames_read_times_channels() {
-        let mut w = WaveFormBuilder::new_sine(Format::U8, SampleRate::Sr48000, 440.0)
+        let mut w = WaveFormBuilder::new_sine(SampleRate::Sr48000, 440.0)
             .channels(2)
             .build_u8()
             .unwrap();
@@ -902,7 +889,7 @@ mod tests {
 
     #[test]
     fn test_waveform_read_pcm_frames_i16_len_matches_frames_read_times_channels() {
-        let mut w = WaveFormBuilder::new_sine(Format::S16, SampleRate::Sr48000, 440.0)
+        let mut w = WaveFormBuilder::new_sine(SampleRate::Sr48000, 440.0)
             .channels(2)
             .build_i16()
             .unwrap();
@@ -916,7 +903,7 @@ mod tests {
 
     #[test]
     fn test_waveform_read_pcm_frames_i32_len_matches_frames_read_times_channels() {
-        let mut w = WaveFormBuilder::new_sine(Format::S32, SampleRate::Sr48000, 440.0)
+        let mut w = WaveFormBuilder::new_sine(SampleRate::Sr48000, 440.0)
             .channels(2)
             .build_i32()
             .unwrap();
@@ -930,7 +917,7 @@ mod tests {
 
     #[test]
     fn test_waveform_read_pcm_frames_f32_len_matches_frames_read_times_channels() {
-        let mut w = WaveFormBuilder::new_sine(Format::F32, SampleRate::Sr48000, 440.0)
+        let mut w = WaveFormBuilder::new_sine(SampleRate::Sr48000, 440.0)
             .channels(2)
             .build_f32()
             .unwrap();
@@ -951,7 +938,7 @@ mod tests {
 
     #[test]
     fn test_waveform_read_pcm_frames_s24_len_matches_frames_read_times_channels_times_3() {
-        let mut w = WaveFormBuilder::new_sine(Format::S24, SampleRate::Sr48000, 440.0)
+        let mut w = WaveFormBuilder::new_sine(SampleRate::Sr48000, 440.0)
             .channels(2)
             .build_s24()
             .unwrap();
@@ -967,7 +954,7 @@ mod tests {
     fn test_waveform_read_zero_frames_returns_empty_buffer_all_formats() {
         // U8
         {
-            let mut w = WaveFormBuilder::new_sine(Format::U8, SampleRate::Sr48000, 440.0)
+            let mut w = WaveFormBuilder::new_sine(SampleRate::Sr48000, 440.0)
                 .channels(2)
                 .build_u8()
                 .unwrap();
@@ -978,7 +965,7 @@ mod tests {
 
         // I16
         {
-            let mut w = WaveFormBuilder::new_sine(Format::S16, SampleRate::Sr48000, 440.0)
+            let mut w = WaveFormBuilder::new_sine(SampleRate::Sr48000, 440.0)
                 .channels(2)
                 .build_i16()
                 .unwrap();
@@ -989,7 +976,7 @@ mod tests {
 
         // I32
         {
-            let mut w = WaveFormBuilder::new_sine(Format::S32, SampleRate::Sr48000, 440.0)
+            let mut w = WaveFormBuilder::new_sine(SampleRate::Sr48000, 440.0)
                 .channels(2)
                 .build_i32()
                 .unwrap();
@@ -1000,7 +987,7 @@ mod tests {
 
         // S24
         {
-            let mut w = WaveFormBuilder::new_sine(Format::S24, SampleRate::Sr48000, 440.0)
+            let mut w = WaveFormBuilder::new_sine(SampleRate::Sr48000, 440.0)
                 .channels(2)
                 .build_s24()
                 .unwrap();
@@ -1011,7 +998,7 @@ mod tests {
 
         // F32
         {
-            let mut w = WaveFormBuilder::new_sine(Format::F32, SampleRate::Sr48000, 440.0)
+            let mut w = WaveFormBuilder::new_sine(SampleRate::Sr48000, 440.0)
                 .channels(2)
                 .build_f32()
                 .unwrap();
@@ -1025,7 +1012,7 @@ mod tests {
 
     #[test]
     fn test_waveform_seek_to_zero_makes_subsequent_reads_repeatable_f32() {
-        let mut w = WaveFormBuilder::new_sine(Format::F32, SampleRate::Sr48000, 440.0)
+        let mut w = WaveFormBuilder::new_sine(SampleRate::Sr48000, 440.0)
             .channels(2)
             .build_f32()
             .unwrap();
@@ -1047,7 +1034,7 @@ mod tests {
 
     #[test]
     fn test_waveform_set_frequency_changes_generated_signal_f32() {
-        let mut w = WaveFormBuilder::new_sine(Format::F32, SampleRate::Sr48000, 440.0)
+        let mut w = WaveFormBuilder::new_sine(SampleRate::Sr48000, 440.0)
             .channels(2)
             .build_f32()
             .unwrap();
@@ -1076,7 +1063,7 @@ mod tests {
 
     #[test]
     fn test_waveform_set_amplitude_scales_signal_f32() {
-        let mut w = WaveFormBuilder::new_sine(Format::F32, SampleRate::Sr48000, 440.0)
+        let mut w = WaveFormBuilder::new_sine(SampleRate::Sr48000, 440.0)
             .channels(2)
             .build_f32()
             .unwrap();
@@ -1102,7 +1089,7 @@ mod tests {
 
     #[test]
     fn test_waveform_set_type_changes_signal_f32() {
-        let mut w = WaveFormBuilder::new_sine(Format::F32, SampleRate::Sr48000, 440.0)
+        let mut w = WaveFormBuilder::new_sine(SampleRate::Sr48000, 440.0)
             .channels(2)
             .build_f32()
             .unwrap();
