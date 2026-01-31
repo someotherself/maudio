@@ -22,6 +22,8 @@
 //! # Ok(())
 //! # }
 //! ```
+use std::mem::MaybeUninit;
+
 use maudio_sys::ffi as sys;
 
 use crate::{Binding, MaResult};
@@ -62,7 +64,7 @@ pub struct FenceGuard<'a> {
 impl Fence {
     /// Creates a new fence.
     pub fn new() -> MaResult<Fence> {
-        let mut mem: Box<std::mem::MaybeUninit<sys::ma_fence>> = Box::new_uninit();
+        let mut mem: Box<std::mem::MaybeUninit<sys::ma_fence>> = Box::new(MaybeUninit::uninit());
 
         fence_ffi::ma_fence_init(mem.as_mut_ptr())?;
 
@@ -99,7 +101,7 @@ impl Fence {
 pub(crate) mod fence_ffi {
     use maudio_sys::ffi as sys;
 
-    use crate::{Binding, MaRawResult, MaResult, util::fence::Fence};
+    use crate::{util::fence::Fence, Binding, MaRawResult, MaResult};
 
     pub fn ma_fence_init(fence: *mut sys::ma_fence) -> MaResult<()> {
         let res = unsafe { sys::ma_fence_init(fence) };

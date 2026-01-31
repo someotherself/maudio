@@ -23,11 +23,11 @@ pub mod prelude {
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaRawResult, MaResult,
     engine::{
-        AllocationCallbacks, Engine,
         node_graph::{node_graph_builder::NodeGraphBuilder, nodes::NodeRef},
+        AllocationCallbacks, Engine,
     },
+    Binding, MaRawResult, MaResult,
 };
 
 /// A pull-based audio processing graph. Represents `ma_node_graph`
@@ -201,7 +201,7 @@ impl<'a> NodeGraph<'a> {
         config: &NodeGraphBuilder,
         alloc: Option<&'a AllocationCallbacks>,
     ) -> MaResult<Self> {
-        let mut mem: Box<MaybeUninit<sys::ma_node_graph>> = Box::new_uninit();
+        let mut mem: Box<MaybeUninit<sys::ma_node_graph>> = Box::new(MaybeUninit::uninit());
 
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
@@ -229,8 +229,8 @@ mod graph_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
+        engine::node_graph::{nodes::NodeRef, private_node_graph, AsNodeGraphPtr, NodeGraphOps},
         Binding, MaRawResult, MaResult,
-        engine::node_graph::{AsNodeGraphPtr, NodeGraphOps, nodes::NodeRef, private_node_graph},
     };
 
     #[inline]

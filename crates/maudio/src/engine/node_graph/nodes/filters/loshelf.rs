@@ -1,17 +1,17 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaResult,
     audio::{formats::Format, sample_rate::SampleRate},
     engine::{
-        AllocationCallbacks,
         node_graph::{
+            nodes::{private_node::LoShelfNodeProvider, AsNodePtr, NodeRef},
             AsNodeGraphPtr, NodeGraph,
-            nodes::{AsNodePtr, NodeRef, private_node::LoShelfNodeProvider},
         },
+        AllocationCallbacks,
     },
+    Binding, MaResult,
 };
 
 /// A node that applies a **low-shelf EQ** to an audio signal.
@@ -75,7 +75,8 @@ impl<'a> LoShelfNode<'a> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
 
-        let mut mem: Box<std::mem::MaybeUninit<sys::ma_loshelf_node>> = Box::new_uninit();
+        let mut mem: Box<std::mem::MaybeUninit<sys::ma_loshelf_node>> =
+            Box::new(MaybeUninit::uninit());
 
         n_loshelf_ffi::ma_loshelf_node_init(
             node_graph,
@@ -131,10 +132,10 @@ pub(crate) mod n_loshelf_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        Binding, MaRawResult, MaResult,
         engine::node_graph::{
-            AsNodeGraphPtr, nodes::filters::loshelf::LoShelfNode, private_node_graph,
+            nodes::filters::loshelf::LoShelfNode, private_node_graph, AsNodeGraphPtr,
         },
+        Binding, MaRawResult, MaResult,
     };
 
     #[inline]
@@ -270,8 +271,8 @@ mod test {
     use crate::{
         audio::sample_rate::SampleRate,
         engine::{
-            Engine, EngineOps,
             node_graph::nodes::filters::loshelf::{LoShelfNodeBuilder, LoShelfNodeParams},
+            Engine, EngineOps,
         },
     };
 

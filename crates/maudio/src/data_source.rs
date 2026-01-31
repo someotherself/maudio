@@ -2,7 +2,7 @@ use std::{marker::PhantomData, ops::Range};
 
 use maudio_sys::ffi as sys;
 
-use crate::{Binding, MaResult, audio::formats::Format};
+use crate::{audio::formats::Format, Binding, MaResult};
 
 pub mod sources;
 
@@ -314,11 +314,11 @@ pub(crate) mod data_source_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        Binding, MaRawResult, MaResult,
         data_source::{
-            AsSourcePtr, DataFormat, DataSource, DataSourceRef, GetNextCallback,
-            private_data_source,
+            private_data_source, AsSourcePtr, DataFormat, DataSource, DataSourceRef,
+            GetNextCallback,
         },
+        Binding, MaRawResult, MaResult,
     };
 
     #[inline]

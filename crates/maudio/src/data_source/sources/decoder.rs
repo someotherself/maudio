@@ -8,17 +8,17 @@
 //!
 //! A decoder implements [`DataSource`](crate::data_source::DataSource), allowing it to be used directly by
 //! sounds and node graphs.
-use std::{marker::PhantomData, path::Path, sync::Arc};
+use std::{marker::PhantomData, mem::MaybeUninit, path::Path, sync::Arc};
 
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaResult,
     audio::{
         formats::{Format, SampleBuffer, SampleBufferS24},
         sample_rate::SampleRate,
     },
-    data_source::{AsSourcePtr, DataFormat, DataSourceRef, private_data_source},
+    data_source::{private_data_source, AsSourcePtr, DataFormat, DataSourceRef},
+    Binding, MaResult,
 };
 
 /// Owned streaming audio decoder.
@@ -206,7 +206,7 @@ pub trait DecoderOps: AsDecoderPtr + AsSourcePtr {
 
 impl Decoder {
     fn init_from_memory(data: &[u8], config: &DecoderBuilder) -> MaResult<Self> {
-        let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new_uninit();
+        let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
         let data_arc: Arc<[u8]> = Arc::from(data);
 
         decoder_ffi::ma_decoder_init_memory(
@@ -229,7 +229,7 @@ impl Decoder {
     }
 
     fn init_from_file(path: &Path, config: &DecoderBuilder) -> MaResult<Self> {
-        let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new_uninit();
+        let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
 
         Decoder::init_from_file_internal(path, config, mem.as_mut_ptr())?;
 
@@ -276,7 +276,7 @@ impl Decoder {
 
 impl<'a> DecoderRef<'a> {
     fn from_memory(data: &'a [u8], config: &DecoderBuilder) -> MaResult<DecoderRef<'a>> {
-        let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new_uninit();
+        let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
 
         decoder_ffi::ma_decoder_init_memory(
             data.as_ptr() as *const _,
@@ -302,8 +302,8 @@ pub(crate) mod decoder_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::audio::formats::{SampleBuffer, SampleBufferS24};
-    use crate::data_source::sources::decoder::{AsDecoderPtr, DecoderBuilder, private_decoder};
-    use crate::{Binding, MaRawResult, MaResult, data_source::DataFormat};
+    use crate::data_source::sources::decoder::{private_decoder, AsDecoderPtr, DecoderBuilder};
+    use crate::{data_source::DataFormat, Binding, MaRawResult, MaResult};
 
     #[inline]
     pub fn ma_decoder_init(

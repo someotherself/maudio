@@ -12,7 +12,7 @@
 /// by the graph configuration itself.
 use maudio_sys::ffi as sys;
 
-use crate::{Binding, MaResult, engine::node_graph::NodeGraph};
+use crate::{engine::node_graph::NodeGraph, Binding, MaResult};
 
 /// Configures and constructs a [`NodeGraph`].
 ///

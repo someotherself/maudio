@@ -1,17 +1,17 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaResult,
     audio::{formats::Format, sample_rate::SampleRate},
     engine::{
-        AllocationCallbacks,
         node_graph::{
+            nodes::{private_node::NotchNodeProvider, AsNodePtr, NodeRef},
             AsNodeGraphPtr, NodeGraph,
-            nodes::{AsNodePtr, NodeRef, private_node::NotchNodeProvider},
         },
+        AllocationCallbacks,
     },
+    Binding, MaResult,
 };
 
 /// A node that applies a **notch filter (band-stop)** to an audio signal.
@@ -76,7 +76,8 @@ impl<'a> NotchNode<'a> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
 
-        let mut mem: Box<std::mem::MaybeUninit<sys::ma_notch_node>> = Box::new_uninit();
+        let mut mem: Box<std::mem::MaybeUninit<sys::ma_notch_node>> =
+            Box::new(MaybeUninit::uninit());
 
         n_notch_ffi::ma_notch_node_init(node_graph, config.to_raw(), alloc_cb, mem.as_mut_ptr())?;
 
@@ -125,10 +126,10 @@ pub(crate) mod n_notch_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        Binding, MaRawResult, MaResult,
         engine::node_graph::{
-            AsNodeGraphPtr, nodes::filters::notch::NotchNode, private_node_graph,
+            nodes::filters::notch::NotchNode, private_node_graph, AsNodeGraphPtr,
         },
+        Binding, MaRawResult, MaResult,
     };
 
     #[inline]
@@ -249,8 +250,8 @@ mod test {
     use crate::{
         audio::sample_rate::SampleRate,
         engine::{
-            Engine, EngineOps,
             node_graph::nodes::filters::notch::{NotchNodeBuilder, NotchNodeParams},
+            Engine, EngineOps,
         },
     };
 

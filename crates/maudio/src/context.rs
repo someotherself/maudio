@@ -33,7 +33,7 @@ impl Binding for Context {
 
 impl Context {
     fn new_internal() -> MaResult<Self> {
-        // let mut mem: Box<std::mem::MaybeUninit<sys::ma_context>> = Box::new_uninit();
+        // let mut mem: Box<std::mem::MaybeUninit<sys::ma_context>> = Box::new(MaybeUninit::uninit());
 
         todo!()
     }

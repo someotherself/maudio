@@ -30,23 +30,23 @@
 //! that becomes `true` once the sound reaches the end callback.
 use std::{
     path::Path,
-    sync::{Arc, atomic::AtomicBool},
+    sync::{atomic::AtomicBool, Arc},
 };
 
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaResult,
     audio::math::vec3::Vec3,
-    data_source::{AsSourcePtr, DataSourceRef, private_data_source},
+    data_source::{private_data_source, AsSourcePtr, DataSourceRef},
     engine::{
+        node_graph::nodes::{private_node, AsNodePtr},
         Engine, EngineOps,
-        node_graph::nodes::{AsNodePtr, private_node},
     },
     sound::{
-        Sound, SoundSource, notifier::EndNotifier, sound_flags::SoundFlags, sound_group::SoundGroup,
+        notifier::EndNotifier, sound_flags::SoundFlags, sound_group::SoundGroup, Sound, SoundSource,
     },
     util::fence::Fence,
+    Binding, MaResult,
 };
 
 /// Builder for constructing a [`Sound`]

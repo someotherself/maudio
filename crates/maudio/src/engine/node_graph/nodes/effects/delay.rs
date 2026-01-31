@@ -1,16 +1,16 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaResult,
     engine::{
-        AllocationCallbacks,
         node_graph::{
+            nodes::{private_node, AsNodePtr, NodeRef},
             AsNodeGraphPtr, NodeGraph,
-            nodes::{AsNodePtr, NodeRef, private_node},
         },
+        AllocationCallbacks,
     },
+    Binding, MaResult,
 };
 
 /// A node that applies a delay (echo) effect to an audio signal.
@@ -111,7 +111,8 @@ impl<'a> DelayNode<'a> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
 
-        let mut mem: Box<std::mem::MaybeUninit<sys::ma_delay_node>> = Box::new_uninit();
+        let mut mem: Box<std::mem::MaybeUninit<sys::ma_delay_node>> =
+            Box::new(MaybeUninit::uninit());
 
         n_delay_ffi::ma_delay_node_init(node_graph, config.to_raw(), alloc_cb, mem.as_mut_ptr())?;
         let ptr = unsafe { mem.assume_init() };
@@ -134,10 +135,10 @@ impl<'a> DelayNode<'a> {
 
 pub(crate) mod n_delay_ffi {
     use crate::{
-        Binding, MaRawResult, MaResult,
         engine::node_graph::{
-            AsNodeGraphPtr, nodes::effects::delay::DelayNode, private_node_graph,
+            nodes::effects::delay::DelayNode, private_node_graph, AsNodeGraphPtr,
         },
+        Binding, MaRawResult, MaResult,
     };
     use maudio_sys::ffi as sys;
 
@@ -325,7 +326,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> DelayNodeBuilder<'a, N> {
 
 #[cfg(test)]
 mod test {
-    use crate::engine::{Engine, EngineOps, node_graph::nodes::private_node};
+    use crate::engine::{node_graph::nodes::private_node, Engine, EngineOps};
 
     use super::*;
 

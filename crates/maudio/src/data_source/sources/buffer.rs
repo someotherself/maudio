@@ -2,15 +2,15 @@
 //!
 //! An `AudioBuffer` stores decoded audio samples and can be read, seeked, or
 //! used as a [`DataSource`](crate::data_source::DataSource) by the engine.
-use std::marker::PhantomData;
+use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, ErrorKinds, MaResult, MaudioError,
     audio::formats::{Format, SampleBuffer, SampleBufferS24},
-    data_source::{AsSourcePtr, DataSourceRef, private_data_source},
+    data_source::{private_data_source, AsSourcePtr, DataSourceRef},
     engine::AllocationCallbacks,
+    Binding, ErrorKinds, MaResult, MaudioError,
 };
 
 /// Owned in-memory PCM audio buffer.
@@ -255,7 +255,8 @@ pub trait AudioBufferOps: AsAudioBufferPtr + AsSourcePtr {
 
 impl<'a> AudioBufferRef<'a> {
     fn new_with_cfg_internal(mut config: AudioBufferBuilder<'a>) -> MaResult<Self> {
-        let mut mem: Box<std::mem::MaybeUninit<sys::ma_audio_buffer>> = Box::new_uninit();
+        let mut mem: Box<std::mem::MaybeUninit<sys::ma_audio_buffer>> =
+            Box::new(MaybeUninit::uninit());
         buffer_ffi::ma_audio_buffer_init(&config, mem.as_mut_ptr())?;
 
         let ptr: Box<sys::ma_audio_buffer> = unsafe { mem.assume_init() };
@@ -273,7 +274,8 @@ impl<'a> AudioBufferRef<'a> {
 
 impl AudioBuffer {
     fn copy_with_cfg_internal(config: &AudioBufferBuilder) -> MaResult<Self> {
-        let mut mem: Box<std::mem::MaybeUninit<sys::ma_audio_buffer>> = Box::new_uninit();
+        let mut mem: Box<std::mem::MaybeUninit<sys::ma_audio_buffer>> =
+            Box::new(MaybeUninit::uninit());
 
         buffer_ffi::ma_audio_buffer_init_copy(config, mem.as_mut_ptr())?;
 
@@ -291,12 +293,12 @@ impl AudioBuffer {
 
 pub(crate) mod buffer_ffi {
     use crate::{
-        Binding, MaRawResult, MaResult,
         audio::formats::{SampleBuffer, SampleBufferS24},
         data_source::{
+            sources::buffer::{private_abuffer, AsAudioBufferPtr, AudioBuffer, AudioBufferBuilder},
             AsSourcePtr,
-            sources::buffer::{AsAudioBufferPtr, AudioBuffer, AudioBufferBuilder, private_abuffer},
         },
+        Binding, MaRawResult, MaResult,
     };
     use maudio_sys::ffi as sys;
 

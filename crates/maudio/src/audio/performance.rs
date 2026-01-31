@@ -65,7 +65,7 @@ impl TryFrom<sys::ma_performance_profile> for PerformanceProfile {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{MaError, sys};
+    use crate::{sys, MaError};
 
     #[test]
     fn test_performance_profile_from_rust_to_sys_low_latency() {

@@ -7,7 +7,7 @@ use std::{
 
 use maudio_sys::ffi as sys;
 
-use crate::{MaResult, MaudioError, engine::AllocationCallbacks};
+use crate::{engine::AllocationCallbacks, MaResult, MaudioError};
 
 pub struct RingBuffer {}
 
@@ -121,7 +121,7 @@ impl RingBuffer {
     #[inline]
     fn available_read_internal<R: AsRbPtr + ?Sized>(rb: &mut R, item_size: u32) -> u32 {
         let bytes = rb_ffi::ma_rb_available_read(rb);
-        debug_assert!(bytes.is_multiple_of(item_size));
+        debug_assert!(bytes % item_size == 0);
         bytes / item_size
     }
 
@@ -201,7 +201,7 @@ impl RingBuffer {
     #[inline]
     fn available_write_internal<R: AsRbPtr + ?Sized>(rb: &mut R, item_size: u32) -> u32 {
         let bytes = rb_ffi::ma_rb_available_write(rb);
-        debug_assert!(bytes.is_multiple_of(item_size));
+        debug_assert!(bytes % item_size == 0);
         bytes / item_size
     }
 
@@ -327,7 +327,7 @@ impl<'a, T> RbReadGuard<'a, T> {
         debug_assert_eq!(self.avail_bytes % core::mem::size_of::<T>(), 0);
         // Pointer must be aligned for T when data is present
         debug_assert!(
-            self.avail_bytes == 0 || (self.ptr as usize).is_multiple_of(core::mem::align_of::<T>())
+            self.avail_bytes == 0 || (self.ptr as usize) % core::mem::align_of::<T>() == 0
         );
         self.avail_bytes / core::mem::size_of::<T>()
     }
@@ -339,7 +339,7 @@ impl<'a, T> RbReadGuard<'a, T> {
         // Byte count must match whole T items
         debug_assert_eq!(self.avail_bytes % core::mem::size_of::<T>(), 0);
         // Pointer must satisfy T's alignment before forming &[T]
-        debug_assert!(n == 0 || (self.ptr as usize).is_multiple_of(core::mem::align_of::<T>()));
+        debug_assert!(n == 0 || (self.ptr as usize) % core::mem::align_of::<T>() == 0);
         // SAFETY:
         // miniaudio ensure buffer is alligned to MA_SIMD_ALIGNMENT
         // When (and if) allowing users to pass in pre-alloc buffers,
@@ -424,9 +424,7 @@ impl<'a, T> RbWriteGuard<'a, T> {
         // Capacity in bytes must represent whole T items
         debug_assert_eq!(self.cap_bytes % core::mem::size_of::<T>(), 0);
         // Pointer must be aligned for T when writable data is present
-        debug_assert!(
-            self.cap_bytes == 0 || (self.ptr as usize).is_multiple_of(core::mem::align_of::<T>())
-        );
+        debug_assert!(self.cap_bytes == 0 || (self.ptr as usize) % core::mem::align_of::<T>() == 0);
         self.cap_bytes / core::mem::size_of::<T>()
     }
 
@@ -437,7 +435,7 @@ impl<'a, T> RbWriteGuard<'a, T> {
         // Byte capacity must match whole T items
         debug_assert_eq!(self.cap_bytes % core::mem::size_of::<T>(), 0);
         // Pointer must satisfy T's alignment before forming &[T]
-        debug_assert!(n == 0 || (self.ptr as usize).is_multiple_of(core::mem::align_of::<T>()));
+        debug_assert!(n == 0 || (self.ptr as usize) % core::mem::align_of::<T>() == 0);
         // SAFETY:
         // miniaudio ensure buffer is alligned to MA_SIMD_ALIGNMENT
         // When (and if) allowing users to pass in pre-alloc buffers,
@@ -452,7 +450,7 @@ impl<'a, T> RbWriteGuard<'a, T> {
         // Byte capacity must match whole T items
         debug_assert_eq!(self.cap_bytes % core::mem::size_of::<T>(), 0);
         // Pointer must satisfy T's alignment before forming &mut [T]
-        debug_assert!(n == 0 || (self.ptr as usize).is_multiple_of(core::mem::align_of::<T>()));
+        debug_assert!(n == 0 || (self.ptr as usize) % core::mem::align_of::<T>() == 0);
         // SAFETY:
         // miniaudio ensure buffer is alligned to MA_SIMD_ALIGNMENT
         // When (and if) allowing users to pass in pre-alloc buffers,
@@ -1202,14 +1200,14 @@ impl AsRbPtr for RbRecvF32 {
 }
 
 pub(crate) mod rb_ffi {
-    use std::sync::Arc;
+    use std::{mem::MaybeUninit, sync::Arc};
 
     use maudio_sys::ffi as sys;
 
     use crate::{
-        MaRawResult, MaResult,
-        data_source::sources::ring_buffer::{AsRbPtr, RbInner, private_rb},
+        data_source::sources::ring_buffer::{private_rb, AsRbPtr, RbInner},
         engine::AllocationCallbacks,
+        MaRawResult, MaResult,
     };
 
     pub fn rb_new_raw(
@@ -1217,7 +1215,7 @@ pub(crate) mod rb_ffi {
         pre_alloc: Option<&mut [u8]>,
         alloc_cb: Option<Arc<AllocationCallbacks>>,
     ) -> MaResult<*mut sys::ma_rb> {
-        let mut mem: Box<std::mem::MaybeUninit<sys::ma_rb>> = Box::<sys::ma_rb>::new_uninit();
+        let mut mem: Box<std::mem::MaybeUninit<sys::ma_rb>> = Box::new(MaybeUninit::uninit());
 
         let (pre_alloc, alloc_cb) = match pre_alloc {
             Some(buf) => {
@@ -1388,7 +1386,7 @@ mod test {
     #[test]
     fn test_ring_buffer_basic_init_u8() {
         let (mut send, mut recv) = RingBuffer::new_u8(128).unwrap();
-        let data: [u8; 5] = [01, 02, 03, 06, 10];
+        let data: [u8; 5] = [1, 2, 3, 6, 10];
         let written = send.write(&data).unwrap();
         assert_eq!(written, 5);
 

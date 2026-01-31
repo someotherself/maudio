@@ -3,13 +3,13 @@ use std::{cell::Cell, marker::PhantomData};
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaResult,
     audio::{
         dsp::pan::PanMode,
         math::vec3::Vec3,
         spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
     },
-    engine::{Engine, EngineRef, node_graph::nodes::NodeRef},
+    engine::{node_graph::nodes::NodeRef, Engine, EngineRef},
+    Binding, MaResult,
 };
 
 // TODO: Needs a lifetime to engine
@@ -289,7 +289,6 @@ pub(crate) mod s_group_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        Binding, MaRawResult, MaResult,
         audio::{
             dsp::pan::PanMode,
             math::vec3::Vec3,
@@ -297,6 +296,7 @@ pub(crate) mod s_group_ffi {
         },
         engine::{Engine, EngineRef},
         sound::sound_group::{SoundGroup, SoundGroupConfig},
+        Binding, MaRawResult, MaResult,
     };
 
     pub fn ma_sound_group_init_ex(
@@ -688,7 +688,7 @@ mod test {
             math::vec3::Vec3,
             spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
         },
-        engine::{Engine, engine_builder::EngineBuilder},
+        engine::{engine_builder::EngineBuilder, Engine},
     };
 
     fn approx_eq(a: f32, b: f32, eps: f32) -> bool {

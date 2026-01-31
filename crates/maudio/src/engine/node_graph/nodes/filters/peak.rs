@@ -1,17 +1,17 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaResult,
     audio::{formats::Format, sample_rate::SampleRate},
     engine::{
-        AllocationCallbacks,
         node_graph::{
+            nodes::{private_node::PeakNodeProvider, AsNodePtr, NodeRef},
             AsNodeGraphPtr, NodeGraph,
-            nodes::{AsNodePtr, NodeRef, private_node::PeakNodeProvider},
         },
+        AllocationCallbacks,
     },
+    Binding, MaResult,
 };
 
 /// A node that applies a **peaking EQ (bell filter)** to an audio signal.
@@ -79,7 +79,8 @@ impl<'a> PeakNode<'a> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
 
-        let mut mem: Box<std::mem::MaybeUninit<sys::ma_peak_node>> = Box::new_uninit();
+        let mut mem: Box<std::mem::MaybeUninit<sys::ma_peak_node>> =
+            Box::new(MaybeUninit::uninit());
 
         n_peak_ffi::ma_peak_node_init(node_graph, config.to_raw(), alloc_cb, mem.as_mut_ptr())?;
 
@@ -126,8 +127,8 @@ impl<'a> PeakNode<'a> {
 
 pub(crate) mod n_peak_ffi {
     use crate::{
+        engine::node_graph::{nodes::filters::peak::PeakNode, private_node_graph, AsNodeGraphPtr},
         Binding, MaRawResult, MaResult,
-        engine::node_graph::{AsNodeGraphPtr, nodes::filters::peak::PeakNode, private_node_graph},
     };
     use maudio_sys::ffi as sys;
 
@@ -251,8 +252,8 @@ mod test {
     use crate::{
         audio::sample_rate::SampleRate,
         engine::{
-            Engine, EngineOps,
             node_graph::nodes::filters::peak::{PeakNodeBuilder, PeakNodeParams},
+            Engine, EngineOps,
         },
     };
 

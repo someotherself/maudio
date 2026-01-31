@@ -51,22 +51,22 @@
 use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit, path::Path, sync::Arc};
 
 use crate::{
-    Binding, MaResult,
     audio::{math::vec3::Vec3, sample_rate::SampleRate, spatial::cone::Cone},
     data_source::AsSourcePtr,
     engine::{
         engine_builder::EngineBuilder,
-        node_graph::{NodeGraphRef, nodes::NodeRef},
+        node_graph::{nodes::NodeRef, NodeGraphRef},
         process_notifier::ProcessState,
     },
     sound::{
-        Sound,
         sound_builder::SoundBuilder,
         sound_ffi,
         sound_flags::SoundFlags,
-        sound_group::{SoundGroup, SoundGroupConfig, s_group_cfg_ffi, s_group_ffi},
+        sound_group::{s_group_cfg_ffi, s_group_ffi, SoundGroup, SoundGroupConfig},
+        Sound,
     },
     util::fence::Fence,
+    Binding, MaResult,
 };
 
 use maudio_sys::ffi as sys;
@@ -401,7 +401,7 @@ impl Engine {
     }
 
     fn new_with_config(config: Option<&EngineBuilder>) -> MaResult<Self> {
-        let mut mem: Box<MaybeUninit<sys::ma_engine>> = Box::new_uninit();
+        let mut mem: Box<MaybeUninit<sys::ma_engine>> = Box::new(MaybeUninit::uninit());
         engine_ffi::engine_init(config, mem.as_mut_ptr())?;
         // Safety: If mem is not initialized, engine_init will return an error
         let mem: Box<sys::ma_engine> = unsafe { mem.assume_init() };
@@ -475,7 +475,7 @@ impl Engine {
     ) -> MaResult<Sound<'_>> {
         let temp_config = SoundBuilder::init(self);
         let config = config.unwrap_or(&temp_config);
-        let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new_uninit();
+        let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new(MaybeUninit::uninit());
 
         sound_ffi::ma_sound_init_ex(self, config, mem.as_mut_ptr())?;
 
@@ -490,7 +490,7 @@ impl Engine {
         sound_group: Option<&'a SoundGroup>,
         data_source: &D,
     ) -> MaResult<Sound<'a>> {
-        let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new_uninit();
+        let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new(MaybeUninit::uninit());
 
         sound_ffi::ma_sound_init_from_data_source(
             self,
@@ -512,7 +512,7 @@ impl Engine {
         sound_group: Option<&'a SoundGroup>,
         done_fence: Option<&Fence>,
     ) -> MaResult<Sound<'a>> {
-        let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new_uninit();
+        let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new(MaybeUninit::uninit());
 
         Sound::init_from_file_internal(
             mem.as_mut_ptr(),
@@ -538,7 +538,7 @@ impl Engine {
         flags: SoundFlags,
         sound_group: Option<&mut SoundGroup>,
     ) -> MaResult<Sound<'a>> {
-        let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new_uninit();
+        let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new(MaybeUninit::uninit());
 
         sound_ffi::ma_sound_init_copy(self, sound, flags, sound_group, mem.as_mut_ptr())?;
 
@@ -548,7 +548,7 @@ impl Engine {
     }
 
     pub fn new_sound_group(&self) -> MaResult<SoundGroup<'_>> {
-        let mut mem: Box<MaybeUninit<sys::ma_sound_group>> = Box::new_uninit();
+        let mut mem: Box<MaybeUninit<sys::ma_sound_group>> = Box::new(MaybeUninit::uninit());
         let config = self.new_sound_group_config();
 
         s_group_ffi::ma_sound_group_init_ex(self, config, mem.as_mut_ptr())?;
@@ -874,14 +874,13 @@ pub(crate) mod engine_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        MaRawResult, MaResult,
         audio::{math::vec3::Vec3, spatial::cone::Cone},
         engine::{
-            AsEnginePtr, Binding, Engine, EngineOps,
             engine_builder::EngineBuilder,
-            node_graph::{NodeGraphRef, nodes::NodeRef},
-            private_engine,
+            node_graph::{nodes::NodeRef, NodeGraphRef},
+            private_engine, AsEnginePtr, Binding, Engine, EngineOps,
         },
+        MaRawResult, MaResult,
     };
 
     #[inline]

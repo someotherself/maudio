@@ -1,17 +1,17 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaResult,
     audio::formats::Format,
     engine::{
-        AllocationCallbacks,
         node_graph::{
+            nodes::{private_node::BiquadNodeProvider, AsNodePtr, NodeRef},
             AsNodeGraphPtr, NodeGraph,
-            nodes::{AsNodePtr, NodeRef, private_node::BiquadNodeProvider},
         },
+        AllocationCallbacks,
     },
+    Binding, MaResult,
 };
 
 /// A node that applies a biquad filtering to an audio signal.
@@ -85,7 +85,8 @@ impl<'a> BiquadNode<'a> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
 
-        let mut mem: Box<std::mem::MaybeUninit<sys::ma_biquad_node>> = Box::new_uninit();
+        let mut mem: Box<std::mem::MaybeUninit<sys::ma_biquad_node>> =
+            Box::new(MaybeUninit::uninit());
 
         n_biquad_ffi::ma_biquad_node_init(node_graph, config.to_raw(), alloc_cb, mem.as_mut_ptr())?;
 
@@ -123,10 +124,10 @@ impl<'a> BiquadNode<'a> {
 
 pub(crate) mod n_biquad_ffi {
     use crate::{
-        Binding, MaRawResult, MaResult,
         engine::node_graph::{
-            AsNodeGraphPtr, nodes::filters::biquad::BiquadNode, private_node_graph,
+            nodes::filters::biquad::BiquadNode, private_node_graph, AsNodeGraphPtr,
         },
+        Binding, MaRawResult, MaResult,
     };
     use maudio_sys::ffi as sys;
 
@@ -261,8 +262,8 @@ impl BiquadNodeParams {
 #[cfg(test)]
 mod test {
     use crate::engine::{
-        Engine, EngineOps,
         node_graph::nodes::filters::biquad::{BiquadNodeBuilder, BiquadNodeParams},
+        Engine, EngineOps,
     };
 
     #[test]

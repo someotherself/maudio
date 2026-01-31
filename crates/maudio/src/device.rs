@@ -2,7 +2,7 @@ use std::{cell::Cell, marker::PhantomData};
 
 use maudio_sys::ffi as sys;
 
-use crate::{Binding, MaResult, context::backend::Backend, device::device_builder::DeviceBuilder};
+use crate::{context::backend::Backend, device::device_builder::DeviceBuilder, Binding, MaResult};
 
 pub mod device_builder;
 
@@ -40,9 +40,9 @@ pub(crate) mod device_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        Binding, MaRawResult, MaResult,
-        context::{Context, backend::Backend},
+        context::{backend::Backend, Context},
         device::device_builder::DeviceBuilder,
+        Binding, MaRawResult, MaResult,
     };
 
     pub fn ma_device_init(

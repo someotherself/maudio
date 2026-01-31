@@ -1,16 +1,16 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaResult,
     engine::{
-        AllocationCallbacks,
         node_graph::{
+            nodes::{private_node::SplitterNodeProvider, AsNodePtr, NodeRef},
             AsNodeGraphPtr, NodeGraph,
-            nodes::{AsNodePtr, NodeRef, private_node::SplitterNodeProvider},
         },
+        AllocationCallbacks,
     },
+    Binding, MaResult,
 };
 
 /// A node that **duplicates an input signal to multiple outputs** inside a node graph.
@@ -87,7 +87,8 @@ impl<'a> SplitterNode<'a> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
 
-        let mut mem: Box<std::mem::MaybeUninit<sys::ma_splitter_node>> = Box::new_uninit();
+        let mut mem: Box<std::mem::MaybeUninit<sys::ma_splitter_node>> =
+            Box::new(MaybeUninit::uninit());
 
         n_splitter_ffi::ma_splitter_node_init(
             node_graph,
@@ -131,10 +132,10 @@ impl<'a> SplitterNode<'a> {
 
 pub(crate) mod n_splitter_ffi {
     use crate::{
-        Binding, MaRawResult, MaResult,
         engine::node_graph::{
-            AsNodeGraphPtr, nodes::routing::splitter::SplitterNode, private_node_graph,
+            nodes::routing::splitter::SplitterNode, private_node_graph, AsNodeGraphPtr,
         },
+        Binding, MaRawResult, MaResult,
     };
     use maudio_sys::ffi as sys;
 
@@ -211,11 +212,11 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> SplitterNodeBuilder<'a, N> {
 #[cfg(test)]
 mod test {
     use crate::engine::{
-        Engine, EngineOps,
         node_graph::{
             node_builder::NodeState,
-            nodes::{NodeOps, routing::splitter::SplitterNodeBuilder},
+            nodes::{routing::splitter::SplitterNodeBuilder, NodeOps},
         },
+        Engine, EngineOps,
     };
 
     #[test]

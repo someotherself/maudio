@@ -1,17 +1,17 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaResult,
     audio::{formats::Format, sample_rate::SampleRate},
     engine::{
-        AllocationCallbacks,
         node_graph::{
+            nodes::{private_node::HiShelfNodeProvider, AsNodePtr, NodeRef},
             AsNodeGraphPtr, NodeGraph,
-            nodes::{AsNodePtr, NodeRef, private_node::HiShelfNodeProvider},
         },
+        AllocationCallbacks,
     },
+    Binding, MaResult,
 };
 
 /// A node that applies a **high-shelf EQ** to an audio signal.
@@ -75,7 +75,8 @@ impl<'a> HiShelfNode<'a> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
 
-        let mut mem: Box<std::mem::MaybeUninit<sys::ma_hishelf_node>> = Box::new_uninit();
+        let mut mem: Box<std::mem::MaybeUninit<sys::ma_hishelf_node>> =
+            Box::new(MaybeUninit::uninit());
 
         n_hishelf_ffi::ma_hishelf_node_init(
             node_graph,
@@ -133,10 +134,10 @@ pub(crate) mod n_hishelf_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        Binding, MaRawResult, MaResult,
         engine::node_graph::{
-            AsNodeGraphPtr, nodes::filters::hishelf::HiShelfNode, private_node_graph,
+            nodes::filters::hishelf::HiShelfNode, private_node_graph, AsNodeGraphPtr,
         },
+        Binding, MaRawResult, MaResult,
     };
 
     #[inline]
@@ -272,8 +273,8 @@ mod test {
     use crate::{
         audio::sample_rate::SampleRate,
         engine::{
-            Engine, EngineOps,
             node_graph::nodes::filters::hishelf::{HiShelfNodeBuilder, HiShelfNodeParams},
+            Engine, EngineOps,
         },
     };
 

@@ -1,7 +1,7 @@
 //! Notification for when a sound reaches the end.
 use std::sync::{
-    Arc,
     atomic::{AtomicBool, Ordering},
+    Arc,
 };
 
 use maudio_sys::ffi as sys;

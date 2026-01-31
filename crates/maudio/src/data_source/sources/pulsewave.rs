@@ -7,12 +7,14 @@
 //! The generator can be controlled at runtime via [`PulseWaveOps`] (amplitude,
 //! frequency, duty cycle, and sample rate) and can be seeked like any other
 //! source.
+use std::mem::MaybeUninit;
+
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaResult,
     audio::{formats::Format, sample_rate::SampleRate},
-    data_source::{AsSourcePtr, DataSourceRef, private_data_source},
+    data_source::{private_data_source, AsSourcePtr, DataSourceRef},
+    Binding, MaResult,
 };
 
 pub(crate) struct PulseWaveInner {
@@ -248,11 +250,11 @@ pub(crate) mod pulsewave_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        Binding, MaRawResult, MaResult,
         audio::sample_rate::SampleRate,
         data_source::sources::pulsewave::{
-            AsPulseWavePtr, PulseWaveBuilder, PulseWaveInner, private_pulsew,
+            private_pulsew, AsPulseWavePtr, PulseWaveBuilder, PulseWaveInner,
         },
+        Binding, MaRawResult, MaResult,
     };
 
     #[inline]
@@ -593,7 +595,8 @@ impl PulseWaveBuilder {
     }
 
     fn new_inner(&self) -> MaResult<PulseWaveInner> {
-        let mut mem: Box<std::mem::MaybeUninit<sys::ma_pulsewave>> = Box::new_uninit();
+        let mut mem: Box<std::mem::MaybeUninit<sys::ma_pulsewave>> =
+            Box::new(MaybeUninit::uninit());
 
         pulsewave_ffi::ma_pulsewave_init(self, mem.as_mut_ptr())?;
 

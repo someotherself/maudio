@@ -9,15 +9,17 @@
 //! The waveform can be controlled at runtime via [`WaveFormOps`] (type,
 //! amplitude, frequency, and sample rate) and can be seeked like any other
 //! source.
+use std::mem::MaybeUninit;
+
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaResult,
     audio::{formats::Format, sample_rate::SampleRate, waveform::WaveformType},
     data_source::{
-        AsSourcePtr, DataSourceRef, private_data_source,
-        sources::waveform::private_wave::WaveFormPtrProvider,
+        private_data_source, sources::waveform::private_wave::WaveFormPtrProvider, AsSourcePtr,
+        DataSourceRef,
     },
+    Binding, MaResult,
 };
 
 pub(crate) struct WaveFormInner {
@@ -257,11 +259,11 @@ pub trait WaveFormOps: AsWaveFormPtr + AsSourcePtr {
 
 pub(crate) mod waveform_ffi {
     use crate::{
-        Binding, MaRawResult, MaResult,
         audio::{sample_rate::SampleRate, waveform::WaveformType},
         data_source::sources::waveform::{
-            AsWaveFormPtr, WaveFormBuilder, WaveFormInner, private_wave,
+            private_wave, AsWaveFormPtr, WaveFormBuilder, WaveFormInner,
         },
+        Binding, MaRawResult, MaResult,
     };
     use maudio_sys::ffi as sys;
 
@@ -737,7 +739,7 @@ impl WaveFormBuilder {
     }
 
     fn init_from_config_internal(&self) -> MaResult<WaveFormInner> {
-        let mut mem: Box<std::mem::MaybeUninit<sys::ma_waveform>> = Box::new_uninit();
+        let mut mem: Box<std::mem::MaybeUninit<sys::ma_waveform>> = Box::new(MaybeUninit::uninit());
 
         waveform_ffi::ma_waveform_init(self, mem.as_mut_ptr())?;
 

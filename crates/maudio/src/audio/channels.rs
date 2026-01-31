@@ -190,7 +190,7 @@ impl TryFrom<sys::ma_standard_channel_map> for ChannelMap {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{MaError, sys};
+    use crate::{sys, MaError};
 
     #[test]
     fn test_channel_map_from_rust_to_sys_variants() {

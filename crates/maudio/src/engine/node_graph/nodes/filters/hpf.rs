@@ -1,17 +1,17 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaResult,
     audio::{formats::Format, sample_rate::SampleRate},
     engine::{
-        AllocationCallbacks,
         node_graph::{
+            nodes::{private_node::HpfNodeProvider, AsNodePtr, NodeRef},
             AsNodeGraphPtr, NodeGraph,
-            nodes::{AsNodePtr, NodeRef, private_node::HpfNodeProvider},
         },
+        AllocationCallbacks,
     },
+    Binding, MaResult,
 };
 
 /// A node that applies a **high-pass filter (HPF)** to an audio signal.
@@ -75,7 +75,7 @@ impl<'a> HpfNode<'a> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
 
-        let mut mem: Box<std::mem::MaybeUninit<sys::ma_hpf_node>> = Box::new_uninit();
+        let mut mem: Box<std::mem::MaybeUninit<sys::ma_hpf_node>> = Box::new(MaybeUninit::uninit());
 
         n_hpf_ffi::ma_hpf_node_init(node_graph, config.to_raw(), alloc_cb, mem.as_mut_ptr())?;
 
@@ -125,8 +125,8 @@ pub(crate) mod n_hpf_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
+        engine::node_graph::{nodes::filters::hpf::HpfNode, private_node_graph, AsNodeGraphPtr},
         Binding, MaRawResult, MaResult,
-        engine::node_graph::{AsNodeGraphPtr, nodes::filters::hpf::HpfNode, private_node_graph},
     };
 
     #[inline]
@@ -249,8 +249,8 @@ mod test {
     use crate::{
         audio::sample_rate::SampleRate,
         engine::{
-            Engine, EngineOps,
             node_graph::nodes::filters::hpf::{HpfNodeBuilder, HpfNodeParams},
+            Engine, EngineOps,
         },
     };
 

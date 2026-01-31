@@ -3,21 +3,21 @@
 //! `VoiceStack` wires together waveform and pulse wave source nodes with a mixer
 //! and exposes the underlying nodes for further customization.
 use crate::{
-    ErrorKinds, MaResult, MaudioError,
     audio::sample_rate::SampleRate,
     data_source::sources::{
         pulsewave::{PulseWaveBuilder, PulseWaveF32},
         waveform::{WaveFormBuilder, WaveFormF32},
     },
     engine::node_graph::{
-        AsNodeGraphPtr, NodeGraphOps,
         nodes::{
-            NodeOps, NodeRef,
             routing::splitter::{SplitterNode, SplitterNodeBuilder},
             source::source_node::{AttachedSourceNode, AttachedSourceNodeBuilder},
+            NodeOps, NodeRef,
         },
+        AsNodeGraphPtr, NodeGraphOps,
     },
     sound::Sound,
+    ErrorKinds, MaResult, MaudioError,
 };
 
 /// ## Start/Stop/set_volume
@@ -156,7 +156,7 @@ mod test {
     use crate::{
         audio::sample_rate::SampleRate,
         data_source::sources::waveform::WaveFormBuilder,
-        engine::{Engine, EngineOps, node_graph::nodes::source::source_node::SourceNodeBuilder},
+        engine::{node_graph::nodes::source::source_node::SourceNodeBuilder, Engine, EngineOps},
     };
 
     #[test]

@@ -10,16 +10,16 @@ use std::{cell::Cell, marker::PhantomData, path::Path};
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaRawResult, MaResult,
     audio::{
         dsp::pan::PanMode,
         math::vec3::Vec3,
         spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
     },
     data_source::{DataFormat, DataSourceRef},
-    engine::{Engine, EngineRef, node_graph::nodes::NodeRef},
+    engine::{node_graph::nodes::NodeRef, Engine, EngineRef},
     sound::{notifier::EndNotifier, sound_flags::SoundFlags, sound_group::SoundGroup},
     util::fence::Fence,
+    Binding, MaRawResult, MaResult,
 };
 
 pub mod notifier;
@@ -492,22 +492,22 @@ pub fn sound_volume_linear_to_db(factor: f32) -> f32 {
 pub(crate) mod sound_ffi {
     use maudio_sys::ffi as sys;
 
-    use crate::Binding;
-    use crate::MaResult;
     use crate::audio::math::vec3::Vec3;
     use crate::audio::spatial::{
         attenuation::AttenuationModel, cone::Cone, positioning::Positioning,
     };
     use crate::data_source::AsSourcePtr;
-    use crate::data_source::{DataFormat, DataSourceRef, private_data_source};
+    use crate::data_source::{private_data_source, DataFormat, DataSourceRef};
     use crate::util::fence::Fence;
+    use crate::Binding;
+    use crate::MaResult;
     use crate::{
-        MaRawResult,
         audio::dsp::pan::PanMode,
         engine::{Engine, EngineRef},
         sound::{
-            Sound, sound_builder::SoundBuilder, sound_flags::SoundFlags, sound_group::SoundGroup,
+            sound_builder::SoundBuilder, sound_flags::SoundFlags, sound_group::SoundGroup, Sound,
         },
+        MaRawResult,
     };
 
     #[inline]
@@ -1182,7 +1182,7 @@ mod test {
             spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
         },
         data_source::sources::buffer::{AudioBufferBuilder, AudioBufferOps},
-        engine::{Engine, EngineOps, node_graph::nodes::NodeOps},
+        engine::{node_graph::nodes::NodeOps, Engine, EngineOps},
     };
 
     fn assert_f32_eq(a: f32, b: f32) {

@@ -77,11 +77,11 @@ use std::{cell::Cell, marker::PhantomData};
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaResult,
     engine::{
+        node_graph::{node_builder::NodeState, NodeGraph, NodeGraphRef},
         AllocationCallbacks,
-        node_graph::{NodeGraph, NodeGraphRef, node_builder::NodeState},
     },
+    Binding, MaResult,
 };
 
 pub mod effects;
@@ -392,12 +392,12 @@ pub(super) mod node_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        Binding, MaRawResult, MaResult,
         engine::node_graph::{
-            NodeGraph, NodeGraphRef,
             node_builder::NodeState,
-            nodes::{AsNodePtr, Node, private_node},
+            nodes::{private_node, AsNodePtr, Node},
+            NodeGraph, NodeGraphRef,
         },
+        Binding, MaRawResult, MaResult,
     };
 
     // Do not expose to public API. Used internally by ma_node_init

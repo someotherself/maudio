@@ -1,20 +1,20 @@
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
 
 use maudio_sys::ffi as sys;
 
 use crate::{
-    Binding, MaResult,
-    data_source::{AsSourcePtr, DataSourceRef, private_data_source},
+    data_source::{private_data_source, AsSourcePtr, DataSourceRef},
     engine::{
-        AllocationCallbacks,
         node_graph::{
-            AsNodeGraphPtr,
             nodes::{
-                AsNodePtr, NodeRef,
                 private_node::{AttachedSourceNodeProvider, SourceNodeProvider},
+                AsNodePtr, NodeRef,
             },
+            AsNodeGraphPtr,
         },
+        AllocationCallbacks,
     },
+    Binding, MaResult,
 };
 
 pub struct SourceNode<'a> {
@@ -50,7 +50,8 @@ impl<'a> SourceNode<'a> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
 
-        let mut mem: Box<std::mem::MaybeUninit<sys::ma_data_source_node>> = Box::new_uninit();
+        let mut mem: Box<std::mem::MaybeUninit<sys::ma_data_source_node>> =
+            Box::new(MaybeUninit::uninit());
 
         n_datasource_ffi::ma_data_source_node_init(
             node_graph,
@@ -111,7 +112,8 @@ impl<'a, S: AsSourcePtr> AttachedSourceNode<'a, S> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
 
-        let mut mem: Box<std::mem::MaybeUninit<sys::ma_data_source_node>> = Box::new_uninit();
+        let mut mem: Box<std::mem::MaybeUninit<sys::ma_data_source_node>> =
+            Box::new(MaybeUninit::uninit());
 
         n_datasource_ffi::ma_data_source_node_init(
             node_graph,
@@ -158,10 +160,10 @@ pub(crate) mod n_datasource_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        Binding, MaRawResult, MaResult,
         engine::node_graph::{
-            AsNodeGraphPtr, nodes::source::source_node::SourceNode, private_node_graph,
+            nodes::source::source_node::SourceNode, private_node_graph, AsNodeGraphPtr,
         },
+        Binding, MaRawResult, MaResult,
     };
 
     #[inline]
@@ -306,9 +308,9 @@ impl<'a, N: AsNodeGraphPtr, S: AsSourcePtr> AttachedSourceNodeBuilder<'a, N, S> 
 #[cfg(test)]
 mod test {
     use crate::{
-        Binding,
         data_source::sources::buffer::AudioBufferBuilder,
-        engine::{Engine, EngineOps, node_graph::nodes::source::source_node::SourceNodeBuilder},
+        engine::{node_graph::nodes::source::source_node::SourceNodeBuilder, Engine, EngineOps},
+        Binding,
     };
 
     fn ramp_f32_interleaved(channels: u32, frames: u64) -> Vec<f32> {

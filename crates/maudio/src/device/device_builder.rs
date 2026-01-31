@@ -1,6 +1,6 @@
 use maudio_sys::ffi as sys;
 
-use crate::{Binding, device::Device};
+use crate::{device::Device, Binding};
 
 pub struct DeviceBuilder {
     inner: sys::ma_device_config,

@@ -2,7 +2,8 @@
 name = "maudio"
 version = "0.1.0"
 license = "MIT"
-edition = "2024"
+rust-version = "1.85"
+edition = "2021"
 categories = ["multimedia::audio", "multimedia"]
 
 [features]

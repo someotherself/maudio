@@ -3,14 +3,14 @@ use maudio_sys::ffi as sys;
 use std::sync::Arc;
 
 use crate::{
-    Binding, MaResult,
     audio::sample_rate::SampleRate,
     engine::{
-        Engine,
         process_notifier::{
-            EngineProcessCallback, ProcessNotifier, ProcessState, on_process_callback,
+            on_process_callback, EngineProcessCallback, ProcessNotifier, ProcessState,
         },
+        Engine,
     },
+    Binding, MaResult,
 };
 
 pub struct EngineBuilder {
