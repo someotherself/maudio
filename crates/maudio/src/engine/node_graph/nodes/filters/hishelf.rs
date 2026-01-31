@@ -37,9 +37,9 @@ use crate::{
 /// audible artifacts such as clicks or pops.
 ///
 /// Use [`HiShelfNodeBuilder`] to initialize
-pub struct HiShelfNode<'a, 'alloc> {
+pub struct HiShelfNode<'a> {
     inner: *mut sys::ma_hishelf_node,
-    alloc_cb: Option<&'alloc AllocationCallbacks>,
+    alloc_cb: Option<&'a AllocationCallbacks>,
     _marker: PhantomData<&'a NodeGraph<'a>>,
     // Below is needed during a reinit
     channels: u32,
@@ -48,7 +48,7 @@ pub struct HiShelfNode<'a, 'alloc> {
     format: Format,
 }
 
-impl Binding for HiShelfNode<'_, '_> {
+impl Binding for HiShelfNode<'_> {
     type Raw = *mut sys::ma_hishelf_node;
 
     /// !!! unimplemented !!!
@@ -62,15 +62,15 @@ impl Binding for HiShelfNode<'_, '_> {
 }
 
 #[doc(hidden)]
-impl AsNodePtr for HiShelfNode<'_, '_> {
+impl AsNodePtr for HiShelfNode<'_> {
     type __PtrProvider = HiShelfNodeProvider;
 }
 
-impl<'a, 'alloc> HiShelfNode<'a, 'alloc> {
+impl<'a> HiShelfNode<'a> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &HiShelfNodeBuilder<N>,
-        alloc: Option<&'alloc AllocationCallbacks>,
+        alloc: Option<&'a AllocationCallbacks>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
@@ -174,7 +174,7 @@ pub(crate) mod n_hishelf_ffi {
     }
 }
 
-impl<'a, 'alloc> Drop for HiShelfNode<'a, 'alloc> {
+impl<'a> Drop for HiShelfNode<'a> {
     fn drop(&mut self) {
         n_hishelf_ffi::ma_hishelf_node_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -199,7 +199,7 @@ impl<N: AsNodeGraphPtr + ?Sized> Binding for HiShelfNodeBuilder<'_, N> {
     }
 }
 
-impl<'a, 'alloc, N: AsNodeGraphPtr + ?Sized> HiShelfNodeBuilder<'a, N> {
+impl<'a, N: AsNodeGraphPtr + ?Sized> HiShelfNodeBuilder<'a, N> {
     pub fn new(
         node_graph: &'a N,
         channels: u32,
@@ -223,7 +223,7 @@ impl<'a, 'alloc, N: AsNodeGraphPtr + ?Sized> HiShelfNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(self) -> MaResult<HiShelfNode<'a, 'alloc>> {
+    pub fn build(self) -> MaResult<HiShelfNode<'a>> {
         HiShelfNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
     }
 }

@@ -1,26 +1,29 @@
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Arc};
 
 use maudio_sys::ffi as sys;
 
 use crate::{
     Binding, MaResult,
-    data_source::{AsSourcePtr, private_data_source},
+    data_source::{AsSourcePtr, DataSourceRef, private_data_source},
     engine::{
         AllocationCallbacks,
         node_graph::{
-            AsNodeGraphPtr, NodeGraph,
-            nodes::{AsNodePtr, NodeRef, private_node::SourceNodeProvider},
+            AsNodeGraphPtr,
+            nodes::{
+                AsNodePtr, NodeRef,
+                private_node::{AttachedSourceNodeProvider, SourceNodeProvider},
+            },
         },
     },
 };
 
-pub struct SourceNode<'a, 'alloc> {
+pub struct SourceNode<'a> {
     inner: *mut sys::ma_data_source_node,
-    alloc_cb: Option<&'alloc AllocationCallbacks>,
-    _marker: PhantomData<&'a NodeGraph<'a>>,
+    alloc_cb: Option<&'a AllocationCallbacks>,
+    _src_graph: PhantomData<&'a ()>, // borrow to the graph and source
 }
 
-impl Binding for SourceNode<'_, '_> {
+impl Binding for SourceNode<'_> {
     type Raw = *mut sys::ma_data_source_node;
 
     // !!! unimplemented !!!
@@ -34,15 +37,15 @@ impl Binding for SourceNode<'_, '_> {
 }
 
 #[doc(hidden)]
-impl AsNodePtr for SourceNode<'_, '_> {
+impl AsNodePtr for SourceNode<'_> {
     type __PtrProvider = SourceNodeProvider;
 }
 
-impl<'a, 'alloc> SourceNode<'a, 'alloc> {
-    fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized, S: AsSourcePtr + ?Sized>(
+impl<'a> SourceNode<'a> {
+    fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr, S: AsSourcePtr>(
         node_graph: &N,
-        config: &SourceNodeBuilder<N, S>,
-        alloc: Option<&'alloc AllocationCallbacks>,
+        config: &SourceNodeBuilder<'a, N, S>,
+        alloc: Option<&'a AllocationCallbacks>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
@@ -62,7 +65,7 @@ impl<'a, 'alloc> SourceNode<'a, 'alloc> {
         Ok(Self {
             inner,
             alloc_cb: alloc,
-            _marker: PhantomData,
+            _src_graph: PhantomData,
         })
     }
 
@@ -82,13 +85,82 @@ impl<'a, 'alloc> SourceNode<'a, 'alloc> {
     }
 }
 
+pub struct AttachedSourceNode<'a, S: AsSourcePtr> {
+    inner: *mut sys::ma_data_source_node,
+    alloc_cb: Option<&'a AllocationCallbacks>,
+    source: Arc<S>,
+    _graph: PhantomData<&'a ()>,
+}
+
+#[doc(hidden)]
+impl<S: AsSourcePtr> AsNodePtr for AttachedSourceNode<'_, S> {
+    type __PtrProvider = AttachedSourceNodeProvider;
+}
+
+#[doc(hidden)]
+impl<S: AsSourcePtr> AsSourcePtr for AttachedSourceNode<'_, S> {
+    type __PtrProvider = private_data_source::AttachedSourceNodeProvider;
+}
+
+impl<'a, S: AsSourcePtr> AttachedSourceNode<'a, S> {
+    fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr>(
+        node_graph: &N,
+        config: &AttachedSourceNodeBuilder<'a, N, S>,
+        alloc: Option<&'a AllocationCallbacks>,
+    ) -> MaResult<Self> {
+        let alloc_cb: *const sys::ma_allocation_callbacks =
+            alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
+
+        let mut mem: Box<std::mem::MaybeUninit<sys::ma_data_source_node>> = Box::new_uninit();
+
+        n_datasource_ffi::ma_data_source_node_init(
+            node_graph,
+            config.to_raw(),
+            alloc_cb,
+            mem.as_mut_ptr(),
+        )?;
+
+        let ptr: Box<sys::ma_data_source_node> = unsafe { mem.assume_init() };
+        let inner: *mut sys::ma_data_source_node = Box::into_raw(ptr);
+
+        Ok(Self {
+            inner,
+            alloc_cb: alloc,
+            source: config.source.clone(),
+            _graph: PhantomData,
+        })
+    }
+
+    /// Returns a **borrowed view** as a node in the engine's node graph.
+    pub fn as_node(&self) -> NodeRef<'a> {
+        debug_assert!(!self.inner.is_null());
+        let ptr = self.inner.cast::<sys::ma_node>();
+        NodeRef::from_ptr(ptr)
+    }
+
+    pub fn as_source(&self) -> DataSourceRef<'_> {
+        debug_assert!(!private_data_source::source_ptr(self.source.as_ref()).is_null());
+        let ptr =
+            private_data_source::source_ptr(self.source.as_ref()).cast::<sys::ma_data_source>();
+        DataSourceRef::from_ptr(ptr)
+    }
+
+    #[inline]
+    fn alloc_cb_ptr(&self) -> *const sys::ma_allocation_callbacks {
+        match &self.alloc_cb {
+            Some(cb) => &cb.inner as *const _,
+            None => core::ptr::null(),
+        }
+    }
+}
+
 pub(crate) mod n_datasource_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
         Binding, MaRawResult, MaResult,
         engine::node_graph::{
-            AsNodeGraphPtr, nodes::source::data_source::SourceNode, private_node_graph,
+            AsNodeGraphPtr, nodes::source::source_node::SourceNode, private_node_graph,
         },
     };
 
@@ -118,7 +190,7 @@ pub(crate) mod n_datasource_ffi {
     }
 }
 
-impl<'a, 'alloc> Drop for SourceNode<'a, 'alloc> {
+impl<'a> Drop for SourceNode<'a> {
     fn drop(&mut self) {
         n_datasource_ffi::ma_data_source_node_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -137,8 +209,8 @@ where
 
 impl<N, S> Binding for SourceNodeBuilder<'_, N, S>
 where
-    N: AsNodeGraphPtr + ?Sized,
-    S: AsSourcePtr + ?Sized,
+    N: AsNodeGraphPtr,
+    S: AsSourcePtr,
 {
     type Raw = *const sys::ma_data_source_node_config;
 
@@ -152,10 +224,10 @@ where
     }
 }
 
-impl<'a, 'alloc, N, S> SourceNodeBuilder<'a, N, S>
+impl<'a, N, S> SourceNodeBuilder<'a, N, S>
 where
-    N: AsNodeGraphPtr + ?Sized,
-    S: AsSourcePtr + ?Sized,
+    N: AsNodeGraphPtr,
+    S: AsSourcePtr,
 {
     pub fn new(node_graph: &'a N, source: &'a S) -> Self {
         let inner = unsafe {
@@ -168,8 +240,66 @@ where
         }
     }
 
-    pub fn build(self) -> MaResult<SourceNode<'a, 'alloc>> {
+    pub fn build(self) -> MaResult<SourceNode<'a>> {
         SourceNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
+    }
+}
+
+pub struct AttachedSourceNodeBuilder<'a, N, S>
+where
+    N: AsNodeGraphPtr,
+    S: AsSourcePtr,
+{
+    inner: sys::ma_data_source_node_config,
+    node_graph: &'a N,
+    source: Arc<S>,
+}
+
+pub trait SourcePtrDyn: Send + Sync {
+    fn as_source_ptr(&self) -> *mut sys::ma_data_source;
+}
+
+impl<T> SourcePtrDyn for T
+where
+    T: AsSourcePtr + Send + Sync,
+{
+    fn as_source_ptr(&self) -> *mut sys::ma_data_source {
+        private_data_source::source_ptr(self)
+    }
+}
+
+impl<N, S> Binding for AttachedSourceNodeBuilder<'_, N, S>
+where
+    N: AsNodeGraphPtr,
+    S: AsSourcePtr,
+{
+    type Raw = *const sys::ma_data_source_node_config;
+
+    // !!! unimplemented !!!
+    fn from_ptr(_raw: Self::Raw) -> Self {
+        unimplemented!()
+    }
+
+    fn to_raw(&self) -> Self::Raw {
+        &self.inner as *const _
+    }
+}
+
+impl<'a, N: AsNodeGraphPtr, S: AsSourcePtr> AttachedSourceNodeBuilder<'a, N, S> {
+    pub fn new(node_graph: &'a N, source: S) -> Self {
+        let src_arc = Arc::new(source);
+        let inner = unsafe {
+            sys::ma_data_source_node_config_init(private_data_source::source_ptr(src_arc.as_ref()))
+        };
+        Self {
+            inner,
+            node_graph,
+            source: src_arc,
+        }
+    }
+
+    pub fn build(self) -> MaResult<AttachedSourceNode<'a, S>> {
+        AttachedSourceNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
     }
 }
 
@@ -178,7 +308,7 @@ mod test {
     use crate::{
         Binding,
         data_source::sources::buffer::AudioBufferBuilder,
-        engine::{Engine, EngineOps, node_graph::nodes::source::data_source::SourceNodeBuilder},
+        engine::{Engine, EngineOps, node_graph::nodes::source::source_node::SourceNodeBuilder},
     };
 
     fn ramp_f32_interleaved(channels: u32, frames: u64) -> Vec<f32> {

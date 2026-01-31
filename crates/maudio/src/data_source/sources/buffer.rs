@@ -45,15 +45,15 @@ impl Binding for AudioBuffer {
 /// state) must outlive `'a`.
 ///
 /// Use this when you want to work with an existing buffer without copying.
-pub struct AudioBufferRef<'a, 'alloc> {
+pub struct AudioBufferRef<'a> {
     inner: *mut sys::ma_audio_buffer,
     pub format: Format,
     pub channels: u32,
     _marker: PhantomData<&'a [u8]>,
-    alloc_cb: Option<&'alloc AllocationCallbacks>,
+    alloc_cb: Option<&'a AllocationCallbacks>,
 }
 
-impl Binding for AudioBufferRef<'_, '_> {
+impl Binding for AudioBufferRef<'_> {
     type Raw = *mut sys::ma_audio_buffer;
 
     /// !!! unimplemented !!!
@@ -84,8 +84,8 @@ mod private_abuffer {
         }
     }
 
-    impl<'a, 'alloc> AudioBufferProvider<AudioBufferRef<'a, 'alloc>> for AudioBufferRefPtrPrivider {
-        fn as_buffer_ptr(t: &AudioBufferRef<'a, 'alloc>) -> *mut sys::ma_audio_buffer {
+    impl<'a> AudioBufferProvider<AudioBufferRef<'a>> for AudioBufferRefPtrPrivider {
+        fn as_buffer_ptr(t: &AudioBufferRef<'a>) -> *mut sys::ma_audio_buffer {
             t.to_raw()
         }
     }
@@ -103,7 +103,7 @@ impl AsSourcePtr for AudioBuffer {
 
 // Allows AudioBufferRef to pass as a DataSource
 #[doc(hidden)]
-impl<'a, 'alloc> AsSourcePtr for AudioBufferRef<'a, 'alloc> {
+impl<'a> AsSourcePtr for AudioBufferRef<'a> {
     type __PtrProvider = private_data_source::AudioBufferRefProvider;
 }
 
@@ -128,7 +128,7 @@ impl AsAudioBufferPtr for AudioBuffer {
     }
 }
 
-impl AsAudioBufferPtr for AudioBufferRef<'_, '_> {
+impl AsAudioBufferPtr for AudioBufferRef<'_> {
     #[doc(hidden)]
     type __PtrProvider = private_abuffer::AudioBufferRefPtrPrivider;
 
@@ -253,8 +253,8 @@ pub trait AudioBufferOps: AsAudioBufferPtr + AsSourcePtr {
     }
 }
 
-impl<'a, 'alloc> AudioBufferRef<'a, 'alloc> {
-    fn new_with_cfg_internal(mut config: AudioBufferBuilder<'a, 'alloc>) -> MaResult<Self> {
+impl<'a> AudioBufferRef<'a> {
+    fn new_with_cfg_internal(mut config: AudioBufferBuilder<'a>) -> MaResult<Self> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_audio_buffer>> = Box::new_uninit();
         buffer_ffi::ma_audio_buffer_init(&config, mem.as_mut_ptr())?;
 
@@ -523,22 +523,22 @@ impl Drop for AudioBuffer {
     }
 }
 
-impl<'a, 'alloc> Drop for AudioBufferRef<'a, 'alloc> {
+impl<'a> Drop for AudioBufferRef<'a> {
     fn drop(&mut self) {
         buffer_ffi::ma_audio_buffer_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
     }
 }
 
-pub struct AudioBufferBuilder<'a, 'alloc> {
+pub struct AudioBufferBuilder<'a> {
     inner: sys::ma_audio_buffer_config,
-    alloc_cb: Option<&'alloc AllocationCallbacks>,
+    alloc_cb: Option<&'a AllocationCallbacks>,
     // This type and AudioBufferRef must keep a lifetime to the data provided to AudioBufferBuilder
     // Otherwise, the data can be dropped and result in a dangling pointer
     _marker: PhantomData<&'a [u8]>,
 }
 
-impl Binding for AudioBufferBuilder<'_, '_> {
+impl Binding for AudioBufferBuilder<'_> {
     type Raw = sys::ma_audio_buffer_config;
 
     fn from_ptr(raw: Self::Raw) -> Self {
@@ -554,7 +554,7 @@ impl Binding for AudioBufferBuilder<'_, '_> {
     }
 }
 
-impl<'a, 'alloc> AudioBufferBuilder<'a, 'alloc> {
+impl<'a> AudioBufferBuilder<'a> {
     #[inline]
     fn from_typed<T>(format: Format, channels: u32, frames: u64, data: &'a [T]) -> MaResult<Self> {
         let expected = (frames as usize)
@@ -618,7 +618,7 @@ impl<'a, 'alloc> AudioBufferBuilder<'a, 'alloc> {
         AudioBuffer::copy_with_cfg_internal(&self)
     }
 
-    pub fn build_ref(self) -> MaResult<AudioBufferRef<'a, 'alloc>> {
+    pub fn build_ref(self) -> MaResult<AudioBufferRef<'a>> {
         AudioBufferRef::new_with_cfg_internal(self)
     }
 
@@ -627,7 +627,7 @@ impl<'a, 'alloc> AudioBufferBuilder<'a, 'alloc> {
         channels: u32,
         size_frames: u64,
         data: *const core::ffi::c_void,
-        alloc_cb: Option<&'alloc AllocationCallbacks>,
+        alloc_cb: Option<&'a AllocationCallbacks>,
     ) -> Self {
         let alloc: *const sys::ma_allocation_callbacks =
             alloc_cb.map_or(core::ptr::null(), |c| &c.inner as *const _);

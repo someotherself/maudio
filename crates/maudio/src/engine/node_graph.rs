@@ -4,6 +4,7 @@ pub mod node_builder;
 pub mod node_flags;
 pub mod node_graph_builder;
 pub mod nodes;
+pub mod voice;
 
 /// Prelude for the [`node_graph`](super) module.
 ///
@@ -70,9 +71,9 @@ use crate::{
 /// - non-standard processing graphs
 /// - offline rendering of audio
 /// - fine-grained control over how audio is evaluated
-pub struct NodeGraph<'alloc> {
+pub struct NodeGraph<'a> {
     inner: *mut sys::ma_node_graph,
-    alloc_cb: Option<&'alloc AllocationCallbacks>,
+    alloc_cb: Option<&'a AllocationCallbacks>,
     _not_sync: PhantomData<Cell<()>>,
 }
 
@@ -135,7 +136,7 @@ pub(crate) mod private_node_graph {
     pub struct NodeGraphProvider;
     pub struct NodeGraphRefProvider;
 
-    impl<'alloc> NodeGraphPtrProvider<NodeGraph<'alloc>> for NodeGraphProvider {
+    impl<'a> NodeGraphPtrProvider<NodeGraph<'a>> for NodeGraphProvider {
         #[inline]
         fn as_node_graph_ptr(t: &NodeGraph) -> *mut sys::ma_node_graph {
             t.to_raw()
@@ -195,10 +196,10 @@ pub trait NodeGraphOps: AsNodeGraphPtr {
 }
 
 // These should not be available to NodeGraphRef
-impl<'alloc> NodeGraph<'alloc> {
+impl<'a> NodeGraph<'a> {
     fn with_alloc_callbacks(
         config: &NodeGraphBuilder,
-        alloc: Option<&'alloc AllocationCallbacks>,
+        alloc: Option<&'a AllocationCallbacks>,
     ) -> MaResult<Self> {
         let mut mem: Box<MaybeUninit<sys::ma_node_graph>> = Box::new_uninit();
 
@@ -311,7 +312,7 @@ mod graph_ffi {
     }
 }
 
-impl<'alloc> Drop for NodeGraph<'alloc> {
+impl<'a> Drop for NodeGraph<'a> {
     fn drop(&mut self) {
         graph_ffi::ma_node_graph_uninit(self.to_raw(), self.alloc_cb_ptr());
         drop(unsafe { Box::from_raw(self.to_raw()) });

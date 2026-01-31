@@ -457,9 +457,9 @@ impl PulseWaveBuilder {
                 Format::F32.into(),
                 channels,
                 sample_rate.into(),
+                duty_cycle,
                 amplitude,
                 frequency,
-                duty_cycle,
             )
         };
         Self {
@@ -669,6 +669,39 @@ mod test {
         let _pw = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
             .build_f32()
             .unwrap();
+    }
+
+    #[test]
+    fn test_pulsewave_generates_nonzero_f32() {
+        let mut pw = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 0.2, 440.0, 0.5)
+            .build_f32()
+            .unwrap();
+
+        let (buf, frames_read) = pw.read_pcm_frames(FRAMES).unwrap();
+        assert_frames_and_len_f32(&buf, frames_read, CH);
+
+        assert!(
+            buf.iter().all(|&s| s.is_finite()),
+            "PulseWave produced NaN/Inf samples"
+        );
+
+        let max_abs = buf.iter().fold(0.0f32, |m, &s| m.max(s.abs()));
+        assert!(
+            max_abs > 1.0e-6,
+            "PulseWave output looks silent (max_abs={max_abs})"
+        );
+
+        let mut max_delta = 0.0f32;
+        for w in buf.windows(2) {
+            let d = (w[1] - w[0]).abs();
+            if d > max_delta {
+                max_delta = d;
+            }
+        }
+        assert!(
+            max_delta > 1.0e-6,
+            "PulseWave output looks constant/DC (max_delta={max_delta})"
+        );
     }
 
     #[test]

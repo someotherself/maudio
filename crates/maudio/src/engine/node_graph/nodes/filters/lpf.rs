@@ -36,9 +36,9 @@ use crate::{
 /// audible artifacts such as clicks or pops.
 ///
 /// Use [`LpfNodeBuilder`] to initialize.
-pub struct LpfNode<'a, 'alloc> {
+pub struct LpfNode<'a> {
     inner: *mut sys::ma_lpf_node,
-    alloc_cb: Option<&'alloc AllocationCallbacks>,
+    alloc_cb: Option<&'a AllocationCallbacks>,
     _marker: PhantomData<&'a NodeGraph<'a>>,
     // Below is needed during a reinit
     channels: u32,
@@ -48,7 +48,7 @@ pub struct LpfNode<'a, 'alloc> {
     order: u32,
 }
 
-impl Binding for LpfNode<'_, '_> {
+impl Binding for LpfNode<'_> {
     type Raw = *mut sys::ma_lpf_node;
 
     /// !!! unimplemented !!!
@@ -62,15 +62,15 @@ impl Binding for LpfNode<'_, '_> {
 }
 
 #[doc(hidden)]
-impl AsNodePtr for LpfNode<'_, '_> {
+impl AsNodePtr for LpfNode<'_> {
     type __PtrProvider = private_node::LpfNodeProvider;
 }
 
-impl<'a, 'alloc> LpfNode<'a, 'alloc> {
+impl<'a> LpfNode<'a> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &LpfNodeBuilder<'_, N>,
-        alloc: Option<&'alloc AllocationCallbacks>,
+        alloc: Option<&'a AllocationCallbacks>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
@@ -163,7 +163,7 @@ pub(crate) mod n_lpf_ffi {
     }
 }
 
-impl<'a, 'alloc> Drop for LpfNode<'a, 'alloc> {
+impl<'a> Drop for LpfNode<'a> {
     fn drop(&mut self) {
         n_lpf_ffi::ma_lpf_node_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -188,7 +188,7 @@ impl<N: AsNodeGraphPtr + ?Sized> Binding for LpfNodeBuilder<'_, N> {
     }
 }
 
-impl<'a, 'alloc, N: AsNodeGraphPtr + ?Sized> LpfNodeBuilder<'a, N> {
+impl<'a, N: AsNodeGraphPtr + ?Sized> LpfNodeBuilder<'a, N> {
     pub fn new(
         node_graph: &'a N,
         channels: u32,
@@ -205,7 +205,7 @@ impl<'a, 'alloc, N: AsNodeGraphPtr + ?Sized> LpfNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(self) -> MaResult<LpfNode<'a, 'alloc>> {
+    pub fn build(self) -> MaResult<LpfNode<'a>> {
         LpfNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
     }
 }

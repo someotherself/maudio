@@ -22,13 +22,13 @@ use crate::{
 /// audio in fixed-size frames according to the graph’s format.
 ///
 /// Use [`DelayNodeBuilder`] to initialize
-pub struct DelayNode<'a, 'alloc> {
+pub struct DelayNode<'a> {
     inner: *mut sys::ma_delay_node,
-    alloc_cb: Option<&'alloc AllocationCallbacks>,
+    alloc_cb: Option<&'a AllocationCallbacks>,
     _marker: PhantomData<&'a NodeGraph<'a>>,
 }
 
-impl Binding for DelayNode<'_, '_> {
+impl Binding for DelayNode<'_> {
     type Raw = *mut sys::ma_delay_node;
 
     // !!! unimplemented !!!
@@ -42,11 +42,11 @@ impl Binding for DelayNode<'_, '_> {
 }
 
 #[doc(hidden)]
-impl AsNodePtr for DelayNode<'_, '_> {
+impl AsNodePtr for DelayNode<'_> {
     type __PtrProvider = private_node::DelayNodeProvider;
 }
 
-impl<'a, 'alloc> DelayNode<'a, 'alloc> {
+impl<'a> DelayNode<'a> {
     /// Read the gain of the *wet* (delayed) signal.
     pub fn wet(&self) -> f32 {
         n_delay_ffi::ma_delay_node_get_wet(self)
@@ -106,7 +106,7 @@ impl<'a, 'alloc> DelayNode<'a, 'alloc> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &DelayNodeBuilder<N>,
-        alloc: Option<&'alloc AllocationCallbacks>,
+        alloc: Option<&'a AllocationCallbacks>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
@@ -196,7 +196,7 @@ pub(crate) mod n_delay_ffi {
     }
 }
 
-impl Drop for DelayNode<'_, '_> {
+impl Drop for DelayNode<'_> {
     fn drop(&mut self) {
         n_delay_ffi::ma_delay_node_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -221,7 +221,7 @@ impl<N: AsNodeGraphPtr + ?Sized> Binding for DelayNodeBuilder<'_, N> {
     }
 }
 
-impl<'a, 'alloc, N: AsNodeGraphPtr + ?Sized> DelayNodeBuilder<'a, N> {
+impl<'a, N: AsNodeGraphPtr + ?Sized> DelayNodeBuilder<'a, N> {
     pub fn new(
         node_graph: &'a N,
         channels: u32,
@@ -312,7 +312,7 @@ impl<'a, 'alloc, N: AsNodeGraphPtr + ?Sized> DelayNodeBuilder<'a, N> {
         self
     }
 
-    pub fn build(self) -> MaResult<DelayNode<'a, 'alloc>> {
+    pub fn build(self) -> MaResult<DelayNode<'a>> {
         DelayNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
     }
 

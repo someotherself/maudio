@@ -54,13 +54,13 @@ use crate::{
 /// - Volume control and routing are handled at the node-graph level
 ///
 /// Use [`SplitterNodeBuilder`] to initialize.
-pub struct SplitterNode<'a, 'alloc> {
+pub struct SplitterNode<'a> {
     inner: *mut sys::ma_splitter_node,
-    alloc_cb: Option<&'alloc AllocationCallbacks>,
+    alloc_cb: Option<&'a AllocationCallbacks>,
     _marker: PhantomData<&'a NodeGraph<'a>>,
 }
 
-impl Binding for SplitterNode<'_, '_> {
+impl Binding for SplitterNode<'_> {
     type Raw = *mut sys::ma_splitter_node;
 
     // !!! unimplemented !!!
@@ -74,15 +74,15 @@ impl Binding for SplitterNode<'_, '_> {
 }
 
 #[doc(hidden)]
-impl AsNodePtr for SplitterNode<'_, '_> {
+impl AsNodePtr for SplitterNode<'_> {
     type __PtrProvider = SplitterNodeProvider;
 }
 
-impl<'a, 'alloc> SplitterNode<'a, 'alloc> {
+impl<'a> SplitterNode<'a> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &SplitterNodeBuilder<'_, N>,
-        alloc: Option<&'alloc AllocationCallbacks>,
+        alloc: Option<&'a AllocationCallbacks>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
@@ -164,7 +164,7 @@ pub(crate) mod n_splitter_ffi {
     }
 }
 
-impl<'a, 'alloc> Drop for SplitterNode<'a, 'alloc> {
+impl<'a> Drop for SplitterNode<'a> {
     fn drop(&mut self) {
         n_splitter_ffi::ma_splitter_node_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -189,7 +189,7 @@ impl<N: AsNodeGraphPtr + ?Sized> Binding for SplitterNodeBuilder<'_, N> {
     }
 }
 
-impl<'a, 'alloc, N: AsNodeGraphPtr + ?Sized> SplitterNodeBuilder<'a, N> {
+impl<'a, N: AsNodeGraphPtr + ?Sized> SplitterNodeBuilder<'a, N> {
     pub fn new(node_graph: &'a N, channels: u32) -> Self {
         let ptr = unsafe { sys::ma_splitter_node_config_init(channels) };
         Self {
@@ -203,7 +203,7 @@ impl<'a, 'alloc, N: AsNodeGraphPtr + ?Sized> SplitterNodeBuilder<'a, N> {
         self
     }
 
-    pub fn build(self) -> MaResult<SplitterNode<'a, 'alloc>> {
+    pub fn build(self) -> MaResult<SplitterNode<'a>> {
         SplitterNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
     }
 }

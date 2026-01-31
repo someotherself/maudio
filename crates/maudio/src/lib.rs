@@ -164,6 +164,7 @@ impl MaError {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum ErrorKinds {
+    InvalidGraphState,
     /// Size mismatch between data.len() and frames * channels
     BufferSizeError,
     /// Used by Handle types. Error during a recv

@@ -47,9 +47,9 @@ use crate::{
 ///   will result in an error.
 ///
 /// Use [`BiquadNodeBuilder`] to initialize
-pub struct BiquadNode<'a, 'alloc> {
+pub struct BiquadNode<'a> {
     inner: *mut sys::ma_biquad_node,
-    alloc_cb: Option<&'alloc AllocationCallbacks>,
+    alloc_cb: Option<&'a AllocationCallbacks>,
     _marker: PhantomData<&'a NodeGraph<'a>>,
     // Below is needed during a reinit
     channels: u32,
@@ -58,7 +58,7 @@ pub struct BiquadNode<'a, 'alloc> {
     format: Format,
 }
 
-impl Binding for BiquadNode<'_, '_> {
+impl Binding for BiquadNode<'_> {
     type Raw = *mut sys::ma_biquad_node;
 
     // !!! unimplemented !!!
@@ -72,15 +72,15 @@ impl Binding for BiquadNode<'_, '_> {
 }
 
 #[doc(hidden)]
-impl AsNodePtr for BiquadNode<'_, '_> {
+impl AsNodePtr for BiquadNode<'_> {
     type __PtrProvider = BiquadNodeProvider;
 }
 
-impl<'a, 'alloc> BiquadNode<'a, 'alloc> {
+impl<'a> BiquadNode<'a> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &BiquadNodeBuilder<N>,
-        alloc: Option<&'alloc AllocationCallbacks>,
+        alloc: Option<&'a AllocationCallbacks>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
@@ -165,7 +165,7 @@ pub(crate) mod n_biquad_ffi {
     }
 }
 
-impl<'a, 'alloc> Drop for BiquadNode<'a, 'alloc> {
+impl<'a> Drop for BiquadNode<'a> {
     fn drop(&mut self) {
         n_biquad_ffi::ma_biquad_node_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -190,7 +190,7 @@ impl<N: AsNodeGraphPtr + ?Sized> Binding for BiquadNodeBuilder<'_, N> {
     }
 }
 
-impl<'a, 'alloc, N: AsNodeGraphPtr + ?Sized> BiquadNodeBuilder<'a, N> {
+impl<'a, N: AsNodeGraphPtr + ?Sized> BiquadNodeBuilder<'a, N> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         node_graph: &'a N,
@@ -209,7 +209,7 @@ impl<'a, 'alloc, N: AsNodeGraphPtr + ?Sized> BiquadNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(self) -> MaResult<BiquadNode<'a, 'alloc>> {
+    pub fn build(self) -> MaResult<BiquadNode<'a>> {
         BiquadNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
     }
 }

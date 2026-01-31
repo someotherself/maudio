@@ -501,7 +501,7 @@ impl WaveFormBuilder {
     /// - `channels`: 2
     /// - `amplitude`: 0.2
     /// - `format`: Format::F32
-    fn new_sine(sample_rate: SampleRate, frequency: f64) -> Self {
+    pub fn new_sine(sample_rate: SampleRate, frequency: f64) -> Self {
         let channels = 2;
         let wave_type = WaveformType::Sine;
         let amplitude = 0.2;
@@ -530,7 +530,7 @@ impl WaveFormBuilder {
     /// - `channels`: 2
     /// - `amplitude`: 0.2
     /// - `format`: Format::F32
-    fn new_square(sample_rate: SampleRate, frequency: f64) -> Self {
+    pub fn new_square(sample_rate: SampleRate, frequency: f64) -> Self {
         let channels = 2;
         let wave_type = WaveformType::Square;
         let amplitude = 0.2;
@@ -559,7 +559,7 @@ impl WaveFormBuilder {
     /// - `channels`: 2
     /// - `amplitude`: 0.2
     /// - `format`: Format::F32
-    fn new_sawtooth(sample_rate: SampleRate, frequency: f64) -> Self {
+    pub fn new_sawtooth(sample_rate: SampleRate, frequency: f64) -> Self {
         let channels = 2;
         let wave_type = WaveformType::Sawtooth;
         let amplitude = 0.2;
@@ -588,7 +588,7 @@ impl WaveFormBuilder {
     /// - `channels`: 2
     /// - `amplitude`: 0.2
     /// - `format`: Format::F32
-    fn new_triangle(sample_rate: SampleRate, frequency: f64) -> Self {
+    pub fn new_triangle(sample_rate: SampleRate, frequency: f64) -> Self {
         let channels = 2;
         let wave_type = WaveformType::Triangle;
         let amplitude = 0.2;

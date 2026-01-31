@@ -36,13 +36,18 @@ impl Binding for DataSource {
 
 // Keeps the methods on AsSourcePtr private
 pub(crate) mod private_data_source {
-    use crate::data_source::sources::{
-        buffer::{AudioBuffer, AudioBufferOps, AudioBufferRef},
-        decoder::{Decoder, DecoderOps, DecoderRef},
-        pulsewave::{
-            PulseWaveF32, PulseWaveI16, PulseWaveI32, PulseWaveOps, PulseWaveS24, PulseWaveU8,
+    use crate::{
+        data_source::sources::{
+            buffer::{AudioBuffer, AudioBufferOps, AudioBufferRef},
+            decoder::{Decoder, DecoderOps, DecoderRef},
+            pulsewave::{
+                PulseWaveF32, PulseWaveI16, PulseWaveI32, PulseWaveOps, PulseWaveS24, PulseWaveU8,
+            },
+            waveform::{
+                WaveFormF32, WaveFormI16, WaveFormI32, WaveFormOps, WaveFormS24, WaveFormU8,
+            },
         },
-        waveform::{WaveFormF32, WaveFormI16, WaveFormI32, WaveFormOps, WaveFormS24, WaveFormU8},
+        engine::node_graph::nodes::source::source_node::AttachedSourceNode,
     };
 
     use super::*;
@@ -68,6 +73,7 @@ pub(crate) mod private_data_source {
     pub struct WaveFormI32Provider;
     pub struct WaveFormS24Provider;
     pub struct WaveFormF32Provider;
+    pub struct AttachedSourceNodeProvider;
 
     // DataSource
 
@@ -92,7 +98,7 @@ pub(crate) mod private_data_source {
         }
     }
 
-    impl<'a, 'alloc> DataSourcePtrProvider<AudioBufferRef<'a, 'alloc>> for AudioBufferRefProvider {
+    impl<'a> DataSourcePtrProvider<AudioBufferRef<'a>> for AudioBufferRefProvider {
         #[inline]
         fn as_source_ptr(t: &AudioBufferRef) -> *mut sys::ma_data_source {
             t.as_source().to_raw()
@@ -179,6 +185,15 @@ pub(crate) mod private_data_source {
     impl DataSourcePtrProvider<WaveFormF32> for WaveFormF32Provider {
         #[inline]
         fn as_source_ptr(t: &WaveFormF32) -> *mut sys::ma_data_source {
+            t.as_source().to_raw()
+        }
+    }
+
+    impl<S: AsSourcePtr> DataSourcePtrProvider<AttachedSourceNode<'_, S>>
+        for AttachedSourceNodeProvider
+    {
+        #[inline]
+        fn as_source_ptr(t: &AttachedSourceNode<'_, S>) -> *mut sys::ma_data_source {
             t.as_source().to_raw()
         }
     }

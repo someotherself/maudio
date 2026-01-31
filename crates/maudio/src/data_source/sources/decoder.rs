@@ -83,20 +83,20 @@ mod private_decoder {
     use super::*;
     use maudio_sys::ffi as sys;
 
-    pub trait DecoderProvider<T: ?Sized> {
+    pub trait DecoderPtrProvider<T: ?Sized> {
         fn as_decoder_ptr(t: &T) -> *mut sys::ma_decoder;
     }
 
-    pub struct DecoderPtrProvider;
-    pub struct DecoderRefPtrProvider;
+    pub struct DecoderProvider;
+    pub struct DecoderRefProvider;
 
-    impl DecoderProvider<Decoder> for DecoderPtrProvider {
+    impl DecoderPtrProvider<Decoder> for DecoderProvider {
         fn as_decoder_ptr(t: &Decoder) -> *mut sys::ma_decoder {
             t.to_raw()
         }
     }
 
-    impl<'a> DecoderProvider<DecoderRef<'a>> for DecoderRefPtrProvider {
+    impl<'a> DecoderPtrProvider<DecoderRef<'a>> for DecoderRefProvider {
         fn as_decoder_ptr(t: &DecoderRef<'a>) -> *mut sys::ma_decoder {
             t.to_raw()
         }
@@ -122,14 +122,14 @@ impl<'a> AsSourcePtr for DecoderRef<'a> {
 /// Allows both Decoder and DecoderRef to access the same methods
 pub trait AsDecoderPtr {
     #[doc(hidden)]
-    type __PtrProvider: private_decoder::DecoderProvider<Self>;
+    type __PtrProvider: private_decoder::DecoderPtrProvider<Self>;
     fn format(&self) -> Format;
     fn channels(&self) -> u32;
 }
 
 impl AsDecoderPtr for Decoder {
     #[doc(hidden)]
-    type __PtrProvider = private_decoder::DecoderPtrProvider;
+    type __PtrProvider = private_decoder::DecoderProvider;
 
     fn format(&self) -> Format {
         self.format
@@ -142,7 +142,7 @@ impl AsDecoderPtr for Decoder {
 
 impl AsDecoderPtr for DecoderRef<'_> {
     #[doc(hidden)]
-    type __PtrProvider = private_decoder::DecoderRefPtrProvider;
+    type __PtrProvider = private_decoder::DecoderRefProvider;
 
     fn format(&self) -> Format {
         self.format
@@ -153,7 +153,7 @@ impl AsDecoderPtr for DecoderRef<'_> {
     }
 }
 
-impl<T: AsDecoderPtr + AsSourcePtr + ?Sized> DecoderOps for T {}
+impl<T: AsDecoderPtr + AsSourcePtr> DecoderOps for T {}
 
 /// DecoderOps trait contains shared methods for [`Decoder`] and [`DecoderRef`]
 pub trait DecoderOps: AsDecoderPtr + AsSourcePtr {
