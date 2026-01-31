@@ -60,8 +60,8 @@ impl<'a> SourceNode<'a> {
             mem.as_mut_ptr(),
         )?;
 
-        let ptr: Box<sys::ma_data_source_node> = unsafe { mem.assume_init() };
-        let inner: *mut sys::ma_data_source_node = Box::into_raw(ptr);
+        let inner: *mut sys::ma_data_source_node =
+            Box::into_raw(mem) as *mut sys::ma_data_source_node;
 
         Ok(Self {
             inner,
@@ -122,8 +122,8 @@ impl<'a, S: AsSourcePtr> AttachedSourceNode<'a, S> {
             mem.as_mut_ptr(),
         )?;
 
-        let ptr: Box<sys::ma_data_source_node> = unsafe { mem.assume_init() };
-        let inner: *mut sys::ma_data_source_node = Box::into_raw(ptr);
+        let inner: *mut sys::ma_data_source_node =
+            Box::into_raw(mem) as *mut sys::ma_data_source_node;
 
         Ok(Self {
             inner,

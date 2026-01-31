@@ -404,8 +404,7 @@ impl Engine {
         let mut mem: Box<MaybeUninit<sys::ma_engine>> = Box::new(MaybeUninit::uninit());
         engine_ffi::engine_init(config, mem.as_mut_ptr())?;
         // Safety: If mem is not initialized, engine_init will return an error
-        let mem: Box<sys::ma_engine> = unsafe { mem.assume_init() };
-        let inner = Box::into_raw(mem);
+        let inner: *mut sys::ma_engine = Box::into_raw(mem) as *mut sys::ma_engine;
         Ok(Self {
             inner,
             process_notifier: None,
@@ -479,8 +478,7 @@ impl Engine {
 
         sound_ffi::ma_sound_init_ex(self, config, mem.as_mut_ptr())?;
 
-        let mem: Box<sys::ma_sound> = unsafe { mem.assume_init() };
-        let inner = Box::into_raw(mem);
+        let inner: *mut sys::ma_sound = Box::into_raw(mem) as *mut sys::ma_sound;
         Ok(Sound::from_ptr(inner))
     }
 
@@ -500,8 +498,7 @@ impl Engine {
             mem.as_mut_ptr(),
         )?;
 
-        let mem: Box<sys::ma_sound> = unsafe { mem.assume_init() };
-        let inner = Box::into_raw(mem);
+        let inner: *mut sys::ma_sound = Box::into_raw(mem) as *mut sys::ma_sound;
         Ok(Sound::from_ptr(inner))
     }
 
@@ -523,8 +520,7 @@ impl Engine {
             done_fence,
         )?;
 
-        let mem: Box<sys::ma_sound> = unsafe { mem.assume_init() };
-        let inner = Box::into_raw(mem);
+        let inner: *mut sys::ma_sound = Box::into_raw(mem) as *mut sys::ma_sound;
         Ok(Sound::from_ptr(inner))
     }
 
@@ -542,8 +538,7 @@ impl Engine {
 
         sound_ffi::ma_sound_init_copy(self, sound, flags, sound_group, mem.as_mut_ptr())?;
 
-        let mem: Box<sys::ma_sound> = unsafe { mem.assume_init() };
-        let inner = Box::into_raw(mem);
+        let inner: *mut sys::ma_sound = Box::into_raw(mem) as *mut sys::ma_sound;
         Ok(Sound::from_ptr(inner))
     }
 
@@ -553,8 +548,7 @@ impl Engine {
 
         s_group_ffi::ma_sound_group_init_ex(self, config, mem.as_mut_ptr())?;
 
-        let mem: Box<sys::ma_sound_group> = unsafe { mem.assume_init() };
-        let inner: *mut sys::ma_sound_group = Box::into_raw(mem);
+        let inner: *mut sys::ma_sound_group = Box::into_raw(mem) as *mut sys::ma_sound_group;
         Ok(SoundGroup::from_ptr(inner))
     }
 

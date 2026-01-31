@@ -259,8 +259,7 @@ impl<'a> AudioBufferRef<'a> {
             Box::new(MaybeUninit::uninit());
         buffer_ffi::ma_audio_buffer_init(&config, mem.as_mut_ptr())?;
 
-        let ptr: Box<sys::ma_audio_buffer> = unsafe { mem.assume_init() };
-        let inner: *mut sys::ma_audio_buffer = Box::into_raw(ptr);
+        let inner: *mut sys::ma_audio_buffer = Box::into_raw(mem) as *mut sys::ma_audio_buffer;
 
         Ok(Self {
             inner,
@@ -279,8 +278,7 @@ impl AudioBuffer {
 
         buffer_ffi::ma_audio_buffer_init_copy(config, mem.as_mut_ptr())?;
 
-        let ptr: Box<sys::ma_audio_buffer> = unsafe { mem.assume_init() };
-        let inner: *mut sys::ma_audio_buffer = Box::into_raw(ptr);
+        let inner: *mut sys::ma_audio_buffer = Box::into_raw(mem) as *mut sys::ma_audio_buffer;
 
         Ok(Self {
             inner,

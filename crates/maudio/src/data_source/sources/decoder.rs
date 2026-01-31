@@ -216,8 +216,7 @@ impl Decoder {
             mem.as_mut_ptr(),
         )?;
 
-        let ptr: Box<sys::ma_decoder> = unsafe { mem.assume_init() };
-        let inner: *mut sys::ma_decoder = Box::into_raw(ptr);
+        let inner: *mut sys::ma_decoder = Box::into_raw(mem) as *mut sys::ma_decoder;
 
         Ok(Self {
             inner,
@@ -233,8 +232,7 @@ impl Decoder {
 
         Decoder::init_from_file_internal(path, config, mem.as_mut_ptr())?;
 
-        let ptr: Box<sys::ma_decoder> = unsafe { mem.assume_init() };
-        let inner: *mut sys::ma_decoder = Box::into_raw(ptr);
+        let inner: *mut sys::ma_decoder = Box::into_raw(mem) as *mut sys::ma_decoder;
 
         Ok(Self {
             inner,
@@ -285,8 +283,7 @@ impl<'a> DecoderRef<'a> {
             mem.as_mut_ptr(),
         )?;
 
-        let ptr: Box<sys::ma_decoder> = unsafe { mem.assume_init() };
-        let inner: *mut sys::ma_decoder = Box::into_raw(ptr);
+        let inner: *mut sys::ma_decoder = Box::into_raw(mem) as *mut sys::ma_decoder;
 
         Ok(Self {
             inner,

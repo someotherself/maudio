@@ -206,9 +206,8 @@ impl<'a> NodeGraph<'a> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
         graph_ffi::ma_node_graph_init(&config.to_raw() as *const _, alloc_cb, mem.as_mut_ptr())?;
-        let mem: Box<sys::ma_node_graph> = unsafe { mem.assume_init() };
-        let inner = Box::into_raw(mem);
 
+        let inner: *mut sys::ma_node_graph = Box::into_raw(mem) as *mut sys::ma_node_graph;
         Ok(Self {
             inner,
             alloc_cb: alloc,

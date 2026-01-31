@@ -600,8 +600,8 @@ impl PulseWaveBuilder {
 
         pulsewave_ffi::ma_pulsewave_init(self, mem.as_mut_ptr())?;
 
-        let ptr: Box<sys::ma_pulsewave> = unsafe { mem.assume_init() };
-        let inner: *mut sys::ma_pulsewave = Box::into_raw(ptr);
+        let inner: *mut sys::ma_pulsewave = Box::into_raw(mem) as *mut sys::ma_pulsewave;
+
         Ok(PulseWaveInner { ptr: inner })
     }
 }

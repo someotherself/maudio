@@ -85,8 +85,7 @@ impl<'a> HiShelfNode<'a> {
             mem.as_mut_ptr(),
         )?;
 
-        let ptr: Box<sys::ma_hishelf_node> = unsafe { mem.assume_init() };
-        let inner: *mut sys::ma_hishelf_node = Box::into_raw(ptr);
+        let inner: *mut sys::ma_hishelf_node = Box::into_raw(mem) as *mut sys::ma_hishelf_node;
 
         Ok(Self {
             inner,

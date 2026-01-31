@@ -122,7 +122,7 @@ impl EngineBuilder {
     }
 
     fn set_process_notifier(&mut self, f: Option<Box<EngineProcessCallback>>) -> ProcessNotifier {
-        // TODO: Add close as optional param
+        // TODO: Add closure as optional param
         let channels = self.channels.unwrap_or(2);
         let notifier = ProcessNotifier::new(channels, f);
 

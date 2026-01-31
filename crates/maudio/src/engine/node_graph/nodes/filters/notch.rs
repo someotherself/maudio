@@ -81,8 +81,7 @@ impl<'a> NotchNode<'a> {
 
         n_notch_ffi::ma_notch_node_init(node_graph, config.to_raw(), alloc_cb, mem.as_mut_ptr())?;
 
-        let ptr: Box<sys::ma_notch_node> = unsafe { mem.assume_init() };
-        let inner: *mut sys::ma_notch_node = Box::into_raw(ptr);
+        let inner: *mut sys::ma_notch_node = Box::into_raw(mem) as *mut sys::ma_notch_node;
 
         Ok(Self {
             inner,

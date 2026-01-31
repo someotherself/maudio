@@ -743,8 +743,8 @@ impl WaveFormBuilder {
 
         waveform_ffi::ma_waveform_init(self, mem.as_mut_ptr())?;
 
-        let ptr = unsafe { mem.assume_init() };
-        let inner = Box::into_raw(ptr);
+        let inner: *mut sys::ma_waveform = Box::into_raw(mem) as *mut sys::ma_waveform;
+
         Ok(WaveFormInner { ptr: inner })
     }
 }

@@ -115,8 +115,9 @@ impl<'a> DelayNode<'a> {
             Box::new(MaybeUninit::uninit());
 
         n_delay_ffi::ma_delay_node_init(node_graph, config.to_raw(), alloc_cb, mem.as_mut_ptr())?;
-        let ptr = unsafe { mem.assume_init() };
-        let inner = Box::into_raw(ptr);
+
+        let inner: *mut sys::ma_delay_node = Box::into_raw(mem) as *mut sys::ma_delay_node;
+
         Ok(Self {
             inner,
             alloc_cb: alloc,

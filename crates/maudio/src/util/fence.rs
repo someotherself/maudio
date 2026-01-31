@@ -68,8 +68,7 @@ impl Fence {
 
         fence_ffi::ma_fence_init(mem.as_mut_ptr())?;
 
-        let ptr = unsafe { mem.assume_init() };
-        let inner = Box::into_raw(ptr);
+        let inner: *mut sys::ma_fence = Box::into_raw(mem) as *mut sys::ma_fence;
         Ok(Fence::from_ptr(inner))
     }
 

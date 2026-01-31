@@ -1238,8 +1238,7 @@ pub(crate) mod rb_ffi {
 
         ma_rb_init(size_bytes, pre_alloc, alloc_cb, mem.as_mut_ptr())?;
 
-        let ptr: Box<sys::ma_rb> = unsafe { mem.assume_init() };
-        let inner: *mut sys::ma_rb = Box::into_raw(ptr);
+        let inner: *mut sys::ma_rb = Box::into_raw(mem) as *mut sys::ma_rb;
         Ok(inner)
     }
 
