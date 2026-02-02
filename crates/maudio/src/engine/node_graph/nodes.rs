@@ -110,6 +110,7 @@ impl Binding for Node<'_> {
     }
 }
 
+/// A borrowed view of a `Node` of any kind
 #[derive(Clone, Copy)]
 pub struct NodeRef<'a> {
     ptr: *mut sys::ma_node,

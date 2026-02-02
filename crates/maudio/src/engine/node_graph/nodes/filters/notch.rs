@@ -173,6 +173,7 @@ impl<'a> Drop for NotchNode<'a> {
     }
 }
 
+/// Builder for creating a [`NotchNode`]
 pub struct NotchNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     inner: sys::ma_notch_node_config,
     node_graph: &'a N,

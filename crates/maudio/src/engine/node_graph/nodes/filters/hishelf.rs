@@ -181,6 +181,7 @@ impl<'a> Drop for HiShelfNode<'a> {
     }
 }
 
+/// Builder for creating a [`HiShelfNode`]
 pub struct HiShelfNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     inner: sys::ma_hishelf_node_config,
     node_graph: &'a N,

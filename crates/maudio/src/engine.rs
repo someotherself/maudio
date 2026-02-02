@@ -78,20 +78,6 @@ pub mod engine_host;
 pub mod node_graph;
 pub mod process_notifier;
 
-/// Prelude for the [`engine`](super) module.
-///
-/// This module re-exports the most commonly used engine types and traits
-/// so they can be imported with a single global import.
-///
-/// Import this when you want access to [`Engine`] and [`EngineRef`] and all shared engine
-/// methods (provided by [`EngineOps`]) without having to import each item
-/// individually.
-/// This is purely a convenience module; importing directly
-/// works just as well if you prefer explicit imports.
-pub mod prelude {
-    pub use super::{Engine, EngineOps};
-}
-
 /// High-level audio engine.
 ///
 /// `Engine` is the main entry point for playback and mixing. Internally it wraps
@@ -122,6 +108,7 @@ impl Binding for Engine {
     }
 }
 
+/// Borrowed view of the engine
 #[derive(Clone, Copy)]
 pub struct EngineRef<'a> {
     ptr: *mut sys::ma_engine,
@@ -193,6 +180,7 @@ impl AsEnginePtr for EngineRef<'_> {
 
 impl<T: AsEnginePtr + ?Sized> EngineOps for T {}
 
+/// EngineOps trait contains shared methods for [`Engine`] and [`EngineRef`]
 pub trait EngineOps: AsEnginePtr {
     fn set_volume(&self, volume: f32) -> MaResult<()> {
         engine_ffi::ma_engine_set_volume(self, volume)

@@ -7,6 +7,7 @@
 #[cfg(feature = "generate-bindings")]
 #[doc(hidden)]
 pub mod ffi {
+    // Check if the version is at least 1.70
     include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 }
 

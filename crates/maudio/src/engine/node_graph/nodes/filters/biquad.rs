@@ -173,6 +173,7 @@ impl<'a> Drop for BiquadNode<'a> {
     }
 }
 
+/// Builder for creating a [`BiquadNode`]
 pub struct BiquadNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     inner: sys::ma_biquad_node_config,
     node_graph: &'a N,

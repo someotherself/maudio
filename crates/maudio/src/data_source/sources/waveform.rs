@@ -14,7 +14,7 @@ use std::mem::MaybeUninit;
 use maudio_sys::ffi as sys;
 
 use crate::{
-    audio::{formats::Format, sample_rate::SampleRate, waveform::WaveformType},
+    audio::{formats::Format, sample_rate::SampleRate, waveform::WaveFormType},
     data_source::{
         private_data_source, sources::waveform::private_wave::WaveFormPtrProvider, AsSourcePtr,
         DataSourceRef,
@@ -29,7 +29,7 @@ pub(crate) struct WaveFormInner {
 pub(crate) struct WaveState {
     channels: u32,
     sample_rate: SampleRate,
-    wave_type: WaveformType,
+    wave_type: WaveFormType,
     amplitude: f64,
     frequency: f64,
 }
@@ -242,7 +242,7 @@ pub trait WaveFormOps: AsWaveFormPtr + AsSourcePtr {
         waveform_ffi::ma_waveform_set_frequency(self, frequency)
     }
 
-    fn set_type(&mut self, wave_type: WaveformType) -> MaResult<()> {
+    fn set_type(&mut self, wave_type: WaveFormType) -> MaResult<()> {
         waveform_ffi::ma_waveform_set_type(self, wave_type)
     }
 
@@ -259,7 +259,7 @@ pub trait WaveFormOps: AsWaveFormPtr + AsSourcePtr {
 
 pub(crate) mod waveform_ffi {
     use crate::{
-        audio::{sample_rate::SampleRate, waveform::WaveformType},
+        audio::{sample_rate::SampleRate, waveform::WaveFormType},
         data_source::sources::waveform::{
             private_wave, AsWaveFormPtr, WaveFormBuilder, WaveFormInner,
         },
@@ -414,7 +414,7 @@ pub(crate) mod waveform_ffi {
     #[inline]
     pub fn ma_waveform_set_type<W: AsWaveFormPtr + ?Sized>(
         waveform: &mut W,
-        wave_type: WaveformType,
+        wave_type: WaveFormType,
     ) -> MaResult<()> {
         let res = unsafe {
             sys::ma_waveform_set_type(private_wave::waveform_ptr(waveform), wave_type.into())
@@ -449,7 +449,7 @@ pub struct WaveFormBuilder {
     format: Format,
     channels: u32,
     sample_rate: SampleRate,
-    wave_type: WaveformType,
+    wave_type: WaveFormType,
     amplitude: f64,
     frequency: f64,
 }
@@ -474,7 +474,7 @@ impl WaveFormBuilder {
     pub fn new(
         channels: u32,
         sample_rate: SampleRate,
-        wave_type: WaveformType,
+        wave_type: WaveFormType,
         amplitude: f64,
         frequency: f64,
     ) -> Self {
@@ -499,13 +499,13 @@ impl WaveFormBuilder {
         }
     }
 
-    /// Convenience method for creating a `WaveformType::Sine` node with some default values:
+    /// Convenience method for creating a `WaveFormType::Sine` node with some default values:
     /// - `channels`: 2
     /// - `amplitude`: 0.2
     /// - `format`: Format::F32
     pub fn new_sine(sample_rate: SampleRate, frequency: f64) -> Self {
         let channels = 2;
-        let wave_type = WaveformType::Sine;
+        let wave_type = WaveFormType::Sine;
         let amplitude = 0.2;
         let ptr = unsafe {
             sys::ma_waveform_config_init(
@@ -528,13 +528,13 @@ impl WaveFormBuilder {
         }
     }
 
-    /// Convenience method for creating a `WaveformType::Square` node with some default values:
+    /// Convenience method for creating a `WaveFormType::Square` node with some default values:
     /// - `channels`: 2
     /// - `amplitude`: 0.2
     /// - `format`: Format::F32
     pub fn new_square(sample_rate: SampleRate, frequency: f64) -> Self {
         let channels = 2;
-        let wave_type = WaveformType::Square;
+        let wave_type = WaveFormType::Square;
         let amplitude = 0.2;
         let ptr = unsafe {
             sys::ma_waveform_config_init(
@@ -557,13 +557,13 @@ impl WaveFormBuilder {
         }
     }
 
-    /// Convenience method for creating a `WaveformType::Sawtooth` node with some default values:
+    /// Convenience method for creating a `WaveFormType::Sawtooth` node with some default values:
     /// - `channels`: 2
     /// - `amplitude`: 0.2
     /// - `format`: Format::F32
     pub fn new_sawtooth(sample_rate: SampleRate, frequency: f64) -> Self {
         let channels = 2;
-        let wave_type = WaveformType::Sawtooth;
+        let wave_type = WaveFormType::Sawtooth;
         let amplitude = 0.2;
         let ptr = unsafe {
             sys::ma_waveform_config_init(
@@ -586,13 +586,13 @@ impl WaveFormBuilder {
         }
     }
 
-    /// Convenience method for creating a `WaveformType::Triangle` node with some default values:
+    /// Convenience method for creating a `WaveFormType::Triangle` node with some default values:
     /// - `channels`: 2
     /// - `amplitude`: 0.2
     /// - `format`: Format::F32
     pub fn new_triangle(sample_rate: SampleRate, frequency: f64) -> Self {
         let channels = 2;
-        let wave_type = WaveformType::Triangle;
+        let wave_type = WaveFormType::Triangle;
         let amplitude = 0.2;
         let ptr = unsafe {
             sys::ma_waveform_config_init(
@@ -616,7 +616,7 @@ impl WaveFormBuilder {
     }
 
     /// Sets the waveform type.
-    pub fn wave_type(mut self, t: WaveformType) -> Self {
+    pub fn wave_type(mut self, t: WaveFormType) -> Self {
         self.inner.type_ = t.into();
         self.wave_type = t;
         self
@@ -769,7 +769,7 @@ mod tests {
         assert_eq!(b.format, Format::F32);
         assert_eq!(b.channels, 2);
         assert_eq!(b.sample_rate, sample_rate);
-        assert_eq!(b.wave_type, WaveformType::Sine);
+        assert_eq!(b.wave_type, WaveFormType::Sine);
         assert_eq!(b.amplitude, 0.2);
         assert_eq!(b.frequency, frequency);
 
@@ -785,17 +785,17 @@ mod tests {
             .channels(1)
             .amplitude(0.25)
             .frequency(880.0)
-            .wave_type(WaveformType::Square);
+            .wave_type(WaveFormType::Square);
 
         assert_eq!(b.channels, 1);
         assert_eq!(b.amplitude, 0.25);
         assert_eq!(b.frequency, 880.0);
-        assert_eq!(b.wave_type, WaveformType::Square);
+        assert_eq!(b.wave_type, WaveFormType::Square);
 
         assert_eq!(b.inner.channels, 1);
         assert_eq!(b.inner.amplitude, 0.25);
         assert_eq!(b.inner.frequency, 880.0);
-        assert_eq!(b.inner.type_, WaveformType::Square.into());
+        assert_eq!(b.inner.type_, WaveFormType::Square.into());
     }
 
     // --- build_* smoke tests (state + format correctness) -------------------
@@ -804,7 +804,7 @@ mod tests {
     fn test_waveform_build_u8_sets_state_and_format() {
         let channels = 2;
         let sample_rate = SampleRate::Sr48000;
-        let wave_type = WaveformType::Sine;
+        let wave_type = WaveFormType::Sine;
         let amplitude = 1.0;
         let frequency = 440.0;
 
@@ -829,7 +829,7 @@ mod tests {
 
         assert_eq!(w.format, Format::S16);
         assert_eq!(w.state.channels, 2);
-        assert_eq!(w.state.wave_type, WaveformType::Sine);
+        assert_eq!(w.state.wave_type, WaveFormType::Sine);
         assert_eq!(w.state.amplitude, 0.2);
         assert_eq!(w.state.frequency, 440.0);
     }
@@ -1099,11 +1099,11 @@ mod tests {
         let n = 256u64;
 
         w.seek_to_pcm_frame(0).unwrap();
-        w.set_type(WaveformType::Sine).unwrap();
+        w.set_type(WaveFormType::Sine).unwrap();
         let (a, _) = w.read_pcm_frames(n).unwrap();
 
         w.seek_to_pcm_frame(0).unwrap();
-        w.set_type(WaveformType::Square).unwrap();
+        w.set_type(WaveFormType::Square).unwrap();
         let (b, _) = w.read_pcm_frames(n).unwrap();
 
         // Not identical if waveform type is respected.

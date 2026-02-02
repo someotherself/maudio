@@ -1,3 +1,4 @@
+//! Builder for constructing an [`Engine`]
 use maudio_sys::ffi as sys;
 
 use std::sync::Arc;

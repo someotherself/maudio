@@ -172,6 +172,7 @@ impl<'a> Drop for PeakNode<'a> {
         drop(unsafe { Box::from_raw(self.to_raw()) });
     }
 }
+/// Builder for creating a [`PeakNode`]
 pub struct PeakNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     inner: sys::ma_peak_node_config,
     node_graph: &'a N,

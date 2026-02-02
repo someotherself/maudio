@@ -2,7 +2,7 @@ use std::{cell::Cell, marker::PhantomData};
 
 use maudio_sys::ffi as sys;
 
-use crate::{Binding, LogLevel, MaResult};
+use crate::{Binding, MaResult};
 
 pub mod backend;
 
@@ -12,9 +12,7 @@ pub struct Context {
 }
 
 #[non_exhaustive]
-struct ContextConfig {
-    pub log_level: Option<LogLevel>,
-}
+struct ContextConfig {}
 
 impl Binding for Context {
     type Raw = *mut sys::ma_context;

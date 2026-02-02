@@ -171,6 +171,7 @@ impl<'a> Drop for SplitterNode<'a> {
     }
 }
 
+/// Builder for creating a [`SplitterNode`]
 pub struct SplitterNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     inner: sys::ma_splitter_node_config,
     node_graph: &'a N,

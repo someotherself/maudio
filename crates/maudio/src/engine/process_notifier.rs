@@ -1,3 +1,4 @@
+//! Callback fired whenever the engine processes and outputs audio frames.
 use std::sync::{
     atomic::{AtomicU64, Ordering},
     Arc,

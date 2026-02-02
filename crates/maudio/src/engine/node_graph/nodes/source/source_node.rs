@@ -199,6 +199,7 @@ impl<'a> Drop for SourceNode<'a> {
     }
 }
 
+/// Builder for creating a [`SourceNode`]
 pub struct SourceNodeBuilder<'a, N, S>
 where
     N: AsNodeGraphPtr + ?Sized,

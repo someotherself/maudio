@@ -1,3 +1,4 @@
+//! Built-in audio data source implementations.
 pub mod buffer;
 pub mod decoder;
 pub mod noise;

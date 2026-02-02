@@ -205,6 +205,7 @@ impl Drop for DelayNode<'_> {
     }
 }
 
+/// Builder for creating a [`DelayNode`]
 pub struct DelayNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     inner: sys::ma_delay_node_config,
     node_graph: &'a N,

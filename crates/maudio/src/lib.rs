@@ -1,9 +1,56 @@
+//! `maudio` is an audio library built on top of miniaudio, providing both a
+//! high-level playback-focused API and the foundation for a more flexible
+//! low-level interface.
+//!
+//! At the high level, audio is driven through an `Engine`, which offers a
+//! simple and ergonomic way to play sounds without requiring manual audio
+//! processing or buffer management.
+//!
+//! The `Engine` is designed primarily for playback. It does not currently
+//! support recording, loopback, or full duplex operation, and it intentionally
+//! hides much of the complexity exposed by the low-level API. A lower-level,
+//! more flexible interface is planned and under active development.
+//!
+//! Internally, an `Engine` owns a `NodeGraph`, which represents a directed graph
+//! of audio processing units called `Nodes`. Nodes can act as audio sources
+//! (such as sounds or waveforms), processing units (DSP, filters, splitters),
+//! or endpoints. Audio flows through the graph from source nodes, through
+//! optional processing stages, and finally into an output endpoint.
+//!
+//! By default, sounds created from an `Engine` are automatically connected to
+//! the graph’s endpoint and played in a push-based manner. Audio generation,
+//! mixing, and playback are handled internally by the engine, so users do not
+//! need to manually pull or read audio data.
+//!
+//! While basic playback can be achieved without interacting directly with the
+//! `NodeGraph`, more advanced setups allow nodes to be explicitly connected,
+//! reordered, or routed through custom processing chains.
+//!
+//! Most types in `maudio` are constructed using a builder pattern, enabling
+//! additional configuration at creation time while keeping common use cases
+//! straightforward.
+//! # Feature flags
+//!
+//! This crate builds and links the vendored **miniaudio** C library and exposes raw FFI bindings.
+//!
+//! ## `vorbis`
+//! Enables Ogg/Vorbis decoding by compiling the `stb_vorbis` implementation into the miniaudio
+//! translation unit.
+//!
+//! - Vorbis `.ogg` files can be decoded via miniaudio's decoding APIs.
+//!
+//! ## `generate-bindings`
+//! Generates bindings at build time using `bindgen`.
+//!
+//! - Intended for maintainers when updating the vendored miniaudio version.
+//! - Regular users should prefer the pre-generated bindings shipped with the crate.
+//! - Adds a build dependency on clang/libclang via `bindgen`.
 #![allow(dead_code)]
 
 pub mod audio;
-pub mod context;
+mod context;
 pub mod data_source;
-pub mod device;
+mod device;
 pub mod engine;
 pub mod sound;
 pub mod util;
@@ -21,10 +68,6 @@ pub(crate) trait Binding: Sized {
 
     fn to_raw(&self) -> Self::Raw;
 }
-
-pub enum LogLevel {}
-
-pub type Result<T> = std::result::Result<T, MaError>;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct MaError(pub sys::ma_result);
@@ -164,6 +207,8 @@ impl MaError {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum ErrorKinds {
+    /// TryFrom error converting raw miniaudio value to Maudio
+    InvalidChannelPosition,
     InvalidGraphState,
     /// Size mismatch between data.len() and frames * channels
     BufferSizeError,

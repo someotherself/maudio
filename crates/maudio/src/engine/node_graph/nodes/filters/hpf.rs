@@ -170,6 +170,7 @@ impl<'a> Drop for HpfNode<'a> {
     }
 }
 
+/// Builder for creating a [`HpfNode`]
 pub struct HpfNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     inner: sys::ma_hpf_node_config,
     node_graph: &'a N,

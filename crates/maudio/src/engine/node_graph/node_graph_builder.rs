@@ -1,15 +1,15 @@
-/// Builder for a [`NodeGraph`].
-///
-/// A node graph is a lightweight DSP graph that processes interleaved
-/// `f32` PCM frames. Its configuration is intentionally minimal: the only
-/// required parameter is the number of output channels.
-///
-/// The graph itself is sample-rate agnostic and does not own an audio device.
-/// Timing, sample rate, and format conversion are defined by the caller
-/// (for example, an engine or audio device).
-///
-/// Most behavior is defined by the nodes attached to the graph rather than
-/// by the graph configuration itself.
+//! Builder for creating a [`NodeGraph`].
+//!
+//! A node graph is a lightweight DSP graph that processes interleaved
+//! `f32` PCM frames. Its configuration is intentionally minimal: the only
+//! required parameter is the number of output channels.
+//!
+//! The graph itself is sample-rate agnostic and does not own an audio device.
+//! Timing, sample rate, and format conversion are defined by the caller
+//! (for example, an engine or audio device).
+//!
+//! Most behavior is defined by the nodes attached to the graph rather than
+//! by the graph configuration itself.
 use maudio_sys::ffi as sys;
 
 use crate::{engine::node_graph::NodeGraph, Binding, MaResult};

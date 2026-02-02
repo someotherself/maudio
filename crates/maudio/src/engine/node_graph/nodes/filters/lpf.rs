@@ -168,7 +168,7 @@ impl<'a> Drop for LpfNode<'a> {
         drop(unsafe { Box::from_raw(self.to_raw()) });
     }
 }
-
+/// Builder for creating a [`LpfNode`]
 pub struct LpfNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     inner: sys::ma_lpf_node_config,
     node_graph: &'a N,

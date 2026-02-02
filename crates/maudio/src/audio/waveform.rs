@@ -4,33 +4,33 @@ use crate::{ErrorKinds, MaudioError};
 
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum WaveformType {
+pub enum WaveFormType {
     Sine,
     Square,
     Triangle,
     Sawtooth,
 }
 
-impl From<WaveformType> for sys::ma_waveform_type {
-    fn from(value: WaveformType) -> Self {
+impl From<WaveFormType> for sys::ma_waveform_type {
+    fn from(value: WaveFormType) -> Self {
         match value {
-            WaveformType::Sine => sys::ma_waveform_type_ma_waveform_type_sine,
-            WaveformType::Square => sys::ma_waveform_type_ma_waveform_type_square,
-            WaveformType::Triangle => sys::ma_waveform_type_ma_waveform_type_triangle,
-            WaveformType::Sawtooth => sys::ma_waveform_type_ma_waveform_type_sawtooth,
+            WaveFormType::Sine => sys::ma_waveform_type_ma_waveform_type_sine,
+            WaveFormType::Square => sys::ma_waveform_type_ma_waveform_type_square,
+            WaveFormType::Triangle => sys::ma_waveform_type_ma_waveform_type_triangle,
+            WaveFormType::Sawtooth => sys::ma_waveform_type_ma_waveform_type_sawtooth,
         }
     }
 }
 
-impl TryFrom<sys::ma_stream_format> for WaveformType {
+impl TryFrom<sys::ma_stream_format> for WaveFormType {
     type Error = MaudioError;
 
     fn try_from(value: sys::ma_stream_format) -> Result<Self, Self::Error> {
         match value {
-            sys::ma_waveform_type_ma_waveform_type_sine => Ok(WaveformType::Sine),
-            sys::ma_waveform_type_ma_waveform_type_square => Ok(WaveformType::Square),
-            sys::ma_waveform_type_ma_waveform_type_triangle => Ok(WaveformType::Triangle),
-            sys::ma_waveform_type_ma_waveform_type_sawtooth => Ok(WaveformType::Sawtooth),
+            sys::ma_waveform_type_ma_waveform_type_sine => Ok(WaveFormType::Sine),
+            sys::ma_waveform_type_ma_waveform_type_square => Ok(WaveFormType::Square),
+            sys::ma_waveform_type_ma_waveform_type_triangle => Ok(WaveFormType::Triangle),
+            sys::ma_waveform_type_ma_waveform_type_sawtooth => Ok(WaveFormType::Sawtooth),
             _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidSWaveFormType)),
         }
     }

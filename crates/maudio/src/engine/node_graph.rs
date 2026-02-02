@@ -1,24 +1,11 @@
+//! A pull-based audio processing graph.
 use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit};
 
-pub mod node_builder;
-pub mod node_flags;
+mod node_builder; // Creating nodes is not implemented yet.
+mod node_flags; // Creating nodes is not implemented yet.
 pub mod node_graph_builder;
 pub mod nodes;
 pub mod voice;
-
-/// Prelude for the [`node_graph`](super) module.
-///
-/// This module re-exports the most commonly used engine types and traits
-/// so they can be imported with a single global import.
-///
-/// Import this when you want access to [`NodeGraph`] and [`NodeGraphRef`] and all shared engine
-/// methods (provided by [`EngineOps`](crate::engine)) without having to import each item
-/// individually.
-/// This is purely a convenience module; importing directly
-/// works just as well if you prefer explicit imports.
-pub mod prelude {
-    pub use super::{NodeGraph, NodeGraphRef};
-}
 
 use maudio_sys::ffi as sys;
 
@@ -30,8 +17,6 @@ use crate::{
     Binding, MaRawResult, MaResult,
 };
 
-/// A pull-based audio processing graph. Represents `ma_node_graph`
-///
 /// `NodeGraph` is the root of miniaudio’s node-based audio system. It owns an
 /// internal *endpoint node* and produces audio by **pulling** data from all
 /// nodes connected upstream.
@@ -90,7 +75,7 @@ impl Binding for NodeGraph<'_> {
     }
 }
 
-/// ## Borrowed node graphs (`NodeGraphRef`)
+/// Borrowed view of a node graph
 ///
 /// Some node graphs are owned internally by higher-level objects such as an
 /// [`Engine`]. These graphs must not be uninitialized or moved by the user.
@@ -105,7 +90,6 @@ impl Binding for NodeGraph<'_> {
 pub struct NodeGraphRef<'e> {
     ptr: *mut sys::ma_node_graph,
     _engine: PhantomData<&'e mut Engine>,
-    // Should Ref also be not_sync?
     _not_sync: PhantomData<Cell<()>>,
 }
 

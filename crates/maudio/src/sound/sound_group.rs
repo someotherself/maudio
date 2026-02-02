@@ -1,3 +1,4 @@
+//! A collection of sounds that can be controlled as a single Sound instance
 use std::{cell::Cell, marker::PhantomData};
 
 use maudio_sys::ffi as sys;
@@ -12,7 +13,6 @@ use crate::{
     Binding, MaResult,
 };
 
-// TODO: Needs a lifetime to engine
 pub struct SoundGroup<'a> {
     inner: *mut sys::ma_sound_group,
     _not_sync: PhantomData<Cell<()>>,

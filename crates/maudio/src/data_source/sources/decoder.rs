@@ -21,7 +21,7 @@ use crate::{
     Binding, MaResult,
 };
 
-/// Owned streaming audio decoder.
+/// Streaming audio decoder.
 ///
 /// This decoder is self-contained: it keeps any required input data alive for
 /// as long as the decoder exists.
@@ -49,11 +49,11 @@ impl Binding for Decoder {
     }
 }
 
-/// Borrowed (zero-copy) streaming audio decoder.
+/// Streaming audio decoder which borrows the data.
 ///
 /// `DecoderRef` does not own the underlying input data. It references existing
 /// audio data, so the backing data must remain alive for as long as this decoder
-/// is used (`'a`).
+/// is used.
 ///
 /// Use this when decoding from already-owned data without copying.
 pub struct DecoderRef<'a> {
@@ -205,13 +205,13 @@ pub trait DecoderOps: AsDecoderPtr + AsSourcePtr {
 }
 
 impl Decoder {
-    fn init_from_memory(data: &[u8], config: &DecoderBuilder) -> MaResult<Self> {
+    fn init_from_memory<D: Into<Arc<[u8]>>>(data: D, config: &DecoderBuilder) -> MaResult<Self> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
-        let data_arc: Arc<[u8]> = Arc::from(data);
+        let data_arc = data.into();
 
         decoder_ffi::ma_decoder_init_memory(
             data_arc.as_ptr() as *const _,
-            data.len(),
+            data_arc.len(),
             config,
             mem.as_mut_ptr(),
         )?;
@@ -298,6 +298,7 @@ impl<'a> DecoderRef<'a> {
 pub(crate) mod decoder_ffi {
     use maudio_sys::ffi as sys;
 
+    use crate::audio::channels::Channel;
     use crate::audio::formats::{SampleBuffer, SampleBufferS24};
     use crate::data_source::sources::decoder::{private_decoder, AsDecoderPtr, DecoderBuilder};
     use crate::{data_source::DataFormat, Binding, MaRawResult, MaResult};
@@ -472,7 +473,7 @@ pub(crate) mod decoder_ffi {
         let mut channels: sys::ma_uint32 = 0;
         let mut sample_rate: sys::ma_uint32 = 0;
 
-        let mut channel_map = vec![0 as sys::ma_channel; sys::MA_MAX_CHANNELS as usize];
+        let mut channel_map_raw = vec![0 as sys::ma_channel; sys::MA_MAX_CHANNELS as usize];
 
         let res = unsafe {
             sys::ma_decoder_get_data_format(
@@ -480,12 +481,15 @@ pub(crate) mod decoder_ffi {
                 &mut format_raw,
                 &mut channels,
                 &mut sample_rate,
-                channel_map.as_mut_ptr(),
-                channel_map.len(),
+                channel_map_raw.as_mut_ptr(),
+                channel_map_raw.len(),
             )
         };
         MaRawResult::check(res)?;
 
+        // Could cast when passing the ptr to miniaudio, but copying should be fine here
+        let mut channel_map: Vec<Channel> =
+            channel_map_raw.into_iter().map(Channel::from_raw).collect();
         channel_map.truncate(channels as usize);
 
         Ok(DataFormat {
@@ -608,6 +612,18 @@ impl DecoderBuilder {
     pub fn new(out_format: Format, out_channels: u32, out_sample_rate: SampleRate) -> Self {
         decoder_b_ffi::ma_decoder_config_init(out_format, out_channels, out_sample_rate)
     }
+
+    pub fn copy_from_memory<D: Into<Arc<[u8]>>>(self, data: D) -> MaResult<Decoder> {
+        Decoder::init_from_memory(data, &self)
+    }
+
+    pub fn ref_from_memory<'a>(self, data: &'a [u8]) -> MaResult<DecoderRef<'a>> {
+        DecoderRef::from_memory(data, &self)
+    }
+
+    pub fn from_file(self, path: &Path) -> MaResult<Decoder> {
+        Decoder::init_from_file(path, &self)
+    }
 }
 
 pub(crate) mod decoder_b_ffi {
@@ -715,7 +731,7 @@ mod tests {
         // Adjust these if your constructors differ:
         let builder = DecoderBuilder::new(Format::F32, 1, SampleRate::Sr48000);
 
-        let mut dec = Decoder::init_from_memory(&wav, &builder).unwrap();
+        let mut dec = Decoder::init_from_memory(wav, &builder).unwrap();
 
         // length/cursor/available should be sane at start
         let len = dec.length_pcm().unwrap();
@@ -796,6 +812,7 @@ mod tests {
     fn test_decoder_read_variants_return_expected_lengths() {
         let frames_total: usize = 16;
         let wav = tiny_test_wav_mono(frames_total);
+        let wav: Arc<[u8]> = wav.into();
 
         let cases = [
             (Format::U8, "u8"),
@@ -807,7 +824,7 @@ mod tests {
 
         for (fmt, _name) in cases {
             let builder = DecoderBuilder::new(fmt, 1, SampleRate::Sr48000);
-            let mut dec = Decoder::init_from_memory(&wav, &builder).unwrap();
+            let mut dec = Decoder::init_from_memory(wav.clone(), &builder).unwrap();
 
             let (len_units, read) = match fmt {
                 Format::U8 => {

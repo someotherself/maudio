@@ -180,6 +180,7 @@ impl<'a> Drop for LoShelfNode<'a> {
     }
 }
 
+/// Builder for creating a [`LoShelfNode`]
 pub struct LoShelfNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     inner: sys::ma_loshelf_node_config,
     node_graph: &'a N,

@@ -1,8 +1,12 @@
+//! Interface for reading from a data source
 use std::{marker::PhantomData, ops::Range};
 
 use maudio_sys::ffi as sys;
 
-use crate::{audio::formats::Format, Binding, MaResult};
+use crate::{
+    audio::{channels::Channel, formats::Format},
+    Binding, MaResult,
+};
 
 pub mod sources;
 
@@ -12,7 +16,7 @@ pub struct DataFormat {
     pub channels: u32,
     pub sample_rate: u32,
     /// Channel order/map for each channel, length == channels (when available).
-    pub channel_map: Vec<sys::ma_channel>,
+    pub channel_map: Vec<Channel>,
 }
 
 #[derive(PartialEq)]
@@ -314,6 +318,7 @@ pub(crate) mod data_source_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
+        audio::channels::Channel,
         data_source::{
             private_data_source, AsSourcePtr, DataFormat, DataSource, DataSourceRef,
             GetNextCallback,
@@ -422,18 +427,21 @@ pub(crate) mod data_source_ffi {
         let mut format_raw: sys::ma_format = sys::ma_format_ma_format_unknown;
         let mut channels: sys::ma_uint32 = 0;
         let mut sample_rate: sys::ma_uint32 = 0;
-        let mut channel_map = vec![0 as sys::ma_channel; sys::MA_MAX_CHANNELS as usize];
+        let mut channel_map_raw = vec![0 as sys::ma_channel; sys::MA_MAX_CHANNELS as usize];
         let res = unsafe {
             sys::ma_data_source_get_data_format(
                 private_data_source::source_ptr(source),
                 &mut format_raw,
                 &mut channels,
                 &mut sample_rate,
-                channel_map.as_mut_ptr(),
-                channel_map.len(),
+                channel_map_raw.as_mut_ptr(),
+                channel_map_raw.len(),
             )
         };
         MaRawResult::check(res)?;
+        // Could cast when passing the ptr to miniaudio, but copying should be fine here
+        let mut channel_map: Vec<Channel> =
+            channel_map_raw.into_iter().map(Channel::from_raw).collect();
         channel_map.truncate(channels as usize);
 
         Ok(DataFormat {

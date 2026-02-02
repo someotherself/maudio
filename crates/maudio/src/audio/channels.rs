@@ -187,6 +187,203 @@ impl TryFrom<sys::ma_standard_channel_map> for ChannelMap {
     }
 }
 
+#[repr(transparent)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub struct Channel(pub sys::ma_channel);
+
+impl Channel {
+    #[inline]
+    pub const fn as_raw(self) -> sys::ma_channel {
+        self.0
+    }
+
+    #[inline]
+    pub const fn from_raw(v: sys::ma_channel) -> Self {
+        Self(v)
+    }
+}
+
+#[repr(u8)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+pub enum ChannelPosition {
+    None,
+    Mono,
+    FrontLeft,
+    FrontRight,
+    FrontCenter,
+    Lfe,
+    BackLeft,
+    BackRight,
+    FrontLeftCenter,
+    FrontRightCenter,
+    BackCenter,
+    SideLeft,
+    SideRight,
+    TopCenter,
+    TopFrontLeft,
+    TopFrontCenter,
+    TopFrontRight,
+    TopBackLeft,
+    TopBackCenter,
+    TopBackRight,
+    Aux0,
+    Aux1,
+    Aux2,
+    Aux3,
+    Aux4,
+    Aux5,
+    Aux6,
+    Aux7,
+    Aux8,
+    Aux9,
+    Aux10,
+    Aux11,
+    Aux12,
+    Aux13,
+    Aux14,
+    Aux15,
+    Aux16,
+    Aux17,
+    Aux18,
+    Aux19,
+    Aux20,
+    Aux21,
+    Aux22,
+    Aux23,
+    Aux24,
+    Aux25,
+    Aux26,
+    Aux27,
+    Aux28,
+    Aux29,
+    Aux30,
+    Aux31,
+}
+
+impl TryFrom<sys::ma_channel> for ChannelPosition {
+    type Error = MaudioError;
+
+    fn try_from(v: sys::ma_channel) -> Result<Self, Self::Error> {
+        match v {
+            0 => Ok(Self::None),
+            1 => Ok(Self::Mono),
+            2 => Ok(Self::FrontLeft),
+            3 => Ok(Self::FrontRight),
+            4 => Ok(Self::FrontCenter),
+            5 => Ok(Self::Lfe),
+            6 => Ok(Self::BackLeft),
+            7 => Ok(Self::BackRight),
+            8 => Ok(Self::FrontLeftCenter),
+            9 => Ok(Self::FrontRightCenter),
+            10 => Ok(Self::BackCenter),
+            11 => Ok(Self::SideLeft),
+            12 => Ok(Self::SideRight),
+            13 => Ok(Self::TopCenter),
+            14 => Ok(Self::TopFrontLeft),
+            15 => Ok(Self::TopFrontCenter),
+            16 => Ok(Self::TopFrontRight),
+            17 => Ok(Self::TopBackLeft),
+            18 => Ok(Self::TopBackCenter),
+            19 => Ok(Self::TopBackRight),
+            20 => Ok(Self::Aux0),
+            21 => Ok(Self::Aux1),
+            22 => Ok(Self::Aux2),
+            23 => Ok(Self::Aux3),
+            24 => Ok(Self::Aux4),
+            25 => Ok(Self::Aux5),
+            26 => Ok(Self::Aux6),
+            27 => Ok(Self::Aux7),
+            28 => Ok(Self::Aux8),
+            29 => Ok(Self::Aux9),
+            30 => Ok(Self::Aux10),
+            31 => Ok(Self::Aux11),
+            32 => Ok(Self::Aux12),
+            33 => Ok(Self::Aux13),
+            34 => Ok(Self::Aux14),
+            35 => Ok(Self::Aux15),
+            36 => Ok(Self::Aux16),
+            37 => Ok(Self::Aux17),
+            38 => Ok(Self::Aux18),
+            39 => Ok(Self::Aux19),
+            40 => Ok(Self::Aux20),
+            41 => Ok(Self::Aux21),
+            42 => Ok(Self::Aux22),
+            43 => Ok(Self::Aux23),
+            44 => Ok(Self::Aux24),
+            45 => Ok(Self::Aux25),
+            46 => Ok(Self::Aux26),
+            47 => Ok(Self::Aux27),
+            48 => Ok(Self::Aux28),
+            49 => Ok(Self::Aux29),
+            50 => Ok(Self::Aux30),
+            51 => Ok(Self::Aux31),
+            _ => Err(MaudioError::new_ma_error(
+                ErrorKinds::InvalidChannelPosition,
+            )),
+        }
+    }
+}
+
+impl From<ChannelPosition> for Channel {
+    fn from(p: ChannelPosition) -> Self {
+        let v: u8 = match p {
+            ChannelPosition::None => 0,
+            ChannelPosition::Mono => 1,
+            ChannelPosition::FrontLeft => 2,
+            ChannelPosition::FrontRight => 3,
+            ChannelPosition::FrontCenter => 4,
+            ChannelPosition::Lfe => 5,
+            ChannelPosition::BackLeft => 6,
+            ChannelPosition::BackRight => 7,
+            ChannelPosition::FrontLeftCenter => 8,
+            ChannelPosition::FrontRightCenter => 9,
+            ChannelPosition::BackCenter => 10,
+            ChannelPosition::SideLeft => 11,
+            ChannelPosition::SideRight => 12,
+            ChannelPosition::TopCenter => 13,
+            ChannelPosition::TopFrontLeft => 14,
+            ChannelPosition::TopFrontCenter => 15,
+            ChannelPosition::TopFrontRight => 16,
+            ChannelPosition::TopBackLeft => 17,
+            ChannelPosition::TopBackCenter => 18,
+            ChannelPosition::TopBackRight => 19,
+            ChannelPosition::Aux0 => 20,
+            ChannelPosition::Aux1 => 21,
+            ChannelPosition::Aux2 => 22,
+            ChannelPosition::Aux3 => 23,
+            ChannelPosition::Aux4 => 24,
+            ChannelPosition::Aux5 => 25,
+            ChannelPosition::Aux6 => 26,
+            ChannelPosition::Aux7 => 27,
+            ChannelPosition::Aux8 => 28,
+            ChannelPosition::Aux9 => 29,
+            ChannelPosition::Aux10 => 30,
+            ChannelPosition::Aux11 => 31,
+            ChannelPosition::Aux12 => 32,
+            ChannelPosition::Aux13 => 33,
+            ChannelPosition::Aux14 => 34,
+            ChannelPosition::Aux15 => 35,
+            ChannelPosition::Aux16 => 36,
+            ChannelPosition::Aux17 => 37,
+            ChannelPosition::Aux18 => 38,
+            ChannelPosition::Aux19 => 39,
+            ChannelPosition::Aux20 => 40,
+            ChannelPosition::Aux21 => 41,
+            ChannelPosition::Aux22 => 42,
+            ChannelPosition::Aux23 => 43,
+            ChannelPosition::Aux24 => 44,
+            ChannelPosition::Aux25 => 45,
+            ChannelPosition::Aux26 => 46,
+            ChannelPosition::Aux27 => 47,
+            ChannelPosition::Aux28 => 48,
+            ChannelPosition::Aux29 => 49,
+            ChannelPosition::Aux30 => 50,
+            ChannelPosition::Aux31 => 51,
+        };
+        Channel(v as sys::ma_channel)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
