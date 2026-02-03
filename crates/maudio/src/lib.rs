@@ -42,6 +42,7 @@
 //! ## `generate-bindings`
 //! Generates bindings at build time using `bindgen`.
 //!
+//! - Required on MacOS
 //! - Intended for maintainers when updating the vendored miniaudio version.
 //! - Regular users should prefer the pre-generated bindings shipped with the crate.
 //! - Adds a build dependency on clang/libclang via `bindgen`.

@@ -653,12 +653,7 @@ pub(crate) mod decoder_b_ffi {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{
-        fs,
-        time::{SystemTime, UNIX_EPOCH},
-    };
-
-    // --- Helpers -------------------------------------------------------------
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     fn unique_tmp_path(ext: &str) -> std::path::PathBuf {
         let mut p = std::env::temp_dir();
@@ -680,17 +675,14 @@ mod tests {
         let byte_rate: u32 = sample_rate * block_align as u32;
         let data_bytes_len: u32 = (samples_interleaved.len() * 2) as u32;
 
-        // RIFF chunk size = 4 ("WAVE") + (8 + fmt) + (8 + data)
         let riff_chunk_size: u32 = 4 + (8 + 16) + (8 + data_bytes_len);
 
         let mut out = Vec::with_capacity((8 + riff_chunk_size) as usize);
 
-        // RIFF header
         out.extend_from_slice(b"RIFF");
         out.extend_from_slice(&riff_chunk_size.to_le_bytes());
         out.extend_from_slice(b"WAVE");
 
-        // fmt chunk
         out.extend_from_slice(b"fmt ");
         out.extend_from_slice(&16u32.to_le_bytes()); // PCM fmt chunk size
         out.extend_from_slice(&1u16.to_le_bytes()); // AudioFormat = 1 (PCM)
@@ -700,11 +692,9 @@ mod tests {
         out.extend_from_slice(&block_align.to_le_bytes());
         out.extend_from_slice(&bits_per_sample.to_le_bytes());
 
-        // data chunk
         out.extend_from_slice(b"data");
         out.extend_from_slice(&data_bytes_len.to_le_bytes());
 
-        // samples
         for s in samples_interleaved {
             out.extend_from_slice(&s.to_le_bytes());
         }
@@ -714,26 +704,21 @@ mod tests {
 
     fn tiny_test_wav_mono(frames: usize) -> Vec<u8> {
         let mut samples = Vec::with_capacity(frames);
-        // deterministic ramp
         for i in 0..frames {
             samples.push(((i as i32 * 300) % i16::MAX as i32) as i16);
         }
         wav_i16_le(1, 48_000, &samples)
     }
 
-    // --- Tests ---------------------------------------------------------------
-
     #[test]
     fn test_decoder_from_memory_f32_read_seek_cursor_length_available() {
         let frames_total: usize = 64;
         let wav = tiny_test_wav_mono(frames_total);
 
-        // Adjust these if your constructors differ:
         let builder = DecoderBuilder::new(Format::F32, 1, SampleRate::Sr48000);
 
-        let mut dec = Decoder::init_from_memory(wav, &builder).unwrap();
+        let mut dec = builder.copy_from_memory(wav).unwrap();
 
-        // length/cursor/available should be sane at start
         let len = dec.length_pcm().unwrap();
         assert_eq!(len as usize, frames_total);
 
@@ -743,13 +728,11 @@ mod tests {
         let avail0 = dec.available_frames().unwrap();
         assert_eq!(avail0 as usize, frames_total);
 
-        // data format should match output config
         let df = dec.data_format().unwrap();
         assert_eq!(df.channels, 1);
         assert_eq!(df.sample_rate, 48_000);
         assert_eq!(df.format, Format::F32);
 
-        // read a few frames
         let (buf, read) = dec.read_pcm_frames_f32(10).unwrap();
         assert_eq!(read, 10);
         assert_eq!(buf.len_samples(), 10);
@@ -760,7 +743,6 @@ mod tests {
         let avail1 = dec.available_frames().unwrap();
         assert_eq!(avail1 as usize, frames_total - 10);
 
-        // seek and read again
         dec.seek_to_pcm_frame(0).unwrap();
         assert_eq!(dec.cursor_pcm().unwrap(), 0);
 
@@ -770,17 +752,13 @@ mod tests {
     }
 
     #[test]
-    fn test_decoder_ref_from_memory_keeps_data_alive_and_decodes() {
+    fn test_decoder_ref_from_memory_decodes() {
         let frames_total: usize = 32;
         let wav = tiny_test_wav_mono(frames_total);
 
         let builder = DecoderBuilder::new(Format::S16, 1, SampleRate::Sr48000);
 
-        // Create a short-lived slice binding and ensure decoder works beyond it.
-        let mut dec_ref = {
-            let slice: &[u8] = &wav;
-            DecoderRef::from_memory(slice, &builder).unwrap()
-        };
+        let mut dec_ref = builder.ref_from_memory(&wav).unwrap();
 
         let (buf, read) = dec_ref.read_pcm_frames_s16(12).unwrap();
         assert_eq!(read, 12);
@@ -792,22 +770,20 @@ mod tests {
         let frames_total: usize = 40;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let path = unique_tmp_path("wav");
-        fs::write(&path, &wav).unwrap();
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        std::fs::write(guard.path(), &wav).unwrap();
 
         let builder = DecoderBuilder::new(Format::F32, 1, SampleRate::Sr48000);
 
-        let mut dec = Decoder::init_from_file(&path, &builder).unwrap();
+        let mut dec = builder.from_file(guard.path()).unwrap();
 
         assert_eq!(dec.length_pcm().unwrap() as usize, frames_total);
         assert_eq!(dec.cursor_pcm().unwrap(), 0);
 
         let (_buf, read) = dec.read_pcm_frames_f32(1000).unwrap();
         assert_eq!(read as usize, frames_total);
-
-        // cleanup
-        let _ = fs::remove_file(&path);
     }
+
     #[test]
     fn test_decoder_read_variants_return_expected_lengths() {
         let frames_total: usize = 16;
@@ -824,7 +800,8 @@ mod tests {
 
         for (fmt, _name) in cases {
             let builder = DecoderBuilder::new(fmt, 1, SampleRate::Sr48000);
-            let mut dec = Decoder::init_from_memory(wav.clone(), &builder).unwrap();
+
+            let mut dec = builder.copy_from_memory(wav.clone()).unwrap();
 
             let (len_units, read) = match fmt {
                 Format::U8 => {
@@ -851,7 +828,6 @@ mod tests {
 
             assert_eq!(read, 5);
 
-            // Key: expected "units" depends on how the buffer stores samples.
             let expected_units = match fmt {
                 Format::S24 => 15,
                 _ => 5,
@@ -859,5 +835,25 @@ mod tests {
 
             assert_eq!(len_units, expected_units);
         }
+    }
+}
+
+struct TempFileGuard {
+    path: std::path::PathBuf,
+}
+
+impl TempFileGuard {
+    fn new(path: std::path::PathBuf) -> Self {
+        Self { path }
+    }
+
+    fn path(&self) -> &std::path::Path {
+        &self.path
+    }
+}
+
+impl Drop for TempFileGuard {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.path);
     }
 }

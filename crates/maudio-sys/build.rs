@@ -5,7 +5,7 @@ use std::path::PathBuf;
 fn write_bindings(out_bindings: &std::path::Path) {
     let mut builder = bindgen::Builder::default()
         .header("native/miniaudio/miniaudio.h")
-        .clang_arg("-Inative") // important: so "miniaudio/..." resolves
+        .clang_arg("-Inative")
         .clang_arg("-Inative/miniaudio")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .use_core()
@@ -72,7 +72,7 @@ fn main() {
     write_bindings(&out_bindings);
 }
 
-// Checks the rustc version when building with generate-bindings feature. Must be at least 1.70
+// Checks the rustc version when building with generate-bindings feature.
 fn rustc_minor() -> Option<u32> {
     let rustc = std::env::var_os("RUSTC").unwrap_or_else(|| "rustc".into());
     let out = std::process::Command::new(rustc).arg("-vV").output().ok()?;

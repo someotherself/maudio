@@ -273,6 +273,56 @@ impl RingBuffer {
         g.commit_items(written)?;
         Ok(written)
     }
+
+    fn pointer_distance_internal<R: AsRbPtr>(rb: &R, item_size: u32) -> i32 {
+        let item_size = item_size as i32;
+        let bytes = rb_ffi::ma_rb_pointer_distance(rb);
+        debug_assert!(bytes % item_size == 0);
+        bytes / item_size
+    }
+
+    fn subbuffer_size_internal<R: AsRbPtr>(rb: &R, item_size: u32) -> usize {
+        let item_size = item_size as usize;
+        let bytes = rb_ffi::ma_rb_get_subbuffer_size(rb);
+        debug_assert!(bytes % item_size == 0);
+        bytes / item_size
+    }
+
+    fn subbuffer_stride_internal<R: AsRbPtr>(rb: &R, item_size: u32) -> usize {
+        let item_size = item_size as usize;
+        let bytes = rb_ffi::ma_rb_get_subbuffer_stride(rb);
+        debug_assert!(bytes % item_size == 0);
+        bytes / item_size
+    }
+
+    fn subbuffer_offset_internal<R: AsRbPtr>(rb: &R, rb_index: usize, item_size: u32) -> usize {
+        let item_size = item_size as usize;
+        let bytes = rb_ffi::ma_rb_get_subbuffer_offset(rb, rb_index);
+        debug_assert!(bytes % item_size == 0);
+        bytes / item_size
+    }
+
+    fn seek_read_internal<R: AsRbPtr>(
+        rb: &mut R,
+        off_items: usize,
+        item_size: u32,
+    ) -> MaResult<()> {
+        let item_size = item_size as usize;
+        debug_assert!(off_items / item_size == 0);
+        let off_bytes = off_items / item_size;
+        rb_ffi::ma_rb_seek_read(rb, off_bytes)
+    }
+
+    fn seek_write_internal<R: AsRbPtr>(
+        rb: &mut R,
+        off_items: usize,
+        item_size: u32,
+    ) -> MaResult<()> {
+        let item_size = item_size as usize;
+        debug_assert!(off_items / item_size == 0);
+        let off_bytes = off_items / item_size;
+        rb_ffi::ma_rb_seek_write(rb, off_bytes)
+    }
 }
 
 /// Ring buffer writing handle for `u8` format
@@ -404,35 +454,19 @@ trait RbReadOwner {
     fn commit_read_bytes(&mut self, bytes: usize) -> MaResult<()>;
 }
 
-impl RbReadOwner for RbRecvU8 {
-    fn commit_read_bytes(&mut self, bytes: usize) -> MaResult<()> {
-        rb_ffi::ma_rb_commit_read(self, bytes)
-    }
+macro_rules! impl_rb_read_owner {
+    ($($ty:ty),+ $(,)?) => {
+        $(
+            impl RbReadOwner for $ty {
+                fn commit_read_bytes(&mut self, bytes: usize) -> MaResult<()> {
+                    rb_ffi::ma_rb_commit_read(self, bytes)
+                }
+            }
+        )+
+    };
 }
 
-impl RbReadOwner for RbRecvI16 {
-    fn commit_read_bytes(&mut self, bytes: usize) -> MaResult<()> {
-        rb_ffi::ma_rb_commit_read(self, bytes)
-    }
-}
-
-impl RbReadOwner for RbRecvI32 {
-    fn commit_read_bytes(&mut self, bytes: usize) -> MaResult<()> {
-        rb_ffi::ma_rb_commit_read(self, bytes)
-    }
-}
-
-impl RbReadOwner for RbRecvS24 {
-    fn commit_read_bytes(&mut self, bytes: usize) -> MaResult<()> {
-        rb_ffi::ma_rb_commit_read(self, bytes)
-    }
-}
-
-impl RbReadOwner for RbRecvF32 {
-    fn commit_read_bytes(&mut self, bytes: usize) -> MaResult<()> {
-        rb_ffi::ma_rb_commit_read(self, bytes)
-    }
-}
+impl_rb_read_owner!(RbRecvU8, RbRecvI16, RbRecvI32, RbRecvS24, RbRecvF32);
 
 /// Guard providing temporary write access to a section of the ring buffer
 pub struct RbWriteGuard<'a, T> {
@@ -522,35 +556,19 @@ trait RbWriteOwner {
     fn commit_write_bytes(&mut self, bytes: usize) -> MaResult<()>;
 }
 
-impl RbWriteOwner for RbSendU8 {
-    fn commit_write_bytes(&mut self, bytes: usize) -> MaResult<()> {
-        rb_ffi::ma_rb_commit_write(self, bytes)
-    }
+macro_rules! impl_rb_write_owner {
+    ($($ty:ty),+ $(,)?) => {
+        $(
+            impl RbWriteOwner for $ty {
+                fn commit_write_bytes(&mut self, bytes: usize) -> MaResult<()> {
+                    rb_ffi::ma_rb_commit_write(self, bytes)
+                }
+            }
+        )+
+    };
 }
 
-impl RbWriteOwner for RbSendI16 {
-    fn commit_write_bytes(&mut self, bytes: usize) -> MaResult<()> {
-        rb_ffi::ma_rb_commit_write(self, bytes)
-    }
-}
-
-impl RbWriteOwner for RbSendI32 {
-    fn commit_write_bytes(&mut self, bytes: usize) -> MaResult<()> {
-        rb_ffi::ma_rb_commit_write(self, bytes)
-    }
-}
-
-impl RbWriteOwner for RbSendS24 {
-    fn commit_write_bytes(&mut self, bytes: usize) -> MaResult<()> {
-        rb_ffi::ma_rb_commit_write(self, bytes)
-    }
-}
-
-impl RbWriteOwner for RbSendF32 {
-    fn commit_write_bytes(&mut self, bytes: usize) -> MaResult<()> {
-        rb_ffi::ma_rb_commit_write(self, bytes)
-    }
-}
+impl_rb_write_owner!(RbSendU8, RbSendI16, RbSendI32, RbSendS24, RbSendF32);
 
 // RbRead and RbWrite keep public API for Send and Recv, and separate read() and write() API
 pub trait RbRead: AsRbPtr {
@@ -596,247 +614,73 @@ pub trait RbRead: AsRbPtr {
     fn subbuffer_stride(&self) -> usize;
     /// Returns the byte offset of the subbuffer at the given ring buffer index.
     fn subbuffer_offset(&self, rb_index: usize) -> usize;
+    fn seek_read(&mut self, off_items: usize) -> MaResult<()>;
 }
 
-impl RbRead for RbRecvU8 {
-    type Item = u8;
-    const ITEM_SIZE: u32 = core::mem::size_of::<Self::Item>() as u32;
+macro_rules! impl_rb_read {
+    ($ty:ty => $item:ty) => {
+        impl RbRead for $ty {
+            type Item = $item;
+            const ITEM_SIZE: u32 = core::mem::size_of::<Self::Item>() as u32;
 
-    fn read(&mut self, dst: &mut [Self::Item]) -> MaResult<usize> {
-        RingBuffer::read_internal(self, dst)
-    }
+            fn read(&mut self, dst: &mut [Self::Item]) -> MaResult<usize> {
+                RingBuffer::read_internal(self, dst)
+            }
 
-    fn read_with<F>(&mut self, desired_items: usize, f: F) -> MaResult<usize>
-    where
-        F: FnOnce(&[Self::Item]) -> usize,
-    {
-        RingBuffer::read_with_internal(self, desired_items, f)
-    }
+            fn read_with<F>(&mut self, desired_items: usize, f: F) -> MaResult<usize>
+            where
+                F: FnOnce(&[Self::Item]) -> usize,
+            {
+                RingBuffer::read_with_internal(self, desired_items, f)
+            }
 
-    fn read_exact(&mut self, dst: &mut [Self::Item]) -> MaResult<()> {
-        RingBuffer::read_exact_internal(self, dst)
-    }
+            fn read_exact(&mut self, dst: &mut [Self::Item]) -> MaResult<()> {
+                RingBuffer::read_exact_internal(self, dst)
+            }
 
-    fn acquire_read(&mut self, desired_items: usize) -> MaResult<RbReadGuard<'_, Self::Item>> {
-        RingBuffer::acquire_read_internal(self, desired_items, Self::ITEM_SIZE)
-    }
+            fn acquire_read(
+                &mut self,
+                desired_items: usize,
+            ) -> MaResult<RbReadGuard<'_, Self::Item>> {
+                RingBuffer::acquire_read_internal(self, desired_items, Self::ITEM_SIZE)
+            }
 
-    fn available_read(&self) -> u32 {
-        RingBuffer::available_read_internal(self, Self::ITEM_SIZE)
-    }
+            fn available_read(&self) -> u32 {
+                RingBuffer::available_read_internal(self, Self::ITEM_SIZE)
+            }
 
-    fn available_write(&self) -> u32 {
-        RingBuffer::available_write_internal(self, Self::ITEM_SIZE)
-    }
+            fn available_write(&self) -> u32 {
+                RingBuffer::available_write_internal(self, Self::ITEM_SIZE)
+            }
 
-    fn pointer_distance(&self) -> i32 {
-        rb_ffi::ma_rb_pointer_distance(self)
-    }
+            fn pointer_distance(&self) -> i32 {
+                RingBuffer::pointer_distance_internal(self, Self::ITEM_SIZE)
+            }
 
-    fn subbuffer_size(&self) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_size(self)
-    }
+            fn subbuffer_size(&self) -> usize {
+                RingBuffer::subbuffer_size_internal(self, Self::ITEM_SIZE)
+            }
 
-    fn subbuffer_stride(&self) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_stride(self)
-    }
+            fn subbuffer_stride(&self) -> usize {
+                RingBuffer::subbuffer_stride_internal(self, Self::ITEM_SIZE)
+            }
 
-    fn subbuffer_offset(&self, rb_index: usize) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_offset(self, rb_index)
-    }
+            fn subbuffer_offset(&self, rb_index: usize) -> usize {
+                RingBuffer::subbuffer_offset_internal(self, rb_index, Self::ITEM_SIZE)
+            }
+
+            fn seek_read(&mut self, off_items: usize) -> MaResult<()> {
+                RingBuffer::seek_read_internal(self, off_items, Self::ITEM_SIZE)
+            }
+        }
+    };
 }
 
-impl RbRead for RbRecvI16 {
-    type Item = i16;
-    const ITEM_SIZE: u32 = core::mem::size_of::<Self::Item>() as u32;
-
-    fn read(&mut self, dst: &mut [Self::Item]) -> MaResult<usize> {
-        RingBuffer::read_internal(self, dst)
-    }
-
-    fn read_with<F>(&mut self, desired_items: usize, f: F) -> MaResult<usize>
-    where
-        F: FnOnce(&[Self::Item]) -> usize,
-    {
-        RingBuffer::read_with_internal(self, desired_items, f)
-    }
-
-    fn read_exact(&mut self, dst: &mut [Self::Item]) -> MaResult<()> {
-        RingBuffer::read_exact_internal(self, dst)
-    }
-
-    fn acquire_read(&mut self, desired_items: usize) -> MaResult<RbReadGuard<'_, Self::Item>> {
-        RingBuffer::acquire_read_internal(self, desired_items, Self::ITEM_SIZE)
-    }
-
-    fn available_read(&self) -> u32 {
-        RingBuffer::available_read_internal(self, Self::ITEM_SIZE)
-    }
-
-    fn available_write(&self) -> u32 {
-        RingBuffer::available_write_internal(self, Self::ITEM_SIZE)
-    }
-
-    fn pointer_distance(&self) -> i32 {
-        rb_ffi::ma_rb_pointer_distance(self)
-    }
-
-    fn subbuffer_size(&self) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_size(self)
-    }
-
-    fn subbuffer_stride(&self) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_stride(self)
-    }
-
-    fn subbuffer_offset(&self, rb_index: usize) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_offset(self, rb_index)
-    }
-}
-
-impl RbRead for RbRecvI32 {
-    type Item = i32;
-    const ITEM_SIZE: u32 = core::mem::size_of::<Self::Item>() as u32;
-
-    fn read(&mut self, dst: &mut [Self::Item]) -> MaResult<usize> {
-        RingBuffer::read_internal(self, dst)
-    }
-
-    fn read_with<F>(&mut self, desired_items: usize, f: F) -> MaResult<usize>
-    where
-        F: FnOnce(&[Self::Item]) -> usize,
-    {
-        RingBuffer::read_with_internal(self, desired_items, f)
-    }
-
-    fn read_exact(&mut self, dst: &mut [Self::Item]) -> MaResult<()> {
-        RingBuffer::read_exact_internal(self, dst)
-    }
-
-    fn acquire_read(&mut self, desired_items: usize) -> MaResult<RbReadGuard<'_, Self::Item>> {
-        RingBuffer::acquire_read_internal(self, desired_items, Self::ITEM_SIZE)
-    }
-
-    fn available_read(&self) -> u32 {
-        RingBuffer::available_read_internal(self, Self::ITEM_SIZE)
-    }
-
-    fn available_write(&self) -> u32 {
-        RingBuffer::available_write_internal(self, Self::ITEM_SIZE)
-    }
-
-    fn pointer_distance(&self) -> i32 {
-        rb_ffi::ma_rb_pointer_distance(self)
-    }
-
-    fn subbuffer_size(&self) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_size(self)
-    }
-
-    fn subbuffer_stride(&self) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_stride(self)
-    }
-
-    fn subbuffer_offset(&self, rb_index: usize) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_offset(self, rb_index)
-    }
-}
-
-impl RbRead for RbRecvS24 {
-    type Item = [u8; 3];
-    const ITEM_SIZE: u32 = core::mem::size_of::<Self::Item>() as u32;
-
-    fn read(&mut self, dst: &mut [Self::Item]) -> MaResult<usize> {
-        RingBuffer::read_internal(self, dst)
-    }
-
-    fn read_with<F>(&mut self, desired_items: usize, f: F) -> MaResult<usize>
-    where
-        F: FnOnce(&[Self::Item]) -> usize,
-    {
-        RingBuffer::read_with_internal(self, desired_items, f)
-    }
-
-    fn read_exact(&mut self, dst: &mut [Self::Item]) -> MaResult<()> {
-        RingBuffer::read_exact_internal(self, dst)
-    }
-
-    fn acquire_read(&mut self, desired_items: usize) -> MaResult<RbReadGuard<'_, Self::Item>> {
-        RingBuffer::acquire_read_internal(self, desired_items, Self::ITEM_SIZE)
-    }
-
-    fn available_read(&self) -> u32 {
-        RingBuffer::available_read_internal(self, Self::ITEM_SIZE)
-    }
-
-    fn available_write(&self) -> u32 {
-        RingBuffer::available_write_internal(self, Self::ITEM_SIZE)
-    }
-
-    fn pointer_distance(&self) -> i32 {
-        rb_ffi::ma_rb_pointer_distance(self)
-    }
-
-    fn subbuffer_size(&self) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_size(self)
-    }
-
-    fn subbuffer_stride(&self) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_stride(self)
-    }
-
-    fn subbuffer_offset(&self, rb_index: usize) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_offset(self, rb_index)
-    }
-}
-
-impl RbRead for RbRecvF32 {
-    type Item = f32;
-    const ITEM_SIZE: u32 = core::mem::size_of::<Self::Item>() as u32;
-
-    fn read(&mut self, dst: &mut [Self::Item]) -> MaResult<usize> {
-        RingBuffer::read_internal(self, dst)
-    }
-
-    fn read_with<F>(&mut self, desired_items: usize, f: F) -> MaResult<usize>
-    where
-        F: FnOnce(&[Self::Item]) -> usize,
-    {
-        RingBuffer::read_with_internal(self, desired_items, f)
-    }
-
-    fn read_exact(&mut self, dst: &mut [Self::Item]) -> MaResult<()> {
-        RingBuffer::read_exact_internal(self, dst)
-    }
-
-    fn acquire_read(&mut self, desired_items: usize) -> MaResult<RbReadGuard<'_, Self::Item>> {
-        RingBuffer::acquire_read_internal(self, desired_items, Self::ITEM_SIZE)
-    }
-
-    fn available_read(&self) -> u32 {
-        RingBuffer::available_read_internal(self, Self::ITEM_SIZE)
-    }
-
-    fn available_write(&self) -> u32 {
-        RingBuffer::available_write_internal(self, Self::ITEM_SIZE)
-    }
-
-    fn pointer_distance(&self) -> i32 {
-        rb_ffi::ma_rb_pointer_distance(self)
-    }
-
-    fn subbuffer_size(&self) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_size(self)
-    }
-
-    fn subbuffer_stride(&self) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_stride(self)
-    }
-
-    fn subbuffer_offset(&self, rb_index: usize) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_offset(self, rb_index)
-    }
-}
+impl_rb_read!(RbRecvU8 => u8);
+impl_rb_read!(RbRecvI16 => i16);
+impl_rb_read!(RbRecvI32 => i32);
+impl_rb_read!(RbRecvS24 => [u8; 3]);
+impl_rb_read!(RbRecvF32 => f32);
 
 // RbRead and RbWrite keep public API for Send and Recv, and separate read() and write() API
 pub trait RbWrite: AsRbPtr {
@@ -879,247 +723,73 @@ pub trait RbWrite: AsRbPtr {
     fn subbuffer_stride(&self) -> usize;
     /// Returns the byte offset of the subbuffer at the given ring buffer index.
     fn subbuffer_offset(&self, rb_index: usize) -> usize;
+    fn seek_write(&mut self, off_items: usize) -> MaResult<()>;
 }
 
-impl RbWrite for RbSendU8 {
-    type Item = u8;
-    const ITEM_SIZE: u32 = core::mem::size_of::<Self::Item>() as u32;
+macro_rules! impl_rb_write {
+    ($ty:ty => $item:ty) => {
+        impl RbWrite for $ty {
+            type Item = $item;
+            const ITEM_SIZE: u32 = core::mem::size_of::<Self::Item>() as u32;
 
-    fn write(&mut self, src: &[Self::Item]) -> MaResult<usize> {
-        RingBuffer::write_internal(self, src)
-    }
+            fn write(&mut self, src: &[Self::Item]) -> MaResult<usize> {
+                RingBuffer::write_internal(self, src)
+            }
 
-    fn write_with<F>(&mut self, desired_items: usize, f: F) -> MaResult<usize>
-    where
-        F: FnOnce(&mut [Self::Item]) -> usize,
-    {
-        RingBuffer::write_with_internal(self, desired_items, f)
-    }
+            fn write_with<F>(&mut self, desired_items: usize, f: F) -> MaResult<usize>
+            where
+                F: FnOnce(&mut [Self::Item]) -> usize,
+            {
+                RingBuffer::write_with_internal(self, desired_items, f)
+            }
 
-    fn write_exact(&mut self, src: &[Self::Item]) -> MaResult<()> {
-        RingBuffer::write_exact_internal(self, src)
-    }
+            fn write_exact(&mut self, src: &[Self::Item]) -> MaResult<()> {
+                RingBuffer::write_exact_internal(self, src)
+            }
 
-    fn acquire_write(&mut self, desired_items: usize) -> MaResult<RbWriteGuard<'_, Self::Item>> {
-        RingBuffer::acquire_write_internal(self, desired_items, Self::ITEM_SIZE)
-    }
+            fn acquire_write(
+                &mut self,
+                desired_items: usize,
+            ) -> MaResult<RbWriteGuard<'_, Self::Item>> {
+                RingBuffer::acquire_write_internal(self, desired_items, Self::ITEM_SIZE)
+            }
 
-    fn available_read(&self) -> u32 {
-        RingBuffer::available_read_internal(self, Self::ITEM_SIZE)
-    }
+            fn available_read(&self) -> u32 {
+                RingBuffer::available_read_internal(self, Self::ITEM_SIZE)
+            }
 
-    fn available_write(&self) -> u32 {
-        RingBuffer::available_write_internal(self, Self::ITEM_SIZE)
-    }
+            fn available_write(&self) -> u32 {
+                RingBuffer::available_write_internal(self, Self::ITEM_SIZE)
+            }
 
-    fn pointer_distance(&self) -> i32 {
-        rb_ffi::ma_rb_pointer_distance(self)
-    }
+            fn pointer_distance(&self) -> i32 {
+                RingBuffer::pointer_distance_internal(self, Self::ITEM_SIZE)
+            }
 
-    fn subbuffer_size(&self) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_size(self)
-    }
+            fn subbuffer_size(&self) -> usize {
+                RingBuffer::subbuffer_size_internal(self, Self::ITEM_SIZE)
+            }
 
-    fn subbuffer_stride(&self) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_stride(self)
-    }
+            fn subbuffer_stride(&self) -> usize {
+                RingBuffer::subbuffer_stride_internal(self, Self::ITEM_SIZE)
+            }
 
-    fn subbuffer_offset(&self, rb_index: usize) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_offset(self, rb_index)
-    }
+            fn subbuffer_offset(&self, rb_index: usize) -> usize {
+                RingBuffer::subbuffer_offset_internal(self, rb_index, Self::ITEM_SIZE)
+            }
+
+            fn seek_write(&mut self, off_items: usize) -> MaResult<()> {
+                RingBuffer::seek_write_internal(self, off_items, Self::ITEM_SIZE)
+            }
+        }
+    };
 }
 
-impl RbWrite for RbSendI16 {
-    type Item = i16;
-    const ITEM_SIZE: u32 = core::mem::size_of::<Self::Item>() as u32;
-
-    fn write(&mut self, src: &[Self::Item]) -> MaResult<usize> {
-        RingBuffer::write_internal(self, src)
-    }
-
-    fn write_with<F>(&mut self, desired_items: usize, f: F) -> MaResult<usize>
-    where
-        F: FnOnce(&mut [Self::Item]) -> usize,
-    {
-        RingBuffer::write_with_internal(self, desired_items, f)
-    }
-
-    fn write_exact(&mut self, src: &[Self::Item]) -> MaResult<()> {
-        RingBuffer::write_exact_internal(self, src)
-    }
-
-    fn acquire_write(&mut self, desired_items: usize) -> MaResult<RbWriteGuard<'_, Self::Item>> {
-        RingBuffer::acquire_write_internal(self, desired_items, Self::ITEM_SIZE)
-    }
-
-    fn available_read(&self) -> u32 {
-        RingBuffer::available_read_internal(self, Self::ITEM_SIZE)
-    }
-
-    fn available_write(&self) -> u32 {
-        RingBuffer::available_write_internal(self, Self::ITEM_SIZE)
-    }
-
-    fn pointer_distance(&self) -> i32 {
-        rb_ffi::ma_rb_pointer_distance(self)
-    }
-
-    fn subbuffer_size(&self) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_size(self)
-    }
-
-    fn subbuffer_stride(&self) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_stride(self)
-    }
-
-    fn subbuffer_offset(&self, rb_index: usize) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_offset(self, rb_index)
-    }
-}
-
-impl RbWrite for RbSendI32 {
-    type Item = i32;
-    const ITEM_SIZE: u32 = core::mem::size_of::<Self::Item>() as u32;
-
-    fn write(&mut self, src: &[Self::Item]) -> MaResult<usize> {
-        RingBuffer::write_internal(self, src)
-    }
-
-    fn write_with<F>(&mut self, desired_items: usize, f: F) -> MaResult<usize>
-    where
-        F: FnOnce(&mut [Self::Item]) -> usize,
-    {
-        RingBuffer::write_with_internal(self, desired_items, f)
-    }
-
-    fn write_exact(&mut self, src: &[Self::Item]) -> MaResult<()> {
-        RingBuffer::write_exact_internal(self, src)
-    }
-
-    fn acquire_write(&mut self, desired_items: usize) -> MaResult<RbWriteGuard<'_, Self::Item>> {
-        RingBuffer::acquire_write_internal(self, desired_items, Self::ITEM_SIZE)
-    }
-
-    fn available_read(&self) -> u32 {
-        RingBuffer::available_read_internal(self, Self::ITEM_SIZE)
-    }
-
-    fn available_write(&self) -> u32 {
-        RingBuffer::available_write_internal(self, Self::ITEM_SIZE)
-    }
-
-    fn pointer_distance(&self) -> i32 {
-        rb_ffi::ma_rb_pointer_distance(self)
-    }
-
-    fn subbuffer_size(&self) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_size(self)
-    }
-
-    fn subbuffer_stride(&self) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_stride(self)
-    }
-
-    fn subbuffer_offset(&self, rb_index: usize) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_offset(self, rb_index)
-    }
-}
-
-impl RbWrite for RbSendS24 {
-    type Item = [u8; 3];
-    const ITEM_SIZE: u32 = core::mem::size_of::<Self::Item>() as u32;
-
-    fn write(&mut self, src: &[Self::Item]) -> MaResult<usize> {
-        RingBuffer::write_internal(self, src)
-    }
-
-    fn write_exact(&mut self, src: &[Self::Item]) -> MaResult<()> {
-        RingBuffer::write_exact_internal(self, src)
-    }
-
-    fn write_with<F>(&mut self, desired_items: usize, f: F) -> MaResult<usize>
-    where
-        F: FnOnce(&mut [Self::Item]) -> usize,
-    {
-        RingBuffer::write_with_internal(self, desired_items, f)
-    }
-
-    fn acquire_write(&mut self, desired_items: usize) -> MaResult<RbWriteGuard<'_, Self::Item>> {
-        RingBuffer::acquire_write_internal(self, desired_items, Self::ITEM_SIZE)
-    }
-
-    fn available_read(&self) -> u32 {
-        RingBuffer::available_read_internal(self, Self::ITEM_SIZE)
-    }
-
-    fn available_write(&self) -> u32 {
-        RingBuffer::available_write_internal(self, Self::ITEM_SIZE)
-    }
-
-    fn pointer_distance(&self) -> i32 {
-        rb_ffi::ma_rb_pointer_distance(self)
-    }
-
-    fn subbuffer_size(&self) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_size(self)
-    }
-
-    fn subbuffer_stride(&self) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_stride(self)
-    }
-
-    fn subbuffer_offset(&self, rb_index: usize) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_offset(self, rb_index)
-    }
-}
-
-impl RbWrite for RbSendF32 {
-    type Item = f32;
-    const ITEM_SIZE: u32 = core::mem::size_of::<Self::Item>() as u32;
-
-    fn write(&mut self, src: &[Self::Item]) -> MaResult<usize> {
-        RingBuffer::write_internal(self, src)
-    }
-
-    fn write_with<F>(&mut self, desired_items: usize, f: F) -> MaResult<usize>
-    where
-        F: FnOnce(&mut [Self::Item]) -> usize,
-    {
-        RingBuffer::write_with_internal(self, desired_items, f)
-    }
-
-    fn write_exact(&mut self, src: &[Self::Item]) -> MaResult<()> {
-        RingBuffer::write_exact_internal(self, src)
-    }
-
-    fn acquire_write(&mut self, desired_items: usize) -> MaResult<RbWriteGuard<'_, Self::Item>> {
-        RingBuffer::acquire_write_internal(self, desired_items, Self::ITEM_SIZE)
-    }
-
-    fn available_read(&self) -> u32 {
-        RingBuffer::available_read_internal(self, Self::ITEM_SIZE)
-    }
-
-    fn available_write(&self) -> u32 {
-        RingBuffer::available_write_internal(self, Self::ITEM_SIZE)
-    }
-
-    fn pointer_distance(&self) -> i32 {
-        rb_ffi::ma_rb_pointer_distance(self)
-    }
-
-    fn subbuffer_size(&self) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_size(self)
-    }
-
-    fn subbuffer_stride(&self) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_stride(self)
-    }
-
-    fn subbuffer_offset(&self, rb_index: usize) -> usize {
-        rb_ffi::ma_rb_get_subbuffer_offset(self, rb_index)
-    }
-}
+impl_rb_write!(RbSendU8  => u8);
+impl_rb_write!(RbSendI16 => i16);
+impl_rb_write!(RbSendI32 => i32);
+impl_rb_write!(RbSendS24 => [u8; 3]);
+impl_rb_write!(RbSendF32 => f32);
 
 mod private_rb {
     use super::*;
