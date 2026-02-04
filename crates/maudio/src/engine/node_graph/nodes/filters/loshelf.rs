@@ -135,7 +135,7 @@ pub(crate) mod n_loshelf_ffi {
         engine::node_graph::{
             nodes::filters::loshelf::LoShelfNode, private_node_graph, AsNodeGraphPtr,
         },
-        Binding, MaRawResult, MaResult,
+        Binding, MaResult, MaudioError,
     };
 
     #[inline]
@@ -153,7 +153,7 @@ pub(crate) mod n_loshelf_ffi {
                 node,
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -169,7 +169,7 @@ pub(crate) mod n_loshelf_ffi {
         node: &mut LoShelfNode,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_loshelf_node_reinit(config, node.to_raw()) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 }
 

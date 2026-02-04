@@ -128,7 +128,7 @@ pub(crate) mod n_notch_ffi {
         engine::node_graph::{
             nodes::filters::notch::NotchNode, private_node_graph, AsNodeGraphPtr,
         },
-        Binding, MaRawResult, MaResult,
+        Binding, MaResult, MaudioError,
     };
 
     #[inline]
@@ -146,7 +146,7 @@ pub(crate) mod n_notch_ffi {
                 node,
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -162,7 +162,7 @@ pub(crate) mod n_notch_ffi {
         node: &mut NotchNode,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_notch_node_reinit(config, node.to_raw()) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 }
 

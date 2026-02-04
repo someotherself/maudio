@@ -31,7 +31,9 @@ impl TryFrom<sys::ma_stream_format> for WaveFormType {
             sys::ma_waveform_type_ma_waveform_type_square => Ok(WaveFormType::Square),
             sys::ma_waveform_type_ma_waveform_type_triangle => Ok(WaveFormType::Triangle),
             sys::ma_waveform_type_ma_waveform_type_sawtooth => Ok(WaveFormType::Sawtooth),
-            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidSWaveFormType)),
+            other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
+                WaveFormType,
+            >(other as i64))),
         }
     }
 }

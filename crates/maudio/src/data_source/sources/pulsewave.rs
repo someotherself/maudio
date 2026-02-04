@@ -254,7 +254,7 @@ pub(crate) mod pulsewave_ffi {
         data_source::sources::pulsewave::{
             private_pulsew, AsPulseWavePtr, PulseWaveBuilder, PulseWaveInner,
         },
-        Binding, MaRawResult, MaResult,
+        Binding, MaResult, MaudioError,
     };
 
     #[inline]
@@ -264,7 +264,7 @@ pub(crate) mod pulsewave_ffi {
     ) -> MaResult<()> {
         let raw = config.to_raw();
         let res = unsafe { sys::ma_pulsewave_init(&raw as *const _, pulsewave) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -356,7 +356,7 @@ pub(crate) mod pulsewave_ffi {
                 &mut frames_read,
             )
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok(frames_read)
     }
 
@@ -368,7 +368,7 @@ pub(crate) mod pulsewave_ffi {
         let res = unsafe {
             sys::ma_pulsewave_seek_to_pcm_frame(private_pulsew::pulsewave_ptr(pw), frame_index)
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -379,7 +379,7 @@ pub(crate) mod pulsewave_ffi {
         let res = unsafe {
             sys::ma_pulsewave_set_amplitude(private_pulsew::pulsewave_ptr(pw), amplitude)
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -390,7 +390,7 @@ pub(crate) mod pulsewave_ffi {
         let res = unsafe {
             sys::ma_pulsewave_set_frequency(private_pulsew::pulsewave_ptr(pw), frequency)
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -401,7 +401,7 @@ pub(crate) mod pulsewave_ffi {
         let res = unsafe {
             sys::ma_pulsewave_set_duty_cycle(private_pulsew::pulsewave_ptr(pw), duty_cycle)
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -412,7 +412,7 @@ pub(crate) mod pulsewave_ffi {
         let res = unsafe {
             sys::ma_pulsewave_set_sample_rate(private_pulsew::pulsewave_ptr(pw), sample_rate.into())
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 }
 

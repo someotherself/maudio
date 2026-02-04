@@ -1,4 +1,4 @@
 /target
 /crates/maudio/tests/assets
-/crates/maudio/examples/assets/Goldberg_Variations_BWV_988_Variation_4.mp3
+/crates/maudio/examples/
 /.vscode

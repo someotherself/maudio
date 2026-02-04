@@ -42,7 +42,9 @@ impl TryFrom<sys::ma_node_state> for NodeState {
         match value {
             sys::ma_node_state_ma_node_state_started => Ok(NodeState::Started),
             sys::ma_node_state_ma_node_state_stopped => Ok(NodeState::Stopped),
-            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidNodeState)),
+            other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
+                NodeState,
+            >(other as i64))),
         }
     }
 }

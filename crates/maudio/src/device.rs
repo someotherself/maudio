@@ -42,7 +42,7 @@ pub(crate) mod device_ffi {
     use crate::{
         context::{backend::Backend, Context},
         device::device_builder::DeviceBuilder,
-        Binding, MaRawResult, MaResult,
+        Binding, MaResult, MaudioError,
     };
 
     pub fn ma_device_init(
@@ -51,7 +51,7 @@ pub(crate) mod device_ffi {
         device: *mut sys::ma_device,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_device_init(context.to_raw(), config.to_raw(), device) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     pub fn ma_device_init_ex(
@@ -67,7 +67,7 @@ pub(crate) mod device_ffi {
         };
         let res =
             unsafe { sys::ma_device_init_ex(backends_ptr, length, context_cfg, config, device) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     pub fn ma_device_uninit(device: *mut sys::ma_device) {

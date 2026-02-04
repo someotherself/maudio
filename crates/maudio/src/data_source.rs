@@ -323,7 +323,7 @@ pub(crate) mod data_source_ffi {
             private_data_source, AsSourcePtr, DataFormat, DataSource, DataSourceRef,
             GetNextCallback,
         },
-        Binding, MaRawResult, MaResult,
+        Binding, MaResult, MaudioError,
     };
 
     #[inline]
@@ -332,7 +332,7 @@ pub(crate) mod data_source_ffi {
         source: *mut sys::ma_data_source,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_data_source_init(config, source) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -358,7 +358,7 @@ pub(crate) mod data_source_ffi {
                 &mut frames_read,
             )
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok((buffer, frames_read))
     }
 
@@ -375,7 +375,7 @@ pub(crate) mod data_source_ffi {
                 &mut frames_seeked,
             )
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok(frames_seeked)
     }
 
@@ -390,7 +390,7 @@ pub(crate) mod data_source_ffi {
                 frame_index,
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -406,7 +406,7 @@ pub(crate) mod data_source_ffi {
                 &mut seconds_seeked,
             )
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok(seconds_seeked)
     }
 
@@ -418,7 +418,7 @@ pub(crate) mod data_source_ffi {
         let res = unsafe {
             sys::ma_data_source_seek_to_second(private_data_source::source_ptr(source), seek_point)
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     pub fn ma_data_source_get_data_format<S: AsSourcePtr + ?Sized>(
@@ -438,7 +438,7 @@ pub(crate) mod data_source_ffi {
                 channel_map_raw.len(),
             )
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         // Could cast when passing the ptr to miniaudio, but copying should be fine here
         let mut channel_map: Vec<Channel> =
             channel_map_raw.into_iter().map(Channel::from_raw).collect();
@@ -463,7 +463,7 @@ pub(crate) mod data_source_ffi {
                 &mut cursor,
             )
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok(cursor)
     }
 
@@ -478,7 +478,7 @@ pub(crate) mod data_source_ffi {
                 &mut length,
             )
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok(length)
     }
 
@@ -493,7 +493,7 @@ pub(crate) mod data_source_ffi {
                 &mut cursor,
             )
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok(cursor)
     }
 
@@ -508,7 +508,7 @@ pub(crate) mod data_source_ffi {
                 &mut length,
             )
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok(length)
     }
 
@@ -521,7 +521,7 @@ pub(crate) mod data_source_ffi {
         let res = unsafe {
             sys::ma_data_source_set_looping(private_data_source::source_ptr(source), is_looping)
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -544,7 +544,7 @@ pub(crate) mod data_source_ffi {
                 range.end,
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -576,7 +576,7 @@ pub(crate) mod data_source_ffi {
                 end,
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -606,7 +606,7 @@ pub(crate) mod data_source_ffi {
                 private_data_source::source_ptr(current),
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -637,7 +637,7 @@ pub(crate) mod data_source_ffi {
                 private_data_source::source_ptr(next),
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -669,7 +669,7 @@ pub(crate) mod data_source_ffi {
                 get_next_cb,
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     // TODO

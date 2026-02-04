@@ -398,7 +398,7 @@ pub(super) mod node_ffi {
             nodes::{private_node, AsNodePtr, Node},
             NodeGraph, NodeGraphRef,
         },
-        Binding, MaRawResult, MaResult,
+        Binding, MaResult, MaudioError,
     };
 
     // Do not expose to public API. Used internally by ma_node_init
@@ -433,7 +433,7 @@ pub(super) mod node_ffi {
     ) -> MaResult<()> {
         let res =
             unsafe { sys::ma_node_init(node_graph.to_raw(), config, allocation_callbacks, node) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     // Creating nodes is currently not supported. Any nodes that used are not owned and should not be dropped.
@@ -504,7 +504,7 @@ pub(super) mod node_ffi {
                 private_node::node_ptr(other_node),
                 other_node_input_bus_index,
             );
-            MaRawResult::check(res)
+            MaudioError::check(res)
         }
     }
 
@@ -516,7 +516,7 @@ pub(super) mod node_ffi {
         let res = unsafe {
             sys::ma_node_detach_output_bus(private_node::node_ptr(node), output_bus_index)
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -524,7 +524,7 @@ pub(super) mod node_ffi {
         node: &mut P,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_node_detach_all_output_buses(private_node::node_ptr(node)) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -540,7 +540,7 @@ pub(super) mod node_ffi {
                 volume,
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -559,7 +559,7 @@ pub(super) mod node_ffi {
         state: NodeState,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_node_set_state(private_node::node_ptr(node), state.into()) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -577,7 +577,7 @@ pub(super) mod node_ffi {
         let res = unsafe {
             sys::ma_node_set_state_time(private_node::node_ptr(node), state.into(), global_time)
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -625,7 +625,7 @@ pub(super) mod node_ffi {
         local_time: u64,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_node_set_time(private_node::node_ptr(node), local_time) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 }
 

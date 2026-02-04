@@ -127,7 +127,7 @@ impl<'a> PeakNode<'a> {
 pub(crate) mod n_peak_ffi {
     use crate::{
         engine::node_graph::{nodes::filters::peak::PeakNode, private_node_graph, AsNodeGraphPtr},
-        Binding, MaRawResult, MaResult,
+        Binding, MaResult, MaudioError,
     };
     use maudio_sys::ffi as sys;
 
@@ -146,7 +146,7 @@ pub(crate) mod n_peak_ffi {
                 node,
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -162,7 +162,7 @@ pub(crate) mod n_peak_ffi {
         node: &mut PeakNode,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_peak_node_reinit(config, node.to_raw()) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 }
 

@@ -301,7 +301,7 @@ pub(crate) mod decoder_ffi {
     use crate::audio::channels::Channel;
     use crate::audio::formats::{SampleBuffer, SampleBufferS24};
     use crate::data_source::sources::decoder::{private_decoder, AsDecoderPtr, DecoderBuilder};
-    use crate::{data_source::DataFormat, Binding, MaRawResult, MaResult};
+    use crate::{data_source::DataFormat, Binding, MaResult, MaudioError};
 
     #[inline]
     pub fn ma_decoder_init(
@@ -320,13 +320,13 @@ pub(crate) mod decoder_ffi {
                 decoder,
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
     pub fn ma_decoder_uninit<D: AsDecoderPtr + ?Sized>(decoder: &mut D) -> MaResult<()> {
         let res = unsafe { sys::ma_decoder_uninit(private_decoder::decoder_ptr(decoder)) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -339,7 +339,7 @@ pub(crate) mod decoder_ffi {
         let res = unsafe {
             sys::ma_decoder_init_memory(data, data_size, &config.to_raw() as *const _, decoder)
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -352,7 +352,7 @@ pub(crate) mod decoder_ffi {
         let res = unsafe {
             sys::ma_decoder_init_file(path.as_ptr(), &config.to_raw() as *const _, decoder)
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -365,7 +365,7 @@ pub(crate) mod decoder_ffi {
         let res = unsafe {
             sys::ma_decoder_init_file_w(path.as_ptr(), &config.to_raw() as *const _, decoder)
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     // TODO: For later in the roadmap
@@ -450,7 +450,7 @@ pub(crate) mod decoder_ffi {
                 &mut frames_read,
             )
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok(frames_read)
     }
 
@@ -462,7 +462,7 @@ pub(crate) mod decoder_ffi {
         let res = unsafe {
             sys::ma_decoder_seek_to_pcm_frame(private_decoder::decoder_ptr(decoder), frame_index)
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -485,7 +485,7 @@ pub(crate) mod decoder_ffi {
                 channel_map_raw.len(),
             )
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
 
         // Could cast when passing the ptr to miniaudio, but copying should be fine here
         let mut channel_map: Vec<Channel> =
@@ -510,7 +510,7 @@ pub(crate) mod decoder_ffi {
                 &mut cursor,
             )
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok(cursor)
     }
 
@@ -524,7 +524,7 @@ pub(crate) mod decoder_ffi {
                 &mut length,
             )
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok(length)
     }
 
@@ -535,7 +535,7 @@ pub(crate) mod decoder_ffi {
         let res = unsafe {
             sys::ma_decoder_get_available_frames(private_decoder::decoder_ptr(decoder), &mut frames)
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok(frames)
     }
 

@@ -296,7 +296,7 @@ pub(crate) mod s_group_ffi {
         },
         engine::{Engine, EngineRef},
         sound::sound_group::{SoundGroup, SoundGroupConfig},
-        Binding, MaRawResult, MaResult,
+        Binding, MaResult, MaudioError,
     };
 
     pub fn ma_sound_group_init_ex(
@@ -307,7 +307,7 @@ pub(crate) mod s_group_ffi {
         let res = unsafe {
             sys::ma_sound_group_init_ex(engine.to_raw(), &config.inner as *const _, s_group)
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -328,13 +328,13 @@ pub(crate) mod s_group_ffi {
     #[inline]
     pub fn ma_sound_group_start(s_group: &mut SoundGroup) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_group_start(s_group.to_raw()) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
     pub fn ma_sound_group_stop(s_group: &mut SoundGroup) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_group_stop(s_group.to_raw()) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]

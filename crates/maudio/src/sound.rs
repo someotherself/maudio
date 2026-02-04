@@ -19,7 +19,7 @@ use crate::{
     engine::{node_graph::nodes::NodeRef, Engine, EngineRef},
     sound::{notifier::EndNotifier, sound_flags::SoundFlags, sound_group::SoundGroup},
     util::fence::Fence,
-    Binding, MaRawResult, MaResult,
+    Binding, MaResult, MaudioError,
 };
 
 pub mod notifier;
@@ -424,7 +424,7 @@ impl<'a> Sound<'a> {
                 user_data,
             )
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
 
         Ok(notifier)
     }
@@ -500,7 +500,6 @@ pub(crate) mod sound_ffi {
     use crate::data_source::AsSourcePtr;
     use crate::data_source::{private_data_source, DataFormat, DataSourceRef};
     use crate::util::fence::Fence;
-    use crate::Binding;
     use crate::MaResult;
     use crate::{
         audio::dsp::pan::PanMode,
@@ -508,8 +507,8 @@ pub(crate) mod sound_ffi {
         sound::{
             sound_builder::SoundBuilder, sound_flags::SoundFlags, sound_group::SoundGroup, Sound,
         },
-        MaRawResult,
     };
+    use crate::{Binding, MaudioError};
 
     #[inline]
     #[cfg(unix)]
@@ -537,7 +536,7 @@ pub(crate) mod sound_ffi {
                 sound,
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -564,7 +563,7 @@ pub(crate) mod sound_ffi {
                 sound,
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -587,7 +586,7 @@ pub(crate) mod sound_ffi {
                 new_sound,
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -610,7 +609,7 @@ pub(crate) mod sound_ffi {
                 sound,
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -620,7 +619,7 @@ pub(crate) mod sound_ffi {
         sound: *mut sys::ma_sound,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_init_ex(engine.to_raw(), config.to_raw(), sound) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -646,13 +645,13 @@ pub(crate) mod sound_ffi {
     #[inline]
     pub fn ma_sound_start(sound: &mut Sound) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_start(sound.to_raw()) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
     pub fn ma_sound_stop(sound: &mut Sound) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_stop(sound.to_raw()) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -662,14 +661,14 @@ pub(crate) mod sound_ffi {
     ) -> MaResult<()> {
         let res =
             unsafe { sys::ma_sound_stop_with_fade_in_pcm_frames(sound.to_raw(), fade_frames) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
     pub fn ma_sound_stop_with_fade_in_milis(sound: &mut Sound, fade_milis: u64) -> MaResult<()> {
         let res =
             unsafe { sys::ma_sound_stop_with_fade_in_milliseconds(sound.to_raw(), fade_milis) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -1087,13 +1086,13 @@ pub(crate) mod sound_ffi {
     #[inline]
     pub fn ma_sound_seek_to_pcm_frame(sound: &mut Sound, frame_index: u64) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_seek_to_pcm_frame(sound.to_raw(), frame_index) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
     pub fn ma_sound_seek_to_second(sound: &mut Sound, seek_point_seconds: f32) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_seek_to_second(sound.to_raw(), seek_point_seconds) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -1113,7 +1112,7 @@ pub(crate) mod sound_ffi {
                 channel_map_raw.len(),
             )
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
 
         // Could cast when passing the ptr to miniaudio, but copying should be fine here
         let mut channel_map: Vec<Channel> =
@@ -1134,7 +1133,7 @@ pub(crate) mod sound_ffi {
         let res = unsafe {
             sys::ma_sound_get_cursor_in_pcm_frames(sound.to_raw() as *const _, &mut cursor)
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok(cursor)
     }
 
@@ -1144,7 +1143,7 @@ pub(crate) mod sound_ffi {
         let res = unsafe {
             sys::ma_sound_get_length_in_pcm_frames(sound.to_raw() as *const _, &mut length)
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok(length)
     }
 
@@ -1153,7 +1152,7 @@ pub(crate) mod sound_ffi {
         let mut cursor: f32 = 0.0;
         let res =
             unsafe { sys::ma_sound_get_cursor_in_seconds(sound.to_raw() as *const _, &mut cursor) };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok(cursor)
     }
 
@@ -1162,7 +1161,7 @@ pub(crate) mod sound_ffi {
         let mut length: f32 = 0.0;
         let res =
             unsafe { sys::ma_sound_get_length_in_seconds(sound.to_raw() as *const _, &mut length) };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok(length)
     }
 
@@ -1173,7 +1172,7 @@ pub(crate) mod sound_ffi {
         user_data: *mut core::ffi::c_void,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_set_end_callback(sound.to_raw(), callback, user_data) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 }
 

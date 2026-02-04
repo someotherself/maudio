@@ -345,7 +345,9 @@ impl TryFrom<sys::ma_dither_mode> for Dither {
             sys::ma_dither_mode_ma_dither_mode_none => Ok(Dither::None),
             sys::ma_dither_mode_ma_dither_mode_rectangle => Ok(Dither::Rectangle),
             sys::ma_dither_mode_ma_dither_mode_triangle => Ok(Dither::Triangle),
-            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidDither)),
+            other => Err(MaudioError::new_ma_error(
+                ErrorKinds::unknown_enum::<Dither>(other as i64),
+            )),
         }
     }
 }

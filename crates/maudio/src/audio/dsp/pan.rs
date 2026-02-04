@@ -25,7 +25,9 @@ impl TryFrom<sys::ma_pan_mode> for PanMode {
         match value {
             sys::ma_pan_mode_ma_pan_mode_balance => Ok(PanMode::Balance),
             sys::ma_pan_mode_ma_pan_mode_pan => Ok(PanMode::Pan),
-            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidPanMode)),
+            other => Err(MaudioError::new_ma_error(
+                ErrorKinds::unknown_enum::<PanMode>(other as i64),
+            )),
         }
     }
 }

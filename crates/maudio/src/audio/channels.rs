@@ -71,7 +71,9 @@ impl TryFrom<sys::ma_channel_mix_mode> for ChannelMixMode {
             sys::ma_channel_mix_mode_ma_channel_mix_mode_custom_weights => {
                 Ok(ChannelMixMode::CustomWeights)
             }
-            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidChannelMixMode)),
+            other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
+                ChannelMixMode,
+            >(other as i64))),
         }
     }
 }
@@ -182,7 +184,9 @@ impl TryFrom<sys::ma_standard_channel_map> for ChannelMap {
             sys::ma_standard_channel_map_ma_standard_channel_map_vorbis => Ok(ChannelMap::Vorbis),
             sys::ma_standard_channel_map_ma_standard_channel_map_sound4 => Ok(ChannelMap::Sound4),
             sys::ma_standard_channel_map_ma_standard_channel_map_sndio => Ok(ChannelMap::Sndio),
-            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidChannelMap)),
+            other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
+                ChannelMap,
+            >(other as i64))),
         }
     }
 }
@@ -317,70 +321,33 @@ impl TryFrom<sys::ma_channel> for ChannelPosition {
             49 => Ok(Self::Aux29),
             50 => Ok(Self::Aux30),
             51 => Ok(Self::Aux31),
-            _ => Err(MaudioError::new_ma_error(
-                ErrorKinds::InvalidChannelPosition,
-            )),
+            _ => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
+                ChannelPosition,
+            >(v as i64))),
         }
     }
 }
 
+impl TryFrom<Channel> for ChannelPosition {
+    type Error = MaudioError;
+
+    #[inline]
+    fn try_from(c: Channel) -> Result<Self, Self::Error> {
+        ChannelPosition::try_from(c.0)
+    }
+}
+
 impl From<ChannelPosition> for Channel {
+    #[inline]
     fn from(p: ChannelPosition) -> Self {
-        let v: u8 = match p {
-            ChannelPosition::None => 0,
-            ChannelPosition::Mono => 1,
-            ChannelPosition::FrontLeft => 2,
-            ChannelPosition::FrontRight => 3,
-            ChannelPosition::FrontCenter => 4,
-            ChannelPosition::Lfe => 5,
-            ChannelPosition::BackLeft => 6,
-            ChannelPosition::BackRight => 7,
-            ChannelPosition::FrontLeftCenter => 8,
-            ChannelPosition::FrontRightCenter => 9,
-            ChannelPosition::BackCenter => 10,
-            ChannelPosition::SideLeft => 11,
-            ChannelPosition::SideRight => 12,
-            ChannelPosition::TopCenter => 13,
-            ChannelPosition::TopFrontLeft => 14,
-            ChannelPosition::TopFrontCenter => 15,
-            ChannelPosition::TopFrontRight => 16,
-            ChannelPosition::TopBackLeft => 17,
-            ChannelPosition::TopBackCenter => 18,
-            ChannelPosition::TopBackRight => 19,
-            ChannelPosition::Aux0 => 20,
-            ChannelPosition::Aux1 => 21,
-            ChannelPosition::Aux2 => 22,
-            ChannelPosition::Aux3 => 23,
-            ChannelPosition::Aux4 => 24,
-            ChannelPosition::Aux5 => 25,
-            ChannelPosition::Aux6 => 26,
-            ChannelPosition::Aux7 => 27,
-            ChannelPosition::Aux8 => 28,
-            ChannelPosition::Aux9 => 29,
-            ChannelPosition::Aux10 => 30,
-            ChannelPosition::Aux11 => 31,
-            ChannelPosition::Aux12 => 32,
-            ChannelPosition::Aux13 => 33,
-            ChannelPosition::Aux14 => 34,
-            ChannelPosition::Aux15 => 35,
-            ChannelPosition::Aux16 => 36,
-            ChannelPosition::Aux17 => 37,
-            ChannelPosition::Aux18 => 38,
-            ChannelPosition::Aux19 => 39,
-            ChannelPosition::Aux20 => 40,
-            ChannelPosition::Aux21 => 41,
-            ChannelPosition::Aux22 => 42,
-            ChannelPosition::Aux23 => 43,
-            ChannelPosition::Aux24 => 44,
-            ChannelPosition::Aux25 => 45,
-            ChannelPosition::Aux26 => 46,
-            ChannelPosition::Aux27 => 47,
-            ChannelPosition::Aux28 => 48,
-            ChannelPosition::Aux29 => 49,
-            ChannelPosition::Aux30 => 50,
-            ChannelPosition::Aux31 => 51,
-        };
-        Channel(v as sys::ma_channel)
+        Channel(p as sys::ma_channel)
+    }
+}
+
+impl From<ChannelPosition> for sys::ma_channel {
+    #[inline]
+    fn from(p: ChannelPosition) -> Self {
+        p as sys::ma_channel
     }
 }
 

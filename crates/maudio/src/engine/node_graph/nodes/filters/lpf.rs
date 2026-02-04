@@ -124,7 +124,7 @@ pub(crate) mod n_lpf_ffi {
 
     use crate::{
         engine::node_graph::{nodes::filters::lpf::LpfNode, private_node_graph, AsNodeGraphPtr},
-        Binding, MaRawResult, MaResult,
+        Binding, MaResult, MaudioError,
     };
 
     #[inline]
@@ -142,7 +142,7 @@ pub(crate) mod n_lpf_ffi {
                 node,
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -158,7 +158,7 @@ pub(crate) mod n_lpf_ffi {
         node: &mut LpfNode,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_lpf_node_reinit(config, node.to_raw()) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 }
 

@@ -125,7 +125,7 @@ pub(crate) mod n_hpf_ffi {
 
     use crate::{
         engine::node_graph::{nodes::filters::hpf::HpfNode, private_node_graph, AsNodeGraphPtr},
-        Binding, MaRawResult, MaResult,
+        Binding, MaResult, MaudioError,
     };
 
     #[inline]
@@ -143,7 +143,7 @@ pub(crate) mod n_hpf_ffi {
                 node,
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -159,7 +159,7 @@ pub(crate) mod n_hpf_ffi {
         node: &mut HpfNode,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_hpf_node_reinit(config, node.to_raw()) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 }
 

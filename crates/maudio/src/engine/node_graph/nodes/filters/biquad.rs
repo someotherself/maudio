@@ -127,7 +127,7 @@ pub(crate) mod n_biquad_ffi {
         engine::node_graph::{
             nodes::filters::biquad::BiquadNode, private_node_graph, AsNodeGraphPtr,
         },
-        Binding, MaRawResult, MaResult,
+        Binding, MaResult, MaudioError,
     };
     use maudio_sys::ffi as sys;
 
@@ -146,7 +146,7 @@ pub(crate) mod n_biquad_ffi {
                 node,
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -162,7 +162,7 @@ pub(crate) mod n_biquad_ffi {
         node: &mut BiquadNode,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_biquad_node_reinit(config, node.to_raw()) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 }
 

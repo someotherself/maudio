@@ -25,7 +25,9 @@ impl TryFrom<sys::ma_positioning> for Positioning {
         match v {
             sys::ma_positioning_ma_positioning_absolute => Ok(Positioning::Absolute),
             sys::ma_positioning_ma_positioning_relative => Ok(Positioning::Relative),
-            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidPositioning)),
+            other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
+                Positioning,
+            >(other as i64))),
         }
     }
 }

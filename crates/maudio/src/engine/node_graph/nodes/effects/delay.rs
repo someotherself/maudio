@@ -139,7 +139,7 @@ pub(crate) mod n_delay_ffi {
         engine::node_graph::{
             nodes::effects::delay::DelayNode, private_node_graph, AsNodeGraphPtr,
         },
-        Binding, MaRawResult, MaResult,
+        Binding, MaResult, MaudioError,
     };
     use maudio_sys::ffi as sys;
 
@@ -158,7 +158,7 @@ pub(crate) mod n_delay_ffi {
                 node,
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]

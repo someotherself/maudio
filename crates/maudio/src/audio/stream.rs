@@ -32,7 +32,9 @@ impl TryFrom<sys::ma_stream_format> for StreamFormat {
     fn try_from(value: sys::ma_stream_format) -> Result<Self, Self::Error> {
         match value {
             sys::ma_stream_format_ma_stream_format_pcm => Ok(StreamFormat::Pcm),
-            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidStreamFormat)),
+            other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
+                StreamFormat,
+            >(other as i64))),
         }
     }
 }
@@ -79,7 +81,9 @@ impl TryFrom<sys::ma_stream_layout> for StreamLayout {
         match value {
             sys::ma_stream_layout_ma_stream_layout_interleaved => Ok(StreamLayout::Interleaved),
             sys::ma_stream_layout_ma_stream_layout_deinterleaved => Ok(StreamLayout::Deinterleaved),
-            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidPositioning)),
+            other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
+                StreamLayout,
+            >(other as i64))),
         }
     }
 }

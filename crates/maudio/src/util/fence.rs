@@ -100,11 +100,11 @@ impl Fence {
 pub(crate) mod fence_ffi {
     use maudio_sys::ffi as sys;
 
-    use crate::{util::fence::Fence, Binding, MaRawResult, MaResult};
+    use crate::{util::fence::Fence, Binding, MaResult, MaudioError};
 
     pub fn ma_fence_init(fence: *mut sys::ma_fence) -> MaResult<()> {
         let res = unsafe { sys::ma_fence_init(fence) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     pub fn ma_fence_uninit(fence: &Fence) {
@@ -115,17 +115,17 @@ pub(crate) mod fence_ffi {
 
     pub fn ma_fence_acquire(fence: &Fence) -> MaResult<()> {
         let res = unsafe { sys::ma_fence_acquire(fence.to_raw()) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     pub fn ma_fence_release(fence: &Fence) -> MaResult<()> {
         let res = unsafe { sys::ma_fence_release(fence.to_raw()) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     pub fn ma_fence_wait(fence: &Fence) -> MaResult<()> {
         let res = unsafe { sys::ma_fence_wait(fence.to_raw()) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 }
 

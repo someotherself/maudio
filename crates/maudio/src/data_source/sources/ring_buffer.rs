@@ -1,3 +1,4 @@
+//! Single-producer, single-consumer ring buffer.
 use std::{
     cell::Cell,
     marker::PhantomData,
@@ -938,7 +939,7 @@ pub(crate) mod rb_ffi {
     use crate::{
         data_source::sources::ring_buffer::{private_rb, AsRbPtr, RbInner},
         engine::AllocationCallbacks,
-        MaRawResult, MaResult,
+        MaResult, MaudioError,
     };
 
     pub fn rb_new_raw(
@@ -990,7 +991,7 @@ pub(crate) mod rb_ffi {
         rb: *mut sys::ma_rb,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_rb_init(size, pre_alloc, alloc_cb, rb) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -1003,7 +1004,7 @@ pub(crate) mod rb_ffi {
         rb: *mut sys::ma_rb,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_rb_init_ex(size, count, stride_bytes, pre_alloc, alloc_cb, rb) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -1028,7 +1029,7 @@ pub(crate) mod rb_ffi {
         let mut size = desired_bytes;
         let mut buf: *mut core::ffi::c_void = std::ptr::null_mut();
         let res = unsafe { sys::ma_rb_acquire_read(private_rb::rb_ptr(rb), &mut size, &mut buf) };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok((buf, size))
     }
 
@@ -1036,7 +1037,7 @@ pub(crate) mod rb_ffi {
     #[inline]
     pub fn ma_rb_commit_read<R: AsRbPtr + ?Sized>(rb: &mut R, bytes: usize) -> MaResult<()> {
         let res = unsafe { sys::ma_rb_commit_read(private_rb::rb_ptr(rb), bytes) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     // format agnostic
@@ -1048,26 +1049,26 @@ pub(crate) mod rb_ffi {
         let mut size = desired_bytes;
         let mut buf: *mut core::ffi::c_void = std::ptr::null_mut();
         let res = unsafe { sys::ma_rb_acquire_write(private_rb::rb_ptr(rb), &mut size, &mut buf) };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok((buf, size))
     }
 
     #[inline]
     pub fn ma_rb_commit_write<R: AsRbPtr + ?Sized>(rb: &mut R, bytes: usize) -> MaResult<()> {
         let res = unsafe { sys::ma_rb_commit_write(private_rb::rb_ptr(rb), bytes) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
     pub fn ma_rb_seek_read<R: AsRbPtr + ?Sized>(rb: &mut R, off_bytes: usize) -> MaResult<()> {
         let res = unsafe { sys::ma_rb_seek_read(private_rb::rb_ptr(rb), off_bytes) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
     pub fn ma_rb_seek_write<R: AsRbPtr + ?Sized>(rb: &mut R, off_bytes: usize) -> MaResult<()> {
         let res = unsafe { sys::ma_rb_seek_write(private_rb::rb_ptr(rb), off_bytes) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     // Returns the distance between the write pointer and the read pointer.

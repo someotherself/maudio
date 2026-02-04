@@ -263,7 +263,7 @@ pub(crate) mod waveform_ffi {
         data_source::sources::waveform::{
             private_wave, AsWaveFormPtr, WaveFormBuilder, WaveFormInner,
         },
-        Binding, MaRawResult, MaResult,
+        Binding, MaResult, MaudioError,
     };
     use maudio_sys::ffi as sys;
 
@@ -274,7 +274,7 @@ pub(crate) mod waveform_ffi {
     ) -> MaResult<()> {
         let raw = config.to_raw();
         let res = unsafe { sys::ma_waveform_init(&raw as *const _, waveform) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -374,7 +374,7 @@ pub(crate) mod waveform_ffi {
                 &mut frames_read,
             )
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok(frames_read)
     }
 
@@ -386,7 +386,7 @@ pub(crate) mod waveform_ffi {
         let res = unsafe {
             sys::ma_waveform_seek_to_pcm_frame(private_wave::waveform_ptr(waveform), frame_index)
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -397,7 +397,7 @@ pub(crate) mod waveform_ffi {
         let res = unsafe {
             sys::ma_waveform_set_amplitude(private_wave::waveform_ptr(waveform), amplitude)
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -408,7 +408,7 @@ pub(crate) mod waveform_ffi {
         let res = unsafe {
             sys::ma_waveform_set_frequency(private_wave::waveform_ptr(waveform), frequency)
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -419,7 +419,7 @@ pub(crate) mod waveform_ffi {
         let res = unsafe {
             sys::ma_waveform_set_type(private_wave::waveform_ptr(waveform), wave_type.into())
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -433,7 +433,7 @@ pub(crate) mod waveform_ffi {
                 sample_rate.into(),
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 }
 

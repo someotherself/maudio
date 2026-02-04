@@ -134,7 +134,7 @@ pub(crate) mod n_splitter_ffi {
         engine::node_graph::{
             nodes::routing::splitter::SplitterNode, private_node_graph, AsNodeGraphPtr,
         },
-        Binding, MaRawResult, MaResult,
+        Binding, MaResult, MaudioError,
     };
     use maudio_sys::ffi as sys;
 
@@ -153,7 +153,7 @@ pub(crate) mod n_splitter_ffi {
                 node,
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]

@@ -41,7 +41,7 @@ impl Context {
     //     ctx: &mut MaybeUninit<sys::ma_context>,
     // ) -> MaResult<()> {
     //     let res = unsafe { sys::ma_context_init(std::ptr::null(), 1, c_config, ctx.as_mut_ptr()) };
-    //     MaRawResult::check(res)
+    //     MaudioError::check(res)
     // }
 }
 
@@ -69,7 +69,7 @@ impl Context {
 pub(crate) mod context_ffi {
     use maudio_sys::ffi as sys;
 
-    use crate::{MaRawResult, MaResult};
+    use crate::{MaResult, MaudioError};
 
     pub fn ma_context_init(
         backends: *const sys::ma_backend,
@@ -78,6 +78,6 @@ pub(crate) mod context_ffi {
         context: *mut sys::ma_context,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_context_init(backends, backend_count, config, context) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 }

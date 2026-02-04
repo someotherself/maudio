@@ -296,7 +296,7 @@ pub(crate) mod buffer_ffi {
             sources::buffer::{private_abuffer, AsAudioBufferPtr, AudioBuffer, AudioBufferBuilder},
             AsSourcePtr,
         },
-        Binding, MaRawResult, MaResult,
+        Binding, MaResult, MaudioError,
     };
     use maudio_sys::ffi as sys;
 
@@ -306,7 +306,7 @@ pub(crate) mod buffer_ffi {
         buffer: *mut sys::ma_audio_buffer,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_audio_buffer_init(&config.to_raw() as *const _, buffer) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -315,7 +315,7 @@ pub(crate) mod buffer_ffi {
         buffer: *mut sys::ma_audio_buffer,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_audio_buffer_init_copy(&config.to_raw() as *const _, buffer) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -442,7 +442,7 @@ pub(crate) mod buffer_ffi {
         let res = unsafe {
             sys::ma_audio_buffer_seek_to_pcm_frame(private_abuffer::buffer_ptr(buffer), frame_index)
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     // TODO Keep private for now
@@ -453,14 +453,14 @@ pub(crate) mod buffer_ffi {
         frame_count: *mut u64,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_audio_buffer_map(buffer.to_raw(), frames_out, frame_count) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     // TODO Keep private for now
     #[inline]
     pub fn ma_audio_buffer_unmap(buffer: &mut AudioBuffer, frame_count: u64) -> MaResult<()> {
         let res = unsafe { sys::ma_audio_buffer_unmap(buffer.to_raw(), frame_count) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -481,7 +481,7 @@ pub(crate) mod buffer_ffi {
                 &mut cursor,
             )
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok(cursor)
     }
 
@@ -496,7 +496,7 @@ pub(crate) mod buffer_ffi {
                 &mut length,
             )
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok(length)
     }
 
@@ -511,7 +511,7 @@ pub(crate) mod buffer_ffi {
                 &mut frames,
             )
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok(frames)
     }
 }
@@ -557,12 +557,21 @@ impl Binding for AudioBufferBuilder<'_> {
 impl<'a> AudioBufferBuilder<'a> {
     #[inline]
     fn from_typed<T>(format: Format, channels: u32, frames: u64, data: &'a [T]) -> MaResult<Self> {
-        let expected = (frames as usize)
-            .checked_mul(channels as usize)
-            .ok_or(MaudioError::new_ma_error(ErrorKinds::BufferSizeError))?;
+        let expected =
+            (frames as usize)
+                .checked_mul(channels as usize)
+                .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
+                    op: "frames * channels",
+                    lhs: frames,
+                    rhs: channels as u64,
+                }))?;
 
         if data.len() != expected {
-            return Err(MaudioError::new_ma_error(ErrorKinds::BufferSizeError));
+            return Err(MaudioError::new_ma_error(ErrorKinds::BufferSizeMismatch {
+                context: "AudioBufferBuilder::from_typed",
+                expected,
+                actual: data.len(),
+            }));
         }
 
         Ok(Self::init(
@@ -576,13 +585,21 @@ impl<'a> AudioBufferBuilder<'a> {
 
     #[inline]
     fn from_s24_packed_impl(channels: u32, frames: u64, data: &'a [u8]) -> MaResult<Self> {
-        let expected_bytes = (frames as usize)
+        let expected = (frames as usize)
             .checked_mul(channels as usize)
             .and_then(|v| v.checked_mul(3))
-            .ok_or(MaudioError::new_ma_error(ErrorKinds::BufferSizeError))?;
+            .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
+                op: "frames * channels",
+                lhs: frames,
+                rhs: channels as u64,
+            }))?;
 
-        if data.len() != expected_bytes {
-            return Err(MaudioError::new_ma_error(ErrorKinds::BufferSizeError));
+        if data.len() != expected {
+            return Err(MaudioError::new_ma_error(ErrorKinds::BufferSizeMismatch {
+                context: "AudioBufferBuilder::from_s24_packed",
+                expected,
+                actual: data.len(),
+            }));
         }
 
         Ok(Self::init(

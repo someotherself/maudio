@@ -35,9 +35,9 @@ impl TryFrom<sys::ma_attenuation_model> for AttenuationModel {
             sys::ma_attenuation_model_ma_attenuation_model_exponential => {
                 Ok(AttenuationModel::Exponential)
             }
-            _ => Err(MaudioError::new_ma_error(
-                ErrorKinds::InvalidAttenuationModel,
-            )),
+            other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
+                AttenuationModel,
+            >(other as i64))),
         }
     }
 }

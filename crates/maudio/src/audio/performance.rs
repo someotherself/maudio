@@ -55,9 +55,12 @@ impl TryFrom<sys::ma_performance_profile> for PerformanceProfile {
             sys::ma_performance_profile_ma_performance_profile_conservative => {
                 Ok(PerformanceProfile::Conservative)
             }
-            _ => Err(MaudioError::new_ma_error(
-                ErrorKinds::InvalidPerformanceProfile,
-            )),
+            // other => Err(MaudioError::new_ma_error(
+            //     ErrorKinds::UnknownEnumValue { type_mame: "PerformanceProfile", value: other as i64 },
+            // )),
+            other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
+                PerformanceProfile,
+            >(other as i64))),
         }
     }
 }

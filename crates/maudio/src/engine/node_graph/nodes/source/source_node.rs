@@ -163,7 +163,7 @@ pub(crate) mod n_datasource_ffi {
         engine::node_graph::{
             nodes::source::source_node::SourceNode, private_node_graph, AsNodeGraphPtr,
         },
-        Binding, MaRawResult, MaResult,
+        Binding, MaResult, MaudioError,
     };
 
     #[inline]
@@ -181,7 +181,7 @@ pub(crate) mod n_datasource_ffi {
                 node,
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]

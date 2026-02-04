@@ -49,9 +49,9 @@
 #![allow(dead_code)]
 
 pub mod audio;
-mod context;
+mod context; // not implemented
 pub mod data_source;
-mod device;
+mod device; // not implemented
 pub mod engine;
 pub mod sound;
 pub mod util;
@@ -73,10 +73,7 @@ pub(crate) trait Binding: Sized {
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct MaError(pub sys::ma_result);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct MaRawResult;
-
-impl MaRawResult {
+impl MaudioError {
     fn check(res: i32) -> MaResult<()> {
         if res == sys::ma_result_MA_SUCCESS {
             Ok(())
@@ -87,17 +84,15 @@ impl MaRawResult {
             })
         }
     }
-}
 
-impl MaudioError {
-    pub(crate) fn from_ma_result(error: sys::ma_result) -> Self {
+    fn from_ma_result(error: sys::ma_result) -> Self {
         Self {
             native: None,
             ma_result: MaError(error),
         }
     }
 
-    pub(crate) fn new_ma_error(native: ErrorKinds) -> Self {
+    fn new_ma_error(native: ErrorKinds) -> Self {
         Self {
             native: Some(native),
             ma_result: MaError(sys::ma_result_MA_ERROR),
@@ -111,96 +106,156 @@ impl PartialEq<MaError> for MaudioError {
     }
 }
 
+impl std::fmt::Display for MaudioError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.native {
+            None => {
+                write!(f, "{}", self.ma_result)
+            }
+            Some(kind) => {
+                write!(f, "{kind}.")?;
+                write!(f, " MA: ({})", self.ma_result)?;
+                Ok(())
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for ErrorKinds {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ErrorKinds::UnknownEnumValue { type_name, value } => {
+                write!(f, "unknown {type_name} value: {value}")
+            }
+            ErrorKinds::BufferSizeMismatch {
+                context,
+                expected,
+                actual,
+            } => {
+                if context.is_empty() {
+                    write!(
+                        f,
+                        "buffer size mismatch (expected {expected}, got {actual})"
+                    )
+                } else {
+                    write!(
+                        f,
+                        "{context}: buffer size mismatch (expected {expected}, got {actual})"
+                    )
+                }
+            }
+            ErrorKinds::IntegerOverflow { op, lhs, rhs } => {
+                write!(f, "integer overflow while computing {op} ({lhs} * {rhs})")
+            }
+            ErrorKinds::InvalidGraphState => write!(f, "invalid graph state"),
+            ErrorKinds::ChannelRecieveError => write!(f, "channel receive error"),
+            ErrorKinds::ChannelSendError => write!(f, "channel send error"),
+            ErrorKinds::InvalidFormat => write!(f, "invalid format"),
+            ErrorKinds::InvalidCString => write!(f, "invalid C string"),
+        }
+    }
+}
+
 impl std::fmt::Display for MaError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "MaError: {} ({})", self.name(), self.0)
+        write!(f, "{} ({})", self.name(), self.0)
     }
 }
 
 impl std::fmt::Debug for MaError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "MaError({}, {})", self.name(), self.0)
+        write!(f, "{}, ({})", self.name(), self.0)
     }
 }
 
 impl MaError {
     pub fn name(self) -> &'static str {
         match self.0 {
-            sys::ma_result_MA_ERROR => "MiniaudioError",
-            sys::ma_result_MA_INVALID_ARGS => "InvalidArgs",
-            sys::ma_result_MA_INVALID_OPERATION => "InvalidOperation",
-            sys::ma_result_MA_OUT_OF_MEMORY => "OutOfMemory",
-            sys::ma_result_MA_OUT_OF_RANGE => "OutOfRange",
-            sys::ma_result_MA_ACCESS_DENIED => "AccessDenied",
-            sys::ma_result_MA_DOES_NOT_EXIST => "DoesNotExist",
-            sys::ma_result_MA_ALREADY_EXISTS => "AlreadyExists",
-            sys::ma_result_MA_TOO_MANY_OPEN_FILES => "TooManyOpenFiles",
-            sys::ma_result_MA_INVALID_FILE => "InvalidFile",
-            sys::ma_result_MA_TOO_BIG => "TooBig",
-            sys::ma_result_MA_PATH_TOO_LONG => "PathTooLong",
-            sys::ma_result_MA_NAME_TOO_LONG => "NameTooLong",
-            sys::ma_result_MA_NOT_DIRECTORY => "NotDirectory",
-            sys::ma_result_MA_IS_DIRECTORY => "IsDirectory",
-            sys::ma_result_MA_DIRECTORY_NOT_EMPTY => "DirectoryNotEmpty",
-            sys::ma_result_MA_AT_END => "AtEnd",
-            sys::ma_result_MA_NO_SPACE => "NoSpace",
-            sys::ma_result_MA_BUSY => "Busy",
-            sys::ma_result_MA_IO_ERROR => "IoError",
-            sys::ma_result_MA_INTERRUPT => "Interrupt",
-            sys::ma_result_MA_UNAVAILABLE => "Unavailable",
-            sys::ma_result_MA_ALREADY_IN_USE => "AlreadyInUse",
-            sys::ma_result_MA_BAD_ADDRESS => "BadAddress",
-            sys::ma_result_MA_BAD_SEEK => "BadSeek",
-            sys::ma_result_MA_BAD_PIPE => "BadPipe",
-            sys::ma_result_MA_DEADLOCK => "Deadlock",
-            sys::ma_result_MA_TOO_MANY_LINKS => "TooManyLinks",
-            sys::ma_result_MA_NOT_IMPLEMENTED => "NotImplemented",
-            sys::ma_result_MA_NO_MESSAGE => "NoMessage",
-            sys::ma_result_MA_BAD_MESSAGE => "BadMessage",
-            sys::ma_result_MA_NO_DATA_AVAILABLE => "NoDataAvailable",
-            sys::ma_result_MA_INVALID_DATA => "InvalidData",
-            sys::ma_result_MA_TIMEOUT => "Timeout",
-            sys::ma_result_MA_NO_NETWORK => "NoNetwork",
-            sys::ma_result_MA_NOT_UNIQUE => "NotUnique",
-            sys::ma_result_MA_NOT_SOCKET => "NotSocket",
-            sys::ma_result_MA_NO_ADDRESS => "NoAddress",
-            sys::ma_result_MA_BAD_PROTOCOL => "BadProtocol",
-            sys::ma_result_MA_PROTOCOL_UNAVAILABLE => "ProtocolUnavailable",
-            sys::ma_result_MA_PROTOCOL_NOT_SUPPORTED => "ProtocolNotSupported",
-            sys::ma_result_MA_PROTOCOL_FAMILY_NOT_SUPPORTED => "ProtocolFamilyNotSupported",
-            sys::ma_result_MA_ADDRESS_FAMILY_NOT_SUPPORTED => "AddressFamilyNotSupported",
-            sys::ma_result_MA_SOCKET_NOT_SUPPORTED => "SocketNotSupported",
-            sys::ma_result_MA_CONNECTION_RESET => "ConnectionReset",
-            sys::ma_result_MA_ALREADY_CONNECTED => "AlreadyConnected",
-            sys::ma_result_MA_NOT_CONNECTED => "NotConnected",
-            sys::ma_result_MA_CONNECTION_REFUSED => "ConnectionRefused",
-            sys::ma_result_MA_NO_HOST => "NoHost",
-            sys::ma_result_MA_IN_PROGRESS => "InProgress",
-            sys::ma_result_MA_CANCELLED => "Cancelled",
+            sys::ma_result_MA_ERROR => "MA_ERROR",
+            sys::ma_result_MA_INVALID_ARGS => "MA_INVALID_ARGS",
+            sys::ma_result_MA_INVALID_OPERATION => "MA_INVALID_OPERATION",
+            sys::ma_result_MA_OUT_OF_MEMORY => "MA_OUT_OF_MEMORY",
+            sys::ma_result_MA_OUT_OF_RANGE => "MA_OUT_OF_RANGE",
+            sys::ma_result_MA_ACCESS_DENIED => "MA_ACCESS_DENIED",
+            sys::ma_result_MA_DOES_NOT_EXIST => "MA_DOES_NOT_EXIST",
+            sys::ma_result_MA_ALREADY_EXISTS => "MA_ALREADY_EXISTS",
+            sys::ma_result_MA_TOO_MANY_OPEN_FILES => "MA_TOO_MANY_OPEN_FILES",
+            sys::ma_result_MA_INVALID_FILE => "MA_INVALID_FILE",
+            sys::ma_result_MA_TOO_BIG => "MA_TOO_BIG",
+            sys::ma_result_MA_PATH_TOO_LONG => "MA_PATH_TOO_LONG",
+            sys::ma_result_MA_NAME_TOO_LONG => "MA_NAME_TOO_LONG",
+            sys::ma_result_MA_NOT_DIRECTORY => "MA_NOT_DIRECTORY",
+            sys::ma_result_MA_IS_DIRECTORY => "MA_IS_DIRECTORY",
+            sys::ma_result_MA_DIRECTORY_NOT_EMPTY => "MA_DIRECTORY_NOT_EMPTY",
+            sys::ma_result_MA_AT_END => "MA_AT_END",
+            sys::ma_result_MA_NO_SPACE => "MA_NO_SPACE",
+            sys::ma_result_MA_BUSY => "MA_BUSY",
+            sys::ma_result_MA_IO_ERROR => "MA_IO_ERROR",
+            sys::ma_result_MA_INTERRUPT => "MA_INTERRUPT",
+            sys::ma_result_MA_UNAVAILABLE => "MA_UNAVAILABLE",
+            sys::ma_result_MA_ALREADY_IN_USE => "MA_ALREADY_IN_USE",
+            sys::ma_result_MA_BAD_ADDRESS => "MA_BAD_ADDRESS",
+            sys::ma_result_MA_BAD_SEEK => "MA_BAD_SEEK",
+            sys::ma_result_MA_BAD_PIPE => "MA_BAD_PIPE",
+            sys::ma_result_MA_DEADLOCK => "MA_DEADLOCK",
+            sys::ma_result_MA_TOO_MANY_LINKS => "MA_TOO_MANY_LINKS",
+            sys::ma_result_MA_NOT_IMPLEMENTED => "MA_NOT_IMPLEMENTED",
+            sys::ma_result_MA_NO_MESSAGE => "MA_NO_MESSAGE",
+            sys::ma_result_MA_BAD_MESSAGE => "MA_BAD_MESSAGE",
+            sys::ma_result_MA_NO_DATA_AVAILABLE => "MA_NO_DATA_AVAILABLE",
+            sys::ma_result_MA_INVALID_DATA => "MA_INVALID_DATA",
+            sys::ma_result_MA_TIMEOUT => "MA_TIMEOUT",
+            sys::ma_result_MA_NO_NETWORK => "MA_NO_NETWORK",
+            sys::ma_result_MA_NOT_UNIQUE => "MA_NOT_UNIQUE",
+            sys::ma_result_MA_NOT_SOCKET => "MA_NOT_SOCKET",
+            sys::ma_result_MA_NO_ADDRESS => "MA_NO_ADDRESS",
+            sys::ma_result_MA_BAD_PROTOCOL => "MA_BAD_PROTOCOL",
+            sys::ma_result_MA_PROTOCOL_UNAVAILABLE => "MA_PROTOCOL_UNAVAILABLE",
+            sys::ma_result_MA_PROTOCOL_NOT_SUPPORTED => "MA_PROTOCOL_NOT_SUPPORTED",
+            sys::ma_result_MA_PROTOCOL_FAMILY_NOT_SUPPORTED => "MA_PROTOCOL_FAMILY_NOT_SUPPORTED",
+            sys::ma_result_MA_ADDRESS_FAMILY_NOT_SUPPORTED => "MA_ADDRESS_FAMILY_NOT_SUPPORTED",
+            sys::ma_result_MA_SOCKET_NOT_SUPPORTED => "MA_SOCKET_NOT_SUPPORTED",
+            sys::ma_result_MA_CONNECTION_RESET => "MA_CONNECTION_RESET",
+            sys::ma_result_MA_ALREADY_CONNECTED => "MA_ALREADY_CONNECTED",
+            sys::ma_result_MA_NOT_CONNECTED => "MA_NOT_CONNECTED",
+            sys::ma_result_MA_CONNECTION_REFUSED => "MA_CONNECTION_REFUSED",
+            sys::ma_result_MA_NO_HOST => "MA_NO_HOST",
+            sys::ma_result_MA_IN_PROGRESS => "MA_IN_PROGRESS",
+            sys::ma_result_MA_CANCELLED => "MA_CANCELLED",
             sys::ma_result_MA_MEMORY_ALREADY_MAPPED => "MemoryAlreadyMapped",
             // General non-standard errors.
-            sys::ma_result_MA_CRC_MISMATCH => "CrcMismatch",
+            sys::ma_result_MA_CRC_MISMATCH => "MA_CRC_MISMATCH",
             // General miniaudio-specific errors.
-            sys::ma_result_MA_FORMAT_NOT_SUPPORTED => "FormatNotSupported",
-            sys::ma_result_MA_DEVICE_TYPE_NOT_SUPPORTED => "DeviceTypeNotSupported",
-            sys::ma_result_MA_SHARE_MODE_NOT_SUPPORTED => "ShareModeNotSupported",
-            sys::ma_result_MA_NO_BACKEND => "NoBackend",
-            sys::ma_result_MA_NO_DEVICE => "NoDevice",
-            sys::ma_result_MA_API_NOT_FOUND => "ApiNotFound",
-            sys::ma_result_MA_INVALID_DEVICE_CONFIG => "InvalidDeviceConfig",
-            sys::ma_result_MA_LOOP => "Loop",
-            sys::ma_result_MA_BACKEND_NOT_ENABLED => "BackendNotEnabled",
+            sys::ma_result_MA_FORMAT_NOT_SUPPORTED => "MA_FORMAT_NOT_SUPPORTED",
+            sys::ma_result_MA_DEVICE_TYPE_NOT_SUPPORTED => "MA_DEVICE_TYPE_NOT_SUPPORTED",
+            sys::ma_result_MA_SHARE_MODE_NOT_SUPPORTED => "MA_SHARE_MODE_NOT_SUPPORTED",
+            sys::ma_result_MA_NO_BACKEND => "MA_NO_BACKEND",
+            sys::ma_result_MA_NO_DEVICE => "MA_NO_DEVICE",
+            sys::ma_result_MA_API_NOT_FOUND => "MA_API_NOT_FOUND",
+            sys::ma_result_MA_INVALID_DEVICE_CONFIG => "MA_INVALID_DEVICE_CONFIG",
+            sys::ma_result_MA_LOOP => "MA_LOOP",
+            sys::ma_result_MA_BACKEND_NOT_ENABLED => "MA_BACKEND_NOT_ENABLED",
             // State errors.
-            sys::ma_result_MA_DEVICE_NOT_INITIALIZED => "DeviceNotInitialized",
-            sys::ma_result_MA_DEVICE_ALREADY_INITIALIZED => "DeviceAlreadyInitialized",
-            sys::ma_result_MA_DEVICE_NOT_STARTED => "DeviceNotStarted",
-            sys::ma_result_MA_DEVICE_NOT_STOPPED => "DeviceNotStopped",
+            sys::ma_result_MA_DEVICE_NOT_INITIALIZED => "MA_DEVICE_NOT_INITIALIZED",
+            sys::ma_result_MA_DEVICE_ALREADY_INITIALIZED => "MA_DEVICE_ALREADY_INITIALIZED",
+            sys::ma_result_MA_DEVICE_NOT_STARTED => "MA_DEVICE_NOT_STARTED",
+            sys::ma_result_MA_DEVICE_NOT_STOPPED => "MA_DEVICE_NOT_STOPPED",
             // Operation errors.
-            sys::ma_result_MA_FAILED_TO_INIT_BACKEND => "FailedToInitBackend",
-            sys::ma_result_MA_FAILED_TO_OPEN_BACKEND_DEVICE => "FailedToOpenBackendDevice",
-            sys::ma_result_MA_FAILED_TO_START_BACKEND_DEVICE => "FailedToStartBackendDevice",
-            sys::ma_result_MA_FAILED_TO_STOP_BACKEND_DEVICE => "FailedToStopBackendDevice",
+            sys::ma_result_MA_FAILED_TO_INIT_BACKEND => "MA_FAILED_TO_INIT_BACKEND",
+            sys::ma_result_MA_FAILED_TO_OPEN_BACKEND_DEVICE => "MA_FAILED_TO_OPEN_BACKEND_DEVICE",
+            sys::ma_result_MA_FAILED_TO_START_BACKEND_DEVICE => "MA_FAILED_TO_START_BACKEND_DEVICE",
+            sys::ma_result_MA_FAILED_TO_STOP_BACKEND_DEVICE => "MA_FAILED_TO_STOP_BACKEND_DEVICE",
             _ => "UNKNOWN_MA_ERROR",
+        }
+    }
+}
+
+impl ErrorKinds {
+    #[inline]
+    pub fn unknown_enum<T>(raw: i64) -> Self {
+        Self::UnknownEnumValue {
+            type_name: core::any::type_name::<T>(),
+            value: raw,
         }
     }
 }
@@ -208,45 +263,30 @@ impl MaError {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum ErrorKinds {
-    /// TryFrom error converting raw miniaudio value to Maudio
-    InvalidChannelPosition,
+    // Error converting a raw value to an enum variant
+    UnknownEnumValue {
+        type_name: &'static str,
+        value: i64,
+    },
+    // data.len() != expected
+    BufferSizeMismatch {
+        context: &'static str,
+        expected: usize,
+        actual: usize,
+    },
+    // checked_mul error
+    IntegerOverflow {
+        op: &'static str, // "frames * channels"
+        lhs: u64,
+        rhs: u64,
+    },
     InvalidGraphState,
-    /// Size mismatch between data.len() and frames * channels
-    BufferSizeError,
     /// Used by Handle types. Error during a recv
     ChannelRecieveError,
     /// Used by Handle types. Erro during a send
     ChannelSendError,
     /// TryFrom error converting raw miniaudio value to Maudio
-    InvalidSWaveFormType,
-    /// TryFrom error converting raw miniaudio value to Maudio
-    InvalidSampleRate,
-    /// TryFrom error converting raw miniaudio value to Maudio
-    InvalidBackend,
-    /// TryFrom error converting raw miniaudio value to Maudio
-    InvalidPerformanceProfile,
-    /// TryFrom error converting raw miniaudio value to Maudio
-    InvalidDither,
-    /// TryFrom error converting raw miniaudio value to Maudio
     InvalidFormat,
-    /// TryFrom error converting raw miniaudio value to Maudio
-    InvalidChannelMap,
-    /// TryFrom error converting raw miniaudio value to Maudio
-    InvalidChannelMixMode,
-    /// TryFrom error converting raw miniaudio value to Maudio
-    InvalidAttenuationModel,
-    /// TryFrom error converting raw miniaudio value to Maudio
-    InvalidHandedness,
-    /// TryFrom error converting raw miniaudio value to Maudio
-    InvalidStreamLayout,
-    /// TryFrom error converting raw miniaudio value to Maudio
-    InvalidPanMode,
-    /// TryFrom error converting raw miniaudio value to Maudio
-    InvalidStreamFormat,
-    /// TryFrom error converting raw miniaudio value to Maudio
-    InvalidNodeState,
-    /// TryFrom error converting raw miniaudio value to Maudio
-    InvalidPositioning,
     /// Error coverting Path to CString
     InvalidCString,
 }

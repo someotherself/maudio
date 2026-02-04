@@ -25,7 +25,9 @@ impl TryFrom<sys::ma_handedness> for Handedness {
         match v {
             sys::ma_handedness_ma_handedness_right => Ok(Handedness::Right),
             sys::ma_handedness_ma_handedness_left => Ok(Handedness::Left),
-            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidHandedness)),
+            other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
+                Handedness,
+            >(other as i64))),
         }
     }
 }

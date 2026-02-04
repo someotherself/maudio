@@ -136,7 +136,7 @@ pub(crate) mod n_hishelf_ffi {
         engine::node_graph::{
             nodes::filters::hishelf::HiShelfNode, private_node_graph, AsNodeGraphPtr,
         },
-        Binding, MaRawResult, MaResult,
+        Binding, MaResult, MaudioError,
     };
 
     #[inline]
@@ -154,7 +154,7 @@ pub(crate) mod n_hishelf_ffi {
                 node,
             )
         };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -170,7 +170,7 @@ pub(crate) mod n_hishelf_ffi {
         node: &mut HiShelfNode,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_hishelf_node_reinit(config, node.to_raw()) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 }
 

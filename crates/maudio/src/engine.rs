@@ -862,7 +862,7 @@ pub(crate) mod engine_ffi {
             node_graph::{nodes::NodeRef, NodeGraphRef},
             private_engine, AsEnginePtr, Binding, Engine, EngineOps,
         },
-        MaRawResult, MaResult,
+        MaResult, MaudioError,
     };
 
     #[inline]
@@ -873,7 +873,7 @@ pub(crate) mod engine_ffi {
         let p_config: *const sys::ma_engine_config =
             config.map_or(core::ptr::null(), |c| &c.to_raw() as *const _);
         let res = unsafe { sys::ma_engine_init(p_config, engine) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -899,7 +899,7 @@ pub(crate) mod engine_ffi {
                 &mut frames_read,
             )
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         buffer.truncate((frames_read * channels as u64) as usize);
         Ok((buffer, frames_read))
     }
@@ -988,19 +988,19 @@ pub(crate) mod engine_ffi {
     #[inline]
     pub fn ma_engine_start(engine: &Engine) -> MaResult<()> {
         let res = unsafe { sys::ma_engine_start(engine.to_raw()) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
     pub fn ma_engine_stop(engine: &Engine) -> MaResult<()> {
         let res = unsafe { sys::ma_engine_stop(engine.to_raw()) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
     pub fn ma_engine_set_volume<E: AsEnginePtr + ?Sized>(engine: &E, volume: f32) -> MaResult<()> {
         let res = unsafe { sys::ma_engine_set_volume(private_engine::engine_ptr(engine), volume) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -1015,7 +1015,7 @@ pub(crate) mod engine_ffi {
     ) -> MaResult<()> {
         let res =
             unsafe { sys::ma_engine_set_gain_db(private_engine::engine_ptr(engine), db_gain) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]

@@ -107,7 +107,9 @@ impl TryFrom<u32> for SampleRate {
             8_000 => Ok(SampleRate::Sr8000),
             352_800 => Ok(SampleRate::Sr352800),
             384_000 => Ok(SampleRate::Sr384000),
-            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidSampleRate)),
+            other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
+                SampleRate,
+            >(other as i64))),
         }
     }
 }
@@ -131,7 +133,9 @@ impl TryFrom<i32> for SampleRate {
             8_000 => Ok(SampleRate::Sr8000),
             352_800 => Ok(SampleRate::Sr352800),
             384_000 => Ok(SampleRate::Sr384000),
-            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidSampleRate)),
+            other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
+                SampleRate,
+            >(other as i64))),
         }
     }
 }

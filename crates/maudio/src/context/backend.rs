@@ -64,7 +64,9 @@ impl TryFrom<sys::ma_backend> for Backend {
             sys::ma_backend_ma_backend_webaudio => Ok(Backend::WebAudio),
             sys::ma_backend_ma_backend_custom => Ok(Backend::Custom),
             sys::ma_backend_ma_backend_null => Ok(Backend::Null),
-            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidBackend)),
+            other => Err(MaudioError::new_ma_error(
+                ErrorKinds::unknown_enum::<Backend>(other as i64),
+            )),
         }
     }
 }

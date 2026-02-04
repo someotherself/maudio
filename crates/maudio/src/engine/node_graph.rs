@@ -14,7 +14,7 @@ use crate::{
         node_graph::{node_graph_builder::NodeGraphBuilder, nodes::NodeRef},
         AllocationCallbacks, Engine,
     },
-    Binding, MaRawResult, MaResult,
+    Binding, MaResult, MaudioError,
 };
 
 /// `NodeGraph` is the root of miniaudio’s node-based audio system. It owns an
@@ -175,7 +175,7 @@ pub trait NodeGraphOps: AsNodeGraphPtr {
 
     fn set_time(&mut self, global_time: u64) -> MaResult<()> {
         let res = graph_ffi::ma_node_graph_set_time(self, global_time);
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 }
 
@@ -213,7 +213,7 @@ mod graph_ffi {
 
     use crate::{
         engine::node_graph::{nodes::NodeRef, private_node_graph, AsNodeGraphPtr, NodeGraphOps},
-        Binding, MaRawResult, MaResult,
+        Binding, MaResult, MaudioError,
     };
 
     #[inline]
@@ -223,7 +223,7 @@ mod graph_ffi {
         node_graph: *mut sys::ma_node_graph,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_node_graph_init(config, alloc_cb, node_graph) };
-        MaRawResult::check(res)
+        MaudioError::check(res)
     }
 
     #[inline]
@@ -264,7 +264,7 @@ mod graph_ffi {
                 &mut frames_read,
             )
         };
-        MaRawResult::check(res)?;
+        MaudioError::check(res)?;
         Ok((buffer, frames_read))
     }
 
