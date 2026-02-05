@@ -1,5 +1,7 @@
+//! Type definition for a 3D vector
 use maudio_sys::ffi as sys;
 
+/// A 3D vector type used for positions and directions in spatial audio.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vec3 {

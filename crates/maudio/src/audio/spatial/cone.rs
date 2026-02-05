@@ -1,14 +1,13 @@
 //! Directional attenuation cone for spatial audio emitters.
-//!
-//! A `Cone` describes how sound emitted from a source is attenuated based on
-//! direction relative to the listener.
-//!
-//! - Inside the inner cone, sound is played at full volume.
-//! - Between the inner and outer cone, volume is smoothly attenuated.
-//! - Outside the outer cone, volume is multiplied by `outer_gain`.
-//!
-//! Angles are expressed in **radians**.
 
+/// A `Cone` describes how sound emitted from a source is attenuated based on
+/// direction relative to the listener.
+///
+/// - Inside the inner cone, sound is played at full volume.
+/// - Between the inner and outer cone, volume is smoothly attenuated.
+/// - Outside the outer cone, volume is multiplied by `outer_gain`.
+///
+/// Angles are expressed in **radians**.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Cone {
     /// Inner cone angle in radians.

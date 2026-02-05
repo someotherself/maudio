@@ -1,7 +1,9 @@
+//! AttenuationModel type definition.
 use maudio_sys::ffi as sys;
 
 use crate::{ErrorKinds, MaudioError};
 
+/// Defines how sound volume attenuates with distance from the listener.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AttenuationModel {

@@ -6,11 +6,11 @@ use crate::{ErrorKinds, MaResult, MaudioError};
 ///
 /// Each format uses the full dynamic range of its underlying type:
 ///
-/// - **`Format::F32`** — 32-bit floating point, typically normalized to `[-1.0, 1.0]`
+/// - **`Format::U8`**  — 8-bit unsigned integer, range `[0, 255]`
 /// - **`Format::S16`** — 16-bit signed integer, range `[-32768, 32767]`
 /// - **`Format::S24`** — 24-bit signed integer (tightly packed), range `[-8_388_608, 8_388_607]`
 /// - **`Format::S32`** — 32-bit signed integer, range `[-2_147_483_648, 2_147_483_647]`
-/// - **`Format::U8`**  — 8-bit unsigned integer, range `[0, 255]`
+/// - **`Format::F32`** — 32-bit floating point, typically normalized to `[-1.0, 1.0]`
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 pub enum Format {
@@ -21,6 +21,10 @@ pub enum Format {
     F32,
 }
 
+/// An owned, interleaved audio sample buffer.
+///
+/// Stores raw PCM samples for one or more channels, typically returned by
+/// audio read and decode operations.
 pub struct SampleBuffer<T> {
     data: Vec<T>,
     channels: u32,
@@ -76,10 +80,13 @@ impl<T> SampleBuffer<T> {
     }
 }
 
+/// An owned interleaved audio buffer containing 24-bit PCM samples.
+///
+/// Samples are stored as tightly packed 3-byte values in a `u8` buffer.
 pub struct SampleBufferS24 {
+    // TODO: Switch to [u8; 3] and find all places where it gets multiplied by 3
     data: Vec<u8>, // len == frames * channels * 3
     channels: u32,
-    // sample_rate: SampleRate,
 }
 
 impl SampleBufferS24 {
@@ -132,12 +139,7 @@ impl AsMut<[u8]> for SampleBufferS24 {
 }
 
 impl Format {
-    pub(crate) fn new_u8(
-        &self,
-        channels: u32,
-        frames: u64,
-        // sample_rate: SampleRate,
-    ) -> MaResult<SampleBuffer<u8>> {
+    pub(crate) fn new_u8(&self, channels: u32, frames: u64) -> MaResult<SampleBuffer<u8>> {
         debug_assert!(
             matches!(self, Format::U8),
             "Format::new_u8 called on {self:?}"
@@ -153,16 +155,10 @@ impl Format {
         Ok(SampleBuffer {
             data: vec![0u8; len as usize],
             channels,
-            // sample_rate,
         })
     }
 
-    pub(crate) fn new_s16(
-        &self,
-        channels: u32,
-        frames: u64,
-        // sample_rate: SampleRate,
-    ) -> MaResult<SampleBuffer<i16>> {
+    pub(crate) fn new_s16(&self, channels: u32, frames: u64) -> MaResult<SampleBuffer<i16>> {
         debug_assert!(
             matches!(self, Format::S16),
             "Format::new_s16 called on {self:?}"
@@ -178,16 +174,10 @@ impl Format {
         Ok(SampleBuffer {
             data: vec![0i16; len as usize],
             channels,
-            // sample_rate,
         })
     }
 
-    pub(crate) fn new_s32(
-        &self,
-        channels: u32,
-        frames: u64,
-        // sample_rate: SampleRate,
-    ) -> MaResult<SampleBuffer<i32>> {
+    pub(crate) fn new_s32(&self, channels: u32, frames: u64) -> MaResult<SampleBuffer<i32>> {
         debug_assert!(
             matches!(self, Format::S32),
             "Format::new_s32 called on {self:?}"
@@ -203,16 +193,10 @@ impl Format {
         Ok(SampleBuffer {
             data: vec![0i32; len as usize],
             channels,
-            // sample_rate,
         })
     }
 
-    pub(crate) fn new_f32(
-        &self,
-        channels: u32,
-        frames: u64,
-        // sample_rate: SampleRate,
-    ) -> MaResult<SampleBuffer<f32>> {
+    pub(crate) fn new_f32(&self, channels: u32, frames: u64) -> MaResult<SampleBuffer<f32>> {
         debug_assert!(
             matches!(self, Format::F32),
             "Format::new_f32 called on {self:?}"
@@ -228,16 +212,10 @@ impl Format {
         Ok(SampleBuffer {
             data: vec![0.0f32; len as usize],
             channels,
-            // sample_rate,
         })
     }
 
-    pub(crate) fn new_s24(
-        &self,
-        channels: u32,
-        frames: u64,
-        // sample_rate: SampleRate,
-    ) -> MaResult<SampleBufferS24> {
+    pub(crate) fn new_s24(&self, channels: u32, frames: u64) -> MaResult<SampleBufferS24> {
         debug_assert!(
             matches!(self, Format::S24),
             "Format::new_s24 called on {self:?}"
@@ -255,7 +233,6 @@ impl Format {
         Ok(SampleBufferS24 {
             data: vec![0u8; len as usize],
             channels,
-            // sample_rate,
         })
     }
 }

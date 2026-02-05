@@ -1,3 +1,4 @@
+//! Performance-related audio configuration and tuning controls.
 use maudio_sys::ffi as sys;
 
 use crate::{ErrorKinds, MaudioError};

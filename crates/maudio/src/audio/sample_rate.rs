@@ -1,4 +1,4 @@
-// ma_standard_sample_rate (SampleRate helpers???)
+//! Sample rate definitions and conversion utilities.
 
 use crate::{ErrorKinds, MaudioError};
 
@@ -16,9 +16,6 @@ use crate::{ErrorKinds, MaudioError};
 /// - `48_000 Hz` and `44_100 Hz` are the most commonly used rates.
 /// - Lower and higher rates are included for compatibility with legacy,
 ///   low-power, or high-resolution audio pipelines.
-/// - `Srmin` and `Srmax` are aliases provided by miniaudio and map to
-///   `8_000 Hz` and `384_000 Hz` respectively. They do **not** represent
-///   distinct sample rates and are included for FFI completeness.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 pub enum SampleRate {

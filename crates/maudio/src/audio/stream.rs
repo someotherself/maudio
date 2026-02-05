@@ -1,3 +1,4 @@
+//! Stream format configuration for audio streams.
 use maudio_sys::ffi as sys;
 
 use crate::{ErrorKinds, MaudioError};

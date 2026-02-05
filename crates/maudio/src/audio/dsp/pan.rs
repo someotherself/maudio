@@ -1,7 +1,9 @@
+//! PanMode type definition.
 use maudio_sys::ffi as sys;
 
 use crate::{ErrorKinds, MaudioError};
 
+/// Defines how a sound is panned across channels or 3D space.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PanMode {

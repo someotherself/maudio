@@ -1,7 +1,9 @@
+//! Handedness type definition
 use maudio_sys::ffi as sys;
 
 use crate::{ErrorKinds, MaudioError};
 
+/// Defines the coordinate system handedness used for spatial audio calculations.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Handedness {

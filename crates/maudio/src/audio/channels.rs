@@ -1,3 +1,4 @@
+//! Channel configuration and channel-related audio utilities.
 use maudio_sys::ffi as sys;
 
 use crate::{ErrorKinds, MaudioError};

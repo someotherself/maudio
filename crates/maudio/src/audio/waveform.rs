@@ -1,3 +1,4 @@
+//! Waveform type definition.
 use maudio_sys::ffi as sys;
 
 use crate::{ErrorKinds, MaudioError};
@@ -11,6 +12,9 @@ pub enum WaveFormType {
     Sawtooth,
 }
 
+/// Defines the waveform shape used by waveform generators.
+///
+/// Each variant represents a standard periodic waveform.
 impl From<WaveFormType> for sys::ma_waveform_type {
     fn from(value: WaveFormType) -> Self {
         match value {
