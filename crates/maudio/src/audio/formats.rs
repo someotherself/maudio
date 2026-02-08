@@ -44,6 +44,10 @@ impl<T> AsMut<[T]> for SampleBuffer<T> {
 }
 
 impl<T> SampleBuffer<T> {
+    pub(crate) fn new(data: Vec<T>, channels: u32) -> Self {
+        SampleBuffer { data, channels }
+    }
+
     pub fn is_empty(&self) -> bool {
         self.data.is_empty()
     }
@@ -84,7 +88,6 @@ impl<T> SampleBuffer<T> {
 ///
 /// Samples are stored as tightly packed 3-byte values in a `u8` buffer.
 pub struct SampleBufferS24 {
-    // TODO: Switch to [u8; 3] and find all places where it gets multiplied by 3
     data: Vec<u8>, // len == frames * channels * 3
     channels: u32,
 }
@@ -139,6 +142,32 @@ impl AsMut<[u8]> for SampleBufferS24 {
 }
 
 impl Format {
+    // pub(crate) fn new_generic<F: PcmFormat>(
+    //     &self,
+    //     channels: u32,
+    //     frames: u64,
+    // ) -> MaResult<SampleBuffer<<F as PcmFormat>::StorageUnit>> {
+    //     // let len = frames
+    //     //     .checked_mul(channels as u64)
+    //     //     .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
+    //     //         op: "frames * channels",
+    //     //         lhs: frames,
+    //     //         rhs: channels as u64,
+    //     //     }))?;
+
+    // // if matches!(F, S24Packed) {
+    // //     let _ = frames
+    // //         .checked_mul(3)
+    // //         .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
+    // //             op: "S24 samples",
+    // //             lhs: len,
+    // //             rhs: 3,
+    // //         }))?;
+    // // }
+
+    //     Ok(F::new_zeroed(frames, channels))
+    // }
+
     pub(crate) fn new_u8(&self, channels: u32, frames: u64) -> MaResult<SampleBuffer<u8>> {
         debug_assert!(
             matches!(self, Format::U8),

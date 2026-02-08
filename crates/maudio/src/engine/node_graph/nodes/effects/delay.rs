@@ -242,7 +242,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> DelayNodeBuilder<'a, N> {
     /// The wet signal is the audio after it has passed through the delay.
     /// Higher values make the echo more prominent in the final output.
     /// Values are not clamped.
-    pub fn wet(mut self, wet: f32) -> Self {
+    pub fn wet(&mut self, wet: f32) -> &mut Self {
         self.inner.delay.wet = wet;
         self
     }
@@ -252,7 +252,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> DelayNodeBuilder<'a, N> {
     /// The dry signal is the original input audio before any delay is applied.
     /// Higher values preserve more of the original sound in the final output.
     /// Values are not clamped.
-    pub fn dry(mut self, dry: f32) -> Self {
+    pub fn dry(&mut self, dry: f32) -> &mut Self {
         self.inner.delay.dry = dry;
         self
     }
@@ -263,7 +263,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> DelayNodeBuilder<'a, N> {
     /// (only the delayed signal). Values are clamped to `0.0..=1.0`.
     ///
     /// This overwrites both the wet and dry gains.
-    pub fn mix(mut self, mix: f32) -> Self {
+    pub fn mix(&mut self, mix: f32) -> &mut Self {
         let mix = mix.clamp(0.0, 1.0);
 
         self.inner.delay.wet = mix;
@@ -277,13 +277,13 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> DelayNodeBuilder<'a, N> {
     /// Higher values cause the delayed signal to repeat longer, while
     /// lower values fade out more quickly. Values near or above `1.0`
     /// may cause self-oscillation.
-    pub fn decay(mut self, decay: f32) -> Self {
+    pub fn decay(&mut self, decay: f32) -> &mut Self {
         self.inner.delay.decay = decay;
         self
     }
 
     /// Emables or disables a delayed start
-    pub fn delay_start(mut self, yes: bool) -> Self {
+    pub fn delay_start(&mut self, yes: bool) -> &mut Self {
         let delay_start = yes as u32;
         self.inner.delay.delayStart = delay_start;
         self
@@ -292,7 +292,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> DelayNodeBuilder<'a, N> {
     /// Sets the frame at which the delay starts.
     ///
     /// This offsets when the delay begins relative to the input signal.
-    pub fn start_frame(mut self, frame: u32) -> Self {
+    pub fn start_frame(&mut self, frame: u32) -> &mut Self {
         self.inner.delay.delayInFrames = frame;
         self
     }
@@ -301,7 +301,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> DelayNodeBuilder<'a, N> {
     ///
     /// This is a convenience wrapper around `delay_start` that converts
     /// milliseconds to frames using the configured sample rate.
-    pub fn delay_milli(mut self, millis: u32) -> Self {
+    pub fn delay_milli(&mut self, millis: u32) -> &mut Self {
         self.inner.delay.delayInFrames = self.millis_to_frames(millis);
         self
     }
@@ -310,13 +310,13 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> DelayNodeBuilder<'a, N> {
     ///
     /// This is a convenience wrapper around `start_frame` that converts
     /// millisseconds to frames using the configured sample rate.
-    pub fn start_milli(mut self, millis: u32) -> Self {
+    pub fn start_milli(&mut self, millis: u32) -> &mut Self {
         self.inner.delay.delayStart = self.millis_to_frames(millis);
         self
     }
 
-    pub fn build(self) -> MaResult<DelayNode<'a>> {
-        DelayNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
+    pub fn build(&self) -> MaResult<DelayNode<'a>> {
+        DelayNode::new_with_cfg_alloc_internal(self.node_graph, self, None)
     }
 
     #[inline]

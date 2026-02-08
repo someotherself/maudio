@@ -209,8 +209,8 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> PeakNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(self) -> MaResult<PeakNode<'a>> {
-        PeakNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
+    pub fn build(&self) -> MaResult<PeakNode<'a>> {
+        PeakNode::new_with_cfg_alloc_internal(self.node_graph, self, None)
     }
 }
 

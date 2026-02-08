@@ -131,7 +131,6 @@ enum OwnedPathBuf {
     Wide(Vec<u16>),
 }
 
-// TODO: Doc how this can be used to create a sound group
 // TODO: Add ma_mono_expansion_mode
 impl<'a> SoundBuilder<'a> {
     pub fn new(engine: &'a Engine) -> Self {
@@ -148,7 +147,7 @@ impl<'a> SoundBuilder<'a> {
         notifier
     }
 
-    pub fn with_end_notifier(mut self) -> MaResult<(Sound<'a>, EndNotifier)> {
+    pub fn with_end_notifier(&mut self) -> MaResult<(Sound<'a>, EndNotifier)> {
         self.set_source()?;
         let notifier = self.set_end_notifier();
 
@@ -191,7 +190,7 @@ impl<'a> SoundBuilder<'a> {
         Ok(sound)
     }
 
-    pub fn build(mut self) -> MaResult<Sound<'a>> {
+    pub fn build(&mut self) -> MaResult<Sound<'a>> {
         self.set_source()?;
         self.start_sound(None)
     }
@@ -202,7 +201,7 @@ impl<'a> SoundBuilder<'a> {
     /// previously configured source.
     ///
     /// If no source was previously added, this has no effect
-    pub fn no_source(mut self) -> Self {
+    pub fn no_source(&mut self) -> &mut Self {
         self.source = SoundSource::None;
         self
     }
@@ -214,7 +213,7 @@ impl<'a> SoundBuilder<'a> {
     ///
     /// The provided path is converted to the platform-specific format required by
     /// miniaudio and is only used during sound initialization.
-    pub fn file_path(mut self, path: &'a Path) -> Self {
+    pub fn file_path(&mut self, path: &'a Path) -> &mut Self {
         self.source = SoundSource::None;
         #[cfg(unix)]
         {
@@ -253,14 +252,14 @@ impl<'a> SoundBuilder<'a> {
     /// - reusing a single data source across multiple sounds
     ///
     /// For simple file playback, prefer initializing the sound from a file path.
-    pub fn data_source<S: AsSourcePtr + ?Sized>(mut self, source: &'a S) -> Self {
+    pub fn data_source<S: AsSourcePtr + ?Sized>(&mut self, source: &'a S) -> &mut Self {
         self.source = SoundSource::DataSource(DataSourceRef::from_ptr(
             private_data_source::source_ptr(source),
         ));
         self
     }
 
-    pub fn sound_group(mut self, group: &'a SoundGroup) -> Self {
+    pub fn sound_group(&mut self, group: &'a SoundGroup) -> &mut Self {
         self.inner.pInitialAttachment = private_node::node_ptr(&group.as_node());
         self.group = Some(group);
 
@@ -273,7 +272,7 @@ impl<'a> SoundBuilder<'a> {
     ///
     /// A fence is only meaningful when the sound is created from a file.
     /// Using a fence without a file source will result in a runtime error.
-    pub fn fence(mut self, fence: &'a Fence) -> Self {
+    pub fn fence(&mut self, fence: &'a Fence) -> &mut Self {
         self.fence = Some(fence);
         self.async_load(true)
     }
@@ -293,7 +292,11 @@ impl<'a> SoundBuilder<'a> {
     /// If you are simply playing sounds through the engine's default output (the most
     /// common case), you should not call this method. The engine will automatically
     /// attach the sound for you.
-    pub fn initial_attachment<N: AsNodePtr + ?Sized>(mut self, node: &N, input_bus: u32) -> Self {
+    pub fn initial_attachment<N: AsNodePtr + ?Sized>(
+        &mut self,
+        node: &N,
+        input_bus: u32,
+    ) -> &mut Self {
         self.inner.pInitialAttachment = private_node::node_ptr(node);
         self.inner.initialAttachmentInputBusIndex = input_bus;
         self
@@ -310,7 +313,7 @@ impl<'a> SoundBuilder<'a> {
     /// channel count automatically from the source.
     ///
     /// This is primarily useful for custom or procedural data sources.
-    pub fn channels_in(mut self, ch: u32) -> Self {
+    pub fn channels_in(&mut self, ch: u32) -> &mut Self {
         self.inner.channelsIn = ch;
         self
     }
@@ -325,13 +328,13 @@ impl<'a> SoundBuilder<'a> {
     ///
     /// Miniaudio will automatically convert between input and output channel counts
     /// as needed (e.g. mono → stereo).
-    pub fn channels_out(mut self, ch: u32) -> Self {
+    pub fn channels_out(&mut self, ch: u32) -> &mut Self {
         self.inner.channelsOut = ch;
         self
     }
 
     /// Sets the [`SoundFlags`]
-    pub fn flags(mut self, flags: SoundFlags) -> Self {
+    pub fn flags(&mut self, flags: SoundFlags) -> &mut Self {
         self.inner.flags = flags.bits();
         self.flags = flags;
         self
@@ -340,7 +343,7 @@ impl<'a> SoundBuilder<'a> {
     /// Sets the volume smoothing time, in PCM frames.
     ///
     /// Larger values smooth abrupt volume changes over a longer period.
-    pub fn volume_smooth_frames(mut self, pcm_frames: u32) -> Self {
+    pub fn volume_smooth_frames(&mut self, pcm_frames: u32) -> &mut Self {
         self.inner.volumeSmoothTimeInPCMFrames = pcm_frames;
         self
     }
@@ -348,7 +351,7 @@ impl<'a> SoundBuilder<'a> {
     /// Sets the first PCM frame that can be played.
     ///
     /// Frames before this point are skipped during playback.
-    pub fn range_begin_frames(mut self, pcm_frames: u64) -> Self {
+    pub fn range_begin_frames(&mut self, pcm_frames: u64) -> &mut Self {
         self.inner.rangeBegInPCMFrames = pcm_frames;
         self
     }
@@ -356,7 +359,7 @@ impl<'a> SoundBuilder<'a> {
     /// Sets the last PCM frame that can be played.
     ///
     /// Playback stops when this frame is reached.
-    pub fn range_end_frames(mut self, pcm_frames: u64) -> Self {
+    pub fn range_end_frames(&mut self, pcm_frames: u64) -> &mut Self {
         self.inner.rangeEndInPCMFrames = pcm_frames;
         self
     }
@@ -364,7 +367,7 @@ impl<'a> SoundBuilder<'a> {
     /// Sets the loop start position, in PCM frames.
     ///
     /// Only meaningful when looping is enabled.
-    pub fn loop_begin_frames(mut self, pcm_frames: u64) -> Self {
+    pub fn loop_begin_frames(&mut self, pcm_frames: u64) -> &mut Self {
         self.inner.loopPointBegInPCMFrames = pcm_frames;
         self
     }
@@ -372,7 +375,7 @@ impl<'a> SoundBuilder<'a> {
     /// Sets the loop end position, in PCM frames.
     ///
     /// When reached, playback jumps back to the loop begin frame.
-    pub fn loop_end_frames(mut self, pcm_frames: u64) -> Self {
+    pub fn loop_end_frames(&mut self, pcm_frames: u64) -> &mut Self {
         self.inner.loopPointEndInPCMFrames = pcm_frames;
         self
     }
@@ -380,7 +383,7 @@ impl<'a> SoundBuilder<'a> {
     /// Sets the initial seek position, in PCM frames.
     ///
     /// Playback starts from this frame instead of the beginning.
-    pub fn seek_point_frames(mut self, pcm_frames: u64) -> Self {
+    pub fn seek_point_frames(&mut self, pcm_frames: u64) -> &mut Self {
         self.inner.initialSeekPointInPCMFrames = pcm_frames;
         self
     }
@@ -388,7 +391,7 @@ impl<'a> SoundBuilder<'a> {
     /// Sets the volume smoothing time, in PCM frames.
     ///
     /// Alternative to `range_begin_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
-    pub fn volume_smooth_millis(mut self, millis: f64) -> Self {
+    pub fn volume_smooth_millis(&mut self, millis: f64) -> &mut Self {
         self.inner.volumeSmoothTimeInPCMFrames = self.millis_to_frames(millis) as u32;
         self
     }
@@ -396,7 +399,7 @@ impl<'a> SoundBuilder<'a> {
     /// Anything before this point is skipped during playback.
     ///
     /// Alternative to `range_begin_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
-    pub fn range_begin_millis(mut self, millis: f64) -> Self {
+    pub fn range_begin_millis(&mut self, millis: f64) -> &mut Self {
         self.inner.rangeBegInPCMFrames = self.millis_to_frames(millis);
         self
     }
@@ -404,31 +407,31 @@ impl<'a> SoundBuilder<'a> {
     /// Playback stops when this frame is reached.
     ///
     /// Alternative to `range_end_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
-    pub fn range_end_millis(mut self, millis: f64) -> Self {
+    pub fn range_end_millis(&mut self, millis: f64) -> &mut Self {
         self.inner.rangeEndInPCMFrames = self.millis_to_frames(millis);
         self
     }
 
     /// Alternative to `loop_begin_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
-    pub fn loop_begin_millis(mut self, millis: f64) -> Self {
+    pub fn loop_begin_millis(&mut self, millis: f64) -> &mut Self {
         self.inner.loopPointBegInPCMFrames = self.millis_to_frames(millis);
         self
     }
 
     /// Alternative to `loop_end_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
-    pub fn loop_end_millis(mut self, millis: f64) -> Self {
+    pub fn loop_end_millis(&mut self, millis: f64) -> &mut Self {
         self.inner.loopPointEndInPCMFrames = self.millis_to_frames(millis);
         self
     }
 
     /// Alternative to `seek_point_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
-    pub fn seek_point_millis(mut self, millis: f64) -> Self {
+    pub fn seek_point_millis(&mut self, millis: f64) -> &mut Self {
         self.inner.initialSeekPointInPCMFrames = self.millis_to_frames(millis);
         self
     }
 
     /// Convenience method for calling [`Self::range_begin_frames`] and [`Self::range_end_frames`] in the same call
-    pub fn range_frames(mut self, begin: u64, end: u64) -> Self {
+    pub fn range_frames(&mut self, begin: u64, end: u64) -> &mut Self {
         self.inner.rangeBegInPCMFrames = begin;
         self.inner.rangeEndInPCMFrames = end;
         self
@@ -437,14 +440,14 @@ impl<'a> SoundBuilder<'a> {
     /// Convenience method for calling [`Self::range_begin_millis`] and [`Self::range_end_millis`] in the same call
     ///
     /// Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
-    pub fn range_millis(mut self, begin: f64, end: f64) -> Self {
+    pub fn range_millis(&mut self, begin: f64, end: f64) -> &mut Self {
         self.inner.rangeBegInPCMFrames = self.millis_to_frames(begin);
         self.inner.rangeEndInPCMFrames = self.millis_to_frames(end);
         self
     }
 
     /// Convenience method for calling [`Self::loop_begin_frames`] and [`Self::loop_end_frames`] in the same call
-    pub fn loop_frames(mut self, begin: u64, end: u64) -> Self {
+    pub fn loop_frames(&mut self, begin: u64, end: u64) -> &mut Self {
         self.inner.loopPointBegInPCMFrames = begin;
         self.inner.loopPointEndInPCMFrames = end;
         self
@@ -453,7 +456,7 @@ impl<'a> SoundBuilder<'a> {
     /// Convenience method for calling [`Self::loop_begin_millis`] and [`Self::loop_end_millis`] in the same call
     ///
     /// Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
-    pub fn loop_millis(mut self, begin: f64, end: f64) -> Self {
+    pub fn loop_millis(&mut self, begin: f64, end: f64) -> &mut Self {
         self.inner.loopPointBegInPCMFrames = self.millis_to_frames(begin);
         self.inner.loopPointEndInPCMFrames = self.millis_to_frames(end);
         self
@@ -462,7 +465,7 @@ impl<'a> SoundBuilder<'a> {
     /// Equivalent to adding [SoundFlags::LOOPING]
     ///
     /// Does not modify any other existing flags
-    pub fn looping(mut self, yes: bool) -> Self {
+    pub fn looping(&mut self, yes: bool) -> &mut Self {
         // self.inner.isLooping is deprecated
         let mut flags = SoundFlags::from_bits(self.inner.flags);
         if yes {
@@ -478,7 +481,7 @@ impl<'a> SoundBuilder<'a> {
     /// Equivalent to adding [SoundFlags::STREAM]
     ///
     /// Does not modify any other existing flags
-    pub fn streaming(mut self, yes: bool) -> Self {
+    pub fn streaming(&mut self, yes: bool) -> &mut Self {
         let mut flags = SoundFlags::from_bits(self.inner.flags);
         if yes {
             flags.insert(SoundFlags::STREAM);
@@ -493,7 +496,7 @@ impl<'a> SoundBuilder<'a> {
     /// Equivalent to adding [SoundFlags::DECODE]
     ///
     /// Does not modify any other existing flags
-    pub fn decode(mut self, yes: bool) -> Self {
+    pub fn decode(&mut self, yes: bool) -> &mut Self {
         let mut flags = SoundFlags::from_bits(self.inner.flags);
         if yes {
             flags.insert(SoundFlags::DECODE);
@@ -508,7 +511,7 @@ impl<'a> SoundBuilder<'a> {
     /// Equivalent to adding [SoundFlags::ASYNC]
     ///
     /// Does not modify any other existing flags
-    pub fn async_load(mut self, yes: bool) -> Self {
+    pub fn async_load(&mut self, yes: bool) -> &mut Self {
         let mut flags = SoundFlags::from_bits(self.inner.flags);
         if yes {
             flags.insert(SoundFlags::ASYNC);
@@ -523,7 +526,7 @@ impl<'a> SoundBuilder<'a> {
     /// Sets the `min_distance` field on the newly created sound
     ///
     /// Equivalent to calling [`Sound::set_min_distance`]
-    pub fn min_distance(mut self, d: f32) -> Self {
+    pub fn min_distance(&mut self, d: f32) -> &mut Self {
         self.sound_state.min_distance = Some(d);
         self
     }
@@ -531,7 +534,7 @@ impl<'a> SoundBuilder<'a> {
     /// Sets the `max_distance` field on the newly created sound
     ///
     /// Equivalent to calling [`Sound::set_max_distance`]
-    pub fn max_distance(mut self, d: f32) -> Self {
+    pub fn max_distance(&mut self, d: f32) -> &mut Self {
         self.sound_state.max_distance = Some(d);
         self
     }
@@ -539,7 +542,7 @@ impl<'a> SoundBuilder<'a> {
     /// Sets the `rolloff` field on the newly created sound
     ///
     /// Equivalent to calling [`Sound::set_rolloff`]
-    pub fn rolloff(mut self, r: f32) -> Self {
+    pub fn rolloff(&mut self, r: f32) -> &mut Self {
         self.sound_state.rolloff = Some(r);
         self
     }
@@ -547,7 +550,7 @@ impl<'a> SoundBuilder<'a> {
     /// Sets the `position` field on the newly created sound
     ///
     /// Equivalent to calling [`Sound::set_position`]
-    pub fn position(mut self, position: Vec3) -> Self {
+    pub fn position(&mut self, position: Vec3) -> &mut Self {
         self.sound_state.position = Some(position);
         self
     }
@@ -555,7 +558,7 @@ impl<'a> SoundBuilder<'a> {
     /// Sets the `velocity` field on the newly created sound
     ///
     /// Equivalent to calling [`Sound::set_velocity`]
-    pub fn velocity(mut self, velocity: Vec3) -> Self {
+    pub fn velocity(&mut self, velocity: Vec3) -> &mut Self {
         self.sound_state.velocity = Some(velocity);
         self
     }
@@ -563,13 +566,13 @@ impl<'a> SoundBuilder<'a> {
     /// Sets the `direction` field on the newly created sound
     ///
     /// Equivalent to calling [`Sound::set_direction`]
-    pub fn direction(mut self, direction: Vec3) -> Self {
+    pub fn direction(&mut self, direction: Vec3) -> &mut Self {
         self.sound_state.direction = Some(direction);
         self
     }
 
     /// Equivalent to calling [`Sound::play_sound()`] after sound is initialized
-    pub fn start_playing(mut self, yes: bool) -> Self {
+    pub fn start_playing(&mut self, yes: bool) -> &mut Self {
         self.sound_state.start_playing = yes;
         self
     }

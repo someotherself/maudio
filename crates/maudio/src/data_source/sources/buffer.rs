@@ -15,17 +15,15 @@ use crate::{
 
 /// Owned in-memory PCM audio buffer.
 ///
-/// This type owns the underlying buffer allocation, so it is self-contained and
-/// can outlive whatever was used to create it.
-pub struct AudioBuffer {
+/// This type owns the underlying buffer allocation
+pub struct AudioBuffer<'a> {
     inner: *mut sys::ma_audio_buffer,
     pub format: Format,
     pub channels: u32,
-    // It may be helpful to avoid lifetimes on this type
-    _alloc_keepalive: Option<std::sync::Arc<AllocationCallbacks>>,
+    _alloc_keepalive: PhantomData<&'a AllocationCallbacks>,
 }
 
-impl Binding for AudioBuffer {
+impl Binding for AudioBuffer<'_> {
     type Raw = *mut sys::ma_audio_buffer;
 
     /// !!! unimplemented !!!
@@ -49,8 +47,8 @@ pub struct AudioBufferRef<'a> {
     inner: *mut sys::ma_audio_buffer,
     pub format: Format,
     pub channels: u32,
-    _marker: PhantomData<&'a [u8]>,
-    alloc_cb: Option<&'a AllocationCallbacks>,
+    _data_marker: PhantomData<&'a [u8]>,
+    _alloc_keepalive: PhantomData<&'a AllocationCallbacks>,
 }
 
 impl Binding for AudioBufferRef<'_> {
@@ -78,8 +76,8 @@ mod private_abuffer {
     pub struct AudioBufferPtrPrivider;
     pub struct AudioBufferRefPtrPrivider;
 
-    impl AudioBufferProvider<AudioBuffer> for AudioBufferPtrPrivider {
-        fn as_buffer_ptr(t: &AudioBuffer) -> *mut sys::ma_audio_buffer {
+    impl<'a> AudioBufferProvider<AudioBuffer<'a>> for AudioBufferPtrPrivider {
+        fn as_buffer_ptr(t: &AudioBuffer<'a>) -> *mut sys::ma_audio_buffer {
             t.to_raw()
         }
     }
@@ -97,7 +95,7 @@ mod private_abuffer {
 
 // Allows AudioBuffer to pass as a DataSource
 #[doc(hidden)]
-impl AsSourcePtr for AudioBuffer {
+impl AsSourcePtr for AudioBuffer<'_> {
     type __PtrProvider = private_data_source::AudioBufferProvider;
 }
 
@@ -115,7 +113,7 @@ pub trait AsAudioBufferPtr {
     fn channels(&self) -> u32;
 }
 
-impl AsAudioBufferPtr for AudioBuffer {
+impl AsAudioBufferPtr for AudioBuffer<'_> {
     #[doc(hidden)]
     type __PtrProvider = private_abuffer::AudioBufferPtrPrivider;
 
@@ -144,6 +142,7 @@ impl AsAudioBufferPtr for AudioBufferRef<'_> {
 impl<T: AsAudioBufferPtr + AsSourcePtr + ?Sized> AudioBufferOps for T {}
 
 // TODO: Figure out a better, typed way to deal with the formats in read_pcm without creating 12 structs
+// TODO: Read pcm frames from DataSourceOps: AsSourcePtr is also available
 /// AudioBufferOps trait contains shared methods for [`AudioBuffer`] and [`AudioBufferRef`]
 pub trait AudioBufferOps: AsAudioBufferPtr + AsSourcePtr {
     fn read_pcm_frames_u8(
@@ -254,10 +253,10 @@ pub trait AudioBufferOps: AsAudioBufferPtr + AsSourcePtr {
 }
 
 impl<'a> AudioBufferRef<'a> {
-    fn new_with_cfg_internal(mut config: AudioBufferBuilder<'a>) -> MaResult<Self> {
+    fn new_with_cfg_internal(config: &AudioBufferBuilder<'a>) -> MaResult<Self> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_audio_buffer>> =
             Box::new(MaybeUninit::uninit());
-        buffer_ffi::ma_audio_buffer_init(&config, mem.as_mut_ptr())?;
+        buffer_ffi::ma_audio_buffer_init(config, mem.as_mut_ptr())?;
 
         let inner: *mut sys::ma_audio_buffer = Box::into_raw(mem) as *mut sys::ma_audio_buffer;
 
@@ -265,13 +264,13 @@ impl<'a> AudioBufferRef<'a> {
             inner,
             format: config.inner.format.try_into()?,
             channels: config.inner.channels,
-            _marker: PhantomData,
-            alloc_cb: config.alloc_cb.take(),
+            _data_marker: PhantomData,
+            _alloc_keepalive: PhantomData,
         })
     }
 }
 
-impl AudioBuffer {
+impl<'a> AudioBuffer<'a> {
     fn copy_with_cfg_internal(config: &AudioBufferBuilder) -> MaResult<Self> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_audio_buffer>> =
             Box::new(MaybeUninit::uninit());
@@ -284,7 +283,7 @@ impl AudioBuffer {
             inner,
             format: config.inner.format.try_into()?,
             channels: config.inner.channels,
-            _alloc_keepalive: None,
+            _alloc_keepalive: PhantomData,
         })
     }
 }
@@ -516,7 +515,7 @@ pub(crate) mod buffer_ffi {
     }
 }
 
-impl Drop for AudioBuffer {
+impl Drop for AudioBuffer<'_> {
     fn drop(&mut self) {
         buffer_ffi::ma_audio_buffer_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -555,6 +554,7 @@ impl Binding for AudioBufferBuilder<'_> {
 }
 
 impl<'a> AudioBufferBuilder<'a> {
+    // Used for u8, i16, i32 and f32
     #[inline]
     fn from_typed<T>(format: Format, channels: u32, frames: u64, data: &'a [T]) -> MaResult<Self> {
         let expected =
@@ -631,11 +631,11 @@ impl<'a> AudioBufferBuilder<'a> {
         Self::from_s24_packed_impl(channels, frames, data)
     }
 
-    pub fn build_copy(self) -> MaResult<AudioBuffer> {
-        AudioBuffer::copy_with_cfg_internal(&self)
+    pub fn build_copy(&self) -> MaResult<AudioBuffer<'a>> {
+        AudioBuffer::copy_with_cfg_internal(self)
     }
 
-    pub fn build_ref(self) -> MaResult<AudioBufferRef<'a>> {
+    pub fn build_ref(&self) -> MaResult<AudioBufferRef<'a>> {
         AudioBufferRef::new_with_cfg_internal(self)
     }
 

@@ -208,8 +208,8 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> NotchNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(self) -> MaResult<NotchNode<'a>> {
-        NotchNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
+    pub fn build(&self) -> MaResult<NotchNode<'a>> {
+        NotchNode::new_with_cfg_alloc_internal(self.node_graph, self, None)
     }
 }
 

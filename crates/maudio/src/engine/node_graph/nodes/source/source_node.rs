@@ -243,8 +243,8 @@ where
         }
     }
 
-    pub fn build(self) -> MaResult<SourceNode<'a>> {
-        SourceNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
+    pub fn build(&self) -> MaResult<SourceNode<'a>> {
+        SourceNode::new_with_cfg_alloc_internal(self.node_graph, self, None)
     }
 }
 
@@ -301,8 +301,8 @@ impl<'a, N: AsNodeGraphPtr, S: AsSourcePtr> AttachedSourceNodeBuilder<'a, N, S> 
         }
     }
 
-    pub fn build(self) -> MaResult<AttachedSourceNode<'a, S>> {
-        AttachedSourceNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
+    pub fn build(&self) -> MaResult<AttachedSourceNode<'a, S>> {
+        AttachedSourceNode::new_with_cfg_alloc_internal(self.node_graph, self, None)
     }
 }
 

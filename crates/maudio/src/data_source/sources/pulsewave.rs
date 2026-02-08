@@ -475,31 +475,31 @@ impl PulseWaveBuilder {
         }
     }
 
-    pub fn amplitude(mut self, a: f64) -> Self {
+    pub fn amplitude(&mut self, a: f64) -> &mut Self {
         self.inner.amplitude = a;
         self.amplitude = a;
         self
     }
 
-    pub fn frequency(mut self, f: f64) -> Self {
+    pub fn frequency(&mut self, f: f64) -> &mut Self {
         self.inner.frequency = f;
         self.frequency = f;
         self
     }
 
-    pub fn duty_cycle(mut self, d: f64) -> Self {
+    pub fn duty_cycle(&mut self, d: f64) -> &mut Self {
         self.inner.dutyCycle = d;
         self.duty_cycle = d;
         self
     }
 
-    pub fn channels(mut self, c: u32) -> Self {
+    pub fn channels(&mut self, c: u32) -> &mut Self {
         self.inner.channels = c;
         self.channels = c;
         self
     }
 
-    pub fn build_u8(mut self) -> MaResult<PulseWaveU8> {
+    pub fn build_u8(&mut self) -> MaResult<PulseWaveU8> {
         self.inner.format = Format::U8.into();
 
         let inner = self.new_inner()?;
@@ -518,7 +518,7 @@ impl PulseWaveBuilder {
         })
     }
 
-    pub fn build_i16(mut self) -> MaResult<PulseWaveI16> {
+    pub fn build_i16(&mut self) -> MaResult<PulseWaveI16> {
         self.inner.format = Format::S16.into();
 
         let inner = self.new_inner()?;
@@ -537,7 +537,7 @@ impl PulseWaveBuilder {
         })
     }
 
-    pub fn build_i32(mut self) -> MaResult<PulseWaveI32> {
+    pub fn build_i32(&mut self) -> MaResult<PulseWaveI32> {
         self.inner.format = Format::S32.into();
 
         let inner = self.new_inner()?;
@@ -556,7 +556,7 @@ impl PulseWaveBuilder {
         })
     }
 
-    pub fn build_s24(mut self) -> MaResult<PulseWaveS24> {
+    pub fn build_s24(&mut self) -> MaResult<PulseWaveS24> {
         self.inner.format = Format::S24.into();
 
         let inner = self.new_inner()?;
@@ -575,7 +575,7 @@ impl PulseWaveBuilder {
         })
     }
 
-    pub fn build_f32(mut self) -> MaResult<PulseWaveF32> {
+    pub fn build_f32(&mut self) -> MaResult<PulseWaveF32> {
         self.inner.format = Format::F32.into();
 
         let inner = self.new_inner()?;

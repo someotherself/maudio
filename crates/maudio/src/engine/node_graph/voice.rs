@@ -64,48 +64,44 @@ impl<'g, N: AsNodeGraphPtr> VoiceBuilder<'g, N> {
         }
     }
 
-    pub fn splitter_outputs(mut self, outputs: u32) -> Self {
+    pub fn splitter_outputs(&mut self, outputs: u32) -> &mut Self {
         self.splitter_out = outputs;
         self
     }
 
-    pub fn sine(mut self, frequency: f64, amplitude: f64) -> Self {
+    pub fn sine(&mut self, frequency: f64, amplitude: f64) -> &mut Self {
         let channels = self.node_graph.channels();
-        let wave = WaveFormBuilder::new_sine(self.sample_rate, frequency)
-            .channels(channels)
-            .amplitude(amplitude);
+        let mut wave = WaveFormBuilder::new_sine(self.sample_rate, frequency);
+        wave.channels(channels).amplitude(amplitude);
         self.wave_builders.push(wave);
         self
     }
 
-    pub fn square(mut self, frequency: f64, amplitude: f64) -> Self {
+    pub fn square(&mut self, frequency: f64, amplitude: f64) -> &mut Self {
         let channels = self.node_graph.channels();
-        let wave = WaveFormBuilder::new_square(self.sample_rate, frequency)
-            .channels(channels)
-            .amplitude(amplitude);
+        let mut wave = WaveFormBuilder::new_square(self.sample_rate, frequency);
+        wave.channels(channels).amplitude(amplitude);
         self.wave_builders.push(wave);
         self
     }
 
-    pub fn sawtooth(mut self, frequency: f64, amplitude: f64) -> Self {
+    pub fn sawtooth(&mut self, frequency: f64, amplitude: f64) -> &mut Self {
         let channels = self.node_graph.channels();
-        let wave = WaveFormBuilder::new_sawtooth(self.sample_rate, frequency)
-            .channels(channels)
-            .amplitude(amplitude);
+        let mut wave = WaveFormBuilder::new_sawtooth(self.sample_rate, frequency);
+        wave.channels(channels).amplitude(amplitude);
         self.wave_builders.push(wave);
         self
     }
 
-    pub fn triangle(mut self, frequency: f64, amplitude: f64) -> Self {
+    pub fn triangle(&mut self, frequency: f64, amplitude: f64) -> &mut Self {
         let channels = self.node_graph.channels();
-        let wave = WaveFormBuilder::new_triangle(self.sample_rate, frequency)
-            .channels(channels)
-            .amplitude(amplitude);
+        let mut wave = WaveFormBuilder::new_triangle(self.sample_rate, frequency);
+        wave.channels(channels).amplitude(amplitude);
         self.wave_builders.push(wave);
         self
     }
 
-    pub fn pulse(mut self, amplitude: f64, frequency: f64, duty_cycle: f64) -> Self {
+    pub fn pulse(&mut self, amplitude: f64, frequency: f64, duty_cycle: f64) -> &mut Self {
         let channels = self.node_graph.channels();
         let pulse =
             PulseWaveBuilder::new(channels, self.sample_rate, amplitude, frequency, duty_cycle);
@@ -113,7 +109,7 @@ impl<'g, N: AsNodeGraphPtr> VoiceBuilder<'g, N> {
         self
     }
 
-    pub fn build(self) -> MaResult<VoiceStack<'g>> {
+    pub fn build(&mut self) -> MaResult<VoiceStack<'g>> {
         let graph_ref = self.node_graph;
         let mut endpoint = graph_ref
             .endpoint()
@@ -128,13 +124,13 @@ impl<'g, N: AsNodeGraphPtr> VoiceBuilder<'g, N> {
         let mut waves = Vec::with_capacity(self.wave_builders.len());
         let mut pulses = Vec::with_capacity(self.pulse_builders.len());
         let sounds = Vec::new();
-        for wave_builder in self.wave_builders {
+        for wave_builder in &mut self.wave_builders {
             let wave = wave_builder.build_f32()?;
             let mut attach = AttachedSourceNodeBuilder::new(graph_ref, wave).build()?;
             attach.attach_output_bus(0, &mut mixer, 0)?;
             waves.push(attach);
         }
-        for pulse_builder in self.pulse_builders {
+        for pulse_builder in &mut self.pulse_builders {
             let pulse = pulse_builder.build_f32()?;
             let mut attach = AttachedSourceNodeBuilder::new(graph_ref, pulse).build()?;
             attach.attach_output_bus(0, &mut mixer, 0)?;

@@ -66,13 +66,13 @@ impl EngineBuilder {
 
     // TODO: Implement wrapper for sys::ma_device
     // If set, the caller is responsible for calling ma_engine_data_callback() in the device's data callback.
-    fn device(mut self, device: *mut sys::ma_device) -> Self {
+    fn device(&mut self, device: *mut sys::ma_device) -> &mut Self {
         self.inner.pDevice = device;
         self
     }
 
     // TODO: Implement wrapper for sys::ma_resource_manager
-    fn resource_manager(mut self, manager: *mut sys::ma_resource_manager) -> Self {
+    fn resource_manager(&mut self, manager: *mut sys::ma_resource_manager) -> &mut Self {
         self.inner.pResourceManager = manager;
         self.resource_manager = Some(manager);
         self
@@ -81,7 +81,7 @@ impl EngineBuilder {
     /// Sets how many listeners the engine will create.
     ///
     /// The default is `1` listener (index `0`).
-    pub fn listener_count(mut self, count: u32) -> Self {
+    pub fn listener_count(&mut self, count: u32) -> &mut Self {
         self.inner.listenerCount = count;
         self
     }
@@ -92,7 +92,7 @@ impl EngineBuilder {
     ///
     /// ## Important
     /// `channels` and `sample_rate` must be set manually.
-    pub fn no_device(mut self, enabled: bool) -> Self {
+    pub fn no_device(&mut self, enabled: bool) -> &mut Self {
         self.inner.noDevice = enabled as u32;
         self.no_device = enabled;
         self
@@ -101,14 +101,14 @@ impl EngineBuilder {
     /// The number of channels to use when mixing and spatializing.
     ///
     /// When set to 0, will use the native channel count of the device.
-    pub fn set_channels(mut self, channels: u32) -> Self {
+    pub fn set_channels(&mut self, channels: u32) -> &mut Self {
         self.inner.channels = channels;
         self.channels = Some(channels);
         self
     }
 
     /// When set to 0 will use the native sample rate of the device.
-    pub fn set_sample_rate(mut self, sample_rate: SampleRate) -> Self {
+    pub fn set_sample_rate(&mut self, sample_rate: SampleRate) -> &mut Self {
         self.inner.sampleRate = sample_rate.into();
         self.sample_rate = Some(sample_rate);
         self
@@ -117,7 +117,7 @@ impl EngineBuilder {
     /// False by default, meaning the engine will be started automatically on creation.
     ///
     /// Requires a call to [`Engine::start()`] for a manually start
-    pub fn no_auto_start(mut self, yes: bool) -> Self {
+    pub fn no_auto_start(&mut self, yes: bool) -> &mut Self {
         self.inner.noAutoStart = yes as u32;
         self
     }
@@ -179,16 +179,16 @@ impl EngineBuilder {
     /// ```
     ///
     // If you truly need to run a callback on the realtime thread, use [`EngineBuilder::with_realtime_callback()`].
-    pub fn with_process_notifier(mut self) -> MaResult<(Engine, ProcessNotifier)> {
+    pub fn with_process_notifier(&mut self) -> MaResult<(Engine, ProcessNotifier)> {
         let notifier = self.set_process_notifier(None);
 
-        let mut engine = Engine::new_with_config(Some(&self))?;
+        let mut engine = Engine::new_with_config(Some(self))?;
         engine.process_notifier = self.process_notifier.take();
 
         Ok((engine, notifier))
     }
 
-    unsafe fn with_realtime_callback(self) -> MaResult<(Engine, ProcessNotifier)> {
+    unsafe fn with_realtime_callback(&mut self) -> MaResult<(Engine, ProcessNotifier)> {
         // let notifier = self.set_process_notifier(Some(Box::new(f)));
 
         // let mut engine = Engine::new_with_config(Some(&self))?;
@@ -198,18 +198,16 @@ impl EngineBuilder {
         todo!()
     }
 
-    pub fn build(self) -> MaResult<Engine> {
-        Engine::new_with_config(Some(&self))
+    pub fn build(&self) -> MaResult<Engine> {
+        Engine::new_with_config(Some(self))
     }
 
-    pub(crate) fn build_for_tests(self) -> MaResult<Engine> {
+    pub(crate) fn build_for_tests(&mut self) -> MaResult<Engine> {
         if cfg!(feature = "ci-tests") {
             self.no_device(true)
                 .set_channels(2)
-                .set_sample_rate(SampleRate::Sr44100)
-                .build()
-        } else {
-            self.build()
+                .set_sample_rate(SampleRate::Sr44100);
         }
+        self.build()
     }
 }

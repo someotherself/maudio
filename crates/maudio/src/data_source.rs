@@ -43,7 +43,7 @@ pub(crate) mod private_data_source {
     use crate::{
         data_source::sources::{
             buffer::{AudioBuffer, AudioBufferOps, AudioBufferRef},
-            decoder::{Decoder, DecoderOps, DecoderRef},
+            decoder::{Decoder, DecoderOps},
             pulsewave::{
                 PulseWaveF32, PulseWaveI16, PulseWaveI32, PulseWaveOps, PulseWaveS24, PulseWaveU8,
             },
@@ -52,6 +52,7 @@ pub(crate) mod private_data_source {
             },
         },
         engine::node_graph::nodes::source::source_node::AttachedSourceNode,
+        util::s24::PcmFormat,
     };
 
     use super::*;
@@ -88,14 +89,14 @@ pub(crate) mod private_data_source {
         }
     }
 
-    impl<'a> DataSourcePtrProvider<DataSourceRef<'a>> for DataSourceRefProvider {
+    impl DataSourcePtrProvider<DataSourceRef<'_>> for DataSourceRefProvider {
         #[inline]
         fn as_source_ptr(t: &DataSourceRef) -> *mut sys::ma_data_source {
             t.to_raw()
         }
     }
 
-    impl DataSourcePtrProvider<AudioBuffer> for AudioBufferProvider {
+    impl DataSourcePtrProvider<AudioBuffer<'_>> for AudioBufferProvider {
         #[inline]
         fn as_source_ptr(t: &AudioBuffer) -> *mut sys::ma_data_source {
             t.as_source().to_raw()
@@ -109,16 +110,9 @@ pub(crate) mod private_data_source {
         }
     }
 
-    impl DataSourcePtrProvider<Decoder> for DecoderProvider {
+    impl<F: PcmFormat, S> DataSourcePtrProvider<Decoder<F, S>> for DecoderProvider {
         #[inline]
-        fn as_source_ptr(t: &Decoder) -> *mut sys::ma_data_source {
-            t.as_source().to_raw()
-        }
-    }
-
-    impl<'a> DataSourcePtrProvider<DecoderRef<'a>> for DecoderRefProvider {
-        #[inline]
-        fn as_source_ptr(t: &DecoderRef<'a>) -> *mut sys::ma_data_source {
+        fn as_source_ptr(t: &Decoder<F, S>) -> *mut sys::ma_data_source {
             t.as_source().to_raw()
         }
     }
@@ -224,47 +218,49 @@ impl<'a> AsSourcePtr for DataSourceRef<'a> {
 
 impl<T: AsSourcePtr + ?Sized> DataSourceOps for T {}
 
+// TODO: Some of these methods should be on the specific types instead.
+// TODO: Check them all and decide which should be public here.
 /// The DataSourceOps trait contains shared methods for [`DataSource`], [`DataSourceRef`] and all data source types which can be cast to a `ma_data_source`
 pub trait DataSourceOps: AsSourcePtr {
-    fn read_pcm_frames(&mut self, frame_count: u64, channels: u32) -> MaResult<(Vec<f32>, u64)> {
-        data_source_ffi::ma_data_source_read_pcm_frames(self, frame_count, channels)
-    }
+    // fn read_pcm_frames(&mut self, frame_count: u64, channels: u32) -> MaResult<(Vec<f32>, u64)> {
+    //     data_source_ffi::ma_data_source_read_pcm_frames(self, frame_count, channels)
+    // }
 
-    fn seek_pcm_frames(&mut self, frame_count: u64) -> MaResult<u64> {
-        data_source_ffi::ma_data_source_seek_pcm_frames(self, frame_count)
-    }
+    // fn seek_pcm_frames(&mut self, frame_count: u64) -> MaResult<u64> {
+    //     data_source_ffi::ma_data_source_seek_pcm_frames(self, frame_count)
+    // }
 
-    fn seek_to_pcm_frame(&mut self, frame_index: u64) -> MaResult<()> {
-        data_source_ffi::ma_data_source_seek_to_pcm_frame(self, frame_index)
-    }
+    // fn seek_to_pcm_frame(&mut self, frame_index: u64) -> MaResult<()> {
+    //     data_source_ffi::ma_data_source_seek_to_pcm_frame(self, frame_index)
+    // }
 
-    fn seek_seconds(&mut self, seconds: f32) -> MaResult<f32> {
-        data_source_ffi::ma_data_source_seek_seconds(self, seconds)
-    }
+    // fn seek_seconds(&mut self, seconds: f32) -> MaResult<f32> {
+    //     data_source_ffi::ma_data_source_seek_seconds(self, seconds)
+    // }
 
-    fn seek_to_second(&mut self, seek_point: f32) -> MaResult<()> {
-        data_source_ffi::ma_data_source_seek_to_second(self, seek_point)
-    }
+    // fn seek_to_second(&mut self, seek_point: f32) -> MaResult<()> {
+    //     data_source_ffi::ma_data_source_seek_to_second(self, seek_point)
+    // }
 
-    fn data_format(&mut self) -> MaResult<DataFormat> {
+    fn data_format(&self) -> MaResult<DataFormat> {
         data_source_ffi::ma_data_source_get_data_format(self)
     }
 
-    fn cursor_in_pcm_frames(&mut self) -> MaResult<u64> {
-        data_source_ffi::ma_data_source_get_cursor_in_pcm_frames(self)
-    }
+    // fn cursor_in_pcm_frames(&mut self) -> MaResult<u64> {
+    //     data_source_ffi::ma_data_source_get_cursor_in_pcm_frames(self)
+    // }
 
-    fn length_in_pcm_frames(&mut self) -> MaResult<u64> {
-        data_source_ffi::ma_data_source_get_length_in_pcm_frames(self)
-    }
+    // fn length_in_pcm_frames(&mut self) -> MaResult<u64> {
+    //     data_source_ffi::ma_data_source_get_length_in_pcm_frames(self)
+    // }
 
-    fn cursor_in_seconds(&mut self) -> MaResult<f32> {
-        data_source_ffi::ma_data_source_get_cursor_in_seconds(self)
-    }
+    // fn cursor_in_seconds(&mut self) -> MaResult<f32> {
+    //     data_source_ffi::ma_data_source_get_cursor_in_seconds(self)
+    // }
 
-    fn length_in_seconds(&mut self) -> MaResult<f32> {
-        data_source_ffi::ma_data_source_get_length_in_seconds(self)
-    }
+    // fn length_in_seconds(&mut self) -> MaResult<f32> {
+    //     data_source_ffi::ma_data_source_get_length_in_seconds(self)
+    // }
 
     fn set_looping(&mut self, is_looping: bool) -> MaResult<()> {
         data_source_ffi::ma_data_source_set_looping(self, is_looping)
@@ -274,6 +270,7 @@ pub trait DataSourceOps: AsSourcePtr {
         data_source_ffi::ma_data_source_is_looping(self)
     }
 
+    // ???
     fn range_in_pcm_frames(&self) -> Range<u64> {
         data_source_ffi::ma_data_source_get_range_in_pcm_frames(self)
     }
@@ -422,7 +419,7 @@ pub(crate) mod data_source_ffi {
     }
 
     pub fn ma_data_source_get_data_format<S: AsSourcePtr + ?Sized>(
-        source: &mut S,
+        source: &S,
     ) -> MaResult<DataFormat> {
         let mut format_raw: sys::ma_format = sys::ma_format_ma_format_unknown;
         let mut channels: sys::ma_uint32 = 0;

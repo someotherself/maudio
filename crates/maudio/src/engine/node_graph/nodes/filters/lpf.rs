@@ -204,8 +204,8 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> LpfNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(self) -> MaResult<LpfNode<'a>> {
-        LpfNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
+    pub fn build(&self) -> MaResult<LpfNode<'a>> {
+        LpfNode::new_with_cfg_alloc_internal(self.node_graph, self, None)
     }
 }
 

@@ -207,8 +207,8 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> HpfNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(self) -> MaResult<HpfNode<'a>> {
-        HpfNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
+    pub fn build(&self) -> MaResult<HpfNode<'a>> {
+        HpfNode::new_with_cfg_alloc_internal(self.node_graph, self, None)
     }
 }
 

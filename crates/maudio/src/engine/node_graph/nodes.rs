@@ -26,32 +26,8 @@
 //! You usually work with a graph indirectly through [`Engine`](crate::engine) and [`NodeGraph`].
 //! How nodes work in miniaudio’s node graph (conceptually)
 //!
-//! ## Why `ma_node` looks like a `void*` (and why there is no `Node::new`)
-//!
-//! The type `ma_node` in miniaudio is an *opaque* / *transparent* “base pointer”:
-//!
-//! - In the C headers it is effectively `typedef void ma_node;`.
-//! - A `ma_node*` does **not** point to a standalone `ma_node` allocation.
-//! - Instead, it points at a **concrete node type** (e.g. `ma_delay_node`, `ma_splitter_node`,
-//!   `ma_sound`, `ma_node_graph`, …) whose internal layout begins with a common base.
-//!
-//! This is how miniaudio implements a form of polymorphism in C: the public API accepts
-//! `ma_node*`, while the actual object behind it is one of many concrete node structs with
-//! node-specific behavior.
-//!
 //! Miniaudio does allow creating custom nodes however, this is an advanced feature that is
-//! current not implemented in this crate.
-//!
-//! Because `ma_node` has no size and is not a constructible C struct, this crate does **not**
-//! expose `Node::new()`. You cannot allocate a generic node. You either:
-//!
-//! 1. **Borrow a node view** from an existing object (recommended).
-//!    For example: `sound.as_node()` returns a [`NodeRef`].
-//! 2. **Own a concrete node type** (e.g. `DelayNode`, `SplitterNode`, etc.) and treat it as a node
-//!    when connecting/routing.
-//! 3. **Create a custom node** (advanced, not implemented): allocate a concrete node struct compatible with miniaudio
-//!    and provide callbacks/vtables. This crate currently keeps generic node creation internal.
-//!
+//! current not implemented in this crate. See the existing Node implementations instead.
 //! ## How to use nodes
 //!
 //! Most node-graph operations are provided via [`NodeOps`]. Any type that can yield an underlying

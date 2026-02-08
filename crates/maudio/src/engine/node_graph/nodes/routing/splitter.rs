@@ -199,13 +199,13 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> SplitterNodeBuilder<'a, N> {
         }
     }
 
-    pub fn output_bus_count(mut self, count: u32) -> Self {
+    pub fn output_bus_count(&mut self, count: u32) -> &mut Self {
         self.inner.outputBusCount = count;
         self
     }
 
-    pub fn build(self) -> MaResult<SplitterNode<'a>> {
-        SplitterNode::new_with_cfg_alloc_internal(self.node_graph, &self, None)
+    pub fn build(&self) -> MaResult<SplitterNode<'a>> {
+        SplitterNode::new_with_cfg_alloc_internal(self.node_graph, self, None)
     }
 }
 
