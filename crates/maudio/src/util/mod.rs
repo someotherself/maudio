@@ -1,2 +1,2 @@
 pub mod fence;
-pub mod s24;
+pub mod pcm_frames;

@@ -26,7 +26,7 @@ pub enum Format {
 /// Stores raw PCM samples for one or more channels, typically returned by
 /// audio read and decode operations.
 pub struct SampleBuffer<T> {
-    data: Vec<T>,
+    pub data: Vec<T>,
     channels: u32,
     // sample_rate: SampleRate,
 }
@@ -60,7 +60,7 @@ impl<T> SampleBuffer<T> {
         self.channels
     }
 
-    pub fn frames(&self) -> usize {
+    pub fn frames_read(&self) -> usize {
         if self.channels == 0 {
             return 0;
         }
@@ -79,8 +79,13 @@ impl<T> SampleBuffer<T> {
         self.data.as_mut_ptr() as *mut core::ffi::c_void
     }
 
+    // TODO: Deprecate
     pub(crate) fn truncate_to_frames(&mut self, frames_read: usize) {
         self.data.truncate(frames_read * self.channels as usize)
+    }
+
+    pub(crate) fn truncate(&mut self, len: usize) {
+        self.data.truncate(len)
     }
 }
 

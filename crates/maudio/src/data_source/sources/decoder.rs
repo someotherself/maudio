@@ -18,7 +18,7 @@ use crate::{
         sample_rate::SampleRate,
     },
     data_source::{private_data_source, AsSourcePtr, DataFormat, DataSourceRef},
-    util::s24::{PcmFormat, S24Packed, S24},
+    util::pcm_frames::{PcmFormat, S24Packed, S24},
     Binding, MaResult,
 };
 
@@ -151,6 +151,14 @@ impl<F: PcmFormat, S> Decoder<F, S> {
     }
 
     fn init_s24_ref_from_memory<'a>(
+        data: &'a [u8],
+        config: &DecoderBuilder,
+    ) -> MaResult<Decoder<S24, Borrowed<'a>>> {
+        let inner = Self::init_ref_internal(data, config)?;
+        Ok(Decoder::new(inner, config, Format::S24, Borrowed(data)))
+    }
+
+    fn init_s24_packed_ref_from_memory<'a>(
         data: &'a [u8],
         config: &DecoderBuilder,
     ) -> MaResult<Decoder<S24Packed, Borrowed<'a>>> {
@@ -351,7 +359,7 @@ pub(crate) mod decoder_ffi {
         sources::decoder::{private_decoder, AsDecoderPtr, DecoderBuilder},
         DataFormat,
     };
-    use crate::util::s24::PcmFormat;
+    use crate::util::pcm_frames::{PcmFormat, PcmFormatInternal};
     use crate::{Binding, MaResult, MaudioError};
 
     #[inline]
@@ -435,11 +443,12 @@ pub(crate) mod decoder_ffi {
         decoder: &mut D,
         frame_count: u64,
     ) -> MaResult<(SampleBuffer<<F as PcmFormat>::PcmUnit>, u64)> {
-        let mut buffer = F::new_zeroed(frame_count, decoder.channels())?;
+        let mut buffer =
+            <F as PcmFormatInternal>::new_zeroed_internal(frame_count, decoder.channels())?;
         let frames_read =
             ma_decoder_read_pcm_frames_internal(decoder, frame_count, buffer.as_mut_ptr())?;
-        buffer.truncate_to_frames(frames_read as usize);
-        let buffer = F::storage_to_pcm(buffer)?;
+        F::truncate_to_frames_read_internal(&mut buffer, frames_read)?;
+        let buffer = F::storage_to_pcm_internal(buffer)?;
         Ok((buffer, frames_read))
     }
 
@@ -627,13 +636,12 @@ impl DecoderBuilder {
         data: &'a [u8],
     ) -> MaResult<Decoder<S24Packed, Borrowed<'a>>> {
         self.inner.format = Format::S24.into();
-        Decoder::<S24Packed, Borrowed<'a>>::init_s24_ref_from_memory(data, self)
+        Decoder::<S24Packed, Borrowed<'a>>::init_s24_packed_ref_from_memory(data, self)
     }
 
-    pub fn s24_memory<'a>(&mut self, _data: &'a [u8]) -> MaResult<Decoder<S24, Borrowed<'a>>> {
+    pub fn s24_memory<'a>(&mut self, data: &'a [u8]) -> MaResult<Decoder<S24, Borrowed<'a>>> {
         self.inner.format = Format::S24.into();
-        // Decoder::<S24, Borrowed<'a>>::init_s24_ref_from_memory(data, self)
-        todo!()
+        Decoder::<S24, Borrowed<'a>>::init_s24_ref_from_memory(data, self)
     }
 
     pub fn i32_memory<'a>(&mut self, data: &'a [u8]) -> MaResult<Decoder<i32, Borrowed<'a>>> {

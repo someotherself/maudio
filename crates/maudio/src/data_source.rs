@@ -52,7 +52,7 @@ pub(crate) mod private_data_source {
             },
         },
         engine::node_graph::nodes::source::source_node::AttachedSourceNode,
-        util::s24::PcmFormat,
+        util::pcm_frames::PcmFormat,
     };
 
     use super::*;
