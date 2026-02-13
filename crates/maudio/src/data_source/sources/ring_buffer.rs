@@ -45,6 +45,38 @@ impl RingBuffer {
         }))
     }
 
+    pub fn init_u8(size: usize) -> MaResult<(RbSend<u8>, RbRecv<u8>)> {
+        let inner = Self::new_inner_ex(size, 1, 0)?;
+        Ok((
+            RbSend {
+                inner: inner.clone(),
+                _not_sync: PhantomData,
+                _sample_format: PhantomData,
+            },
+            RbRecv {
+                inner,
+                _not_sync: PhantomData,
+                _sample_format: PhantomData,
+            },
+        ))
+    }
+
+    pub fn init_i16(size: usize) -> MaResult<(RbSend<i16>, RbRecv<i16>)> {
+        let inner = Self::new_inner_ex(size, 1, 0)?;
+        Ok((
+            RbSend {
+                inner: inner.clone(),
+                _not_sync: PhantomData,
+                _sample_format: PhantomData,
+            },
+            RbRecv {
+                inner,
+                _not_sync: PhantomData,
+                _sample_format: PhantomData,
+            },
+        ))
+    }
+
     pub fn new_u8(size: usize) -> MaResult<(RbSendU8, RbRecvU8)> {
         let inner = Self::new_inner(size)?;
         Ok((
@@ -119,12 +151,12 @@ impl RingBuffer {
         rb: &mut R,
         desired_items: usize,
         item_size: u32,
-    ) -> MaResult<RbReadGuard<'_, T>> {
+    ) -> MaResult<RbReadGuard_<'_, T>> {
         let desired_bytes = desired_items
             .checked_mul(item_size as usize)
             .ok_or(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS))?;
         let (ptr, avail_bytes) = rb_ffi::ma_rb_acquire_read(rb, desired_bytes)?;
-        Ok(RbReadGuard {
+        Ok(RbReadGuard_ {
             owner: rb,
             ptr,
             avail_bytes,
@@ -198,13 +230,13 @@ impl RingBuffer {
         rb: &mut R,
         desired_items: usize,
         item_size: u32,
-    ) -> MaResult<RbWriteGuard<'_, T>> {
+    ) -> MaResult<RbWriteGuard_<'_, T>> {
         let desired_bytes = desired_items
             .checked_mul(item_size as usize)
             .ok_or(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS))?;
         let (ptr, cap_bytes) = rb_ffi::ma_rb_acquire_write(rb, desired_bytes)?;
 
-        Ok(RbWriteGuard {
+        Ok(RbWriteGuard_ {
             owner: rb,
             ptr,
             cap_bytes,
@@ -326,6 +358,18 @@ impl RingBuffer {
     }
 }
 
+pub struct RbSend<T> {
+    inner: Arc<RbInner>,
+    _not_sync: PhantomData<Cell<()>>,
+    _sample_format: PhantomData<T>,
+}
+
+pub struct RbRecv<T> {
+    inner: Arc<RbInner>,
+    _not_sync: PhantomData<Cell<()>>,
+    _sample_format: PhantomData<T>,
+}
+
 /// Ring buffer writing handle for `u8` format
 pub struct RbSendU8 {
     inner: Arc<RbInner>,
@@ -387,7 +431,7 @@ pub struct RbRecvF32 {
 }
 
 /// Guard providing temporary read access to a section of the ring buffer
-pub struct RbReadGuard<'a, T> {
+pub struct RbReadGuard_<'a, T> {
     owner: &'a mut dyn RbReadOwner,
     ptr: *const core::ffi::c_void,
     avail_bytes: usize,
@@ -395,7 +439,7 @@ pub struct RbReadGuard<'a, T> {
     _pd: PhantomData<&'a [T]>, // T is guaranteed to be sized
 }
 
-impl<'a, T> RbReadGuard<'a, T> {
+impl<'a, T> RbReadGuard_<'a, T> {
     pub fn available_items(&self) -> usize {
         // If there are bytes available, the pointer must be non-null
         debug_assert!(self.avail_bytes == 0 || !self.ptr.is_null());
@@ -435,7 +479,7 @@ impl<'a, T> RbReadGuard<'a, T> {
     }
 }
 
-impl<'a, T> Deref for RbReadGuard<'a, T> {
+impl<'a, T> Deref for RbReadGuard_<'a, T> {
     type Target = [T];
 
     fn deref(&self) -> &Self::Target {
@@ -443,7 +487,7 @@ impl<'a, T> Deref for RbReadGuard<'a, T> {
     }
 }
 
-impl<T> Drop for RbReadGuard<'_, T> {
+impl<T> Drop for RbReadGuard_<'_, T> {
     fn drop(&mut self) {
         if !self.committed {
             let _ = self.owner.commit_read_bytes(0);
@@ -470,7 +514,7 @@ macro_rules! impl_rb_read_owner {
 impl_rb_read_owner!(RbRecvU8, RbRecvI16, RbRecvI32, RbRecvS24, RbRecvF32);
 
 /// Guard providing temporary write access to a section of the ring buffer
-pub struct RbWriteGuard<'a, T> {
+pub struct RbWriteGuard_<'a, T> {
     owner: &'a mut dyn RbWriteOwner,
     ptr: *mut core::ffi::c_void,
     cap_bytes: usize,
@@ -478,7 +522,7 @@ pub struct RbWriteGuard<'a, T> {
     _pd: PhantomData<&'a mut [T]>, // T is guaranteed to be sized
 }
 
-impl<'a, T> RbWriteGuard<'a, T> {
+impl<'a, T> RbWriteGuard_<'a, T> {
     pub fn capacity_items(&self) -> usize {
         // If there is writable capacity, the pointer must be non-null
         debug_assert!(self.cap_bytes == 0 || !self.ptr.is_null());
@@ -531,7 +575,7 @@ impl<'a, T> RbWriteGuard<'a, T> {
     }
 }
 
-impl<'a, T> Deref for RbWriteGuard<'a, T> {
+impl<'a, T> Deref for RbWriteGuard_<'a, T> {
     type Target = [T];
 
     fn deref(&self) -> &Self::Target {
@@ -539,13 +583,13 @@ impl<'a, T> Deref for RbWriteGuard<'a, T> {
     }
 }
 
-impl<'a, T> DerefMut for RbWriteGuard<'a, T> {
+impl<'a, T> DerefMut for RbWriteGuard_<'a, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.as_slice_mut()
     }
 }
 
-impl<T> Drop for RbWriteGuard<'_, T> {
+impl<T> Drop for RbWriteGuard_<'_, T> {
     fn drop(&mut self) {
         if !self.committed {
             let _ = self.owner.commit_write_bytes(0);
@@ -602,7 +646,7 @@ pub trait RbRead: AsRbPtr {
     /// must be committed to consume them.
     ///
     /// In most cases, using [`Self::read`] is simpler and preferred.
-    fn acquire_read(&mut self, desired_items: usize) -> MaResult<RbReadGuard<'_, Self::Item>>;
+    fn acquire_read(&mut self, desired_items: usize) -> MaResult<RbReadGuard_<'_, Self::Item>>;
     /// Returns the number of items currently available for reading.
     fn available_read(&self) -> u32;
     /// Returns the number of items currently available for writing.
@@ -642,7 +686,7 @@ macro_rules! impl_rb_read {
             fn acquire_read(
                 &mut self,
                 desired_items: usize,
-            ) -> MaResult<RbReadGuard<'_, Self::Item>> {
+            ) -> MaResult<RbReadGuard_<'_, Self::Item>> {
                 RingBuffer::acquire_read_internal(self, desired_items, Self::ITEM_SIZE)
             }
 
@@ -711,7 +755,7 @@ pub trait RbWrite: AsRbPtr {
     /// must be committed to make the write visible.
     ///
     /// For most cases, using [`Self::write`] is safer and prefered.
-    fn acquire_write(&mut self, desired_items: usize) -> MaResult<RbWriteGuard<'_, Self::Item>>;
+    fn acquire_write(&mut self, desired_items: usize) -> MaResult<RbWriteGuard_<'_, Self::Item>>;
     /// Returns the number of items currently available for reading.
     fn available_read(&self) -> u32;
     /// Returns the number of items currently available for writing.
@@ -751,7 +795,7 @@ macro_rules! impl_rb_write {
             fn acquire_write(
                 &mut self,
                 desired_items: usize,
-            ) -> MaResult<RbWriteGuard<'_, Self::Item>> {
+            ) -> MaResult<RbWriteGuard_<'_, Self::Item>> {
                 RingBuffer::acquire_write_internal(self, desired_items, Self::ITEM_SIZE)
             }
 

@@ -258,20 +258,6 @@ where
     source: Arc<S>,
 }
 
-// TODO: Double check
-pub trait SourcePtrDyn: Send + Sync {
-    fn as_source_ptr(&self) -> *mut sys::ma_data_source;
-}
-
-impl<T> SourcePtrDyn for T
-where
-    T: AsSourcePtr + Send + Sync,
-{
-    fn as_source_ptr(&self) -> *mut sys::ma_data_source {
-        private_data_source::source_ptr(self)
-    }
-}
-
 impl<N, S> Binding for AttachedSourceNodeBuilder<'_, N, S>
 where
     N: AsNodeGraphPtr,

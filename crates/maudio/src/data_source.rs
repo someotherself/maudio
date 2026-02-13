@@ -1,11 +1,11 @@
 //! Interface for reading from a data source
-use std::{marker::PhantomData, ops::Range};
+use std::marker::PhantomData;
 
 use maudio_sys::ffi as sys;
 
 use crate::{
     audio::{channels::Channel, formats::Format},
-    Binding, MaResult,
+    Binding,
 };
 
 pub mod sources;
@@ -52,7 +52,7 @@ pub(crate) mod private_data_source {
             },
         },
         engine::node_graph::nodes::source::source_node::AttachedSourceNode,
-        util::pcm_frames::PcmFormat,
+        pcm_frames::PcmFormat,
     };
 
     use super::*;
@@ -214,98 +214,6 @@ impl AsSourcePtr for DataSource {
 #[doc(hidden)]
 impl<'a> AsSourcePtr for DataSourceRef<'a> {
     type __PtrProvider = private_data_source::DataSourceRefProvider;
-}
-
-impl<T: AsSourcePtr + ?Sized> DataSourceOps for T {}
-
-// TODO: Some of these methods should be on the specific types instead.
-// TODO: Check them all and decide which should be public here.
-/// The DataSourceOps trait contains shared methods for [`DataSource`], [`DataSourceRef`] and all data source types which can be cast to a `ma_data_source`
-pub trait DataSourceOps: AsSourcePtr {
-    // fn read_pcm_frames(&mut self, frame_count: u64, channels: u32) -> MaResult<(Vec<f32>, u64)> {
-    //     data_source_ffi::ma_data_source_read_pcm_frames(self, frame_count, channels)
-    // }
-
-    // fn seek_pcm_frames(&mut self, frame_count: u64) -> MaResult<u64> {
-    //     data_source_ffi::ma_data_source_seek_pcm_frames(self, frame_count)
-    // }
-
-    // fn seek_to_pcm_frame(&mut self, frame_index: u64) -> MaResult<()> {
-    //     data_source_ffi::ma_data_source_seek_to_pcm_frame(self, frame_index)
-    // }
-
-    // fn seek_seconds(&mut self, seconds: f32) -> MaResult<f32> {
-    //     data_source_ffi::ma_data_source_seek_seconds(self, seconds)
-    // }
-
-    // fn seek_to_second(&mut self, seek_point: f32) -> MaResult<()> {
-    //     data_source_ffi::ma_data_source_seek_to_second(self, seek_point)
-    // }
-
-    fn data_format(&self) -> MaResult<DataFormat> {
-        data_source_ffi::ma_data_source_get_data_format(self)
-    }
-
-    // fn cursor_in_pcm_frames(&mut self) -> MaResult<u64> {
-    //     data_source_ffi::ma_data_source_get_cursor_in_pcm_frames(self)
-    // }
-
-    // fn length_in_pcm_frames(&mut self) -> MaResult<u64> {
-    //     data_source_ffi::ma_data_source_get_length_in_pcm_frames(self)
-    // }
-
-    // fn cursor_in_seconds(&mut self) -> MaResult<f32> {
-    //     data_source_ffi::ma_data_source_get_cursor_in_seconds(self)
-    // }
-
-    // fn length_in_seconds(&mut self) -> MaResult<f32> {
-    //     data_source_ffi::ma_data_source_get_length_in_seconds(self)
-    // }
-
-    fn set_looping(&mut self, is_looping: bool) -> MaResult<()> {
-        data_source_ffi::ma_data_source_set_looping(self, is_looping)
-    }
-
-    fn looping(&self) -> bool {
-        data_source_ffi::ma_data_source_is_looping(self)
-    }
-
-    // ???
-    fn range_in_pcm_frames(&self) -> Range<u64> {
-        data_source_ffi::ma_data_source_get_range_in_pcm_frames(self)
-    }
-
-    fn set_loop_point_in_pcm_frames(&mut self, begin: u64, end: u64) -> MaResult<()> {
-        data_source_ffi::ma_data_source_set_loop_point_in_pcm_frames(self, begin, end)
-    }
-
-    fn loop_point_in_pcm_frames(&self) -> Range<u64> {
-        data_source_ffi::ma_data_source_get_loop_point_in_pcm_frames(self)
-    }
-
-    fn set_current<S: AsSourcePtr + ?Sized>(&mut self, current: &mut S) -> MaResult<()> {
-        data_source_ffi::ma_data_source_set_current(self, current)
-    }
-
-    fn current(&self) -> Option<DataSourceRef<'_>> {
-        data_source_ffi::ma_data_source_get_current(self)
-    }
-
-    fn set_next<S: AsSourcePtr + ?Sized>(&mut self, next: &mut S) -> MaResult<()> {
-        data_source_ffi::ma_data_source_set_next(self, next)
-    }
-
-    fn next(&self) -> Option<DataSourceRef<'_>> {
-        data_source_ffi::ma_data_source_get_next(self)
-    }
-
-    fn set_next_callback(&mut self, get_next_cb: GetNextCallback) -> MaResult<()> {
-        data_source_ffi::ma_data_source_set_next_callback(self, get_next_cb)
-    }
-
-    fn next_callback(&self) -> GetNextCallback {
-        data_source_ffi::ma_data_source_get_next_callback(self)
-    }
 }
 
 pub(crate) mod data_source_ffi {

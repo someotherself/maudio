@@ -18,7 +18,7 @@ use crate::{
         sample_rate::SampleRate,
     },
     data_source::{private_data_source, AsSourcePtr, DataFormat, DataSourceRef},
-    util::pcm_frames::{PcmFormat, S24Packed, S24},
+    pcm_frames::{PcmFormat, S24Packed, S24},
     Binding, MaResult,
 };
 
@@ -317,13 +317,6 @@ impl<F: PcmFormat, S> Decoder<F, S> {
 }
 
 pub trait DecoderOps: AsDecoderPtr + AsSourcePtr {
-    fn read_pcm_frames<F: PcmFormat>(
-        &mut self,
-        frame_count: u64,
-    ) -> MaResult<(SampleBuffer<<F as PcmFormat>::PcmUnit>, u64)> {
-        decoder_ffi::ma_decoder_read_pcm_frames::<F, Self>(self, frame_count)
-    }
-
     fn seek_to_pcm_frame(&mut self, frame_index: u64) -> MaResult<()> {
         decoder_ffi::ma_decoder_seek_to_pcm_frame(self, frame_index)
     }
@@ -359,7 +352,7 @@ pub(crate) mod decoder_ffi {
         sources::decoder::{private_decoder, AsDecoderPtr, DecoderBuilder},
         DataFormat,
     };
-    use crate::util::pcm_frames::{PcmFormat, PcmFormatInternal};
+    use crate::pcm_frames::{PcmFormat, PcmFormatInternal};
     use crate::{Binding, MaResult, MaudioError};
 
     #[inline]

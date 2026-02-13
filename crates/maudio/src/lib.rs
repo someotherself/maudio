@@ -53,6 +53,7 @@ mod context; // not implemented
 pub mod data_source;
 mod device; // not implemented
 pub mod engine;
+pub mod pcm_frames;
 pub mod sound;
 pub mod util;
 
@@ -174,6 +175,18 @@ impl std::fmt::Display for ErrorKinds {
                 actual_len,
             } => {
                 write!(f, "SampleBuffer<S24Packed> with invalid length {actual_len} % {bytes_per_sample} != 0")
+            }
+            ErrorKinds::WriteExceedsCapacity { capacity, written } => {
+                write!(
+                    f,
+                    "Amount written exceds the capacity: {capacity}, written: {written}"
+                )
+            }
+            ErrorKinds::ReadExceedsAvailability { available, read } => {
+                write!(
+                    f,
+                    "Amount read exceds availability: {available}, read: {read}"
+                )
             }
             ErrorKinds::InvalidGraphState => write!(f, "invalid graph state"),
             ErrorKinds::ChannelRecieveError => write!(f, "channel receive error"),
@@ -320,6 +333,14 @@ pub enum ErrorKinds {
     InvalidPackedSampleSize {
         bytes_per_sample: usize, // 3
         actual_len: usize,
+    },
+    WriteExceedsCapacity {
+        capacity: usize,
+        written: usize,
+    },
+    ReadExceedsAvailability {
+        available: usize,
+        read: usize,
     },
     S24OverFlow,
     S24UnderFlow,
