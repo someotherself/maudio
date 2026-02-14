@@ -51,7 +51,9 @@
 use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit, path::Path, sync::Arc};
 
 use crate::{
-    audio::{math::vec3::Vec3, sample_rate::SampleRate, spatial::cone::Cone},
+    audio::{
+        formats::SampleBuffer, math::vec3::Vec3, sample_rate::SampleRate, spatial::cone::Cone,
+    },
     data_source::AsSourcePtr,
     engine::{
         engine_builder::EngineBuilder,
@@ -258,6 +260,10 @@ pub trait EngineOps: AsEnginePtr {
         engine_ffi::ma_engine_get_node_graph(self)
     }
 
+    fn read_pcm_frames_into(&self, dst: &mut [f32]) -> MaResult<usize> {
+        engine_ffi::ma_engine_read_pcm_frames_into(self, dst)
+    }
+
     /// This function pulls audio from the engine’s internal node graph and returns
     /// up to `frame_count` frames of interleaved PCM samples.
     ///
@@ -265,7 +271,7 @@ pub trait EngineOps: AsEnginePtr {
     /// - The engine will attempt to render `frame_count` frames, but it may return
     ///   **fewer frames**.
     /// - The number of frames actually rendered is returned alongside the samples.
-    fn read_pcm_frames(&self, frame_count: u64) -> MaResult<(Vec<f32>, u64)> {
+    fn read_pcm_frames(&self, frame_count: u64) -> MaResult<SampleBuffer<f32>> {
         engine_ffi::ma_engine_read_pcm_frames(self, frame_count)
     }
 
@@ -785,7 +791,9 @@ mod test {
         let engine = Engine::new_for_tests().unwrap();
 
         let requested = 256u64;
-        let (samples, frames) = engine.read_pcm_frames(requested).unwrap();
+        let buffer = engine.read_pcm_frames(requested).unwrap();
+        let frames = buffer.frames() as u64;
+        let samples = buffer.as_ref();
 
         assert!(
             frames <= requested,
@@ -856,7 +864,7 @@ pub(crate) mod engine_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        audio::{math::vec3::Vec3, spatial::cone::Cone},
+        audio::{formats::SampleBuffer, math::vec3::Vec3, spatial::cone::Cone},
         engine::{
             engine_builder::EngineBuilder,
             node_graph::{nodes::NodeRef, NodeGraphRef},
@@ -884,10 +892,39 @@ pub(crate) mod engine_ffi {
     }
 
     #[inline]
+    pub fn ma_engine_read_pcm_frames_into<E: AsEnginePtr + ?Sized>(
+        engine: &E,
+        dst: &mut [f32],
+    ) -> MaResult<usize> {
+        let channels = engine.channels();
+        let len = dst.len() as u64;
+
+        if channels == 0 {
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
+        }
+
+        // May truncate, and that is desired
+        let frame_count = len / channels as u64;
+
+        let mut frames_read = 0;
+        let res = unsafe {
+            sys::ma_engine_read_pcm_frames(
+                private_engine::engine_ptr(engine),
+                dst.as_mut_ptr() as *mut std::ffi::c_void,
+                frame_count,
+                &mut frames_read,
+            )
+        };
+        MaudioError::check(res)?;
+
+        Ok(frames_read as usize)
+    }
+
+    #[inline]
     pub fn ma_engine_read_pcm_frames<E: AsEnginePtr + ?Sized>(
         engine: &E,
         frame_count: u64,
-    ) -> MaResult<(Vec<f32>, u64)> {
+    ) -> MaResult<SampleBuffer<f32>> {
         let channels = engine.channels();
         let mut buffer = vec![0.0f32; (frame_count * channels as u64) as usize];
         let mut frames_read = 0;
@@ -900,8 +937,7 @@ pub(crate) mod engine_ffi {
             )
         };
         MaudioError::check(res)?;
-        buffer.truncate((frames_read * channels as u64) as usize);
-        Ok((buffer, frames_read))
+        SampleBuffer::<f32>::from_storage(buffer, frames_read as usize, channels)
     }
 
     #[inline]

@@ -1529,10 +1529,7 @@ mod test {
         let engine = Engine::new_for_tests().unwrap();
         let data = ramp_f32_interleaved(2, 32);
 
-        let buf = AudioBufferBuilder::from_f32(2, 32, &data)
-            .unwrap()
-            .build_copy()
-            .unwrap();
+        let buf = AudioBufferBuilder::build_f32(2, &data).unwrap();
 
         let src = buf.as_source();
 
@@ -1550,10 +1547,7 @@ mod test {
         let engine = Engine::new_for_tests().unwrap();
         let data = ramp_f32_interleaved(2, 32);
 
-        let buf = AudioBufferBuilder::from_f32(2, 32, &data)
-            .unwrap()
-            .build_copy()
-            .unwrap();
+        let buf = AudioBufferBuilder::build_f32(2, &data).unwrap();
 
         let src = buf.as_source();
 

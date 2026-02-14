@@ -1,6 +1,11 @@
+use std::marker::PhantomData;
+
 use maudio_sys::ffi as sys;
 
-use crate::{ErrorKinds, MaResult, MaudioError};
+use crate::{
+    pcm_frames::{PcmFormat, PcmFormatInternal},
+    ErrorKinds, MaResult, MaudioError,
+};
 
 /// Sample format (numeric representation of audio samples).
 ///
@@ -21,89 +26,99 @@ pub enum Format {
     F32,
 }
 
+// Always holds the sample format used by the user
 /// An owned, interleaved audio sample buffer.
 ///
 /// Stores raw PCM samples for one or more channels, typically returned by
 /// audio read and decode operations.
-pub struct SampleBuffer<T> {
-    pub data: Vec<T>,
+pub struct SampleBuffer<F: PcmFormat> {
+    pub data: Vec<F::PcmUnit>,
     channels: u32,
-    // sample_rate: SampleRate,
+    frames: usize,
+    _pcm_format: PhantomData<F>,
 }
 
-impl<T> AsRef<[T]> for SampleBuffer<T> {
-    fn as_ref(&self) -> &[T] {
+impl<F: PcmFormat> AsRef<[F::PcmUnit]> for SampleBuffer<F> {
+    fn as_ref(&self) -> &[F::PcmUnit] {
         self.as_slice()
     }
 }
 
-impl<T> AsMut<[T]> for SampleBuffer<T> {
-    fn as_mut(&mut self) -> &mut [T] {
+impl<F: PcmFormat> AsMut<[F::PcmUnit]> for SampleBuffer<F> {
+    fn as_mut(&mut self) -> &mut [F::PcmUnit] {
         self.as_mut_slice()
     }
 }
 
-impl<T> SampleBuffer<T> {
-    pub(crate) fn new(data: Vec<T>, channels: u32) -> Self {
-        SampleBuffer { data, channels }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.data.is_empty()
-    }
-
-    pub fn len_samples(&self) -> usize {
-        self.data.len()
-    }
-
-    pub fn channels(&self) -> u32 {
-        self.channels
-    }
-
-    pub fn frames_read(&self) -> usize {
-        if self.channels == 0 {
-            return 0;
+impl<F: PcmFormat> SampleBuffer<F> {
+    pub(crate) fn new(data: Vec<F::PcmUnit>, channels: u32, frames: usize) -> SampleBuffer<F> {
+        Self {
+            data,
+            channels,
+            frames,
+            _pcm_format: PhantomData,
         }
-        self.data.len() / self.channels as usize
     }
 
-    pub fn as_slice(&self) -> &[T] {
-        &self.data
+    pub(crate) fn required_len(frames: usize, channels: u32, vec_unit: usize) -> MaResult<usize> {
+        let ch = channels as usize;
+        let samples = frames.checked_mul(ch).ok_or(MaudioError::new_ma_error(
+            ErrorKinds::IntegerOverflow {
+                op: "frames * channels",
+                lhs: frames as u64,
+                rhs: channels as u64,
+            },
+        ))?;
+        let len = samples
+            .checked_mul(vec_unit)
+            .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
+                op: "frames to storage",
+                lhs: samples as u64,
+                rhs: channels as u64,
+            }))?;
+        Ok(len)
     }
 
-    pub fn as_mut_slice(&mut self) -> &mut [T] {
-        &mut self.data
+    pub(crate) fn new_zeroed(frames: usize, channels: u32) -> MaResult<Vec<F::StorageUnit>> {
+        let len = Self::required_len(frames, channels, F::VEC_PCM_UNITS_PER_FRAME)?;
+        Ok(vec![F::StorageUnit::default(); len])
     }
 
-    pub(crate) fn as_mut_ptr(&mut self) -> *mut core::ffi::c_void {
-        self.data.as_mut_ptr() as *mut core::ffi::c_void
-    }
+    /// Takes a `Vec<F::StorageUnit>` and returns a SampleBuffer (with PcmUnit)
+    ///
+    /// Performs any conversion necessary and truncates to frames read
+    pub(crate) fn from_storage(
+        mut storage: Vec<F::StorageUnit>,
+        frames_read: usize,
+        channels: u32,
+    ) -> MaResult<SampleBuffer<F>> {
+        let len = frames_read
+            .checked_mul(channels as usize)
+            .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
+                op: "truncate: frames * channels",
+                lhs: frames_read as u64,
+                rhs: channels as u64,
+            }))?;
 
-    // TODO: Deprecate
-    pub(crate) fn truncate_to_frames(&mut self, frames_read: usize) {
-        self.data.truncate(frames_read * self.channels as usize)
-    }
+        let vec_el =
+            len.checked_mul(F::VEC_STORE_UNITS_PER_FRAME)
+                .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
+                    op: "truncate: frames to buf units",
+                    lhs: len as u64,
+                    rhs: F::VEC_STORE_UNITS_PER_FRAME as u64,
+                }))?;
 
-    pub(crate) fn truncate(&mut self, len: usize) {
-        self.data.truncate(len)
-    }
-}
+        // Convert from Storage to Pcm
+        storage.truncate(vec_el);
 
-/// An owned interleaved audio buffer containing 24-bit PCM samples.
-///
-/// Samples are stored as tightly packed 3-byte values in a `u8` buffer.
-pub struct SampleBufferS24 {
-    data: Vec<u8>, // len == frames * channels * 3
-    channels: u32,
-}
+        let data = <F as PcmFormatInternal>::storage_to_pcm_internal(storage)?;
 
-impl SampleBufferS24 {
-    pub fn is_empty(&self) -> bool {
-        self.data.is_empty()
-    }
-
-    pub fn len_samples(&self) -> usize {
-        self.data.len()
+        Ok(SampleBuffer {
+            data,
+            channels,
+            frames: frames_read,
+            _pcm_format: PhantomData,
+        })
     }
 
     pub fn channels(&self) -> u32 {
@@ -111,17 +126,23 @@ impl SampleBufferS24 {
     }
 
     pub fn frames(&self) -> usize {
-        if self.channels == 0 {
-            return 0;
-        }
-        self.data.len() / self.channels as usize
+        self.frames
     }
 
-    pub fn as_slice(&self) -> &[u8] {
+    pub fn is_empty(&self) -> bool {
+        self.data.is_empty()
+    }
+
+    /// Returns the len of the underlying Vec[T]. `Not` the frames count.
+    pub fn len(&self) -> usize {
+        self.data.len()
+    }
+
+    fn as_slice(&self) -> &[F::PcmUnit] {
         &self.data
     }
 
-    pub fn as_mut_slice(&mut self) -> &mut [u8] {
+    fn as_mut_slice(&mut self) -> &mut [F::PcmUnit] {
         &mut self.data
     }
 
@@ -129,145 +150,26 @@ impl SampleBufferS24 {
         self.data.as_mut_ptr() as *mut core::ffi::c_void
     }
 
-    pub(crate) fn truncate_to_frames(&mut self, frames_read: usize) {
-        self.data.truncate(frames_read * self.channels as usize * 3)
-    }
-}
-
-impl AsRef<[u8]> for SampleBufferS24 {
-    fn as_ref(&self) -> &[u8] {
-        self.as_slice()
-    }
-}
-
-impl AsMut<[u8]> for SampleBufferS24 {
-    fn as_mut(&mut self) -> &mut [u8] {
-        self.as_mut_slice()
-    }
-}
-
-impl Format {
-    // pub(crate) fn new_generic<F: PcmFormat>(
-    //     &self,
-    //     channels: u32,
-    //     frames: u64,
-    // ) -> MaResult<SampleBuffer<<F as PcmFormat>::StorageUnit>> {
-    //     // let len = frames
-    //     //     .checked_mul(channels as u64)
-    //     //     .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
-    //     //         op: "frames * channels",
-    //     //         lhs: frames,
-    //     //         rhs: channels as u64,
-    //     //     }))?;
-
-    // // if matches!(F, S24Packed) {
-    // //     let _ = frames
-    // //         .checked_mul(3)
-    // //         .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
-    // //             op: "S24 samples",
-    // //             lhs: len,
-    // //             rhs: 3,
-    // //         }))?;
-    // // }
-
-    //     Ok(F::new_zeroed(frames, channels))
-    // }
-
-    pub(crate) fn new_u8(&self, channels: u32, frames: u64) -> MaResult<SampleBuffer<u8>> {
-        debug_assert!(
-            matches!(self, Format::U8),
-            "Format::new_u8 called on {self:?}"
-        );
-        if !matches!(self, Format::U8) {
-            return Err(MaudioError::new_ma_error(ErrorKinds::InvalidFormat));
-        }
-
+    /// items_per_frame is either F::VEC_STORE_UNITS_PER_FRAME or F::VEC_PCM_UNITS_PER_FRAME
+    pub(crate) fn truncate_to_frames(&mut self, frames: usize) -> MaResult<()> {
         let len = frames
-            .checked_mul(channels as u64)
-            .ok_or(MaudioError::new_ma_error(ErrorKinds::InvalidFormat))?;
+            .checked_mul(self.channels as usize)
+            .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
+                op: "truncate: frames * channels",
+                lhs: frames as u64,
+                rhs: self.channels as u64,
+            }))?;
 
-        Ok(SampleBuffer {
-            data: vec![0u8; len as usize],
-            channels,
-        })
-    }
+        let vec_el =
+            len.checked_mul(F::VEC_PCM_UNITS_PER_FRAME)
+                .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
+                    op: "truncate: frames * channels",
+                    lhs: len as u64,
+                    rhs: F::VEC_PCM_UNITS_PER_FRAME as u64,
+                }))?;
 
-    pub(crate) fn new_s16(&self, channels: u32, frames: u64) -> MaResult<SampleBuffer<i16>> {
-        debug_assert!(
-            matches!(self, Format::S16),
-            "Format::new_s16 called on {self:?}"
-        );
-        if !matches!(self, Format::S16) {
-            return Err(MaudioError::new_ma_error(ErrorKinds::InvalidFormat));
-        }
-
-        let len = frames
-            .checked_mul(channels as u64)
-            .ok_or(MaudioError::new_ma_error(ErrorKinds::InvalidFormat))?;
-
-        Ok(SampleBuffer {
-            data: vec![0i16; len as usize],
-            channels,
-        })
-    }
-
-    pub(crate) fn new_s32(&self, channels: u32, frames: u64) -> MaResult<SampleBuffer<i32>> {
-        debug_assert!(
-            matches!(self, Format::S32),
-            "Format::new_s32 called on {self:?}"
-        );
-        if !matches!(self, Format::S32) {
-            return Err(MaudioError::new_ma_error(ErrorKinds::InvalidFormat));
-        }
-
-        let len = frames
-            .checked_mul(channels as u64)
-            .ok_or(MaudioError::new_ma_error(ErrorKinds::InvalidFormat))?;
-
-        Ok(SampleBuffer {
-            data: vec![0i32; len as usize],
-            channels,
-        })
-    }
-
-    pub(crate) fn new_f32(&self, channels: u32, frames: u64) -> MaResult<SampleBuffer<f32>> {
-        debug_assert!(
-            matches!(self, Format::F32),
-            "Format::new_f32 called on {self:?}"
-        );
-        if !matches!(self, Format::F32) {
-            return Err(MaudioError::new_ma_error(ErrorKinds::InvalidFormat));
-        }
-
-        let len = frames
-            .checked_mul(channels as u64)
-            .ok_or(MaudioError::new_ma_error(ErrorKinds::InvalidFormat))?;
-
-        Ok(SampleBuffer {
-            data: vec![0.0f32; len as usize],
-            channels,
-        })
-    }
-
-    pub(crate) fn new_s24(&self, channels: u32, frames: u64) -> MaResult<SampleBufferS24> {
-        debug_assert!(
-            matches!(self, Format::S24),
-            "Format::new_s24 called on {self:?}"
-        );
-        if !matches!(self, Format::S24) {
-            return Err(MaudioError::new_ma_error(ErrorKinds::InvalidFormat));
-        }
-
-        let len = frames
-            .checked_mul(channels as u64)
-            .ok_or(MaudioError::new_ma_error(ErrorKinds::InvalidFormat))?
-            .checked_mul(3)
-            .ok_or(MaudioError::new_ma_error(ErrorKinds::InvalidFormat))?;
-
-        Ok(SampleBufferS24 {
-            data: vec![0u8; len as usize],
-            channels,
-        })
+        self.data.truncate(vec_el);
+        Ok(())
     }
 }
 

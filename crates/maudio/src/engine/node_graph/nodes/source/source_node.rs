@@ -319,10 +319,7 @@ mod test {
 
         let data = ramp_f32_interleaved(2, 32);
 
-        let buf = AudioBufferBuilder::from_f32(2, 32, &data)
-            .unwrap()
-            .build_copy()
-            .unwrap();
+        let buf = AudioBufferBuilder::build_f32(2, &data).unwrap();
 
         let src_node = SourceNodeBuilder::new(&graph, &buf).build().unwrap();
         drop(src_node);
@@ -334,10 +331,7 @@ mod test {
         let graph = engine.as_node_graph().unwrap();
 
         let data = ramp_f32_interleaved(2, 32);
-        let buf = AudioBufferBuilder::from_f32(2, 32, &data)
-            .unwrap()
-            .build_copy()
-            .unwrap();
+        let buf = AudioBufferBuilder::build_f32(2, &data).unwrap();
 
         let src_node = SourceNodeBuilder::new(&graph, &buf).build().unwrap();
 
@@ -354,10 +348,7 @@ mod test {
         let graph = engine.as_node_graph().unwrap();
 
         let data = ramp_f32_interleaved(2, 64);
-        let buf = AudioBufferBuilder::from_f32(2, 64, &data)
-            .unwrap()
-            .build_copy()
-            .unwrap();
+        let buf = AudioBufferBuilder::build_f32(2, &data).unwrap();
 
         let n1 = SourceNodeBuilder::new(&graph, &buf).build().unwrap();
         let n2 = SourceNodeBuilder::new(&graph, &buf).build().unwrap();
@@ -377,16 +368,10 @@ mod test {
         let graph = engine.as_node_graph().unwrap();
 
         let d1 = ramp_f32_interleaved(2, 32);
-        let b1 = AudioBufferBuilder::from_f32(2, 32, &d1)
-            .unwrap()
-            .build_copy()
-            .unwrap();
+        let b1 = AudioBufferBuilder::build_f32(2, &d1).unwrap();
 
         let d2 = ramp_f32_interleaved(2, 48);
-        let b2 = AudioBufferBuilder::from_f32(2, 48, &d2)
-            .unwrap()
-            .build_copy()
-            .unwrap();
+        let b2 = AudioBufferBuilder::build_f32(2, &d2).unwrap();
 
         let n1 = SourceNodeBuilder::new(&graph, &b1).build().unwrap();
         let n2 = SourceNodeBuilder::new(&graph, &b2).build().unwrap();

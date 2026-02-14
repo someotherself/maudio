@@ -96,16 +96,16 @@ pub(crate) mod private_data_source {
         }
     }
 
-    impl DataSourcePtrProvider<AudioBuffer<'_>> for AudioBufferProvider {
+    impl<F: PcmFormat> DataSourcePtrProvider<AudioBuffer<'_, F>> for AudioBufferProvider {
         #[inline]
-        fn as_source_ptr(t: &AudioBuffer) -> *mut sys::ma_data_source {
+        fn as_source_ptr(t: &AudioBuffer<F>) -> *mut sys::ma_data_source {
             t.as_source().to_raw()
         }
     }
 
-    impl<'a> DataSourcePtrProvider<AudioBufferRef<'a>> for AudioBufferRefProvider {
+    impl<F: PcmFormat> DataSourcePtrProvider<AudioBufferRef<'_, F>> for AudioBufferRefProvider {
         #[inline]
-        fn as_source_ptr(t: &AudioBufferRef) -> *mut sys::ma_data_source {
+        fn as_source_ptr(t: &AudioBufferRef<F>) -> *mut sys::ma_data_source {
             t.as_source().to_raw()
         }
     }

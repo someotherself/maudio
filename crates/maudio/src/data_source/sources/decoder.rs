@@ -308,10 +308,11 @@ impl<F: PcmFormat, S> AsDecoderPtr for Decoder<F, S> {
 impl<T: AsDecoderPtr + AsSourcePtr> DecoderOps for T {}
 
 impl<F: PcmFormat, S> Decoder<F, S> {
-    pub fn read_pcm_frames(
-        &mut self,
-        frame_count: u64,
-    ) -> MaResult<(SampleBuffer<<F as PcmFormat>::PcmUnit>, u64)> {
+    pub fn read_pcm_frames_into(&mut self, dst: &mut [F::PcmUnit]) -> MaResult<usize> {
+        decoder_ffi::ma_decoder_read_pcm_frames_into::<F, Self>(self, dst)
+    }
+
+    pub fn read_pcm_frames(&mut self, frame_count: u64) -> MaResult<SampleBuffer<F>> {
         decoder_ffi::ma_decoder_read_pcm_frames::<F, Decoder<F, S>>(self, frame_count)
     }
 }
@@ -432,17 +433,68 @@ pub(crate) mod decoder_ffi {
         todo!()
     }
 
+    #[inline]
+    pub fn ma_decoder_read_pcm_frames_into<F: PcmFormat, D: AsDecoderPtr + ?Sized>(
+        decoder: &mut D,
+        dst: &mut [F::PcmUnit],
+    ) -> MaResult<usize> {
+        let channels = decoder.channels();
+        if channels == 0 {
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
+        }
+
+        // The frame count we can fit in the final dst in PcmUnit
+        let frame_count = (dst.len() / channels as usize / F::VEC_PCM_UNITS_PER_FRAME) as u64;
+
+        match F::DIRECT_READ {
+            true => {
+                // Read directly into destination
+                let frames_read = ma_decoder_read_pcm_frames_internal(
+                    decoder,
+                    frame_count,
+                    dst.as_mut_ptr() as *mut core::ffi::c_void,
+                )?;
+                Ok(frames_read as usize)
+            }
+            false => {
+                let tmp_len = SampleBuffer::<F>::required_len(
+                    frame_count as usize,
+                    channels,
+                    F::VEC_STORE_UNITS_PER_FRAME,
+                )?;
+
+                let mut tmp = vec![F::StorageUnit::default(); tmp_len];
+                let frames_read = ma_decoder_read_pcm_frames_internal(
+                    decoder,
+                    frame_count,
+                    tmp.as_mut_ptr() as *mut core::ffi::c_void,
+                )?;
+
+                let _ = <F as PcmFormatInternal>::read_from_storage_internal(
+                    &tmp,
+                    dst,
+                    frames_read as usize,
+                    channels as usize,
+                )?;
+
+                Ok(frames_read as usize)
+            }
+        }
+    }
+
     pub fn ma_decoder_read_pcm_frames<F: PcmFormat, D: AsDecoderPtr + ?Sized>(
         decoder: &mut D,
         frame_count: u64,
-    ) -> MaResult<(SampleBuffer<<F as PcmFormat>::PcmUnit>, u64)> {
-        let mut buffer =
-            <F as PcmFormatInternal>::new_zeroed_internal(frame_count, decoder.channels())?;
-        let frames_read =
-            ma_decoder_read_pcm_frames_internal(decoder, frame_count, buffer.as_mut_ptr())?;
-        F::truncate_to_frames_read_internal(&mut buffer, frames_read)?;
-        let buffer = F::storage_to_pcm_internal(buffer)?;
-        Ok((buffer, frames_read))
+    ) -> MaResult<SampleBuffer<F>> {
+        let mut buffer = SampleBuffer::<F>::new_zeroed(frame_count as usize, decoder.channels())?;
+
+        let frames_read = ma_decoder_read_pcm_frames_internal(
+            decoder,
+            frame_count,
+            buffer.as_mut_ptr() as *mut core::ffi::c_void,
+        )?;
+
+        SampleBuffer::<F>::from_storage(buffer, frames_read as usize, decoder.channels())
     }
 
     #[inline]

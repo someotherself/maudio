@@ -1,5 +1,5 @@
 use crate::pcm_frames::private_pcm::PcmInterface;
-use crate::{audio::formats::SampleBuffer, ErrorKinds, MaResult, MaudioError};
+use crate::{ErrorKinds, MaResult, MaudioError};
 
 /// The native miniaudio signed 24 bit format represented as 3 bytes packed.
 #[derive(Clone, Copy)]
@@ -9,7 +9,7 @@ pub struct S24Packed {}
 #[derive(Clone, Copy)]
 pub struct S24 {}
 
-/// Handles interleaved frames only
+/// Handles interleaved frames only. Not used
 fn get_len(frames: u64, channels: u32, storage_units: usize) -> MaResult<usize> {
     let len = frames
         .checked_mul(channels as u64)
@@ -38,7 +38,7 @@ fn get_len(frames: u64, channels: u32, storage_units: usize) -> MaResult<usize> 
     Ok(len)
 }
 
-/// Handles interleaved frames only
+/// Handles interleaved frames only.
 fn pcm_i32_to_u8(src: &[i32], frames: usize, channels: usize) -> MaResult<Vec<u8>> {
     // lenght read from src needs to be adjusted to the number of channels
     let len = frames
@@ -76,35 +76,9 @@ fn pcm_i32_to_u8(src: &[i32], frames: usize, channels: usize) -> MaResult<Vec<u8
 }
 
 pub(crate) trait PcmFormatInternal: PcmFormat {
-    fn new_zeroed_internal(
-        frames: u64,
-        channels: u32,
-    ) -> MaResult<SampleBuffer<Self::StorageUnit>> {
-        <Self as PcmFormat>::__PcmFramesProvider::new_zeroed::<Self>(frames, channels)
-    }
-
-    fn truncate_to_frames_read_internal(
-        storage: &mut SampleBuffer<Self::StorageUnit>,
-        frames_read: u64,
-    ) -> MaResult<()> {
-        <Self as PcmFormat>::__PcmFramesProvider::truncate_to_frames_read::<Self>(
-            storage,
-            frames_read,
-        )
-    }
-
     // Used after a read_from_pcm
-    fn storage_to_pcm_internal(
-        storage: SampleBuffer<Self::StorageUnit>,
-    ) -> MaResult<SampleBuffer<Self::PcmUnit>> {
+    fn storage_to_pcm_internal(storage: Vec<Self::StorageUnit>) -> MaResult<Vec<Self::PcmUnit>> {
         <Self as PcmFormat>::__PcmFramesProvider::storage_to_pcm(storage)
-    }
-
-    // TODO: Not used. Remove?
-    fn pcm_to_storage_internal(
-        pcm: SampleBuffer<Self::PcmUnit>,
-    ) -> MaResult<SampleBuffer<Self::StorageUnit>> {
-        <Self as PcmFormat>::__PcmFramesProvider::pcm_to_storage(pcm)
     }
 
     /// Available capacity is the number of frames we can read.
@@ -172,25 +146,13 @@ impl<T: PcmFormat> PcmFormatInternal for T {}
 
 pub(crate) mod private_pcm {
     use crate::{
-        audio::formats::SampleBuffer,
-        pcm_frames::{get_len, pcm_i32_to_u8, PcmFormat, S24Packed, S24},
+        pcm_frames::{pcm_i32_to_u8, PcmFormat, S24Packed, S24},
         ErrorKinds, MaResult, MaudioError,
     };
 
     pub trait PcmInterface<T: PcmFormat + ?Sized> {
-        fn new_zeroed<F: PcmFormat + ?Sized>(
-            frames: u64,
-            channels: u32,
-        ) -> MaResult<SampleBuffer<T::StorageUnit>>;
-        fn truncate_to_frames_read<F: PcmFormat + ?Sized>(
-            storage: &mut SampleBuffer<F::StorageUnit>,
-            frames_read: u64,
-        ) -> MaResult<()>;
-        // Used after a read_from_pcm
-        fn storage_to_pcm(
-            storage: SampleBuffer<T::StorageUnit>,
-        ) -> MaResult<SampleBuffer<T::PcmUnit>>;
-        fn pcm_to_storage(pcm: SampleBuffer<T::PcmUnit>) -> MaResult<SampleBuffer<T::StorageUnit>>;
+        fn storage_to_pcm(storage: Vec<T::StorageUnit>) -> MaResult<Vec<T::PcmUnit>>;
+        // ) -> MaResult<SampleBuffer<F>>;
         fn write_to_storage(
             dst: &mut [T::StorageUnit],
             src: &[T::PcmUnit],
@@ -229,34 +191,8 @@ pub(crate) mod private_pcm {
     pub struct PcmF32Provider;
 
     impl PcmInterface<u8> for PcmU8Provider {
-        fn new_zeroed<F: PcmFormat + ?Sized>(
-            frames: u64,
-            channels: u32,
-        ) -> MaResult<SampleBuffer<u8>> {
-            let len = get_len(frames, channels, F::VEC_STORE_UNITS_PER_FRAME)?;
-            let data = vec![0u8; len];
-            Ok(SampleBuffer::new(data, channels))
-        }
-
-        fn truncate_to_frames_read<F: PcmFormat + ?Sized>(
-            storage: &mut SampleBuffer<F::StorageUnit>,
-            frames_read: u64,
-        ) -> MaResult<()> {
-            let len = get_len(
-                frames_read,
-                storage.channels(),
-                F::VEC_STORE_UNITS_PER_FRAME,
-            )?;
-            storage.truncate(len);
-            Ok(())
-        }
-
-        fn storage_to_pcm(storage: SampleBuffer<u8>) -> MaResult<SampleBuffer<u8>> {
+        fn storage_to_pcm(storage: Vec<u8>) -> MaResult<Vec<u8>> {
             Ok(storage)
-        }
-
-        fn pcm_to_storage(pcm: SampleBuffer<u8>) -> MaResult<SampleBuffer<u8>> {
-            Ok(pcm)
         }
 
         fn write_to_storage(
@@ -363,34 +299,8 @@ pub(crate) mod private_pcm {
     }
 
     impl PcmInterface<i16> for PcmI16Provider {
-        fn new_zeroed<F: PcmFormat + ?Sized>(
-            frames: u64,
-            channels: u32,
-        ) -> MaResult<SampleBuffer<i16>> {
-            let len = get_len(frames, channels, F::VEC_STORE_UNITS_PER_FRAME)?;
-            let data = vec![0i16; len];
-            Ok(SampleBuffer::new(data, channels))
-        }
-
-        fn truncate_to_frames_read<F: PcmFormat + ?Sized>(
-            storage: &mut SampleBuffer<F::StorageUnit>,
-            frames_read: u64,
-        ) -> MaResult<()> {
-            let len = get_len(
-                frames_read,
-                storage.channels(),
-                F::VEC_STORE_UNITS_PER_FRAME,
-            )?;
-            storage.truncate(len);
-            Ok(())
-        }
-
-        fn storage_to_pcm(storage: SampleBuffer<i16>) -> MaResult<SampleBuffer<i16>> {
+        fn storage_to_pcm(storage: Vec<i16>) -> MaResult<Vec<i16>> {
             Ok(storage)
-        }
-
-        fn pcm_to_storage(pcm: SampleBuffer<i16>) -> MaResult<SampleBuffer<i16>> {
-            Ok(pcm)
         }
 
         fn write_to_storage(
@@ -498,29 +408,7 @@ pub(crate) mod private_pcm {
     }
 
     impl PcmInterface<S24> for PcmS24Provider {
-        fn new_zeroed<F: PcmFormat + ?Sized>(
-            frames: u64,
-            channels: u32,
-        ) -> MaResult<SampleBuffer<u8>> {
-            let len = get_len(frames, channels, F::VEC_STORE_UNITS_PER_FRAME)?;
-            let data = vec![0u8; len];
-            Ok(SampleBuffer::new(data, channels))
-        }
-
-        fn truncate_to_frames_read<F: PcmFormat + ?Sized>(
-            storage: &mut SampleBuffer<F::StorageUnit>,
-            frames_read: u64,
-        ) -> MaResult<()> {
-            let len = get_len(
-                frames_read,
-                storage.channels(),
-                F::VEC_STORE_UNITS_PER_FRAME,
-            )?;
-            storage.truncate(len);
-            Ok(())
-        }
-
-        fn storage_to_pcm(storage: SampleBuffer<u8>) -> MaResult<SampleBuffer<i32>> {
+        fn storage_to_pcm(storage: Vec<u8>) -> MaResult<Vec<i32>> {
             let total_items = storage.as_slice().len();
 
             debug_assert!(total_items % 3 == 0);
@@ -541,13 +429,7 @@ pub(crate) mod private_pcm {
                     (v << 8) >> 8
                 })
                 .collect();
-            Ok(SampleBuffer::new(data, storage.channels()))
-        }
-
-        fn pcm_to_storage(pcm: SampleBuffer<i32>) -> MaResult<SampleBuffer<u8>> {
-            let total_samples = pcm.len_samples();
-            let data = pcm_i32_to_u8(&pcm.data, total_samples, pcm.channels() as usize)?;
-            Ok(SampleBuffer::new(data, pcm.channels()))
+            Ok(data)
         }
 
         fn write_to_storage(
@@ -556,11 +438,7 @@ pub(crate) mod private_pcm {
             avail_capacity: usize,
             channels: usize,
         ) -> MaResult<usize> {
-            // Case 1: src: &[i32] and dst: &mut [u8]
-            // 1 pcm frame in i32 (1 item in a &[i32]) == 1 pcm frame in u8 (but 3 items in a &[u8])
-            // capacity_items == dst.len() / 3;
             let data = pcm_i32_to_u8(src, avail_capacity, channels)?;
-            // data.len() == avail_capacity * 3
             let len = data.len();
             dst[..len].copy_from_slice(&data[..len]);
             Ok(len)
@@ -718,34 +596,8 @@ pub(crate) mod private_pcm {
     }
 
     impl PcmInterface<S24Packed> for PcmS24PackedProvider {
-        fn new_zeroed<F: PcmFormat + ?Sized>(
-            frames: u64,
-            channels: u32,
-        ) -> MaResult<SampleBuffer<u8>> {
-            let len = get_len(frames, channels, F::VEC_STORE_UNITS_PER_FRAME)?;
-            let data = vec![0u8; len];
-            Ok(SampleBuffer::new(data, channels))
-        }
-
-        fn truncate_to_frames_read<F: PcmFormat + ?Sized>(
-            storage: &mut SampleBuffer<F::StorageUnit>,
-            frames_read: u64,
-        ) -> MaResult<()> {
-            let len = get_len(
-                frames_read,
-                storage.channels(),
-                F::VEC_STORE_UNITS_PER_FRAME,
-            )?;
-            storage.truncate(len);
-            Ok(())
-        }
-
-        fn storage_to_pcm(storage: SampleBuffer<u8>) -> MaResult<SampleBuffer<u8>> {
+        fn storage_to_pcm(storage: Vec<u8>) -> MaResult<Vec<u8>> {
             Ok(storage)
-        }
-
-        fn pcm_to_storage(pcm: SampleBuffer<u8>) -> MaResult<SampleBuffer<u8>> {
-            Ok(pcm)
         }
 
         fn write_to_storage(
@@ -884,34 +736,8 @@ pub(crate) mod private_pcm {
     }
 
     impl PcmInterface<i32> for PcmI32Provider {
-        fn new_zeroed<F: PcmFormat + ?Sized>(
-            frames: u64,
-            channels: u32,
-        ) -> MaResult<SampleBuffer<i32>> {
-            let len = get_len(frames, channels, F::VEC_STORE_UNITS_PER_FRAME)?;
-            let data = vec![0i32; len];
-            Ok(SampleBuffer::new(data, channels))
-        }
-
-        fn truncate_to_frames_read<F: PcmFormat + ?Sized>(
-            storage: &mut SampleBuffer<F::StorageUnit>,
-            frames_read: u64,
-        ) -> MaResult<()> {
-            let len = get_len(
-                frames_read,
-                storage.channels(),
-                F::VEC_STORE_UNITS_PER_FRAME,
-            )?;
-            storage.truncate(len);
-            Ok(())
-        }
-
-        fn storage_to_pcm(storage: SampleBuffer<i32>) -> MaResult<SampleBuffer<i32>> {
+        fn storage_to_pcm(storage: Vec<i32>) -> MaResult<Vec<i32>> {
             Ok(storage)
-        }
-
-        fn pcm_to_storage(pcm: SampleBuffer<i32>) -> MaResult<SampleBuffer<i32>> {
-            Ok(pcm)
         }
 
         fn write_to_storage(
@@ -1017,34 +843,8 @@ pub(crate) mod private_pcm {
     }
 
     impl PcmInterface<f32> for PcmF32Provider {
-        fn new_zeroed<F: PcmFormat + ?Sized>(
-            frames: u64,
-            channels: u32,
-        ) -> MaResult<SampleBuffer<f32>> {
-            let len = get_len(frames, channels, F::VEC_STORE_UNITS_PER_FRAME)?;
-            let data = vec![0f32; len];
-            Ok(SampleBuffer::new(data, channels))
-        }
-
-        fn truncate_to_frames_read<F: PcmFormat + ?Sized>(
-            storage: &mut SampleBuffer<F::StorageUnit>,
-            frames_read: u64,
-        ) -> MaResult<()> {
-            let len = get_len(
-                frames_read,
-                storage.channels(),
-                F::VEC_STORE_UNITS_PER_FRAME,
-            )?;
-            storage.truncate(len);
-            Ok(())
-        }
-
-        fn storage_to_pcm(storage: SampleBuffer<f32>) -> MaResult<SampleBuffer<f32>> {
+        fn storage_to_pcm(storage: Vec<f32>) -> MaResult<Vec<f32>> {
             Ok(storage)
-        }
-
-        fn pcm_to_storage(pcm: SampleBuffer<f32>) -> MaResult<SampleBuffer<f32>> {
-            Ok(pcm)
         }
 
         fn write_to_storage(
@@ -1165,6 +965,8 @@ pub trait PcmFormat {
     const VEC_STORE_UNITS_PER_FRAME: usize;
     /// How many items each PcmUnit takes in a buffer (example: S24Packed: 1, S24: 3, u8: 1)
     const VEC_PCM_UNITS_PER_FRAME: usize;
+    /// Used for simple logic only, when we don't want to call the PcmInterface trait
+    const DIRECT_READ: bool;
 }
 
 impl PcmFormat for u8 {
@@ -1175,6 +977,7 @@ impl PcmFormat for u8 {
     const BYTES_PER_STORAGE_UNIT: usize = size_of::<Self::StorageUnit>();
     const VEC_STORE_UNITS_PER_FRAME: usize = 1;
     const VEC_PCM_UNITS_PER_FRAME: usize = 1;
+    const DIRECT_READ: bool = false;
 }
 
 impl PcmFormat for i16 {
@@ -1185,6 +988,7 @@ impl PcmFormat for i16 {
     const BYTES_PER_STORAGE_UNIT: usize = size_of::<Self::StorageUnit>();
     const VEC_STORE_UNITS_PER_FRAME: usize = 1;
     const VEC_PCM_UNITS_PER_FRAME: usize = 1;
+    const DIRECT_READ: bool = false;
 }
 
 impl PcmFormat for S24Packed {
@@ -1195,6 +999,7 @@ impl PcmFormat for S24Packed {
     const BYTES_PER_STORAGE_UNIT: usize = size_of::<Self::StorageUnit>() * 3;
     const VEC_STORE_UNITS_PER_FRAME: usize = 3;
     const VEC_PCM_UNITS_PER_FRAME: usize = 3;
+    const DIRECT_READ: bool = false;
 }
 
 impl PcmFormat for S24 {
@@ -1205,6 +1010,7 @@ impl PcmFormat for S24 {
     const BYTES_PER_STORAGE_UNIT: usize = size_of::<Self::StorageUnit>() * 3;
     const VEC_STORE_UNITS_PER_FRAME: usize = 3;
     const VEC_PCM_UNITS_PER_FRAME: usize = 1;
+    const DIRECT_READ: bool = true;
 }
 
 impl PcmFormat for i32 {
@@ -1215,6 +1021,7 @@ impl PcmFormat for i32 {
     const BYTES_PER_STORAGE_UNIT: usize = size_of::<Self::StorageUnit>();
     const VEC_STORE_UNITS_PER_FRAME: usize = 1;
     const VEC_PCM_UNITS_PER_FRAME: usize = 1;
+    const DIRECT_READ: bool = false;
 }
 
 impl PcmFormat for f32 {
@@ -1224,4 +1031,5 @@ impl PcmFormat for f32 {
     const BYTES_PER_STORAGE_UNIT: usize = size_of::<Self::StorageUnit>();
     const VEC_STORE_UNITS_PER_FRAME: usize = 1;
     const VEC_PCM_UNITS_PER_FRAME: usize = 1;
+    const DIRECT_READ: bool = false;
 }
