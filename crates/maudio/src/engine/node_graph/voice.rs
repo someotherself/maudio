@@ -5,8 +5,8 @@
 use crate::{
     audio::sample_rate::SampleRate,
     data_source::sources::{
-        pulsewave::{PulseWaveBuilder, PulseWaveF32},
-        waveform::{WaveFormBuilder, WaveFormF32},
+        pulsewave::{PulseWave, PulseWaveBuilder},
+        waveform::{WaveForm, WaveFormBuilder},
     },
     engine::node_graph::{
         nodes::{
@@ -34,8 +34,8 @@ pub struct VoiceStack<'g> {
     // Primary way
     pub output: NodeRef<'g>, // 'g is borrowed from the node_graph
     pub mix: SplitterNode<'g>,
-    pub wave_nodes: Vec<AttachedSourceNode<'g, WaveFormF32>>, // engine and node graps are implicitly at f32
-    pub pulse_nodes: Vec<AttachedSourceNode<'g, PulseWaveF32>>,
+    pub wave_nodes: Vec<AttachedSourceNode<'g, WaveForm<f32>>>, // engine and node graps are implicitly at f32
+    pub pulse_nodes: Vec<AttachedSourceNode<'g, PulseWave<f32>>>,
     pub sounds: Vec<Sound<'g>>,
     state: VoiceState,
 }

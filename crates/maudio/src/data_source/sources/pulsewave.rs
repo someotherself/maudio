@@ -7,19 +7,19 @@
 //! The generator can be controlled at runtime via [`PulseWaveOps`] (amplitude,
 //! frequency, duty cycle, and sample rate) and can be seeked like any other
 //! source.
-use std::mem::MaybeUninit;
+use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;
 
 use crate::{
-    audio::{formats::Format, sample_rate::SampleRate},
+    audio::{
+        formats::{Format, SampleBuffer},
+        sample_rate::SampleRate,
+    },
     data_source::{private_data_source, AsSourcePtr, DataSourceRef},
+    pcm_frames::{PcmFormat, S24Packed, S24},
     Binding, MaResult,
 };
-
-pub(crate) struct PulseWaveInner {
-    ptr: *mut sys::ma_pulsewave,
-}
 
 #[derive(Debug)]
 pub(crate) struct PulseWaveState {
@@ -30,11 +30,30 @@ pub(crate) struct PulseWaveState {
     duty_cycle: f64,
 }
 
-/// Allows all PulseWave types to access the same methods
+pub struct PulseWave<F: PcmFormat> {
+    inner: *mut sys::ma_pulsewave,
+    format: Format,
+    state: PulseWaveState,
+    _sample_format: PhantomData<F>,
+}
+
+#[doc(hidden)]
+impl<F: PcmFormat> AsSourcePtr for PulseWave<F> {
+    type __PtrProvider = private_data_source::PulseWaveProvider;
+}
+
 pub trait AsPulseWavePtr {
     #[doc(hidden)]
     type __PtrProvider: private_pulsew::PulseWavePtrProvider<Self>;
     fn channels(&self) -> u32;
+}
+
+impl<F: PcmFormat> AsPulseWavePtr for PulseWave<F> {
+    type __PtrProvider = private_pulsew::PulseWaveProvider;
+
+    fn channels(&self) -> u32 {
+        self.state.channels
+    }
 }
 
 mod private_pulsew {
@@ -45,39 +64,11 @@ mod private_pulsew {
         fn as_pulsewave_ptr(t: &T) -> *mut sys::ma_pulsewave;
     }
 
-    pub struct PulseWaveU8Provider;
-    pub struct PulseWaveI16Provider;
-    pub struct PulseWaveI32Provider;
-    pub struct PulseWaveS24Provider;
-    pub struct PulseWaveF32Provider;
+    pub struct PulseWaveProvider;
 
-    impl PulseWavePtrProvider<PulseWaveU8> for PulseWaveU8Provider {
-        fn as_pulsewave_ptr(t: &PulseWaveU8) -> *mut sys::ma_pulsewave {
-            t.inner.ptr
-        }
-    }
-
-    impl PulseWavePtrProvider<PulseWaveI16> for PulseWaveI16Provider {
-        fn as_pulsewave_ptr(t: &PulseWaveI16) -> *mut sys::ma_pulsewave {
-            t.inner.ptr
-        }
-    }
-
-    impl PulseWavePtrProvider<PulseWaveI32> for PulseWaveI32Provider {
-        fn as_pulsewave_ptr(t: &PulseWaveI32) -> *mut sys::ma_pulsewave {
-            t.inner.ptr
-        }
-    }
-
-    impl PulseWavePtrProvider<PulseWaveS24> for PulseWaveS24Provider {
-        fn as_pulsewave_ptr(t: &PulseWaveS24) -> *mut sys::ma_pulsewave {
-            t.inner.ptr
-        }
-    }
-
-    impl PulseWavePtrProvider<PulseWaveF32> for PulseWaveF32Provider {
-        fn as_pulsewave_ptr(t: &PulseWaveF32) -> *mut sys::ma_pulsewave {
-            t.inner.ptr
+    impl<F: PcmFormat> PulseWavePtrProvider<PulseWave<F>> for PulseWaveProvider {
+        fn as_pulsewave_ptr(t: &PulseWave<F>) -> *mut sys::ma_pulsewave {
+            t.inner
         }
     }
 
@@ -86,139 +77,25 @@ mod private_pulsew {
     }
 }
 
-/// Pulse wave generator producing [`Format::U8`] samples.
-pub struct PulseWaveU8 {
-    inner: PulseWaveInner,
-    format: Format,
-    state: PulseWaveState,
+impl<F: PcmFormat> PulseWaveOps for PulseWave<F> {
+    type Format = F;
 }
-
-impl AsPulseWavePtr for PulseWaveU8 {
-    #[doc(hidden)]
-    type __PtrProvider = private_pulsew::PulseWaveU8Provider;
-    fn channels(&self) -> u32 {
-        self.state.channels
-    }
-}
-
-#[doc(hidden)]
-impl AsSourcePtr for PulseWaveU8 {
-    type __PtrProvider = private_data_source::PulseWaveU8Provider;
-}
-
-impl PulseWaveU8 {
-    pub fn read_pcm_frames(&mut self, frame_count: u64) -> MaResult<(Vec<u8>, u64)> {
-        pulsewave_ffi::ma_pulsewave_read_pcm_frames_u8(self, frame_count)
-    }
-}
-
-/// Pulse wave generator producing [`Format::S16`] samples.
-pub struct PulseWaveI16 {
-    inner: PulseWaveInner,
-    format: Format,
-    state: PulseWaveState,
-}
-impl AsPulseWavePtr for PulseWaveI16 {
-    #[doc(hidden)]
-    type __PtrProvider = private_pulsew::PulseWaveI16Provider;
-    fn channels(&self) -> u32 {
-        self.state.channels
-    }
-}
-
-#[doc(hidden)]
-impl AsSourcePtr for PulseWaveI16 {
-    type __PtrProvider = private_data_source::PulseWaveI16Provider;
-}
-
-impl PulseWaveI16 {
-    pub fn read_pcm_frames(&mut self, frame_count: u64) -> MaResult<(Vec<i16>, u64)> {
-        pulsewave_ffi::ma_pulsewave_read_pcm_frames_i16(self, frame_count)
-    }
-}
-
-/// Pulse wave generator producing [`Format::S32`] samples.
-pub struct PulseWaveI32 {
-    inner: PulseWaveInner,
-    format: Format,
-    state: PulseWaveState,
-}
-impl AsPulseWavePtr for PulseWaveI32 {
-    #[doc(hidden)]
-    type __PtrProvider = private_pulsew::PulseWaveI32Provider;
-    fn channels(&self) -> u32 {
-        self.state.channels
-    }
-}
-
-#[doc(hidden)]
-impl AsSourcePtr for PulseWaveI32 {
-    type __PtrProvider = private_data_source::PulseWaveI32Provider;
-}
-
-impl PulseWaveI32 {
-    pub fn read_pcm_frames(&mut self, frame_count: u64) -> MaResult<(Vec<i32>, u64)> {
-        pulsewave_ffi::ma_pulsewave_read_pcm_frames_i32(self, frame_count)
-    }
-}
-
-/// Pulse wave generator producing [`Format::S24`] samples.
-pub struct PulseWaveS24 {
-    inner: PulseWaveInner,
-    format: Format,
-    state: PulseWaveState,
-}
-
-#[doc(hidden)]
-impl AsPulseWavePtr for PulseWaveS24 {
-    #[doc(hidden)]
-    type __PtrProvider = private_pulsew::PulseWaveS24Provider;
-    fn channels(&self) -> u32 {
-        self.state.channels
-    }
-}
-
-#[doc(hidden)]
-impl AsSourcePtr for PulseWaveS24 {
-    type __PtrProvider = private_data_source::PulseWaveS24Provider;
-}
-
-impl PulseWaveS24 {
-    pub fn read_pcm_frames(&mut self, frame_count: u64) -> MaResult<(Vec<u8>, u64)> {
-        pulsewave_ffi::ma_pulsewave_read_pcm_frames_s24(self, frame_count)
-    }
-}
-
-/// Pulse wave generator producing [`Format::F32`] samples.
-pub struct PulseWaveF32 {
-    inner: PulseWaveInner,
-    format: Format,
-    state: PulseWaveState,
-}
-
-impl AsPulseWavePtr for PulseWaveF32 {
-    #[doc(hidden)]
-    type __PtrProvider = private_pulsew::PulseWaveF32Provider;
-    fn channels(&self) -> u32 {
-        self.state.channels
-    }
-}
-
-#[doc(hidden)]
-impl AsSourcePtr for PulseWaveF32 {
-    type __PtrProvider = private_data_source::PulseWaveF32Provider;
-}
-
-impl PulseWaveF32 {
-    pub fn read_pcm_frames(&mut self, frame_count: u64) -> MaResult<(Vec<f32>, u64)> {
-        pulsewave_ffi::ma_pulsewave_read_pcm_frames_f32(self, frame_count)
-    }
-}
-
-impl<T: AsPulseWavePtr + AsSourcePtr + ?Sized> PulseWaveOps for T {}
 
 /// The PulseWaveOps trait contains shared methods for all PulseWave types for each data format.
 pub trait PulseWaveOps: AsPulseWavePtr + AsSourcePtr {
+    type Format: PcmFormat;
+
+    fn read_pcm_frames_into(
+        &mut self,
+        dst: &mut [<Self::Format as PcmFormat>::PcmUnit],
+    ) -> MaResult<usize> {
+        pulsewave_ffi::ma_pulsewave_read_pcm_frames_into::<Self::Format, Self>(self, dst)
+    }
+
+    fn read_pcm_frames(&mut self, frames: u64) -> MaResult<SampleBuffer<Self::Format>> {
+        pulsewave_ffi::ma_pulsewave_read_pcm_frames(self, frames)
+    }
+
     fn seek_to_pcm_frame(&mut self, frame_index: u64) -> MaResult<()> {
         pulsewave_ffi::ma_pulsewave_seek_to_pcm_frame(self, frame_index)
     }
@@ -250,10 +127,9 @@ pub(crate) mod pulsewave_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        audio::sample_rate::SampleRate,
-        data_source::sources::pulsewave::{
-            private_pulsew, AsPulseWavePtr, PulseWaveBuilder, PulseWaveInner,
-        },
+        audio::{formats::SampleBuffer, sample_rate::SampleRate},
+        data_source::sources::pulsewave::{private_pulsew, AsPulseWavePtr, PulseWaveBuilder},
+        pcm_frames::{PcmFormat, PcmFormatInternal},
         Binding, MaResult, MaudioError,
     };
 
@@ -268,81 +144,72 @@ pub(crate) mod pulsewave_ffi {
     }
 
     #[inline]
-    pub fn ma_pulsewave_uninit(pulsewave: &mut PulseWaveInner) {
-        unsafe { sys::ma_pulsewave_uninit(pulsewave.ptr) }
+    pub fn ma_pulsewave_uninit<W: AsPulseWavePtr + ?Sized>(pulsewave: &mut W) {
+        unsafe { sys::ma_pulsewave_uninit(private_pulsew::pulsewave_ptr(pulsewave)) }
     }
 
-    pub fn ma_pulsewave_read_pcm_frames_u8<W: AsPulseWavePtr + ?Sized>(
+    pub fn ma_pulsewave_read_pcm_frames_into<F: PcmFormat, W: AsPulseWavePtr + ?Sized>(
+        pw: &mut W,
+        dst: &mut [F::PcmUnit],
+    ) -> MaResult<usize> {
+        let channels = pw.channels();
+        if channels == 0 {
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
+        }
+
+        let frame_count = (dst.len() / channels as usize / F::VEC_PCM_UNITS_PER_FRAME) as u64;
+
+        match F::DIRECT_READ {
+            true => {
+                let frames_read = ma_pulsewave_read_pcm_frames_internal(
+                    pw,
+                    frame_count,
+                    dst.as_mut_ptr() as *mut core::ffi::c_void,
+                )?;
+                Ok(frames_read as usize)
+            }
+            false => {
+                let tmp_len = SampleBuffer::<F>::required_len(
+                    frame_count as usize,
+                    channels,
+                    F::VEC_STORE_UNITS_PER_FRAME,
+                )?;
+
+                let mut tmp = vec![F::StorageUnit::default(); tmp_len];
+                let frames_read = ma_pulsewave_read_pcm_frames_internal(
+                    pw,
+                    frame_count,
+                    tmp.as_mut_ptr() as *mut core::ffi::c_void,
+                )?;
+
+                let _ = <F as PcmFormatInternal>::read_from_storage_internal(
+                    &tmp,
+                    dst,
+                    frames_read as usize,
+                    channels as usize,
+                )?;
+
+                Ok(frames_read as usize)
+            }
+        }
+    }
+
+    pub fn ma_pulsewave_read_pcm_frames<F: PcmFormat, W: AsPulseWavePtr + ?Sized>(
         pw: &mut W,
         frame_count: u64,
-    ) -> MaResult<(Vec<u8>, u64)> {
-        let mut buffer = vec![0u8; (frame_count * pw.channels() as u64) as usize];
+    ) -> MaResult<SampleBuffer<F>> {
+        let mut buffer = SampleBuffer::<F>::new_zeroed(frame_count as usize, pw.channels())?;
+
         let frames_read = ma_pulsewave_read_pcm_frames_internal(
             pw,
             frame_count,
             buffer.as_mut_ptr() as *mut core::ffi::c_void,
         )?;
-        buffer.truncate((frames_read * pw.channels() as u64) as usize);
-        Ok((buffer, frames_read))
+
+        SampleBuffer::<F>::from_storage(buffer, frames_read as usize, pw.channels())
     }
 
-    pub fn ma_pulsewave_read_pcm_frames_i16<W: AsPulseWavePtr + ?Sized>(
-        pw: &mut W,
-        frame_count: u64,
-    ) -> MaResult<(Vec<i16>, u64)> {
-        let mut buffer = vec![0i16; (frame_count * pw.channels() as u64) as usize];
-        let frames_read = ma_pulsewave_read_pcm_frames_internal(
-            pw,
-            frame_count,
-            buffer.as_mut_ptr() as *mut core::ffi::c_void,
-        )?;
-        buffer.truncate((frames_read * pw.channels() as u64) as usize);
-        Ok((buffer, frames_read))
-    }
-
-    pub fn ma_pulsewave_read_pcm_frames_i32<W: AsPulseWavePtr + ?Sized>(
-        pw: &mut W,
-        frame_count: u64,
-    ) -> MaResult<(Vec<i32>, u64)> {
-        let mut buffer = vec![0i32; (frame_count * pw.channels() as u64) as usize];
-        let frames_read = ma_pulsewave_read_pcm_frames_internal(
-            pw,
-            frame_count,
-            buffer.as_mut_ptr() as *mut core::ffi::c_void,
-        )?;
-        buffer.truncate((frames_read * pw.channels() as u64) as usize);
-        Ok((buffer, frames_read))
-    }
-
-    pub fn ma_pulsewave_read_pcm_frames_s24<W: AsPulseWavePtr + ?Sized>(
-        pw: &mut W,
-        frame_count: u64,
-    ) -> MaResult<(Vec<u8>, u64)> {
-        let mut buffer = vec![0u8; (frame_count * pw.channels() as u64 * 3) as usize];
-        let frames_read = ma_pulsewave_read_pcm_frames_internal(
-            pw,
-            frame_count,
-            buffer.as_mut_ptr() as *mut core::ffi::c_void,
-        )?;
-        buffer.truncate((frames_read * pw.channels() as u64 * 3) as usize);
-        Ok((buffer, frames_read))
-    }
-
-    pub fn ma_pulsewave_read_pcm_frames_f32<W: AsPulseWavePtr + ?Sized>(
-        pw: &mut W,
-        frame_count: u64,
-    ) -> MaResult<(Vec<f32>, u64)> {
-        let mut buffer = vec![0.0f32; (frame_count * pw.channels() as u64) as usize];
-        let frames_read = ma_pulsewave_read_pcm_frames_internal(
-            pw,
-            frame_count,
-            buffer.as_mut_ptr() as *mut core::ffi::c_void,
-        )?;
-        buffer.truncate((frames_read * pw.channels() as u64) as usize);
-        Ok((buffer, frames_read))
-    }
-
-    pub fn ma_pulsewave_read_pcm_frames_internal<W: AsPulseWavePtr + ?Sized>(
+    fn ma_pulsewave_read_pcm_frames_internal<W: AsPulseWavePtr + ?Sized>(
         pw: &mut W,
         frame_count: u64,
         buffer: *mut core::ffi::c_void,
@@ -416,10 +283,10 @@ pub(crate) mod pulsewave_ffi {
     }
 }
 
-impl Drop for PulseWaveInner {
+impl<F: PcmFormat> Drop for PulseWave<F> {
     fn drop(&mut self) {
         pulsewave_ffi::ma_pulsewave_uninit(self);
-        drop(unsafe { Box::from_raw(self.ptr) })
+        drop(unsafe { Box::from_raw(self.inner) })
     }
 }
 
@@ -499,102 +366,101 @@ impl PulseWaveBuilder {
         self
     }
 
-    pub fn build_u8(&mut self) -> MaResult<PulseWaveU8> {
+    pub fn build_u8(&mut self) -> MaResult<PulseWave<u8>> {
         self.inner.format = Format::U8.into();
 
         let inner = self.new_inner()?;
-        let state = PulseWaveState {
-            channels: self.channels,
-            sample_rate: self.sample_rate,
-            amplitude: self.amplitude,
-            frequency: self.frequency,
-            duty_cycle: self.duty_cycle,
-        };
+        let state = self.new_state();
 
-        Ok(PulseWaveU8 {
+        Ok(PulseWave {
             inner,
             format: Format::U8,
             state,
+            _sample_format: PhantomData,
         })
     }
 
-    pub fn build_i16(&mut self) -> MaResult<PulseWaveI16> {
+    pub fn build_i16(&mut self) -> MaResult<PulseWave<i16>> {
         self.inner.format = Format::S16.into();
 
         let inner = self.new_inner()?;
-        let state = PulseWaveState {
-            channels: self.channels,
-            sample_rate: self.sample_rate,
-            amplitude: self.amplitude,
-            frequency: self.frequency,
-            duty_cycle: self.duty_cycle,
-        };
+        let state = self.new_state();
 
-        Ok(PulseWaveI16 {
+        Ok(PulseWave {
             inner,
             format: Format::S16,
             state,
+            _sample_format: PhantomData,
         })
     }
 
-    pub fn build_i32(&mut self) -> MaResult<PulseWaveI32> {
+    pub fn build_i32(&mut self) -> MaResult<PulseWave<i32>> {
         self.inner.format = Format::S32.into();
 
         let inner = self.new_inner()?;
-        let state = PulseWaveState {
-            channels: self.channels,
-            sample_rate: self.sample_rate,
-            amplitude: self.amplitude,
-            frequency: self.frequency,
-            duty_cycle: self.duty_cycle,
-        };
+        let state = self.new_state();
 
-        Ok(PulseWaveI32 {
+        Ok(PulseWave {
             inner,
             format: Format::S32,
             state,
+            _sample_format: PhantomData,
         })
     }
 
-    pub fn build_s24(&mut self) -> MaResult<PulseWaveS24> {
+    pub fn build_s24(&mut self) -> MaResult<PulseWave<S24>> {
         self.inner.format = Format::S24.into();
 
         let inner = self.new_inner()?;
-        let state = PulseWaveState {
-            channels: self.channels,
-            sample_rate: self.sample_rate,
-            amplitude: self.amplitude,
-            frequency: self.frequency,
-            duty_cycle: self.duty_cycle,
-        };
+        let state = self.new_state();
 
-        Ok(PulseWaveS24 {
+        Ok(PulseWave {
             inner,
             format: Format::S24,
             state,
+            _sample_format: PhantomData,
         })
     }
 
-    pub fn build_f32(&mut self) -> MaResult<PulseWaveF32> {
+    pub fn build_s24_packed(&mut self) -> MaResult<PulseWave<S24Packed>> {
+        self.inner.format = Format::S24.into();
+
+        let inner = self.new_inner()?;
+        let state = self.new_state();
+
+        Ok(PulseWave {
+            inner,
+            format: Format::S24,
+            state,
+            _sample_format: PhantomData,
+        })
+    }
+
+    pub fn build_f32(&mut self) -> MaResult<PulseWave<f32>> {
         self.inner.format = Format::F32.into();
 
         let inner = self.new_inner()?;
-        let state = PulseWaveState {
+        let state = self.new_state();
+
+        Ok(PulseWave {
+            inner,
+            format: Format::F32,
+            state,
+            _sample_format: PhantomData,
+        })
+    }
+
+    fn new_state(&self) -> PulseWaveState {
+        PulseWaveState {
             channels: self.channels,
             sample_rate: self.sample_rate,
             amplitude: self.amplitude,
             frequency: self.frequency,
             duty_cycle: self.duty_cycle,
-        };
-
-        Ok(PulseWaveF32 {
-            inner,
-            format: Format::F32,
-            state,
-        })
+        }
     }
 
-    fn new_inner(&self) -> MaResult<PulseWaveInner> {
+    fn new_inner(&self) -> MaResult<*mut sys::ma_pulsewave> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_pulsewave>> =
             Box::new(MaybeUninit::uninit());
 
@@ -602,7 +468,7 @@ impl PulseWaveBuilder {
 
         let inner: *mut sys::ma_pulsewave = Box::into_raw(mem) as *mut sys::ma_pulsewave;
 
-        Ok(PulseWaveInner { ptr: inner })
+        Ok(inner)
     }
 }
 
@@ -657,7 +523,12 @@ mod test {
         assert_eq!(buf.len(), (frames_read * channels as u64) as usize);
     }
 
-    fn assert_frames_and_len_s24(buf: &[u8], frames_read: u64, channels: u32) {
+    fn assert_frames_and_len_s24(buf: &[i32], frames_read: u64, channels: u32) {
+        assert_eq!(frames_read, FRAMES);
+        assert_eq!(buf.len(), (frames_read * channels as u64) as usize);
+    }
+
+    fn assert_frames_and_len_s24_packed(buf: &[u8], frames_read: u64, channels: u32) {
         assert_eq!(frames_read, FRAMES);
         assert_eq!(buf.len(), (frames_read * channels as u64 * 3) as usize);
     }
@@ -680,22 +551,23 @@ mod test {
             .build_f32()
             .unwrap();
 
-        let (buf, frames_read) = pw.read_pcm_frames(FRAMES).unwrap();
-        assert_frames_and_len_f32(&buf, frames_read, CH);
+        let buf = pw.read_pcm_frames(FRAMES).unwrap();
+        let frames_read = buf.frames() as u64;
+        assert_frames_and_len_f32(buf.as_ref(), frames_read, CH);
 
         assert!(
-            buf.iter().all(|&s| s.is_finite()),
+            buf.as_ref().iter().all(|&s| s.is_finite()),
             "PulseWave produced NaN/Inf samples"
         );
 
-        let max_abs = buf.iter().fold(0.0f32, |m, &s| m.max(s.abs()));
+        let max_abs = buf.as_ref().iter().fold(0.0f32, |m, &s| m.max(s.abs()));
         assert!(
             max_abs > 1.0e-6,
             "PulseWave output looks silent (max_abs={max_abs})"
         );
 
         let mut max_delta = 0.0f32;
-        for w in buf.windows(2) {
+        for w in buf.as_ref().windows(2) {
             let d = (w[1] - w[0]).abs();
             if d > max_delta {
                 max_delta = d;
@@ -708,49 +580,14 @@ mod test {
     }
 
     #[test]
-    #[cfg(debug_assertions)]
-    #[should_panic]
-    fn test_pulsewave_build_mismatch_errors() {
-        // Each build_* should reject mismatched Format with MA_INVALID_ARGS mapped into Err.
-        assert!(
-            PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
-                .build_u8()
-                .is_err()
-        );
-
-        assert!(
-            PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
-                .build_i16()
-                .is_err()
-        );
-
-        assert!(
-            PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
-                .build_i32()
-                .is_err()
-        );
-
-        assert!(
-            PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
-                .build_s24()
-                .is_err()
-        );
-
-        assert!(
-            PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
-                .build_f32()
-                .is_err()
-        );
-    }
-
-    #[test]
     fn test_pulsewave_read_pcm_frames_u8_sizing() {
         let mut pw = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
             .build_u8()
             .unwrap();
 
-        let (buf, frames_read) = pw.read_pcm_frames(FRAMES).unwrap();
-        assert_frames_and_len_u8(&buf, frames_read, CH);
+        let buf = pw.read_pcm_frames(FRAMES).unwrap();
+        let frames_read = buf.frames() as u64;
+        assert_frames_and_len_u8(buf.as_ref(), frames_read, CH);
     }
 
     #[test]
@@ -759,8 +596,9 @@ mod test {
             .build_i16()
             .unwrap();
 
-        let (buf, frames_read) = pw.read_pcm_frames(FRAMES).unwrap();
-        assert_frames_and_len_i16(&buf, frames_read, CH);
+        let buf = pw.read_pcm_frames(FRAMES).unwrap();
+        let frames_read = buf.frames() as u64;
+        assert_frames_and_len_i16(buf.as_ref(), frames_read, CH);
     }
 
     #[test]
@@ -769,8 +607,9 @@ mod test {
             .build_i32()
             .unwrap();
 
-        let (buf, frames_read) = pw.read_pcm_frames(FRAMES).unwrap();
-        assert_frames_and_len_i32(&buf, frames_read, CH);
+        let buf = pw.read_pcm_frames(FRAMES).unwrap();
+        let frames_read = buf.frames() as u64;
+        assert_frames_and_len_i32(buf.as_ref(), frames_read, CH);
     }
 
     #[test]
@@ -779,8 +618,20 @@ mod test {
             .build_s24()
             .unwrap();
 
-        let (buf, frames_read) = pw.read_pcm_frames(FRAMES).unwrap();
-        assert_frames_and_len_s24(&buf, frames_read, CH);
+        let buf = pw.read_pcm_frames(FRAMES).unwrap();
+        let frames_read = buf.frames() as u64;
+        assert_frames_and_len_s24(buf.as_ref(), frames_read, CH);
+    }
+
+    #[test]
+    fn test_pulsewave_read_pcm_frames_s24_packed_sizing() {
+        let mut pw = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
+            .build_s24_packed()
+            .unwrap();
+
+        let buf = pw.read_pcm_frames(FRAMES).unwrap();
+        let frames_read = buf.frames() as u64;
+        assert_frames_and_len_s24_packed(buf.as_ref(), frames_read, CH);
     }
 
     #[test]
@@ -789,8 +640,9 @@ mod test {
             .build_f32()
             .unwrap();
 
-        let (buf, frames_read) = pw.read_pcm_frames(FRAMES).unwrap();
-        assert_frames_and_len_f32(&buf, frames_read, CH);
+        let buf = pw.read_pcm_frames(FRAMES).unwrap();
+        let frames_read = buf.frames() as u64;
+        assert_frames_and_len_f32(buf.as_ref(), frames_read, CH);
     }
 
     #[test]
@@ -800,14 +652,20 @@ mod test {
             .unwrap();
 
         pw.seek_to_pcm_frame(0).unwrap();
-        let (a, fa) = pw.read_pcm_frames(FRAMES).unwrap();
-        assert_frames_and_len_f32(&a, fa, CH);
+        let a = pw.read_pcm_frames(FRAMES).unwrap();
+        let fa = a.frames() as u64;
+        assert_frames_and_len_f32(a.as_ref(), fa, CH);
 
         pw.seek_to_pcm_frame(0).unwrap();
-        let (b, fb) = pw.read_pcm_frames(FRAMES).unwrap();
-        assert_frames_and_len_f32(&b, fb, CH);
+        let b = pw.read_pcm_frames(FRAMES).unwrap();
+        let fb = b.frames() as u64;
+        assert_frames_and_len_f32(b.as_ref(), fb, CH);
 
-        assert_eq!(a, b, "Expected identical output after seek_to_pcm_frame(0)");
+        assert_eq!(
+            a.as_ref(),
+            b.as_ref(),
+            "Expected identical output after seek_to_pcm_frame(0)"
+        );
     }
 
     #[test]
@@ -817,13 +675,17 @@ mod test {
             .unwrap();
 
         pw.seek_to_pcm_frame(0).unwrap();
-        let (a, _) = pw.read_pcm_frames(FRAMES).unwrap();
+        let a = pw.read_pcm_frames(FRAMES).unwrap();
 
         pw.set_frequency(440.0).unwrap();
         pw.seek_to_pcm_frame(0).unwrap();
-        let (b, _) = pw.read_pcm_frames(FRAMES).unwrap();
+        let b = pw.read_pcm_frames(FRAMES).unwrap();
 
-        assert_ne!(a, b, "Changing frequency should change generated samples");
+        assert_ne!(
+            a.as_ref(),
+            b.as_ref(),
+            "Changing frequency should change generated samples"
+        );
     }
 
     #[test]
@@ -834,8 +696,8 @@ mod test {
             .unwrap();
         pw_f32.set_amplitude(0.0).unwrap();
         pw_f32.seek_to_pcm_frame(0).unwrap();
-        let (buf_f32, _) = pw_f32.read_pcm_frames(FRAMES).unwrap();
-        assert!(buf_f32.iter().all(|&s| s == 0.0));
+        let buf_f32 = pw_f32.read_pcm_frames(FRAMES).unwrap();
+        assert!(buf_f32.as_ref().iter().all(|&s| s == 0.0));
 
         // S16 -> expect all zeros
         let mut pw_i16 = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
@@ -843,8 +705,8 @@ mod test {
             .unwrap();
         pw_i16.set_amplitude(0.0).unwrap();
         pw_i16.seek_to_pcm_frame(0).unwrap();
-        let (buf_i16, _) = pw_i16.read_pcm_frames(FRAMES).unwrap();
-        assert!(buf_i16.iter().all(|&s| s == 0));
+        let buf_i16 = pw_i16.read_pcm_frames(FRAMES).unwrap();
+        assert!(buf_i16.as_ref().iter().all(|&s| s == 0));
 
         // S32 -> expect all zeros
         let mut pw_i32 = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
@@ -852,8 +714,8 @@ mod test {
             .unwrap();
         pw_i32.set_amplitude(0.0).unwrap();
         pw_i32.seek_to_pcm_frame(0).unwrap();
-        let (buf_i32, _) = pw_i32.read_pcm_frames(FRAMES).unwrap();
-        assert!(buf_i32.iter().all(|&s| s == 0));
+        let buf_i32 = pw_i32.read_pcm_frames(FRAMES).unwrap();
+        assert!(buf_i32.as_ref().iter().all(|&s| s == 0));
 
         // S24 -> expect all bytes zero
         let mut pw_s24 = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
@@ -861,8 +723,17 @@ mod test {
             .unwrap();
         pw_s24.set_amplitude(0.0).unwrap();
         pw_s24.seek_to_pcm_frame(0).unwrap();
-        let (buf_s24, _) = pw_s24.read_pcm_frames(FRAMES).unwrap();
-        assert!(buf_s24.iter().all(|&b| b == 0));
+        let buf_s24 = pw_s24.read_pcm_frames(FRAMES).unwrap();
+        assert!(buf_s24.as_ref().iter().all(|&b| b == 0));
+
+        // S24 -> expect all bytes zero
+        let mut pw_s24_p = PulseWaveBuilder::new(CH, SampleRate::Sr48000, 1.0, 440.0, 0.5)
+            .build_s24_packed()
+            .unwrap();
+        pw_s24_p.set_amplitude(0.0).unwrap();
+        pw_s24_p.seek_to_pcm_frame(0).unwrap();
+        let buf_s24_p = pw_s24_p.read_pcm_frames(FRAMES).unwrap();
+        assert!(buf_s24_p.as_ref().iter().all(|&b| b == 0));
     }
 
     #[test]
@@ -875,12 +746,12 @@ mod test {
 
         pw.set_amplitude(0.0).unwrap();
         pw.seek_to_pcm_frame(0).unwrap();
-        let (buf, _) = pw.read_pcm_frames(FRAMES).unwrap();
+        let buf = pw.read_pcm_frames(FRAMES).unwrap();
 
-        assert!(!buf.is_empty());
-        let first = buf[0];
+        assert!(!buf.as_ref().is_empty());
+        let first = buf.as_ref()[0];
         assert!(
-            buf.iter().all(|&b| b == first),
+            buf.as_ref().iter().all(|&b| b == first),
             "U8 amplitude=0 should produce a constant signal (silence level)"
         );
     }
@@ -897,7 +768,8 @@ mod test {
         pw.set_sample_rate(SampleRate::Sr44100).unwrap();
         pw.seek_to_pcm_frame(0).unwrap();
 
-        let (_buf, frames_read) = pw.read_pcm_frames(FRAMES).unwrap();
+        let buf = pw.read_pcm_frames(FRAMES).unwrap();
+        let frames_read = buf.frames() as u64;
         assert_eq!(frames_read, FRAMES);
     }
 
@@ -908,7 +780,8 @@ mod test {
                 .build_f32()
                 .unwrap();
 
-            let (buf, frames_read) = pw.read_pcm_frames(32).unwrap();
+            let buf = pw.read_pcm_frames(32).unwrap();
+            let frames_read = buf.frames() as u64;
             assert_eq!(frames_read, 32);
             assert_eq!(buf.len(), 32);
         }

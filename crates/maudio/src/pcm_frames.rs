@@ -152,7 +152,6 @@ pub(crate) mod private_pcm {
 
     pub trait PcmInterface<T: PcmFormat + ?Sized> {
         fn storage_to_pcm(storage: Vec<T::StorageUnit>) -> MaResult<Vec<T::PcmUnit>>;
-        // ) -> MaResult<SampleBuffer<F>>;
         fn write_to_storage(
             dst: &mut [T::StorageUnit],
             src: &[T::PcmUnit],
@@ -410,6 +409,7 @@ pub(crate) mod private_pcm {
     impl PcmInterface<S24> for PcmS24Provider {
         fn storage_to_pcm(storage: Vec<u8>) -> MaResult<Vec<i32>> {
             let total_items = storage.as_slice().len();
+            println!("Total items: {total_items}");
 
             debug_assert!(total_items % 3 == 0);
             if total_items % 3 != 0 {
@@ -421,6 +421,7 @@ pub(crate) mod private_pcm {
                 ));
             }
 
+            // TODO: Remove the iterator and allocate all at once
             let data: Vec<i32> = storage
                 .as_slice()
                 .chunks_exact(3)

@@ -44,12 +44,8 @@ pub(crate) mod private_data_source {
         data_source::sources::{
             buffer::{AudioBuffer, AudioBufferOps, AudioBufferRef},
             decoder::{Decoder, DecoderOps},
-            pulsewave::{
-                PulseWaveF32, PulseWaveI16, PulseWaveI32, PulseWaveOps, PulseWaveS24, PulseWaveU8,
-            },
-            waveform::{
-                WaveFormF32, WaveFormI16, WaveFormI32, WaveFormOps, WaveFormS24, WaveFormU8,
-            },
+            pulsewave::{PulseWave, PulseWaveOps},
+            waveform::{WaveForm, WaveFormOps},
         },
         engine::node_graph::nodes::source::source_node::AttachedSourceNode,
         pcm_frames::PcmFormat,
@@ -68,19 +64,10 @@ pub(crate) mod private_data_source {
     pub struct AudioBufferRefProvider;
     pub struct DecoderProvider;
     pub struct DecoderRefProvider;
-    pub struct PulseWaveU8Provider;
-    pub struct PulseWaveI16Provider;
-    pub struct PulseWaveI32Provider;
-    pub struct PulseWaveS24Provider;
-    pub struct PulseWaveF32Provider;
-    pub struct WaveFormU8Provider;
-    pub struct WaveFormI16Provider;
-    pub struct WaveFormI32Provider;
-    pub struct WaveFormS24Provider;
+    pub struct PulseWaveProvider;
+    pub struct WaveFormProvider;
     pub struct WaveFormF32Provider;
     pub struct AttachedSourceNodeProvider;
-
-    // DataSource
 
     impl DataSourcePtrProvider<DataSource> for DataSourceProvider {
         #[inline]
@@ -117,72 +104,16 @@ pub(crate) mod private_data_source {
         }
     }
 
-    impl DataSourcePtrProvider<PulseWaveU8> for PulseWaveU8Provider {
+    impl<F: PcmFormat> DataSourcePtrProvider<PulseWave<F>> for PulseWaveProvider {
         #[inline]
-        fn as_source_ptr(t: &PulseWaveU8) -> *mut sys::ma_data_source {
+        fn as_source_ptr(t: &PulseWave<F>) -> *mut sys::ma_data_source {
             t.as_source().to_raw()
         }
     }
 
-    impl DataSourcePtrProvider<PulseWaveI16> for PulseWaveI16Provider {
+    impl<F: PcmFormat> DataSourcePtrProvider<WaveForm<F>> for WaveFormProvider {
         #[inline]
-        fn as_source_ptr(t: &PulseWaveI16) -> *mut sys::ma_data_source {
-            t.as_source().to_raw()
-        }
-    }
-
-    impl DataSourcePtrProvider<PulseWaveI32> for PulseWaveI32Provider {
-        #[inline]
-        fn as_source_ptr(t: &PulseWaveI32) -> *mut sys::ma_data_source {
-            t.as_source().to_raw()
-        }
-    }
-
-    impl DataSourcePtrProvider<PulseWaveS24> for PulseWaveS24Provider {
-        #[inline]
-        fn as_source_ptr(t: &PulseWaveS24) -> *mut sys::ma_data_source {
-            t.as_source().to_raw()
-        }
-    }
-
-    impl DataSourcePtrProvider<PulseWaveF32> for PulseWaveF32Provider {
-        #[inline]
-        fn as_source_ptr(t: &PulseWaveF32) -> *mut sys::ma_data_source {
-            t.as_source().to_raw()
-        }
-    }
-
-    impl DataSourcePtrProvider<WaveFormU8> for WaveFormU8Provider {
-        #[inline]
-        fn as_source_ptr(t: &WaveFormU8) -> *mut sys::ma_data_source {
-            t.as_source().to_raw()
-        }
-    }
-
-    impl DataSourcePtrProvider<WaveFormI16> for WaveFormI16Provider {
-        #[inline]
-        fn as_source_ptr(t: &WaveFormI16) -> *mut sys::ma_data_source {
-            t.as_source().to_raw()
-        }
-    }
-
-    impl DataSourcePtrProvider<WaveFormI32> for WaveFormI32Provider {
-        #[inline]
-        fn as_source_ptr(t: &WaveFormI32) -> *mut sys::ma_data_source {
-            t.as_source().to_raw()
-        }
-    }
-
-    impl DataSourcePtrProvider<WaveFormS24> for WaveFormS24Provider {
-        #[inline]
-        fn as_source_ptr(t: &WaveFormS24) -> *mut sys::ma_data_source {
-            t.as_source().to_raw()
-        }
-    }
-
-    impl DataSourcePtrProvider<WaveFormF32> for WaveFormF32Provider {
-        #[inline]
-        fn as_source_ptr(t: &WaveFormF32) -> *mut sys::ma_data_source {
+        fn as_source_ptr(t: &WaveForm<F>) -> *mut sys::ma_data_source {
             t.as_source().to_raw()
         }
     }

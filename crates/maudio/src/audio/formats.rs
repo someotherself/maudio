@@ -80,7 +80,8 @@ impl<F: PcmFormat> SampleBuffer<F> {
     }
 
     pub(crate) fn new_zeroed(frames: usize, channels: u32) -> MaResult<Vec<F::StorageUnit>> {
-        let len = Self::required_len(frames, channels, F::VEC_PCM_UNITS_PER_FRAME)?;
+        let len = Self::required_len(frames, channels, F::VEC_STORE_UNITS_PER_FRAME)?;
+        println!("new_zeroed len: {len}");
         Ok(vec![F::StorageUnit::default(); len])
     }
 
@@ -107,11 +108,13 @@ impl<F: PcmFormat> SampleBuffer<F> {
                     lhs: len as u64,
                     rhs: F::VEC_STORE_UNITS_PER_FRAME as u64,
                 }))?;
+        println!("Vec_el: {vec_el}");
 
         // Convert from Storage to Pcm
         storage.truncate(vec_el);
 
         let data = <F as PcmFormatInternal>::storage_to_pcm_internal(storage)?;
+        println!("data len: {}", data.len());
 
         Ok(SampleBuffer {
             data,

@@ -75,7 +75,7 @@ use crate::{
 /// # use maudio::engine::Engine;
 /// # use maudio::sound::sound_builder::SoundBuilder;
 /// # use maudio::data_source::sources::buffer::AudioBuffer;
-/// # fn demo(engine: &Engine, ds: &AudioBuffer) -> maudio::MaResult<()> {
+/// # fn demo(engine: &Engine, ds: &AudioBuffer<f32>) -> maudio::MaResult<()> {
 /// let sound = SoundBuilder::new(&engine).data_source(ds).build()?;
 /// # Ok(())
 /// # }
