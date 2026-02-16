@@ -435,7 +435,7 @@ pub(crate) mod decoder_ffi {
         decoder: *mut sys::ma_decoder,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_decoder_init_file_w(path.as_ptr(), &config.to_raw() as *const _, decoder)
+            sys::ma_decoder_init_file_w(path.as_ptr(), &config.inner as *const _, decoder)
         };
         MaudioError::check(res)
     }
