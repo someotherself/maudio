@@ -1,3 +1,4 @@
+//! PCM format abstraction and utilities.
 use crate::pcm_frames::private_pcm::PcmInterface;
 use crate::{ErrorKinds, MaResult, MaudioError};
 
@@ -409,7 +410,6 @@ pub(crate) mod private_pcm {
     impl PcmInterface<S24> for PcmS24Provider {
         fn storage_to_pcm(storage: Vec<u8>) -> MaResult<Vec<i32>> {
             let total_items = storage.as_slice().len();
-            println!("Total items: {total_items}");
 
             debug_assert!(total_items % 3 == 0);
             if total_items % 3 != 0 {
@@ -953,6 +953,21 @@ pub(crate) mod private_pcm {
     }
 }
 
+/// PCM sample format marker used throughout the crate.
+///
+/// `PcmFormat` ties a Rust-facing sample type (what you read/write) to the
+/// underlying representation expected by miniaudio (what is stored internally).
+/// Most APIs in this crate are generic over `F: PcmFormat` so they can handle
+/// both “direct” formats (`u8`, `i16`, `i32`, `f32`) and special cases such as
+/// 24-bit PCM where the user-facing type and storage layout may differ.
+///
+/// In most cases you don’t implement this trait yourself—just choose an existing
+/// format type (e.g. `i16`, `f32`, [`S24`], [`S24Packed`]) when constructing buffers.
+///
+/// The associated items on this trait are primarily used internally to:
+/// - define the user-facing sample unit (`PcmUnit`) vs the stored unit (`StorageUnit`);
+/// - describe how many units make up a single interleaved PCM frame;
+/// - select the internal conversion logic when a format requires it.
 pub trait PcmFormat {
     type __PcmFramesProvider: private_pcm::PcmInterface<Self>;
 
@@ -960,11 +975,13 @@ pub trait PcmFormat {
     type PcmUnit: Default + Copy;
     /// Sample format used by miniaudio. Not a whole frame.
     type StorageUnit: Default + Copy;
-    // TODO: Remove?
-    const BYTES_PER_STORAGE_UNIT: usize;
-    /// How many items each StorageUnit takes in a buffer (example: S24Packed: 3, S24: 1, u8: 1)
+    /// Number of `StorageUnit` items per channel sample in a buffer.
+    ///
+    /// Examples: `S24Packed = 3`, `S24 = 1`, `u8 = 1`.
     const VEC_STORE_UNITS_PER_FRAME: usize;
-    /// How many items each PcmUnit takes in a buffer (example: S24Packed: 1, S24: 3, u8: 1)
+    /// Number of `PcmUnit` items per channel sample in a buffer.
+    ///
+    /// Examples: `S24Packed = 1`, `S24 = 3`, `u8 = 1`.
     const VEC_PCM_UNITS_PER_FRAME: usize;
     /// Used for simple logic only, when we don't want to call the PcmInterface trait
     const DIRECT_READ: bool;
@@ -975,10 +992,9 @@ impl PcmFormat for u8 {
 
     type PcmUnit = u8;
     type StorageUnit = Self::PcmUnit;
-    const BYTES_PER_STORAGE_UNIT: usize = size_of::<Self::StorageUnit>();
     const VEC_STORE_UNITS_PER_FRAME: usize = 1;
     const VEC_PCM_UNITS_PER_FRAME: usize = 1;
-    const DIRECT_READ: bool = false;
+    const DIRECT_READ: bool = true;
 }
 
 impl PcmFormat for i16 {
@@ -986,10 +1002,9 @@ impl PcmFormat for i16 {
 
     type PcmUnit = i16;
     type StorageUnit = Self::PcmUnit;
-    const BYTES_PER_STORAGE_UNIT: usize = size_of::<Self::StorageUnit>();
     const VEC_STORE_UNITS_PER_FRAME: usize = 1;
     const VEC_PCM_UNITS_PER_FRAME: usize = 1;
-    const DIRECT_READ: bool = false;
+    const DIRECT_READ: bool = true;
 }
 
 impl PcmFormat for S24Packed {
@@ -997,10 +1012,9 @@ impl PcmFormat for S24Packed {
 
     type PcmUnit = u8;
     type StorageUnit = Self::PcmUnit;
-    const BYTES_PER_STORAGE_UNIT: usize = size_of::<Self::StorageUnit>() * 3;
     const VEC_STORE_UNITS_PER_FRAME: usize = 3;
     const VEC_PCM_UNITS_PER_FRAME: usize = 3;
-    const DIRECT_READ: bool = false;
+    const DIRECT_READ: bool = true;
 }
 
 impl PcmFormat for S24 {
@@ -1008,10 +1022,9 @@ impl PcmFormat for S24 {
 
     type PcmUnit = i32;
     type StorageUnit = u8;
-    const BYTES_PER_STORAGE_UNIT: usize = size_of::<Self::StorageUnit>() * 3;
     const VEC_STORE_UNITS_PER_FRAME: usize = 3;
     const VEC_PCM_UNITS_PER_FRAME: usize = 1;
-    const DIRECT_READ: bool = true;
+    const DIRECT_READ: bool = false;
 }
 
 impl PcmFormat for i32 {
@@ -1019,18 +1032,16 @@ impl PcmFormat for i32 {
 
     type PcmUnit = i32;
     type StorageUnit = Self::PcmUnit;
-    const BYTES_PER_STORAGE_UNIT: usize = size_of::<Self::StorageUnit>();
     const VEC_STORE_UNITS_PER_FRAME: usize = 1;
     const VEC_PCM_UNITS_PER_FRAME: usize = 1;
-    const DIRECT_READ: bool = false;
+    const DIRECT_READ: bool = true;
 }
 
 impl PcmFormat for f32 {
     type __PcmFramesProvider = private_pcm::PcmF32Provider;
     type PcmUnit = f32;
     type StorageUnit = Self::PcmUnit;
-    const BYTES_PER_STORAGE_UNIT: usize = size_of::<Self::StorageUnit>();
     const VEC_STORE_UNITS_PER_FRAME: usize = 1;
     const VEC_PCM_UNITS_PER_FRAME: usize = 1;
-    const DIRECT_READ: bool = false;
+    const DIRECT_READ: bool = true;
 }

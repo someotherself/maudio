@@ -1,22 +1,9 @@
 use maudio_sys::ffi as sys;
 
-use crate::{Binding, ErrorKinds, MaudioError};
+use crate::{ErrorKinds, MaudioError};
 
 struct NodeBuilder {
     inner: sys::ma_node_config,
-}
-
-impl Binding for NodeBuilder {
-    type Raw = sys::ma_node_config;
-
-    // !! unimplemented !!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        self.inner
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

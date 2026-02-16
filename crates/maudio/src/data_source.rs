@@ -10,13 +10,17 @@ use crate::{
 
 pub mod sources;
 
+/// Describes an audio stream’s PCM format and layout.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DataFormat {
+    /// Sample format (e.g. `S16`, `F32`).
     pub format: Format,
+    /// Number of interleaved channels.
     pub channels: u32,
+    /// Sample rate in Hz.
     pub sample_rate: u32,
     /// Channel order/map for each channel, length == channels (when available).
-    pub channel_map: Vec<Channel>,
+    pub channel_map: Option<Vec<Channel>>,
 }
 
 #[derive(PartialEq)]
@@ -284,7 +288,7 @@ pub(crate) mod data_source_ffi {
             format: format_raw.try_into()?,
             channels: channels as u32,
             sample_rate: sample_rate as u32,
-            channel_map,
+            channel_map: Some(channel_map),
         })
     }
 

@@ -1,10 +1,6 @@
 //! Sound playback primitives.
 //!
 //! This module defines [`Sound`], an engine-managed audio voice.
-//!
-//! Sounds can be loaded synchronously, or asynchronously with [`SoundFlags::ASYNC`]. When async
-//! loading is used, creation may return before the sound is ready; a [`Fence`] can be supplied
-//! to wait for completion via [`Fence::wait`].
 use std::{cell::Cell, marker::PhantomData, path::Path};
 
 use maudio_sys::ffi as sys;
@@ -46,6 +42,10 @@ impl SoundSource<'_> {
     }
 }
 
+/// Engine-managed sound voice.
+///
+/// A `Sound` is an engine-owned playback instance backed by a data source. It can be started,
+/// stopped, seeked, spatialized, and controlled (volume/pan/pitch).
 pub struct Sound<'a> {
     inner: *mut sys::ma_sound,
     _engine: PhantomData<&'a Engine>,
@@ -73,220 +73,254 @@ impl Binding for Sound<'_> {
 }
 
 impl<'a> Sound<'a> {
+    /// Returns the owning engine, if any.
     pub fn engine(&self) -> Option<EngineRef<'_>> {
         sound_ffi::ma_sound_get_engine(self)
     }
 
     /// Returns a **borrowed view** of this sound as a node in the engine's node graph.
-    ///
-    /// In miniaudio, sounds participate in the audio routing system as graph nodes.
-    ///
-    /// In addition to its high-level playback API, a sound can also be viewed as a node in the engine’s node graph.
-    /// This method exposes that internal node so it can be connected, routed, or
-    /// inspected using node-graph APIs.
-    ///
-    /// # What this is for
-    ///
-    /// Use `as_node()` when you want to:
-    /// - connect this sound to other nodes (effects, mixers, splitters, etc.)
-    /// - insert the sound into a custom routing graph
-    /// - query node-level state exposed by the graph
-    ///
-    /// Most sound configuration (playback, volume, looping, spatialization, etc.)
-    /// should be done through [`Sound`] methods directly, not through the node view.
     pub fn as_node(&self) -> NodeRef<'a> {
         debug_assert!(!self.inner.is_null());
         let ptr: *mut sys::ma_node = self.inner.cast::<sys::ma_node>();
         NodeRef::from_ptr(ptr)
     }
 
+    /// Returns the underlying data source, if any.
     pub fn data_source(&mut self) -> Option<DataSourceRef<'_>> {
         sound_ffi::ma_sound_get_data_source(self)
     }
 
+    /// Starts playback.
     pub fn play_sound(&mut self) -> MaResult<()> {
         sound_ffi::ma_sound_start(self)
     }
 
+    /// Stops playback.
     pub fn stop_sound(&mut self) -> MaResult<()> {
         sound_ffi::ma_sound_stop(self)
     }
 
+    /// Stops playback with a fade-out over `fade_frames` PCM frames.
     pub fn stop_at_with_fade_frames(&mut self, fade_frames: u64) -> MaResult<()> {
         sound_ffi::ma_sound_stop_with_fade_in_pcm_frames(self, fade_frames)
     }
 
+    /// Stops playback with a fade-out over `fade_milis` milliseconds.
     pub fn stop_at_with_fade_millis(&mut self, fade_milis: u64) -> MaResult<()> {
         sound_ffi::ma_sound_stop_with_fade_in_milis(self, fade_milis)
     }
 
+    /// Returns the sound volume.
     pub fn volume(&self) -> f32 {
         sound_ffi::ma_sound_get_volume(self)
     }
 
+    /// Sets the sound volume.
     pub fn set_volume(&mut self, volume: f32) {
         sound_ffi::ma_sound_set_volume(self, volume);
     }
 
+    /// Returns the pan value.
     pub fn pan(&self) -> f32 {
         sound_ffi::ma_sound_get_pan(self)
     }
 
+    /// Sets the pan value.
     pub fn set_pan(&mut self, pan: f32) {
         sound_ffi::ma_sound_set_pan(self, pan);
     }
 
+    /// Returns the pan mode.
     pub fn pan_mode(&self) -> MaResult<PanMode> {
         sound_ffi::ma_sound_get_pan_mode(self)
     }
 
+    /// Sets the pan mode.
     pub fn set_pan_mode(&mut self, mode: PanMode) {
         sound_ffi::ma_sound_set_pan_mode(self, mode);
     }
 
+    /// Returns the pitch multiplier.
     pub fn pitch(&self) -> f32 {
         sound_ffi::ma_sound_get_pitch(self)
     }
 
+    /// Sets the pitch multiplier.
     pub fn set_pitch(&mut self, pitch: f32) {
         sound_ffi::ma_sound_set_pitch(self, pitch);
     }
 
+    /// Returns `true` if spatialization is enabled.
     pub fn spatialization(&self) -> bool {
         sound_ffi::ma_sound_is_spatialization_enabled(self)
     }
 
+    /// Enables or disables spatialization.
     pub fn set_spatialization(&mut self, enabled: bool) {
         sound_ffi::ma_sound_set_spatialization_enabled(self, enabled);
     }
 
+    /// Returns the pinned listener index.
     pub fn pinned_listener(&self) -> u32 {
         sound_ffi::ma_sound_get_pinned_listener_index(self)
     }
 
+    /// Pins the sound to a specific listener.
     pub fn set_pinned_listener(&mut self, listener: u32) {
         sound_ffi::ma_sound_set_pinned_listener_index(self, listener);
     }
 
+    /// Returns the active listener index.
     pub fn listener(&self) -> u32 {
         sound_ffi::ma_sound_get_listener_index(self)
     }
 
+    /// Returns the direction from the sound to the active listener.
     pub fn direction_to_listener(&self) -> Vec3 {
         sound_ffi::ma_sound_get_direction_to_listener(self)
     }
 
+    /// Returns the world-space position.
     pub fn position(&self) -> Vec3 {
         sound_ffi::ma_sound_get_position(self)
     }
 
+    /// Sets the world-space position.
     pub fn set_position(&mut self, vec3: Vec3) {
         sound_ffi::ma_sound_set_position(self, vec3);
     }
 
+    /// Returns the facing direction.
     pub fn direction(&self) -> Vec3 {
         sound_ffi::ma_sound_get_direction(self)
     }
 
+    /// Sets the facing direction.
     pub fn set_direction(&mut self, vec3: Vec3) {
         sound_ffi::ma_sound_set_direction(self, vec3);
     }
 
+    /// Sets the facing direction.
     pub fn velocity(&self) -> Vec3 {
         sound_ffi::ma_sound_get_velocity(self)
     }
 
+    /// Sets the velocity.
     pub fn set_velocity(&mut self, vec3: Vec3) {
         sound_ffi::ma_sound_set_velocity(self, vec3);
     }
 
+    /// Returns the attenuation model.
     pub fn attenuation(&self) -> MaResult<AttenuationModel> {
         sound_ffi::ma_sound_get_attenuation_model(self)
     }
 
+    /// Sets the attenuation model.
     pub fn set_attenuation(&mut self, model: AttenuationModel) {
         sound_ffi::ma_sound_set_attenuation_model(self, model);
     }
 
+    /// Returns the positioning mode.
     pub fn positioning(&self) -> MaResult<Positioning> {
         sound_ffi::ma_sound_get_positioning(self)
     }
+
+    /// Sets the positioning mode.
     pub fn set_positioning(&mut self, positioning: Positioning) {
         sound_ffi::ma_sound_set_positioning(self, positioning);
     }
 
+    /// Returns the rolloff factor.
     pub fn rolloff(&self) -> f32 {
         sound_ffi::ma_sound_get_rolloff(self)
     }
 
+    /// Sets the rolloff factor.
     pub fn set_rolloff(&mut self, rolloff: f32) {
         sound_ffi::ma_sound_set_rolloff(self, rolloff);
     }
 
+    /// Returns the minimum gain.
     pub fn min_gain(&self) -> f32 {
         sound_ffi::ma_sound_get_min_gain(self)
     }
 
+    /// Sets the minimum gain.
     pub fn set_min_gain(&mut self, gain: f32) {
         sound_ffi::ma_sound_set_min_gain(self, gain);
     }
 
+    /// Returns the maximum gain.
     pub fn max_gain(&self) -> f32 {
         sound_ffi::ma_sound_get_max_gain(self)
     }
 
+    /// Sets the maximum gain.
     pub fn set_max_gain(&mut self, gain: f32) {
         sound_ffi::ma_sound_set_max_gain(self, gain);
     }
 
+    /// Returns the minimum attenuation distance.
     pub fn min_distance(&self) -> f32 {
         sound_ffi::ma_sound_get_min_distance(self)
     }
 
+    /// Sets the minimum attenuation distance.
     pub fn set_min_distance(&mut self, distance: f32) {
         sound_ffi::ma_sound_set_min_distance(self, distance);
     }
 
+    /// Returns the maximum attenuation distance.
     pub fn max_distance(&self) -> f32 {
         sound_ffi::ma_sound_get_max_distance(self)
     }
 
+    /// Sets the maximum attenuation distance.
     pub fn set_max_distance(&mut self, distance: f32) {
         sound_ffi::ma_sound_set_max_distance(self, distance);
     }
 
+    /// Returns the directional cone settings.
     pub fn cone(&self) -> Cone {
         sound_ffi::ma_sound_get_cone(self)
     }
 
+    /// Sets the directional cone settings.
     pub fn set_cone(&mut self, cone: Cone) {
         sound_ffi::ma_sound_set_cone(self, cone);
     }
 
+    /// Returns the doppler factor.
     pub fn doppler_factor(&self) -> f32 {
         sound_ffi::ma_sound_get_doppler_factor(self)
     }
 
+    /// Sets the doppler factor.
     pub fn set_doppler_factor(&mut self, factor: f32) {
         sound_ffi::ma_sound_set_doppler_factor(self, factor);
     }
 
+    /// Returns the directional attenuation factor.
     pub fn directional_attenuation(&mut self) -> f32 {
         sound_ffi::ma_sound_get_directional_attenuation_factor(self)
     }
 
+    /// Sets the directional attenuation factor.
     pub fn set_directional_attenuation(&mut self, factor: f32) {
         sound_ffi::ma_sound_set_directional_attenuation_factor(self, factor);
     }
 
+    /// Schedules a fade from `vol_start` to `vol_end` over `fade_length_frames` PCM frames.
     pub fn set_fade_pcm(&mut self, vol_start: f32, vol_end: f32, fade_length_frames: u64) {
         sound_ffi::ma_sound_set_fade_in_pcm_frames(self, vol_start, vol_end, fade_length_frames);
     }
 
+    /// Schedules a fade from `vol_start` to `vol_end` over `fade_length_mili` milliseconds.
     pub fn set_fade_mili(&mut self, vol_start: f32, vol_end: f32, fade_length_mili: u64) {
         sound_ffi::ma_sound_set_fade_in_milliseconds(self, vol_start, vol_end, fade_length_mili);
     }
 
+    /// Schedules a fade starting at `time_in_frames` (PCM frames).
     pub fn set_fade_start_pcm(
         &mut self,
         vol_start: f32,
@@ -303,6 +337,7 @@ impl<'a> Sound<'a> {
         );
     }
 
+    /// Schedules a fade starting at `time_in_frames` (PCM frames), specified in milliseconds.
     pub fn set_fade_start_millis(
         &mut self,
         vol_start: f32,
@@ -319,26 +354,32 @@ impl<'a> Sound<'a> {
         );
     }
 
+    /// Returns the current fade volume multiplier.
     pub fn current_fade_volume(&self) -> f32 {
         sound_ffi::ma_sound_get_current_fade_volume(self)
     }
 
+    /// Sets the scheduled start time in PCM frames.
     pub fn set_start_time_pcm(&mut self, abs_time_frames: u64) {
         sound_ffi::ma_sound_set_start_time_in_pcm_frames(self, abs_time_frames);
     }
 
+    /// Sets the scheduled start time in milliseconds.
     pub fn set_start_time_millis(&mut self, abs_time_millis: u64) {
         sound_ffi::ma_sound_set_start_time_in_milliseconds(self, abs_time_millis);
     }
 
+    /// Sets the scheduled stop time in PCM frames.
     pub fn set_stop_time_pcm(&mut self, abs_time_frames: u64) {
         sound_ffi::ma_sound_set_stop_time_in_pcm_frames(self, abs_time_frames);
     }
 
+    /// Sets the scheduled stop time in milliseconds.
     pub fn set_stop_time_millis(&mut self, abs_time_millis: u64) {
         sound_ffi::ma_sound_set_stop_time_in_milliseconds(self, abs_time_millis);
     }
 
+    /// Sets the scheduled stop time with a fade-out in PCM frames.
     pub fn set_stop_time_with_fade_pcm(&mut self, stop_time_frames: u64, fade_length_frames: u64) {
         sound_ffi::ma_sound_set_stop_time_with_fade_in_pcm_frames(
             self,
@@ -347,6 +388,7 @@ impl<'a> Sound<'a> {
         );
     }
 
+    /// Sets the scheduled stop time with a fade-out in milliseconds.
     pub fn set_stop_time_with_fade_millis(
         &mut self,
         stop_time_millis: u64,
@@ -359,54 +401,67 @@ impl<'a> Sound<'a> {
         );
     }
 
+    /// Returns `true` if the sound is currently playing.
     pub fn is_playing(&self) -> bool {
         sound_ffi::ma_sound_is_playing(self)
     }
 
+    /// Returns the current playback time in PCM frames.
     pub fn time_pcm(&self) -> u64 {
         sound_ffi::ma_sound_get_time_in_pcm_frames(self)
     }
 
+    /// Returns the current playback time in milliseconds.
     pub fn time_millis(&self) -> u64 {
         sound_ffi::ma_sound_get_time_in_milliseconds(self)
     }
 
+    /// Returns `true` if looping is enabled.
     pub fn looping(&self) -> bool {
         sound_ffi::ma_sound_is_looping(self)
     }
 
+    /// Enables or disables looping.
     pub fn set_looping(&mut self, looping: bool) {
         sound_ffi::ma_sound_set_looping(self, looping);
     }
 
+    /// Returns `true` if playback has reached the end.
     pub fn ended(&self) -> bool {
         sound_ffi::ma_sound_at_end(self)
     }
 
+    /// Seeks to an absolute PCM frame index.
     pub fn seek_to_pcm(&mut self, frame_index: u64) -> MaResult<()> {
         sound_ffi::ma_sound_seek_to_pcm_frame(self, frame_index)
     }
 
+    /// Seeks to an absolute position in seconds.
     pub fn seek_to_second(&mut self, seek_point_seconds: f32) -> MaResult<()> {
         sound_ffi::ma_sound_seek_to_second(self, seek_point_seconds)
     }
 
+    /// Returns the decoded data format of the sound.
     pub fn data_format(&self) -> MaResult<DataFormat> {
         sound_ffi::ma_sound_get_data_format(self)
     }
 
+    /// Returns the cursor position in PCM frames.
     pub fn cursor_pcm(&self) -> MaResult<u64> {
         sound_ffi::ma_sound_get_cursor_in_pcm_frames(self)
     }
 
+    /// Returns the total length in PCM frames.
     pub fn length_pcm(&self) -> MaResult<u64> {
         sound_ffi::ma_sound_get_length_in_pcm_frames(self)
     }
 
+    /// Returns the cursor position in seconds.
     pub fn cursor_seconds(&self) -> MaResult<f32> {
         sound_ffi::ma_sound_get_cursor_in_seconds(self)
     }
 
+    /// Returns the total length in seconds.
     pub fn length_seconds(&self) -> MaResult<f32> {
         sound_ffi::ma_sound_get_length_in_seconds(self)
     }
@@ -1123,7 +1178,7 @@ pub(crate) mod sound_ffi {
             format: format_raw.try_into()?,
             channels: channels as u32,
             sample_rate: sample_rate as u32,
-            channel_map,
+            channel_map: Some(channel_map),
         })
     }
 

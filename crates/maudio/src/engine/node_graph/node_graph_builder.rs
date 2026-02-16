@@ -12,26 +12,14 @@
 //! by the graph configuration itself.
 use maudio_sys::ffi as sys;
 
-use crate::{engine::node_graph::NodeGraph, Binding, MaResult};
+use crate::{engine::node_graph::NodeGraph, MaResult};
 
 /// Configures and constructs a [`NodeGraph`].
 ///
 /// This builder wraps `ma_node_graph_config` and exposes the small set of
 /// options required to create a node graph.
 pub struct NodeGraphBuilder {
-    inner: sys::ma_node_graph_config,
-}
-
-impl Binding for NodeGraphBuilder {
-    type Raw = sys::ma_node_graph_config;
-
-    fn from_ptr(raw: Self::Raw) -> Self {
-        Self { inner: raw }
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        self.inner
-    }
+    pub(crate) inner: sys::ma_node_graph_config,
 }
 
 impl NodeGraphBuilder {
@@ -43,7 +31,7 @@ impl NodeGraphBuilder {
     /// expected channel layout of the graph's endpoint.
     pub fn new(channels: u32) -> Self {
         let ptr = unsafe { sys::ma_node_graph_config_init(channels) };
-        NodeGraphBuilder::from_ptr(ptr)
+        NodeGraphBuilder { inner: ptr }
     }
 
     /// Builds the [`NodeGraph`] using the current configuration.

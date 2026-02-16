@@ -62,6 +62,8 @@ pub extern crate maudio_sys;
 
 use maudio_sys::ffi as sys;
 
+// IMPORTANT: Only safe when type Raw is a pointer (*mut, *const)
+// TODO: Improve safety. Or remove?
 pub(crate) trait Binding: Sized {
     type Raw;
 

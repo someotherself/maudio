@@ -30,6 +30,12 @@ pub(crate) struct PulseWaveState {
     duty_cycle: f64,
 }
 
+/// Procedural pulse wave generator.
+///
+/// `PulseWave` produces a square-like waveform with adjustable duty cycle and
+/// can be read, seeked, or used as a [`DataSource`](crate::data_source::DataSource).
+///
+/// Audio is generated in **PCM frames** using the selected [`PcmFormat`].
 pub struct PulseWave<F: PcmFormat> {
     inner: *mut sys::ma_pulsewave,
     format: Format,
@@ -81,10 +87,10 @@ impl<F: PcmFormat> PulseWaveOps for PulseWave<F> {
     type Format = F;
 }
 
-/// The PulseWaveOps trait contains shared methods for all PulseWave types for each data format.
 pub trait PulseWaveOps: AsPulseWavePtr + AsSourcePtr {
     type Format: PcmFormat;
 
+    /// Generates PCM frames into `dst`, returning the number of frames written.
     fn read_pcm_frames_into(
         &mut self,
         dst: &mut [<Self::Format as PcmFormat>::PcmUnit],
@@ -92,30 +98,37 @@ pub trait PulseWaveOps: AsPulseWavePtr + AsSourcePtr {
         pulsewave_ffi::ma_pulsewave_read_pcm_frames_into::<Self::Format, Self>(self, dst)
     }
 
+    /// Allocates and generates `frames` PCM frames.
     fn read_pcm_frames(&mut self, frames: u64) -> MaResult<SampleBuffer<Self::Format>> {
         pulsewave_ffi::ma_pulsewave_read_pcm_frames(self, frames)
     }
 
+    /// Seeks to an absolute PCM frame position.
     fn seek_to_pcm_frame(&mut self, frame_index: u64) -> MaResult<()> {
         pulsewave_ffi::ma_pulsewave_seek_to_pcm_frame(self, frame_index)
     }
 
+    /// Sets the pulse wave amplitude.
     fn set_amplitude(&mut self, amplitude: f64) -> MaResult<()> {
         pulsewave_ffi::ma_pulsewave_set_amplitude(self, amplitude)
     }
 
+    /// Sets the pulse wave frequency in Hz.
     fn set_frequency(&mut self, frequency: f64) -> MaResult<()> {
         pulsewave_ffi::ma_pulsewave_set_frequency(self, frequency)
     }
 
+    /// Sets the pulse wave duty cycle.
     fn set_duty_cycle(&mut self, duty_cycle: f64) -> MaResult<()> {
         pulsewave_ffi::ma_pulsewave_set_duty_cycle(self, duty_cycle)
     }
 
+    /// Sets the sample rate used for generation.
     fn set_sample_rate(&mut self, sample_rate: SampleRate) -> MaResult<()> {
         pulsewave_ffi::ma_pulsewave_set_sample_rate(self, sample_rate)
     }
 
+    /// Returns a [`DataSourceRef`] view of this pulse wave generator.
     fn as_source(&self) -> DataSourceRef<'_> {
         debug_assert!(!private_pulsew::pulsewave_ptr(self).is_null());
         let ptr = private_pulsew::pulsewave_ptr(self).cast::<sys::ma_data_source>();
@@ -130,7 +143,7 @@ pub(crate) mod pulsewave_ffi {
         audio::{formats::SampleBuffer, sample_rate::SampleRate},
         data_source::sources::pulsewave::{private_pulsew, AsPulseWavePtr, PulseWaveBuilder},
         pcm_frames::{PcmFormat, PcmFormatInternal},
-        Binding, MaResult, MaudioError,
+        MaResult, MaudioError,
     };
 
     #[inline]
@@ -138,8 +151,7 @@ pub(crate) mod pulsewave_ffi {
         config: &PulseWaveBuilder,
         pulsewave: *mut sys::ma_pulsewave,
     ) -> MaResult<()> {
-        let raw = config.to_raw();
-        let res = unsafe { sys::ma_pulsewave_init(&raw as *const _, pulsewave) };
+        let res = unsafe { sys::ma_pulsewave_init(&config.inner as *const _, pulsewave) };
         MaudioError::check(res)
     }
 
@@ -290,6 +302,7 @@ impl<F: PcmFormat> Drop for PulseWave<F> {
     }
 }
 
+/// Builder for constructing a [`PulseWave`]
 pub struct PulseWaveBuilder {
     inner: sys::ma_pulsewave_config,
     format: Format,
@@ -298,19 +311,6 @@ pub struct PulseWaveBuilder {
     amplitude: f64,
     frequency: f64,
     duty_cycle: f64,
-}
-
-impl Binding for PulseWaveBuilder {
-    type Raw = sys::ma_pulsewave_config;
-
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        self.inner
-    }
 }
 
 impl PulseWaveBuilder {

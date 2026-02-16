@@ -7,4 +7,4 @@ pub mod performance;
 pub mod sample_rate;
 pub mod spatial;
 pub mod stream;
-pub mod waveform;
+pub mod wave_shape;

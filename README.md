@@ -39,6 +39,10 @@ While simple playback can be achieved without interacting directly with the Node
 
 Almost all types in maudio are initialized using a builder pattern, allowing additional configuration at creation time while keeping default usage simple.
 
+### Supported (native) PCM formats:
+- u8, i16, i24 (3-byte packed LE), i32, and f32.
+
+24-bit audio can be used either as packed 3-byte samples (native) or as i32 (automatic conversion done by maudio).
 
 # Examples
 

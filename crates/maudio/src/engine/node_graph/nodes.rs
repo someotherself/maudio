@@ -263,6 +263,7 @@ impl<T: AsNodePtr + ?Sized> NodeOps for T {}
 
 /// NodeOps trait contains shared methods for `Node` and [`NodeRef`]
 pub trait NodeOps: AsNodePtr {
+    /// Attaches `output_bus` of this node to `other_node_input_bus` of `other_node`.
     fn attach_output_bus<P: AsNodePtr + ?Sized>(
         &mut self,
         output_bus: u32,
@@ -272,42 +273,52 @@ pub trait NodeOps: AsNodePtr {
         node_ffi::ma_node_attach_output_bus(self, output_bus, other_node, other_node_input_bus)
     }
 
+    /// Detaches the specified output bus from its connected input bus.
     fn detach_output_bus(&mut self, output_bus: u32) -> MaResult<()> {
         node_ffi::ma_node_detach_output_bus(self, output_bus)
     }
 
+    /// Detaches all output buses from their connected input buses.
     fn detach_all_outputs(&mut self) -> MaResult<()> {
         node_ffi::ma_node_detach_all_output_buses(self)
     }
 
+    /// Returns the owning node graph, if any.
     fn node_graph(&self) -> Option<NodeGraphRef<'_>> {
         node_ffi::ma_node_get_node_graph(self)
     }
 
+    /// Returns the number of input buses.
     fn in_bus_count(&self) -> u32 {
         node_ffi::ma_node_get_input_bus_count(self)
     }
 
+    /// Returns the number of output buses.
     fn out_bus_count(&self) -> u32 {
         node_ffi::ma_node_get_output_bus_count(self)
     }
 
+    /// Returns the channel count for the given input bus.
     fn input_channels(&self, in_bus_index: u32) -> u32 {
         node_ffi::ma_node_get_input_channels(self, in_bus_index)
     }
 
+    /// Returns the channel count for the given output bus.
     fn output_channels(&self, out_bus_index: u32) -> u32 {
         node_ffi::ma_node_get_output_channels(self, out_bus_index)
     }
 
+    /// Returns the volume for the given output bus.
     fn output_bus_volume(&mut self, out_bux_index: u32) -> f32 {
         node_ffi::ma_node_get_output_bus_volume(self, out_bux_index)
     }
 
+    /// Sets the volume for the given output bus.
     fn set_output_bus_volume(&mut self, out_bux_index: u32, volume: f32) -> MaResult<()> {
         node_ffi::ma_node_set_output_bus_volume(self, out_bux_index, volume)
     }
 
+    /// Returns the current node state.
     fn state(&self) -> MaResult<NodeState> {
         node_ffi::ma_node_get_state(self)
     }
@@ -316,18 +327,22 @@ pub trait NodeOps: AsNodePtr {
         node_ffi::ma_node_set_state(self, state)
     }
 
+    /// Sets the current node state.
     fn state_time(&self, state: NodeState) -> u64 {
         node_ffi::ma_node_get_state_time(self, state)
     }
 
+    /// Returns the global time (in PCM frames) at which `state` becomes active.
     fn set_state_time(&mut self, state: NodeState, global_time: u64) -> MaResult<()> {
         node_ffi::ma_node_set_state_time(self, state, global_time)
     }
 
+    /// Sets the global time (in PCM frames) at which `state` becomes active.
     fn state_by_time(&self, global_time: u64) -> MaResult<NodeState> {
         node_ffi::ma_node_get_state_by_time(self, global_time)
     }
 
+    /// Returns the node state over the time range `[global_time_beg, global_time_end)`.
     fn state_by_time_range(
         &self,
         global_time_beg: u64,
@@ -336,10 +351,12 @@ pub trait NodeOps: AsNodePtr {
         node_ffi::ma_node_get_state_by_time_range(self, global_time_beg, global_time_end)
     }
 
+    /// Returns the current local time (in PCM frames) of the node.
     fn time(&self) -> u64 {
         node_ffi::ma_node_get_time(self)
     }
 
+    /// Sets the current local time (in PCM frames) of the node.
     fn set_time(&mut self, local_time: u64) -> MaResult<()> {
         node_ffi::ma_node_set_time(self, local_time)
     }

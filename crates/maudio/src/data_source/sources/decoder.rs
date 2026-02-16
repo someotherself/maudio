@@ -22,6 +22,7 @@ use crate::{
     Binding, MaResult,
 };
 
+/// Audio decoder for a given PCM format and data source.
 pub struct Decoder<F: PcmFormat, S> {
     inner: *mut sys::ma_decoder,
     channels: u32,
@@ -31,8 +32,12 @@ pub struct Decoder<F: PcmFormat, S> {
     source_data: S,
 }
 
+/// Borrowed in-memory audio data used as a decoder source.
 pub struct Borrowed<'a>(&'a [u8]);
+
+/// Owned in-memory audio data used as a decoder source.
 pub struct Owned(Arc<[u8]>);
+/// External data source (e.g., file path) managed by miniaudio.
 pub struct External; // Used when source is a Path
 
 impl<F: PcmFormat, S> Binding for Decoder<F, S> {
@@ -305,39 +310,54 @@ impl<F: PcmFormat, S> AsDecoderPtr for Decoder<F, S> {
     }
 }
 
-impl<T: AsDecoderPtr + AsSourcePtr> DecoderOps for T {}
-
-impl<F: PcmFormat, S> Decoder<F, S> {
-    pub fn read_pcm_frames_into(&mut self, dst: &mut [F::PcmUnit]) -> MaResult<usize> {
-        decoder_ffi::ma_decoder_read_pcm_frames_into::<F, Self>(self, dst)
-    }
-
-    pub fn read_pcm_frames(&mut self, frame_count: u64) -> MaResult<SampleBuffer<F>> {
-        decoder_ffi::ma_decoder_read_pcm_frames::<F, Decoder<F, S>>(self, frame_count)
-    }
+impl<F: PcmFormat, S> DecoderOps for Decoder<F, S> {
+    type Format = F;
+    type Source = S;
 }
 
 pub trait DecoderOps: AsDecoderPtr + AsSourcePtr {
+    type Format: PcmFormat;
+    type Source;
+
+    /// Reads PCM frames into `dst`, returning the number of frames read.
+    fn read_pcm_frames_into(
+        &mut self,
+        dst: &mut [<Self::Format as PcmFormat>::PcmUnit],
+    ) -> MaResult<usize> {
+        decoder_ffi::ma_decoder_read_pcm_frames_into::<Self::Format, Self>(self, dst)
+    }
+
+    /// Allocates and reads `frame_count` PCM frames, returning a typed sample buffer.
+    fn read_pcm_frames(&mut self, frame_count: u64) -> MaResult<SampleBuffer<Self::Format>> {
+        decoder_ffi::ma_decoder_read_pcm_frames(self, frame_count)
+    }
+
+    /// Seeks to an absolute PCM frame index.
     fn seek_to_pcm_frame(&mut self, frame_index: u64) -> MaResult<()> {
         decoder_ffi::ma_decoder_seek_to_pcm_frame(self, frame_index)
     }
 
+    /// Returns the PCM format of the decoder.
     fn data_format(&self) -> MaResult<DataFormat> {
         decoder_ffi::ma_decoder_get_data_format(self)
     }
 
+    /// Returns the current cursor position in PCM frames.
     fn cursor_pcm(&self) -> MaResult<u64> {
         decoder_ffi::ma_decoder_get_cursor_in_pcm_frames(self)
     }
 
+    /// Returns the total length in PCM frames.
     fn length_pcm(&self) -> MaResult<u64> {
         decoder_ffi::ma_decoder_get_length_in_pcm_frames(self)
     }
 
+    /// Returns the number of frames available from the current cursor to the end.
     fn available_frames(&self) -> MaResult<u64> {
         decoder_ffi::ma_decoder_get_available_frames(self)
     }
 
+    /// Returns a [`DataSourceRef`] view of this decoder.
     fn as_source(&self) -> DataSourceRef<'_> {
         debug_assert!(!private_decoder::decoder_ptr(self).is_null());
         let ptr = private_decoder::decoder_ptr(self).cast::<sys::ma_data_source>();
@@ -354,7 +374,7 @@ pub(crate) mod decoder_ffi {
         DataFormat,
     };
     use crate::pcm_frames::{PcmFormat, PcmFormatInternal};
-    use crate::{Binding, MaResult, MaudioError};
+    use crate::{MaResult, MaudioError};
 
     #[inline]
     pub fn ma_decoder_init(
@@ -369,7 +389,7 @@ pub(crate) mod decoder_ffi {
                 on_read,
                 on_seek,
                 user_data,
-                &config.to_raw() as *const _,
+                &config.inner as *const _,
                 decoder,
             )
         };
@@ -390,7 +410,7 @@ pub(crate) mod decoder_ffi {
         decoder: *mut sys::ma_decoder,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_decoder_init_memory(data, data_size, &config.to_raw() as *const _, decoder)
+            sys::ma_decoder_init_memory(data, data_size, &config.inner as *const _, decoder)
         };
         MaudioError::check(res)
     }
@@ -402,9 +422,8 @@ pub(crate) mod decoder_ffi {
         config: &DecoderBuilder,
         decoder: *mut sys::ma_decoder,
     ) -> MaResult<()> {
-        let res = unsafe {
-            sys::ma_decoder_init_file(path.as_ptr(), &config.to_raw() as *const _, decoder)
-        };
+        let res =
+            unsafe { sys::ma_decoder_init_file(path.as_ptr(), &config.inner as *const _, decoder) };
         MaudioError::check(res)
     }
 
@@ -558,7 +577,7 @@ pub(crate) mod decoder_ffi {
             format: format_raw.try_into()?,
             channels: channels as u32,
             sample_rate: sample_rate as u32,
-            channel_map,
+            channel_map: Some(channel_map),
         })
     }
 
@@ -642,23 +661,10 @@ impl<F: PcmFormat, S> Drop for Decoder<F, S> {
 }
 
 pub struct DecoderBuilder {
-    inner: sys::ma_decoder_config,
+    pub(crate) inner: sys::ma_decoder_config,
     format: Format,
     channels: u32,
     sample_rate: SampleRate,
-}
-
-impl Binding for DecoderBuilder {
-    type Raw = sys::ma_decoder_config;
-
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        self.inner
-    }
 }
 
 impl DecoderBuilder {
@@ -796,210 +802,214 @@ pub(crate) mod decoder_b_ffi {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use std::time::{SystemTime, UNIX_EPOCH};
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
-//     fn unique_tmp_path(ext: &str) -> std::path::PathBuf {
-//         let mut p = std::env::temp_dir();
-//         let nanos = SystemTime::now()
-//             .duration_since(UNIX_EPOCH)
-//             .unwrap()
-//             .as_nanos();
-//         p.push(format!("miniaudio_decoder_test_{nanos}.{ext}"));
-//         p
-//     }
+    fn unique_tmp_path(ext: &str) -> std::path::PathBuf {
+        let mut p = std::env::temp_dir();
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        p.push(format!("miniaudio_decoder_test_{nanos}.{ext}"));
+        p
+    }
 
-//     /// Build a minimal PCM 16-bit little-endian WAV file.
-//     fn wav_i16_le(channels: u16, sample_rate: u32, samples_interleaved: &[i16]) -> Vec<u8> {
-//         assert!(channels > 0);
-//         assert_eq!(samples_interleaved.len() % channels as usize, 0);
+    /// Build a minimal PCM 16-bit little-endian WAV file.
+    fn wav_i16_le(channels: u16, sample_rate: u32, samples_interleaved: &[i16]) -> Vec<u8> {
+        assert!(channels > 0);
+        assert_eq!(samples_interleaved.len() % channels as usize, 0);
 
-//         let bits_per_sample: u16 = 16;
-//         let block_align: u16 = channels * (bits_per_sample / 8);
-//         let byte_rate: u32 = sample_rate * block_align as u32;
-//         let data_bytes_len: u32 = (samples_interleaved.len() * 2) as u32;
+        let bits_per_sample: u16 = 16;
+        let block_align: u16 = channels * (bits_per_sample / 8);
+        let byte_rate: u32 = sample_rate * block_align as u32;
+        let data_bytes_len: u32 = (samples_interleaved.len() * 2) as u32;
 
-//         let riff_chunk_size: u32 = 4 + (8 + 16) + (8 + data_bytes_len);
+        let riff_chunk_size: u32 = 4 + (8 + 16) + (8 + data_bytes_len);
 
-//         let mut out = Vec::with_capacity((8 + riff_chunk_size) as usize);
+        let mut out = Vec::with_capacity((8 + riff_chunk_size) as usize);
 
-//         out.extend_from_slice(b"RIFF");
-//         out.extend_from_slice(&riff_chunk_size.to_le_bytes());
-//         out.extend_from_slice(b"WAVE");
+        out.extend_from_slice(b"RIFF");
+        out.extend_from_slice(&riff_chunk_size.to_le_bytes());
+        out.extend_from_slice(b"WAVE");
 
-//         out.extend_from_slice(b"fmt ");
-//         out.extend_from_slice(&16u32.to_le_bytes()); // PCM fmt chunk size
-//         out.extend_from_slice(&1u16.to_le_bytes()); // AudioFormat = 1 (PCM)
-//         out.extend_from_slice(&channels.to_le_bytes());
-//         out.extend_from_slice(&sample_rate.to_le_bytes());
-//         out.extend_from_slice(&byte_rate.to_le_bytes());
-//         out.extend_from_slice(&block_align.to_le_bytes());
-//         out.extend_from_slice(&bits_per_sample.to_le_bytes());
+        out.extend_from_slice(b"fmt ");
+        out.extend_from_slice(&16u32.to_le_bytes()); // PCM fmt chunk size
+        out.extend_from_slice(&1u16.to_le_bytes()); // AudioFormat = 1 (PCM)
+        out.extend_from_slice(&channels.to_le_bytes());
+        out.extend_from_slice(&sample_rate.to_le_bytes());
+        out.extend_from_slice(&byte_rate.to_le_bytes());
+        out.extend_from_slice(&block_align.to_le_bytes());
+        out.extend_from_slice(&bits_per_sample.to_le_bytes());
 
-//         out.extend_from_slice(b"data");
-//         out.extend_from_slice(&data_bytes_len.to_le_bytes());
+        out.extend_from_slice(b"data");
+        out.extend_from_slice(&data_bytes_len.to_le_bytes());
 
-//         for s in samples_interleaved {
-//             out.extend_from_slice(&s.to_le_bytes());
-//         }
+        for s in samples_interleaved {
+            out.extend_from_slice(&s.to_le_bytes());
+        }
 
-//         out
-//     }
+        out
+    }
 
-//     fn tiny_test_wav_mono(frames: usize) -> Vec<u8> {
-//         let mut samples = Vec::with_capacity(frames);
-//         for i in 0..frames {
-//             samples.push(((i as i32 * 300) % i16::MAX as i32) as i16);
-//         }
-//         wav_i16_le(1, 48_000, &samples)
-//     }
+    fn tiny_test_wav_mono(frames: usize) -> Vec<u8> {
+        let mut samples = Vec::with_capacity(frames);
+        for i in 0..frames {
+            samples.push(((i as i32 * 300) % i16::MAX as i32) as i16);
+        }
+        wav_i16_le(1, 48_000, &samples)
+    }
 
-//     #[test]
-//     fn test_decoder_from_memory_f32_read_seek_cursor_length_available() {
-//         let frames_total: usize = 64;
-//         let wav = tiny_test_wav_mono(frames_total);
+    #[test]
+    fn test_decoder_from_memory_f32_read_seek_cursor_length_available() {
+        let frames_total: usize = 64;
+        let wav = tiny_test_wav_mono(frames_total);
 
-//         let builder = DecoderBuilder::new(Format::F32, 1, SampleRate::Sr48000);
+        let mut builder = DecoderBuilder::new(1, SampleRate::Sr48000);
 
-//         let mut dec = builder.copy_from_memory(wav).unwrap();
+        let mut dec = builder.copy_f32_memory(wav).unwrap();
 
-//         let len = dec.length_pcm().unwrap();
-//         assert_eq!(len as usize, frames_total);
+        let len = dec.length_pcm().unwrap();
+        assert_eq!(len as usize, frames_total);
 
-//         let cursor0 = dec.cursor_pcm().unwrap();
-//         assert_eq!(cursor0, 0);
+        let cursor0 = dec.cursor_pcm().unwrap();
+        assert_eq!(cursor0, 0);
 
-//         let avail0 = dec.available_frames().unwrap();
-//         assert_eq!(avail0 as usize, frames_total);
+        let avail0 = dec.available_frames().unwrap();
+        assert_eq!(avail0 as usize, frames_total);
 
-//         let df = dec.data_format().unwrap();
-//         assert_eq!(df.channels, 1);
-//         assert_eq!(df.sample_rate, 48_000);
-//         assert_eq!(df.format, Format::F32);
+        let df = dec.data_format().unwrap();
+        assert_eq!(df.channels, 1);
+        assert_eq!(df.sample_rate, 48_000);
+        assert_eq!(df.format, Format::F32);
 
-//         let (buf, read) = dec.read_pcm_frames_f32(10).unwrap();
-//         assert_eq!(read, 10);
-//         assert_eq!(buf.len_samples(), 10);
+        let buf = dec.read_pcm_frames(10).unwrap();
+        let read = buf.frames();
+        assert_eq!(read, 10);
+        assert_eq!(buf.len(), 10);
 
-//         let cursor1 = dec.cursor_pcm().unwrap();
-//         assert_eq!(cursor1, 10);
+        let cursor1 = dec.cursor_pcm().unwrap();
+        assert_eq!(cursor1, 10);
 
-//         let avail1 = dec.available_frames().unwrap();
-//         assert_eq!(avail1 as usize, frames_total - 10);
+        let avail1 = dec.available_frames().unwrap();
+        assert_eq!(avail1 as usize, frames_total - 10);
 
-//         dec.seek_to_pcm_frame(0).unwrap();
-//         assert_eq!(dec.cursor_pcm().unwrap(), 0);
+        dec.seek_to_pcm_frame(0).unwrap();
+        assert_eq!(dec.cursor_pcm().unwrap(), 0);
 
-//         let (_buf2, read2) = dec.read_pcm_frames_f32(7).unwrap();
-//         assert_eq!(read2, 7);
-//         assert_eq!(dec.cursor_pcm().unwrap(), 7);
-//     }
+        let buf2 = dec.read_pcm_frames(7).unwrap();
+        let read2 = buf2.frames();
+        assert_eq!(read2, 7);
+        assert_eq!(dec.cursor_pcm().unwrap(), 7);
+    }
 
-//     #[test]
-//     fn test_decoder_ref_from_memory_decodes() {
-//         let frames_total: usize = 32;
-//         let wav = tiny_test_wav_mono(frames_total);
+    #[test]
+    fn test_decoder_ref_from_memory_decodes() {
+        let frames_total: usize = 32;
+        let wav = tiny_test_wav_mono(frames_total);
 
-//         let builder = DecoderBuilder::new(Format::S16, 1, SampleRate::Sr48000);
+        let mut builder = DecoderBuilder::new(1, SampleRate::Sr48000);
 
-//         let mut dec_ref = builder.ref_from_memory(&wav).unwrap();
+        let mut dec_ref = builder.f32_memory(&wav).unwrap();
 
-//         let (buf, read) = dec_ref.read_pcm_frames_s16(12).unwrap();
-//         assert_eq!(read, 12);
-//         assert_eq!(buf.len_samples(), 12);
-//     }
+        let buf = dec_ref.read_pcm_frames(12).unwrap();
+        let read = buf.frames();
+        assert_eq!(read, 12);
+        assert_eq!(buf.len(), 12);
+    }
 
-//     #[test]
-//     fn test_decoder_from_file_reads_and_reports_length() {
-//         let frames_total: usize = 40;
-//         let wav = tiny_test_wav_mono(frames_total);
+    #[test]
+    fn test_decoder_from_file_reads_and_reports_length() {
+        let frames_total: usize = 40;
+        let wav = tiny_test_wav_mono(frames_total);
 
-//         let guard = TempFileGuard::new(unique_tmp_path("wav"));
-//         std::fs::write(guard.path(), &wav).unwrap();
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        std::fs::write(guard.path(), &wav).unwrap();
 
-//         let builder = DecoderBuilder::new(Format::F32, 1, SampleRate::Sr48000);
+        let mut builder = DecoderBuilder::new(1, SampleRate::Sr48000);
 
-//         let mut dec = builder.from_file(guard.path()).unwrap();
+        let mut dec = builder.f32_file(guard.path()).unwrap();
 
-//         assert_eq!(dec.length_pcm().unwrap() as usize, frames_total);
-//         assert_eq!(dec.cursor_pcm().unwrap(), 0);
+        assert_eq!(dec.length_pcm().unwrap() as usize, frames_total);
+        assert_eq!(dec.cursor_pcm().unwrap(), 0);
 
-//         let (_buf, read) = dec.read_pcm_frames_f32(1000).unwrap();
-//         assert_eq!(read as usize, frames_total);
-//     }
+        let buf = dec.read_pcm_frames(1000).unwrap();
+        assert_eq!(buf.frames() as usize, frames_total);
+    }
 
-//     #[test]
-//     fn test_decoder_read_variants_return_expected_lengths() {
-//         let frames_total: usize = 16;
-//         let wav = tiny_test_wav_mono(frames_total);
-//         let wav: Arc<[u8]> = wav.into();
+    // TODO: More tests
+    // #[test]
+    // fn test_decoder_read_variants_return_expected_lengths() {
+    //     let frames_total: usize = 16;
+    //     let wav = tiny_test_wav_mono(frames_total);
+    //     let wav: Arc<[u8]> = wav.into();
 
-//         let cases = [
-//             (Format::U8, "u8"),
-//             (Format::S16, "s16"),
-//             (Format::S24, "s24"),
-//             (Format::S32, "s32"),
-//             (Format::F32, "f32"),
-//         ];
+    //     let cases = [
+    //         (Format::U8, "u8"),
+    //         (Format::S16, "s16"),
+    //         (Format::S24, "s24"),
+    //         (Format::S32, "s32"),
+    //         (Format::F32, "f32"),
+    //     ];
 
-//         for (fmt, _name) in cases {
-//             let builder = DecoderBuilder::new(fmt, 1, SampleRate::Sr48000);
+    //     for (fmt, _name) in cases {
+    //         let builder = DecoderBuilder::new( 1, SampleRate::Sr48000);
 
-//             let mut dec = builder.copy_from_memory(wav.clone()).unwrap();
+    //         let mut dec = builder.copy_from_memory(wav.clone()).unwrap();
 
-//             let (len_units, read) = match fmt {
-//                 Format::U8 => {
-//                     let (b, r) = dec.read_pcm_frames_u8(5).unwrap();
-//                     (b.len_samples(), r)
-//                 }
-//                 Format::S16 => {
-//                     let (b, r) = dec.read_pcm_frames_s16(5).unwrap();
-//                     (b.len_samples(), r)
-//                 }
-//                 Format::S24 => {
-//                     let (b, r) = dec.read_pcm_frames_s24(5).unwrap();
-//                     (b.len_samples(), r)
-//                 }
-//                 Format::S32 => {
-//                     let (b, r) = dec.read_pcm_frames_s32(5).unwrap();
-//                     (b.len_samples(), r)
-//                 }
-//                 Format::F32 => {
-//                     let (b, r) = dec.read_pcm_frames_f32(5).unwrap();
-//                     (b.len_samples(), r)
-//                 }
-//             };
+    //         let (len_units, read) = match fmt {
+    //             Format::U8 => {
+    //                 let (b, r) = dec.read_pcm_frames_u8(5).unwrap();
+    //                 (b.len_samples(), r)
+    //             }
+    //             Format::S16 => {
+    //                 let (b, r) = dec.read_pcm_frames_s16(5).unwrap();
+    //                 (b.len_samples(), r)
+    //             }
+    //             Format::S24 => {
+    //                 let (b, r) = dec.read_pcm_frames_s24(5).unwrap();
+    //                 (b.len_samples(), r)
+    //             }
+    //             Format::S32 => {
+    //                 let (b, r) = dec.read_pcm_frames_s32(5).unwrap();
+    //                 (b.len_samples(), r)
+    //             }
+    //             Format::F32 => {
+    //                 let (b, r) = dec.read_pcm_frames_f32(5).unwrap();
+    //                 (b.len_samples(), r)
+    //             }
+    //         };
 
-//             assert_eq!(read, 5);
+    //         assert_eq!(read, 5);
 
-//             let expected_units = match fmt {
-//                 Format::S24 => 15,
-//                 _ => 5,
-//             };
+    //         let expected_units = match fmt {
+    //             Format::S24 => 15,
+    //             _ => 5,
+    //         };
 
-//             assert_eq!(len_units, expected_units);
-//         }
-//     }
-// }
+    //         assert_eq!(len_units, expected_units);
+    //     }
+    // }
+}
 
-// struct TempFileGuard {
-//     path: std::path::PathBuf,
-// }
+struct TempFileGuard {
+    path: std::path::PathBuf,
+}
 
-// impl TempFileGuard {
-//     fn new(path: std::path::PathBuf) -> Self {
-//         Self { path }
-//     }
+impl TempFileGuard {
+    fn new(path: std::path::PathBuf) -> Self {
+        Self { path }
+    }
 
-//     fn path(&self) -> &std::path::Path {
-//         &self.path
-//     }
-// }
+    fn path(&self) -> &std::path::Path {
+        &self.path
+    }
+}
 
-// impl Drop for TempFileGuard {
-//     fn drop(&mut self) {
-//         let _ = std::fs::remove_file(&self.path);
-//     }
-// }
+impl Drop for TempFileGuard {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.path);
+    }
+}

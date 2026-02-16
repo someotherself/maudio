@@ -7,6 +7,8 @@ use crate::{
     ErrorKinds, MaResult, MaudioError,
 };
 
+// TODO: Add a SampleFormat which includes S24 / S24Packed that map to S24 miniaudio
+// TODO: Store SampleFormat on types that return it?
 /// Sample format (numeric representation of audio samples).
 ///
 /// Each format uses the full dynamic range of its underlying type:
@@ -16,6 +18,11 @@ use crate::{
 /// - **`Format::S24`** — 24-bit signed integer (tightly packed), range `[-8_388_608, 8_388_607]`
 /// - **`Format::S32`** — 32-bit signed integer, range `[-2_147_483_648, 2_147_483_647]`
 /// - **`Format::F32`** — 32-bit floating point, typically normalized to `[-1.0, 1.0]`
+///
+/// Note: `Format::S24` is miniaudio's 24-bit PCM storage format.
+/// In this crate, 24-bit PCM can be represented as either:
+/// - [`S24Packed`]: packed 3-byte samples (native miniaudio layout)
+/// - [`S24`]: 24-bit samples stored in `i32` (convenience representation)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 pub enum Format {
@@ -81,7 +88,6 @@ impl<F: PcmFormat> SampleBuffer<F> {
 
     pub(crate) fn new_zeroed(frames: usize, channels: u32) -> MaResult<Vec<F::StorageUnit>> {
         let len = Self::required_len(frames, channels, F::VEC_STORE_UNITS_PER_FRAME)?;
-        println!("new_zeroed len: {len}");
         Ok(vec![F::StorageUnit::default(); len])
     }
 
@@ -108,13 +114,11 @@ impl<F: PcmFormat> SampleBuffer<F> {
                     lhs: len as u64,
                     rhs: F::VEC_STORE_UNITS_PER_FRAME as u64,
                 }))?;
-        println!("Vec_el: {vec_el}");
 
         // Convert from Storage to Pcm
         storage.truncate(vec_el);
 
         let data = <F as PcmFormatInternal>::storage_to_pcm_internal(storage)?;
-        println!("data len: {}", data.len());
 
         Ok(SampleBuffer {
             data,
@@ -136,7 +140,7 @@ impl<F: PcmFormat> SampleBuffer<F> {
         self.data.is_empty()
     }
 
-    /// Returns the len of the underlying Vec[T]. `Not` the frames count.
+    /// Returns the len of the underlying Vec\[T\]. `Not` the frames count.
     pub fn len(&self) -> usize {
         self.data.len()
     }

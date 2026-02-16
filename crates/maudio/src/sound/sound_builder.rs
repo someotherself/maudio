@@ -85,12 +85,18 @@ use crate::{
 ///
 /// ```no_run
 /// # use maudio::engine::Engine;
+/// # use maudio::engine::EngineOps;
 /// # use maudio::sound::sound_builder::SoundBuilder;
 /// # fn demo(engine: &Engine) -> maudio::MaResult<()> {
+/// // Attach to the engine's endpoint input bus 0 at creation time.
+/// let endpoint = engine.endpoint().expect("engine has an endpoint");
+///
 /// let sound = SoundBuilder::new(&engine)
-///     .file_path("assets/music.ogg".as_ref()).build()?;;
+///     .file_path("assets/music.ogg".as_ref())
+///     .initial_attachment(&endpoint, 0) // redundant here, only as example
+///     .build()?;
 /// # Ok(())
-/// }
+/// # }
 /// ```
 ///
 /// # Notes

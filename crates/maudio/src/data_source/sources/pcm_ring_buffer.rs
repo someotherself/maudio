@@ -1,3 +1,41 @@
+//! A single producer, single consumer ring buffer for PCM frames.
+//!
+//! This module provides [`PcmRingBuffer`] for constructing a typed send/receive
+//! pair: [`PcmRbSend<F>`] and [`PcmRbRecv<F>`]. The pair shares storage internally and is intended
+//! for **one producer thread** (writer) and **one consumer thread** (reader).
+//!
+//! - [`PcmRbSend<F>`] writes frames/samples
+//! - [`PcmRbRecv<F>`] reads frames/samples
+//!
+//! The endpoints are **not `Sync`** (by design). You can move each endpoint to a different
+//! thread, but you must not share an endpoint between threads.
+//!
+//! Construction is format-specific (`new_i16`, `new_f32`, …)
+//!
+//! Special note for 24-bit audio:
+//! - [`S24Packed`] represents miniaudio’s 24-bit **packed 3-byte** interleaved samples.
+//! - [`S24`] is a convenience type for “24-bit stored in i32”.
+//!
+//! ## Example: SPSC usage pattern (one owner per endpoint)
+//!
+//! ```no_run
+//! # use maudio::data_source::sources::pcm_ring_buffer::PcmRingBuffer;
+//! # fn main() -> maudio::MaResult<()> {
+//! let (mut tx, mut rx) = PcmRingBuffer::new_i16(2048, 1)?;
+//!
+//! // Move tx into producer thread, rx into consumer thread.
+//! std::thread::scope(|s| {
+//!     s.spawn(move || {
+//!         let input = [0i16; 256];
+//!         let _ = tx.write(&input);
+//!     });
+//!     s.spawn(move || {
+//!         let mut output = [0i16; 256];
+//!         let _ = rx.read(&mut output);
+//!     });
+//! });
+//! # Ok(()) }
+//! ```
 use std::{
     cell::Cell,
     marker::PhantomData,
@@ -17,7 +55,24 @@ use crate::{
     MaResult,
 };
 
-/// A single producer, single consumer ring buffer for PCM frames.
+/// Type for creating a typed single-producer / single-consumer PCM ring buffer.
+///
+/// The buffer stores **interleaved** PCM samples:
+/// - mono: `MMMM...`
+/// - stereo: `LRLRLR...`
+/// - N channels: `C0 C1 ... C(N-1) C0 C1 ...`
+///
+/// `size_frames` is the capacity in **frames**. One frame contains `channels` samples.
+/// Total sample capacity is `size_frames * channels`.
+///
+/// # Contruction
+/// Use the constructor matching your sample type:
+/// - [`PcmRingBuffer::new_u8`]
+/// - [`PcmRingBuffer::new_i16`]
+/// - [`PcmRingBuffer::new_s24_packed`]
+/// - [`PcmRingBuffer::new_s24`]
+/// - [`PcmRingBuffer::new_i32`]
+/// - [`PcmRingBuffer::new_f32`]
 pub struct PcmRingBuffer {}
 
 pub(crate) struct PcmRbInner {
@@ -29,6 +84,7 @@ pub(crate) struct PcmRbInner {
 unsafe impl Send for PcmRbInner {}
 unsafe impl Sync for PcmRbInner {}
 
+/// Send (write) endpoint of a single-producer PCM ring buffer.
 pub struct PcmRbSend<F: PcmFormat> {
     inner: Arc<PcmRbInner>,
     channels: usize,
@@ -36,6 +92,7 @@ pub struct PcmRbSend<F: PcmFormat> {
     _marker: PhantomData<F>,
 }
 
+/// Receive (read) endpoint of a single-consumer PCM ring buffer.
 pub struct PcmRbRecv<F: PcmFormat> {
     inner: Arc<PcmRbInner>,
     channels: usize,
@@ -84,46 +141,69 @@ impl<F: PcmFormat> PcmRbSend<F> {
         PcmRingBuffer::acquire_write_internal::<F>(self, desired_frames)
     }
 
+    /// Advances the read pointer by `offset_frames`.
     pub fn seek_write(&mut self, offset_frames: u32) -> MaResult<()> {
         pcm_rb_ffi::ma_pcm_rb_seek_write(self, offset_frames)
     }
 
+    /// Returns the distance between the read and write pointers.
     pub fn pointer_distance(&self) -> i32 {
         pcm_rb_ffi::ma_pcm_rb_pointer_distance(self)
     }
 
+    /// Returns the number of frames available for reading.
     pub fn available_read(&self) -> u32 {
         pcm_rb_ffi::ma_pcm_rb_available_read(self)
     }
 
+    /// Returns the number of frames available for writing.
     pub fn available_write(&self) -> u32 {
         pcm_rb_ffi::ma_pcm_rb_available_write(self)
     }
 
+    /// Returns the total capacity of the buffer in frames.
     pub fn buffer_size(&self) -> u32 {
         pcm_rb_ffi::ma_pcm_rb_get_subbuffer_size(self)
     }
 
+    /// Returns the PCM format of the buffer.
     pub fn format(&self) -> MaResult<Format> {
         pcm_rb_ffi::ma_pcm_rb_get_format(self)
     }
 
+    /// Returns the number of channels.
     pub fn channels(&self) -> u32 {
         pcm_rb_ffi::ma_pcm_rb_get_channels(self)
     }
 
+    /// Returns the configured sample rate.
     pub fn sample_rate(&self) -> MaResult<SampleRate> {
         pcm_rb_ffi::ma_pcm_rb_get_sample_rate(self)
     }
 
+    /// Sets the sample rate metadata.
     pub fn set_sample_rate(&mut self, sample_rate: SampleRate) {
         pcm_rb_ffi::ma_pcm_rb_set_sample_rate(self, sample_rate);
     }
 }
 
 impl<F: PcmFormat> PcmRbRecv<F> {
-    pub fn write(&mut self, dst: &mut [F::PcmUnit]) -> MaResult<usize> {
+    pub fn read(&mut self, dst: &mut [F::PcmUnit]) -> MaResult<usize> {
         PcmRingBuffer::read_internal(self, dst)
+    }
+
+    /// Reads as many of the `desired_frames` as are currently available.
+    ///
+    /// The closure must return the number of `PCM FRAMES` consumed.
+    ///
+    /// For interleaved audio reads are rounded down to whole frames.
+    ///
+    /// Returns the number of frames read.
+    pub fn read_with<C>(&mut self, desired_frames: usize, f: C) -> MaResult<usize>
+    where
+        C: FnOnce(&[F::PcmUnit]) -> usize,
+    {
+        PcmRingBuffer::read_with_internal(self, desired_frames, f)
     }
 
     fn acquire_read(
@@ -133,38 +213,47 @@ impl<F: PcmFormat> PcmRbRecv<F> {
         PcmRingBuffer::acquire_read_internal::<F>(self, desired_frames)
     }
 
+    /// Advances the write pointer by `offset_frames`.
     pub fn seek_read(&mut self, offset_frames: u32) -> MaResult<()> {
         pcm_rb_ffi::ma_pcm_rb_seek_read(self, offset_frames)
     }
 
+    /// Returns the distance between the read and write pointers.
     pub fn pointer_distance(&self) -> i32 {
         pcm_rb_ffi::ma_pcm_rb_pointer_distance(self)
     }
 
+    /// Returns the number of frames available for reading.
     pub fn available_read(&self) -> u32 {
         pcm_rb_ffi::ma_pcm_rb_available_read(self)
     }
 
+    /// Returns the number of frames available for writing
     pub fn available_write(&self) -> u32 {
         pcm_rb_ffi::ma_pcm_rb_available_write(self)
     }
 
+    /// Returns the total capacity of the buffer in frames.
     pub fn buffer_size(&self) -> u32 {
         pcm_rb_ffi::ma_pcm_rb_get_subbuffer_size(self)
     }
 
+    /// Returns the PCM format of the buffer.
     pub fn format(&self) -> MaResult<Format> {
         pcm_rb_ffi::ma_pcm_rb_get_format(self)
     }
 
+    /// Returns the number of channels.
     pub fn channels(&self) -> u32 {
         pcm_rb_ffi::ma_pcm_rb_get_channels(self)
     }
 
+    /// Returns the configured sample rate.
     pub fn sample_rate(&self) -> MaResult<SampleRate> {
         pcm_rb_ffi::ma_pcm_rb_get_sample_rate(self)
     }
 
+    /// Sets the sample rate metadata.
     pub fn set_sample_rate(&mut self, sample_rate: SampleRate) {
         pcm_rb_ffi::ma_pcm_rb_set_sample_rate(self, sample_rate);
     }
@@ -363,7 +452,7 @@ impl PcmRingBuffer {
 }
 
 /// Guard providing temporary read access to a section of the ring buffer
-pub struct RbReadGuard<'a, T, F: PcmFormat> {
+struct RbReadGuard<'a, T, F: PcmFormat> {
     owner: &'a mut dyn RbReadOwner,
     ptr: *mut core::ffi::c_void,
     avail_frames: u32,
@@ -428,7 +517,7 @@ impl<T: PcmFormat> RbWriteOwner for PcmRbSend<T> {
 }
 
 /// Guard providing temporary write access to a section of the ring buffer
-pub struct RbWriteGuard<'a, T, F: PcmFormat> {
+struct RbWriteGuard<'a, T, F: PcmFormat> {
     owner: &'a mut dyn RbWriteOwner,
     ptr: *mut core::ffi::c_void,
     cap_frames: u32,

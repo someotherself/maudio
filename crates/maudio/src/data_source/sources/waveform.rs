@@ -17,7 +17,7 @@ use crate::{
     audio::{
         formats::{Format, SampleBuffer},
         sample_rate::SampleRate,
-        waveform::WaveFormType,
+        wave_shape::WaveFormType,
     },
     data_source::{
         private_data_source, sources::waveform::private_wave::WaveFormPtrProvider, AsSourcePtr,
@@ -42,6 +42,12 @@ pub trait AsWaveFormPtr {
     fn channels(&self) -> u32;
 }
 
+/// Procedural waveform generator.
+///
+/// `WaveForm` produces continuous periodic PCM audio (sine, square, triangle,
+/// sawtooth) and can be read, seeked, or used as a [`DataSource`](crate::data_source::DataSource).
+///
+/// Audio is generated in **PCM frames** using the selected [`PcmFormat`].
 pub struct WaveForm<F: PcmFormat> {
     inner: *mut sys::ma_waveform,
     format: Format,
@@ -72,11 +78,6 @@ mod private_wave {
     }
 
     pub struct WaveFormProvider;
-    pub struct WaveFormU8Provider;
-    pub struct WaveFormI16Provider;
-    pub struct WaveFormI32Provider;
-    pub struct WaveFormS24Provider;
-    pub struct WaveFormF32Provider;
 
     impl<F: PcmFormat> WaveFormPtrProvider<WaveForm<F>> for WaveFormProvider {
         fn as_waveform_ptr(t: &WaveForm<F>) -> *mut sys::ma_waveform {
@@ -96,6 +97,7 @@ impl<F: PcmFormat> WaveFormOps for WaveForm<F> {
 pub trait WaveFormOps: AsWaveFormPtr + AsSourcePtr {
     type Format: PcmFormat;
 
+    /// Generates PCM frames into `dst`, returning the number of frames written.
     fn read_pcm_frames_into(
         &mut self,
         dst: &mut [<Self::Format as PcmFormat>::PcmUnit],
@@ -103,30 +105,37 @@ pub trait WaveFormOps: AsWaveFormPtr + AsSourcePtr {
         waveform_ffi::ma_waveform_read_pcm_frames_into::<Self::Format, Self>(self, dst)
     }
 
+    /// Allocates and generates `frames` PCM frames.
     fn read_pcm_frames(&mut self, frames: u64) -> MaResult<SampleBuffer<Self::Format>> {
         waveform_ffi::ma_waveform_read_pcm_frames(self, frames)
     }
 
+    /// Seeks to an absolute PCM frame position.
     fn seek_to_pcm_frame(&mut self, frame_index: u64) -> MaResult<()> {
         waveform_ffi::ma_waveform_seek_to_pcm_frame(self, frame_index)
     }
 
+    /// Sets the waveform amplitude.
     fn set_amplitude(&mut self, amplitude: f64) -> MaResult<()> {
         waveform_ffi::ma_waveform_set_amplitude(self, amplitude)
     }
 
+    /// Sets the waveform frequency in Hz.
     fn set_frequency(&mut self, frequency: f64) -> MaResult<()> {
         waveform_ffi::ma_waveform_set_frequency(self, frequency)
     }
 
+    /// Sets the waveform shape.
     fn set_type(&mut self, wave_type: WaveFormType) -> MaResult<()> {
         waveform_ffi::ma_waveform_set_type(self, wave_type)
     }
 
+    /// Sets the sample rate used for generation.
     fn set_sample_rate(&mut self, sample_rate: SampleRate) -> MaResult<()> {
         waveform_ffi::ma_waveform_set_sample_rate(self, sample_rate)
     }
 
+    /// Returns a [`DataSourceRef`] view of this waveform.
     fn as_source(&self) -> DataSourceRef<'_> {
         debug_assert!(!private_wave::waveform_ptr(self).is_null());
         let ptr = private_wave::waveform_ptr(self).cast::<sys::ma_data_source>();
@@ -136,10 +145,10 @@ pub trait WaveFormOps: AsWaveFormPtr + AsSourcePtr {
 
 pub(crate) mod waveform_ffi {
     use crate::{
-        audio::{formats::SampleBuffer, sample_rate::SampleRate, waveform::WaveFormType},
+        audio::{formats::SampleBuffer, sample_rate::SampleRate, wave_shape::WaveFormType},
         data_source::sources::waveform::{private_wave, AsWaveFormPtr, WaveFormBuilder},
         pcm_frames::{PcmFormat, PcmFormatInternal},
-        Binding, MaResult, MaudioError,
+        MaResult, MaudioError,
     };
     use maudio_sys::ffi as sys;
 
@@ -148,8 +157,7 @@ pub(crate) mod waveform_ffi {
         config: &WaveFormBuilder,
         waveform: *mut sys::ma_waveform,
     ) -> MaResult<()> {
-        let raw = config.to_raw();
-        let res = unsafe { sys::ma_waveform_init(&raw as *const _, waveform) };
+        let res = unsafe { sys::ma_waveform_init(&config.inner as *const _, waveform) };
         MaudioError::check(res)
     }
 
@@ -306,6 +314,7 @@ impl<F: PcmFormat> Drop for WaveForm<F> {
     }
 }
 
+/// Builder for constructing a [`WaveForm`]
 pub struct WaveFormBuilder {
     inner: sys::ma_waveform_config,
     format: Format,
@@ -314,19 +323,6 @@ pub struct WaveFormBuilder {
     wave_type: WaveFormType,
     amplitude: f64,
     frequency: f64,
-}
-
-impl Binding for WaveFormBuilder {
-    type Raw = sys::ma_waveform_config;
-
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        self.inner
-    }
 }
 
 impl WaveFormBuilder {

@@ -11,37 +11,17 @@ use crate::{
         },
         Engine,
     },
-    Binding, MaResult,
+    MaResult,
 };
 
 pub struct EngineBuilder {
-    inner: sys::ma_engine_config,
+    pub(crate) inner: sys::ma_engine_config,
     device: Option<*mut sys::ma_device>,
     resource_manager: Option<*mut sys::ma_resource_manager>,
     no_device: bool,
     channels: Option<u32>,
     sample_rate: Option<SampleRate>,
     process_notifier: Option<Arc<ProcessState>>,
-}
-
-impl Binding for EngineBuilder {
-    type Raw = sys::ma_engine_config;
-
-    fn from_ptr(raw: Self::Raw) -> Self {
-        Self {
-            inner: raw,
-            device: None,
-            resource_manager: None,
-            no_device: false,
-            channels: None,
-            sample_rate: None,
-            process_notifier: None,
-        }
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        self.inner
-    }
 }
 
 impl Default for EngineBuilder {
@@ -61,7 +41,15 @@ impl Default for EngineBuilder {
 impl EngineBuilder {
     pub fn new() -> Self {
         let ptr = unsafe { sys::ma_engine_config_init() };
-        Self::from_ptr(ptr)
+        Self {
+            inner: ptr,
+            device: None,
+            resource_manager: None,
+            no_device: false,
+            channels: None,
+            sample_rate: None,
+            process_notifier: None,
+        }
     }
 
     // TODO: Implement wrapper for sys::ma_device

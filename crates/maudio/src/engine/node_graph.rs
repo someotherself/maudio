@@ -10,6 +10,7 @@ pub mod voice;
 use maudio_sys::ffi as sys;
 
 use crate::{
+    audio::formats::SampleBuffer,
     engine::{
         node_graph::{node_graph_builder::NodeGraphBuilder, nodes::NodeRef},
         AllocationCallbacks, Engine,
@@ -157,29 +158,38 @@ impl AsNodeGraphPtr for NodeGraphRef<'_> {
 impl<T: AsNodeGraphPtr + ?Sized> NodeGraphOps for T {}
 
 pub trait NodeGraphOps: AsNodeGraphPtr {
+    /// Returns the endpoint node of the graph, if any.
     fn endpoint(&self) -> Option<NodeRef<'_>> {
         graph_ffi::ma_node_graph_get_endpoint(self)
     }
 
-    fn read_pcm_frames(&mut self, frame_count: u64) -> MaResult<(Vec<f32>, u64)> {
+    /// Reads PCM frames into `dst`, returning the number of frames read.
+    fn read_pcm_frames_into(&mut self, dst: &mut [f32]) -> MaResult<usize> {
+        graph_ffi::ma_node_graph_read_pcm_frames_into(self, dst)
+    }
+
+    /// Allocates and reads `frame_count` PCM frames from the graph.
+    fn read_pcm_frames(&mut self, frame_count: u64) -> MaResult<SampleBuffer<f32>> {
         graph_ffi::ma_node_graph_read_pcm_frames(self, frame_count)
     }
 
+    /// Returns the number of output channels in the graph.
     fn channels(&self) -> u32 {
         graph_ffi::ma_node_graph_get_channels(self)
     }
 
+    /// Returns the current global time in PCM frames.
     fn time(&self) -> u64 {
         graph_ffi::ma_node_graph_get_time(self)
     }
 
+    /// Sets the global time in PCM frames.
     fn set_time(&mut self, global_time: u64) -> MaResult<()> {
         let res = graph_ffi::ma_node_graph_set_time(self, global_time);
         MaudioError::check(res)
     }
 }
 
-// These should not be available to NodeGraphRef
 impl<'a> NodeGraph<'a> {
     fn with_alloc_callbacks(
         config: &NodeGraphBuilder,
@@ -189,7 +199,7 @@ impl<'a> NodeGraph<'a> {
 
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
-        graph_ffi::ma_node_graph_init(&config.to_raw() as *const _, alloc_cb, mem.as_mut_ptr())?;
+        graph_ffi::ma_node_graph_init(&config.inner as *const _, alloc_cb, mem.as_mut_ptr())?;
 
         let inner: *mut sys::ma_node_graph = Box::into_raw(mem) as *mut sys::ma_node_graph;
         Ok(Self {
@@ -212,6 +222,7 @@ mod graph_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
+        audio::formats::SampleBuffer,
         engine::node_graph::{nodes::NodeRef, private_node_graph, AsNodeGraphPtr, NodeGraphOps},
         Binding, MaResult, MaudioError,
     };
@@ -249,10 +260,39 @@ mod graph_ffi {
     }
 
     #[inline]
+    pub fn ma_node_graph_read_pcm_frames_into<N: AsNodeGraphPtr + ?Sized>(
+        node_graph: &mut N,
+        dst: &mut [f32],
+    ) -> MaResult<usize> {
+        let channels = node_graph.channels();
+        let len = dst.len() as u64;
+
+        if channels == 0 {
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
+        }
+
+        // May truncate, and that is desired
+        let frame_count = len / channels as u64;
+
+        let mut frames_read = 0;
+        let res = unsafe {
+            sys::ma_node_graph_read_pcm_frames(
+                private_node_graph::node_graph_ptr(node_graph),
+                dst.as_mut_ptr() as *mut std::ffi::c_void,
+                frame_count,
+                &mut frames_read,
+            )
+        };
+        MaudioError::check(res)?;
+
+        Ok(frames_read as usize)
+    }
+
+    #[inline]
     pub(crate) fn ma_node_graph_read_pcm_frames<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &mut N,
         frame_count: u64,
-    ) -> MaResult<(Vec<f32>, u64)> {
+    ) -> MaResult<SampleBuffer<f32>> {
         let channels = node_graph.channels();
         let mut buffer = vec![0.0f32; (frame_count * channels as u64) as usize];
         let mut frames_read = 0;
@@ -265,7 +305,7 @@ mod graph_ffi {
             )
         };
         MaudioError::check(res)?;
-        Ok((buffer, frames_read))
+        SampleBuffer::<f32>::from_storage(buffer, frames_read as usize, channels)
     }
 
     #[inline]

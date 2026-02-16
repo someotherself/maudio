@@ -43,11 +43,6 @@
 //! Time can be queried or modified in either PCM frames or milliseconds.
 //!
 //! For sample-accurate control, prefer the PCM-frame APIs.
-//!
-//! ## Threading
-//! The engine runs an internal audio callback on a real-time thread. Care should
-//! be taken to avoid heavy work or allocations in contexts that must remain
-//! real-time safe.
 use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit, path::Path, sync::Arc};
 
 use crate::{
@@ -79,6 +74,7 @@ pub mod engine_host;
 
 pub mod node_graph;
 pub mod process_notifier;
+mod resource;
 
 /// High-level audio engine.
 ///
@@ -184,82 +180,102 @@ impl<T: AsEnginePtr + ?Sized> EngineOps for T {}
 
 /// EngineOps trait contains shared methods for [`Engine`] and [`EngineRef`]
 pub trait EngineOps: AsEnginePtr {
+    /// Sets the master volume (of the output node).
     fn set_volume(&self, volume: f32) -> MaResult<()> {
         engine_ffi::ma_engine_set_volume(self, volume)
     }
 
+    /// Returns the master volume.
     fn volume(&self) -> f32 {
         engine_ffi::ma_engine_get_volume(self)
     }
 
+    /// Sets the master gain in dB.
     fn set_gain_db(&self, db_gain: f32) -> MaResult<()> {
         engine_ffi::ma_engine_set_gain_db(self, db_gain)
     }
 
+    /// Returns the master gain in dB.
     fn gain_db(&self) -> f32 {
         engine_ffi::ma_engine_get_gain_db(self)
     }
 
+    /// Returns the number of listeners.
     fn listener_count(&self) -> u32 {
         engine_ffi::ma_engine_get_listener_count(self)
     }
 
+    /// Returns the index of the closest listener to `position`.
     fn closest_listener(&self, position: Vec3) -> u32 {
         engine_ffi::ma_engine_find_closest_listener(self, position)
     }
 
+    /// Sets the position of `listener`.
     fn set_position(&self, listener: u32, position: Vec3) {
         engine_ffi::ma_engine_listener_set_position(self, listener, position);
     }
 
+    /// Returns the position of `listener`.
     fn position(&self, listener: u32) -> Vec3 {
         engine_ffi::ma_engine_listener_get_position(self, listener)
     }
 
+    /// Sets the facing direction of `listener`.
     fn set_direction(&self, listener: u32, direction: Vec3) {
         engine_ffi::ma_engine_listener_set_direction(self, listener, direction);
     }
 
+    /// Returns the facing direction of `listener`.
     fn direction(&self, listener: u32) -> Vec3 {
         engine_ffi::ma_engine_listener_get_direction(self, listener)
     }
 
+    /// Sets the velocity of `listener`.
     fn set_velocity(&self, listener: u32, position: Vec3) {
         engine_ffi::ma_engine_listener_set_velocity(self, listener, position);
     }
 
+    /// Returns the velocity of `listener`.
     fn velocity(&self, listener: u32) -> Vec3 {
         engine_ffi::ma_engine_listener_get_velocity(self, listener)
     }
 
+    /// Sets the directional cone of `listener`.
     fn set_cone(&self, listener: u32, cone: Cone) {
         engine_ffi::ma_engine_listener_set_cone(self, listener, cone);
     }
 
+    /// Returns the directional cone of `listener`.
     fn cone(&self, listener: u32) -> Cone {
         engine_ffi::ma_engine_listener_get_cone(self, listener)
     }
 
+    /// Sets the world-up vector of `listener`.
     fn set_world_up(&self, listener: u32, up_direction: Vec3) {
         engine_ffi::ma_engine_listener_set_world_up(self, listener, up_direction);
     }
 
+    /// Returns the world-up vector of `listener`.
     fn get_world_up(&self, listener: u32) -> Vec3 {
         engine_ffi::ma_engine_listener_get_world_up(self, listener)
     }
 
+    /// Enables or disables `listener`.
     fn toggle_listener(&self, listener: u32, enabled: bool) {
         engine_ffi::ma_engine_listener_set_enabled(self, listener, enabled);
     }
 
+    /// Returns `true` if `listener` is enabled.
     fn listener_enabled(&self, listener: u32) -> bool {
         engine_ffi::ma_engine_listener_is_enabled(self, listener)
     }
 
+    /// Returns the engine's internal node graph, if available.
     fn as_node_graph(&self) -> Option<NodeGraphRef<'_>> {
         engine_ffi::ma_engine_get_node_graph(self)
     }
 
+    /// Reads PCM frames into `dst`, returning the number of frames read.
     fn read_pcm_frames_into(&self, dst: &mut [f32]) -> MaResult<usize> {
         engine_ffi::ma_engine_read_pcm_frames_into(self, dst)
     }
@@ -270,7 +286,6 @@ pub trait EngineOps: AsEnginePtr {
     /// - This is a **pull-based render operation**.
     /// - The engine will attempt to render `frame_count` frames, but it may return
     ///   **fewer frames**.
-    /// - The number of frames actually rendered is returned alongside the samples.
     fn read_pcm_frames(&self, frame_count: u64) -> MaResult<SampleBuffer<f32>> {
         engine_ffi::ma_engine_read_pcm_frames(self, frame_count)
     }
@@ -280,91 +295,41 @@ pub trait EngineOps: AsEnginePtr {
     /// The endpoint node is the final node in the engine’s internal node graph.
     /// All sounds ultimately connect to this node before audio is sent to the
     /// output device.
-    ///
-    /// This can be used to:
-    /// - Inspect or modify the engine’s node graph
-    /// - Attach custom processing nodes (effects, mixers, etc.)
-    /// - Query graph-level properties
     fn endpoint(&self) -> Option<NodeRef<'_>> {
         engine_ffi::ma_engine_get_endpoint(self)
     }
 
-    /// Returns the current engine time in **PCM frames**.
-    ///
-    /// This is the engine’s global playback time, measured in sample frames
-    /// at the engine’s sample rate.
-    ///
-    /// ## Use cases
-    /// - Sample-accurate scheduling
-    /// - Synchronizing multiple sounds
-    /// - Implementing custom transport or timeline logic
-    ///
-    /// ## Notes
-    /// - The time is monotonic unless explicitly modified with
-    ///   [`EngineOps::set_time_pcm()`].
-    /// - The value is independent of any individual sound’s playback position
+    /// Returns the current local time (in PCM frames) of the output node.
     fn time_pcm(&self) -> u64 {
         engine_ffi::ma_engine_get_time_in_pcm_frames(self)
     }
 
-    /// Returns the current engine time in **milliseconds**.
+    /// Returns the current local time (in PCM frames) of the output node.
     ///
-    /// This is a convenience wrapper over the engine’s internal PCM-frame
-    /// clock, converted to milliseconds using the engine’s sample rate.
-    ///
-    /// - For sample-accurate work, prefer [`EngineOps::time_pcm()`].
+    /// For sample-accurate work, prefer [`EngineOps::time_pcm()`].
     fn time_mili(&self) -> u64 {
         engine_ffi::ma_engine_get_time_in_milliseconds(self)
     }
 
-    /// Sets the engine’s global time in **PCM frames**.
-    ///
-    /// This directly modifies the engine’s internal timeline.
-    ///
-    /// ## Effects
-    /// - All sounds and nodes that depend on engine time will observe the new
-    ///   value.
-    /// - This can be used to implement seeking or timeline resets.
-    ///
-    /// ## Note
-    /// Changing engine time while audio is playing may cause audible artifacts,
-    /// depending on the active nodes and sounds.
+    /// Sets the current local time (in PCM frames) of the output node.
     fn set_time_pcm(&self, time: u64) {
         engine_ffi::ma_engine_set_time_in_pcm_frames(self, time);
     }
 
-    /// Sets the engine’s global time in **milliseconds**.
+    /// Sets the current local time (in PCM frames) of the output node.
     ///
-    /// This is equivalent to setting the time in PCM frames, but expressed
-    /// in milliseconds.
-    ///
-    /// ## Notes
-    /// - Internally converted to PCM frames.
-    /// - Precision may be lower than [`EngineOps::set_time_pcm()`].
+    /// Precision may be lower than [`EngineOps::set_time_pcm()`].
     fn set_time_mili(&self, time: u64) {
         engine_ffi::ma_engine_set_time_in_milliseconds(self, time);
     }
 
     /// Returns the number of output **channels** used by the engine.
-    ///
-    /// Common values include:
-    /// - `1` — mono
-    /// - `2` — stereo
-    ///
-    /// This reflects the channel count of the engine’s internal node graph
     /// and output device.
     fn channels(&self) -> u32 {
         engine_ffi::ma_engine_get_channels(self)
     }
 
     /// Returns the engine’s **sample rate**, in Hz.
-    ///
-    /// This is the sample rate at which the engine processes audio and
-    /// advances its internal time.
-    ///
-    /// ## Notes
-    /// - Typically matches the output device’s sample rate.
-    /// - Used to convert between PCM frames and real time.
     fn sample_rate(&self) -> u32 {
         engine_ffi::ma_engine_get_sample_rate(self)
     }
@@ -879,7 +844,7 @@ pub(crate) mod engine_ffi {
         engine: *mut sys::ma_engine,
     ) -> MaResult<()> {
         let p_config: *const sys::ma_engine_config =
-            config.map_or(core::ptr::null(), |c| &c.to_raw() as *const _);
+            config.map_or(core::ptr::null(), |c| &c.inner as *const _);
         let res = unsafe { sys::ma_engine_init(p_config, engine) };
         MaudioError::check(res)
     }
