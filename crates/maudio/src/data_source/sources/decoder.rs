@@ -802,6 +802,26 @@ pub(crate) mod decoder_b_ffi {
     }
 }
 
+struct TempFileGuard {
+    path: std::path::PathBuf,
+}
+
+impl TempFileGuard {
+    fn new(path: std::path::PathBuf) -> Self {
+        Self { path }
+    }
+
+    fn path(&self) -> &std::path::Path {
+        &self.path
+    }
+}
+
+impl Drop for TempFileGuard {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_file(&self.path);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -992,24 +1012,4 @@ mod tests {
     //         assert_eq!(len_units, expected_units);
     //     }
     // }
-}
-
-struct TempFileGuard {
-    path: std::path::PathBuf,
-}
-
-impl TempFileGuard {
-    fn new(path: std::path::PathBuf) -> Self {
-        Self { path }
-    }
-
-    fn path(&self) -> &std::path::Path {
-        &self.path
-    }
-}
-
-impl Drop for TempFileGuard {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.path);
-    }
 }
