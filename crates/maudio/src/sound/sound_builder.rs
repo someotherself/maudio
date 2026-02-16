@@ -104,7 +104,7 @@ use crate::{
 ///   miniaudio's "fill config → init" workflow.
 /// - If you only need a simple sound, prefer the convenience constructors on [`Engine`] / [`Sound`].
 pub struct SoundBuilder<'a> {
-    inner: sys::ma_sound_config,
+    pub(crate) inner: sys::ma_sound_config,
     engine: &'a Engine,
     source: SoundSource<'a>,
     owned_path: OwnedPathBuf,
@@ -683,18 +683,6 @@ impl<'a> SoundBuilder<'a> {
             end_notifier: None,
             sound_state: state,
         }
-    }
-}
-
-impl Binding for SoundBuilder<'_> {
-    type Raw = *const sys::ma_sound_config;
-
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        &self.inner as *const _
     }
 }
 

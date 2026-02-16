@@ -114,7 +114,12 @@ impl<'a> DelayNode<'a> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_delay_node>> =
             Box::new(MaybeUninit::uninit());
 
-        n_delay_ffi::ma_delay_node_init(node_graph, config.to_raw(), alloc_cb, mem.as_mut_ptr())?;
+        n_delay_ffi::ma_delay_node_init(
+            node_graph,
+            &config.inner as *const _,
+            alloc_cb,
+            mem.as_mut_ptr(),
+        )?;
 
         let inner: *mut sys::ma_delay_node = Box::into_raw(mem) as *mut sys::ma_delay_node;
 
@@ -209,19 +214,6 @@ impl Drop for DelayNode<'_> {
 pub struct DelayNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     inner: sys::ma_delay_node_config,
     node_graph: &'a N,
-}
-
-impl<N: AsNodeGraphPtr + ?Sized> Binding for DelayNodeBuilder<'_, N> {
-    type Raw = *const sys::ma_delay_node_config;
-
-    // !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        &self.inner as *const _
-    }
 }
 
 impl<'a, N: AsNodeGraphPtr + ?Sized> DelayNodeBuilder<'a, N> {

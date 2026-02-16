@@ -82,7 +82,12 @@ impl<'a> PeakNode<'a> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_peak_node>> =
             Box::new(MaybeUninit::uninit());
 
-        n_peak_ffi::ma_peak_node_init(node_graph, config.to_raw(), alloc_cb, mem.as_mut_ptr())?;
+        n_peak_ffi::ma_peak_node_init(
+            node_graph,
+            &config.inner as *const _,
+            alloc_cb,
+            mem.as_mut_ptr(),
+        )?;
 
         let inner: *mut sys::ma_peak_node = Box::into_raw(mem) as *mut sys::ma_peak_node;
 
@@ -98,7 +103,7 @@ impl<'a> PeakNode<'a> {
 
     /// See [`PeakNodeParams`] for creating a config
     pub fn reinit(&mut self, config: &PeakNodeParams) -> MaResult<()> {
-        n_peak_ffi::ma_peak_node_reinit(config.to_raw(), self)
+        n_peak_ffi::ma_peak_node_reinit(&config.inner as *const _, self)
     }
 
     /// Returns a **borrowed view** as a node in the engine's node graph.
@@ -178,19 +183,6 @@ pub struct PeakNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     node_graph: &'a N,
 }
 
-impl<N: AsNodeGraphPtr + ?Sized> Binding for PeakNodeBuilder<'_, N> {
-    type Raw = *const sys::ma_peak_node_config;
-
-    // !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        &self.inner as *const _
-    }
-}
-
 impl<'a, N: AsNodeGraphPtr + ?Sized> PeakNodeBuilder<'a, N> {
     pub fn new(
         node_graph: &'a N,
@@ -216,19 +208,6 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> PeakNodeBuilder<'a, N> {
 
 pub struct PeakNodeParams {
     inner: sys::ma_peak_config,
-}
-
-impl Binding for PeakNodeParams {
-    type Raw = *const sys::ma_peak_config;
-
-    // !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        &self.inner as *const _
-    }
 }
 
 impl PeakNodeParams {

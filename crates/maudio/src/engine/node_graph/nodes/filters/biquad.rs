@@ -88,7 +88,12 @@ impl<'a> BiquadNode<'a> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_biquad_node>> =
             Box::new(MaybeUninit::uninit());
 
-        n_biquad_ffi::ma_biquad_node_init(node_graph, config.to_raw(), alloc_cb, mem.as_mut_ptr())?;
+        n_biquad_ffi::ma_biquad_node_init(
+            node_graph,
+            &config.inner as *const _,
+            alloc_cb,
+            mem.as_mut_ptr(),
+        )?;
 
         let inner: *mut sys::ma_biquad_node = Box::into_raw(mem) as *mut sys::ma_biquad_node;
 
@@ -103,7 +108,7 @@ impl<'a> BiquadNode<'a> {
 
     /// See [`BiquadNodeParams`] for creating a config
     pub fn reinit(&mut self, config: &BiquadNodeParams) -> MaResult<()> {
-        n_biquad_ffi::ma_biquad_node_reinit(config.to_raw(), self)
+        n_biquad_ffi::ma_biquad_node_reinit(&config.inner as *const _, self)
     }
 
     /// Returns a **borrowed view** as a node in the engine's node graph.
@@ -179,19 +184,6 @@ pub struct BiquadNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     node_graph: &'a N,
 }
 
-impl<N: AsNodeGraphPtr + ?Sized> Binding for BiquadNodeBuilder<'_, N> {
-    type Raw = *const sys::ma_biquad_node_config;
-
-    // !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        &self.inner as *const _
-    }
-}
-
 impl<'a, N: AsNodeGraphPtr + ?Sized> BiquadNodeBuilder<'a, N> {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -219,19 +211,6 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> BiquadNodeBuilder<'a, N> {
 /// Used to build a config file needed by [`BiquadNode::reinit`]
 pub struct BiquadNodeParams {
     inner: sys::ma_biquad_config,
-}
-
-impl Binding for BiquadNodeParams {
-    type Raw = *const sys::ma_biquad_config;
-
-    // !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        &self.inner as *const _
-    }
 }
 
 impl BiquadNodeParams {

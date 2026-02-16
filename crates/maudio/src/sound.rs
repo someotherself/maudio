@@ -673,7 +673,8 @@ pub(crate) mod sound_ffi {
         config: &SoundBuilder,
         sound: *mut sys::ma_sound,
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_sound_init_ex(engine.to_raw(), config.to_raw(), sound) };
+        let res =
+            unsafe { sys::ma_sound_init_ex(engine.to_raw(), &config.inner as *const _, sound) };
         MaudioError::check(res)
     }
 

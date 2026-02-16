@@ -92,7 +92,7 @@ impl<'a> SplitterNode<'a> {
 
         n_splitter_ffi::ma_splitter_node_init(
             node_graph,
-            config.to_raw(),
+            &config.inner as *const _,
             alloc_cb,
             mem.as_mut_ptr(),
         )?;
@@ -175,19 +175,6 @@ impl<'a> Drop for SplitterNode<'a> {
 pub struct SplitterNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     inner: sys::ma_splitter_node_config,
     node_graph: &'a N,
-}
-
-impl<N: AsNodeGraphPtr + ?Sized> Binding for SplitterNodeBuilder<'_, N> {
-    type Raw = *const sys::ma_splitter_node_config;
-
-    // !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        &self.inner as *const _
-    }
 }
 
 impl<'a, N: AsNodeGraphPtr + ?Sized> SplitterNodeBuilder<'a, N> {

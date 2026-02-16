@@ -1,22 +1,9 @@
 use maudio_sys::ffi as sys;
 
-use crate::{device::Device, Binding};
+use crate::device::Device;
 
 pub struct DeviceBuilder {
-    inner: sys::ma_device_config,
-}
-
-impl Binding for DeviceBuilder {
-    type Raw = *const sys::ma_device_config;
-
-    // !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        &self.inner as *const _
-    }
+    pub(crate) inner: sys::ma_device_config,
 }
 
 impl DeviceBuilder {

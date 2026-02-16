@@ -55,7 +55,7 @@ impl<'a> SourceNode<'a> {
 
         n_datasource_ffi::ma_data_source_node_init(
             node_graph,
-            config.to_raw(),
+            &config.inner as *const _,
             alloc_cb,
             mem.as_mut_ptr(),
         )?;
@@ -117,7 +117,7 @@ impl<'a, S: AsSourcePtr> AttachedSourceNode<'a, S> {
 
         n_datasource_ffi::ma_data_source_node_init(
             node_graph,
-            config.to_raw(),
+            &config.inner as *const _,
             alloc_cb,
             mem.as_mut_ptr(),
         )?;
@@ -210,23 +210,6 @@ where
     source: &'a S,
 }
 
-impl<N, S> Binding for SourceNodeBuilder<'_, N, S>
-where
-    N: AsNodeGraphPtr,
-    S: AsSourcePtr,
-{
-    type Raw = *const sys::ma_data_source_node_config;
-
-    // !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        &self.inner as *const _
-    }
-}
-
 impl<'a, N, S> SourceNodeBuilder<'a, N, S>
 where
     N: AsNodeGraphPtr,
@@ -256,23 +239,6 @@ where
     inner: sys::ma_data_source_node_config,
     node_graph: &'a N,
     source: Arc<S>,
-}
-
-impl<N, S> Binding for AttachedSourceNodeBuilder<'_, N, S>
-where
-    N: AsNodeGraphPtr,
-    S: AsSourcePtr,
-{
-    type Raw = *const sys::ma_data_source_node_config;
-
-    // !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        &self.inner as *const _
-    }
 }
 
 impl<'a, N: AsNodeGraphPtr, S: AsSourcePtr> AttachedSourceNodeBuilder<'a, N, S> {

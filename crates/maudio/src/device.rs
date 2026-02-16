@@ -50,7 +50,8 @@ pub(crate) mod device_ffi {
         config: &DeviceBuilder,
         device: *mut sys::ma_device,
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_device_init(context.to_raw(), config.to_raw(), device) };
+        let res =
+            unsafe { sys::ma_device_init(context.to_raw(), &config.inner as *const _, device) };
         MaudioError::check(res)
     }
 

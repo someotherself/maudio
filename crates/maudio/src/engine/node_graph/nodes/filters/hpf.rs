@@ -77,7 +77,12 @@ impl<'a> HpfNode<'a> {
 
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_hpf_node>> = Box::new(MaybeUninit::uninit());
 
-        n_hpf_ffi::ma_hpf_node_init(node_graph, config.to_raw(), alloc_cb, mem.as_mut_ptr())?;
+        n_hpf_ffi::ma_hpf_node_init(
+            node_graph,
+            &config.inner as *const _,
+            alloc_cb,
+            mem.as_mut_ptr(),
+        )?;
 
         let inner: *mut sys::ma_hpf_node = Box::into_raw(mem) as *mut sys::ma_hpf_node;
 
@@ -93,7 +98,7 @@ impl<'a> HpfNode<'a> {
 
     /// See [`HpfNodeParams`] for creating a config
     pub fn reinit(&mut self, config: &HpfNodeParams) -> MaResult<()> {
-        n_hpf_ffi::ma_hpf_node_reinit(config.to_raw(), self)
+        n_hpf_ffi::ma_hpf_node_reinit(&config.inner as *const _, self)
     }
 
     /// Returns a **borrowed view** as a node in the engine's node graph.
@@ -176,19 +181,6 @@ pub struct HpfNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     node_graph: &'a N,
 }
 
-impl<N: AsNodeGraphPtr + ?Sized> Binding for HpfNodeBuilder<'_, N> {
-    type Raw = *const sys::ma_hpf_node_config;
-
-    // !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        &self.inner as *const _
-    }
-}
-
 impl<'a, N: AsNodeGraphPtr + ?Sized> HpfNodeBuilder<'a, N> {
     // TODO: Create an enum for order???
     pub fn new(
@@ -214,19 +206,6 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> HpfNodeBuilder<'a, N> {
 
 pub struct HpfNodeParams {
     inner: sys::ma_hpf_config,
-}
-
-impl Binding for HpfNodeParams {
-    type Raw = *const sys::ma_hpf_config;
-
-    // !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        &self.inner as *const _
-    }
 }
 
 impl HpfNodeParams {

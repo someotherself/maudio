@@ -80,7 +80,7 @@ impl<'a> LoShelfNode<'a> {
 
         n_loshelf_ffi::ma_loshelf_node_init(
             node_graph,
-            config.to_raw(),
+            &config.inner as *const _,
             alloc_cb,
             mem.as_mut_ptr(),
         )?;
@@ -103,7 +103,7 @@ impl<'a> LoShelfNode<'a> {
 
     /// See [`LoShelfNodeParams`] for creating a config
     pub fn reinit(&mut self, config: &LoShelfNodeParams) -> MaResult<()> {
-        n_loshelf_ffi::ma_loshelf_node_reinit(config.to_raw(), self)
+        n_loshelf_ffi::ma_loshelf_node_reinit(&config.inner as *const _, self)
     }
 
     /// Returns a **borrowed view** as a node in the engine's node graph.
@@ -186,19 +186,6 @@ pub struct LoShelfNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     node_graph: &'a N,
 }
 
-impl<N: AsNodeGraphPtr + ?Sized> Binding for LoShelfNodeBuilder<'_, N> {
-    type Raw = *const sys::ma_loshelf_node_config;
-
-    // !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        &self.inner as *const _
-    }
-}
-
 impl<'a, N: AsNodeGraphPtr + ?Sized> LoShelfNodeBuilder<'a, N> {
     pub fn new(
         node_graph: &'a N,
@@ -230,19 +217,6 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> LoShelfNodeBuilder<'a, N> {
 
 pub struct LoShelfNodeParams {
     inner: sys::ma_loshelf_config,
-}
-
-impl Binding for LoShelfNodeParams {
-    type Raw = *const sys::ma_loshelf_config;
-
-    // !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        &self.inner as *const _
-    }
 }
 
 impl LoShelfNodeParams {

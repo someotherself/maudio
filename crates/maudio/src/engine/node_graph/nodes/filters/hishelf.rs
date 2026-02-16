@@ -80,7 +80,7 @@ impl<'a> HiShelfNode<'a> {
 
         n_hishelf_ffi::ma_hishelf_node_init(
             node_graph,
-            config.to_raw(),
+            &config.inner as *const _,
             alloc_cb,
             mem.as_mut_ptr(),
         )?;
@@ -103,7 +103,7 @@ impl<'a> HiShelfNode<'a> {
 
     /// See [`HiShelfNodeParams`] for creating a config
     pub fn reinit(&mut self, config: &HiShelfNodeParams) -> MaResult<()> {
-        n_hishelf_ffi::ma_hishelf_node_reinit(config.to_raw(), self)
+        n_hishelf_ffi::ma_hishelf_node_reinit(&config.inner as *const _, self)
     }
 
     /// Returns a **borrowed view** as a node in the engine's node graph.
@@ -187,19 +187,6 @@ pub struct HiShelfNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     node_graph: &'a N,
 }
 
-impl<N: AsNodeGraphPtr + ?Sized> Binding for HiShelfNodeBuilder<'_, N> {
-    type Raw = *const sys::ma_hishelf_node_config;
-
-    // !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        &self.inner as *const _
-    }
-}
-
 impl<'a, N: AsNodeGraphPtr + ?Sized> HiShelfNodeBuilder<'a, N> {
     pub fn new(
         node_graph: &'a N,
@@ -231,19 +218,6 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> HiShelfNodeBuilder<'a, N> {
 
 pub struct HiShelfNodeParams {
     inner: sys::ma_hishelf_config,
-}
-
-impl Binding for HiShelfNodeParams {
-    type Raw = *const sys::ma_hishelf_config;
-
-    // !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        &self.inner as *const _
-    }
 }
 
 impl HiShelfNodeParams {

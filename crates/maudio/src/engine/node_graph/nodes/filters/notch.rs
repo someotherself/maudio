@@ -79,7 +79,12 @@ impl<'a> NotchNode<'a> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_notch_node>> =
             Box::new(MaybeUninit::uninit());
 
-        n_notch_ffi::ma_notch_node_init(node_graph, config.to_raw(), alloc_cb, mem.as_mut_ptr())?;
+        n_notch_ffi::ma_notch_node_init(
+            node_graph,
+            &config.inner as *const _,
+            alloc_cb,
+            mem.as_mut_ptr(),
+        )?;
 
         let inner: *mut sys::ma_notch_node = Box::into_raw(mem) as *mut sys::ma_notch_node;
 
@@ -95,7 +100,7 @@ impl<'a> NotchNode<'a> {
 
     /// See [`NotchNodeParams`] for creating a config
     pub fn reinit(&mut self, config: &NotchNodeParams) -> MaResult<()> {
-        n_notch_ffi::ma_notch_node_reinit(config.to_raw(), self)
+        n_notch_ffi::ma_notch_node_reinit(&config.inner as *const _, self)
     }
 
     /// Returns a **borrowed view** as a node in the engine's node graph.
@@ -179,18 +184,6 @@ pub struct NotchNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     node_graph: &'a N,
 }
 
-impl<N: AsNodeGraphPtr + ?Sized> Binding for NotchNodeBuilder<'_, N> {
-    type Raw = *const sys::ma_notch_node_config;
-
-    // !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        &self.inner as *const _
-    }
-}
 impl<'a, N: AsNodeGraphPtr + ?Sized> NotchNodeBuilder<'a, N> {
     pub fn new(
         node_graph: &'a N,
@@ -215,19 +208,6 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> NotchNodeBuilder<'a, N> {
 
 pub struct NotchNodeParams {
     inner: sys::ma_notch_config,
-}
-
-impl Binding for NotchNodeParams {
-    type Raw = *const sys::ma_notch_config;
-
-    // !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        &self.inner as *const _
-    }
 }
 
 impl NotchNodeParams {
