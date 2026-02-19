@@ -645,7 +645,7 @@ mod pcm_rb_ffi {
         audio::{formats::Format, sample_rate::SampleRate},
         data_source::sources::pcm_ring_buffer::{private_pcm_db, AsPcmRbPtr, PcmRbInner},
         engine::AllocationCallbacks,
-        MaResult, MaudioError,
+        AsRawRef, MaResult, MaudioError,
     };
 
     pub fn new_raw_ex(
@@ -673,7 +673,7 @@ mod pcm_rb_ffi {
             }
             None => {
                 let alloc_cb: *const sys::ma_allocation_callbacks =
-                    alloc_cb.map_or(core::ptr::null(), |c| &c.inner as *const _);
+                    alloc_cb.map_or(core::ptr::null(), |c| c.as_raw_ptr());
                 (core::ptr::null_mut(), alloc_cb)
             }
         };

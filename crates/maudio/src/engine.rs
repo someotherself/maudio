@@ -54,6 +54,7 @@ use crate::{
         engine_builder::EngineBuilder,
         node_graph::{nodes::NodeRef, NodeGraphRef},
         process_notifier::ProcessState,
+        resource::ResourceManagerRef,
     },
     sound::{
         sound_builder::SoundBuilder,
@@ -63,7 +64,7 @@ use crate::{
         Sound,
     },
     util::fence::Fence,
-    Binding, MaResult,
+    AsRawRef, Binding, MaResult,
 };
 
 use maudio_sys::ffi as sys;
@@ -273,6 +274,11 @@ pub trait EngineOps: AsEnginePtr {
     /// Returns the engine's internal node graph, if available.
     fn as_node_graph(&self) -> Option<NodeGraphRef<'_>> {
         engine_ffi::ma_engine_get_node_graph(self)
+    }
+
+    /// Returns the engine's internal resource manager, if available.
+    fn resource_manager(&self) -> Option<ResourceManagerRef<'_>> {
+        engine_ffi::ma_engine_get_resource_manager(self)
     }
 
     /// Reads PCM frames into `dst`, returning the number of frames read.
@@ -540,6 +546,15 @@ pub(crate) fn wide_null_terminated(path: &Path) -> Vec<u16> {
         .collect()
 }
 
+#[cfg(windows)]
+pub(crate) fn wide_null_terminated_name(path: &str) -> Vec<u16> {
+    use std::os::windows::prelude::OsStrExt;
+
+    std::ffi::OsStr::new(name)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect()
+}
 /// Custom memory allocation callbacks for miniaudio.
 ///
 /// Miniaudio allows callers to override how heap memory is allocated and freed
@@ -558,7 +573,15 @@ pub(crate) fn wide_null_terminated(path: &Path) -> Vec<u16> {
 /// This matters because miniaudio requires the same allocation callbacks to be passed
 /// again during uninitialization so it can free any internal allocations consistently.
 pub struct AllocationCallbacks {
-    pub(crate) inner: sys::ma_allocation_callbacks,
+    inner: sys::ma_allocation_callbacks,
+}
+
+impl AsRawRef for AllocationCallbacks {
+    type Raw = sys::ma_allocation_callbacks;
+
+    fn as_raw(&self) -> &Self::Raw {
+        &self.inner
+    }
 }
 
 #[cfg(test)]
@@ -833,9 +856,11 @@ pub(crate) mod engine_ffi {
         engine::{
             engine_builder::EngineBuilder,
             node_graph::{nodes::NodeRef, NodeGraphRef},
-            private_engine, AsEnginePtr, Binding, Engine, EngineOps,
+            private_engine,
+            resource::ResourceManagerRef,
+            AsEnginePtr, Binding, Engine, EngineOps,
         },
-        MaResult, MaudioError,
+        AsRawRef, MaResult, MaudioError,
     };
 
     #[inline]
@@ -844,7 +869,7 @@ pub(crate) mod engine_ffi {
         engine: *mut sys::ma_engine,
     ) -> MaResult<()> {
         let p_config: *const sys::ma_engine_config =
-            config.map_or(core::ptr::null(), |c| &c.inner as *const _);
+            config.map_or(core::ptr::null(), |c| c.as_raw_ptr());
         let res = unsafe { sys::ma_engine_init(p_config, engine) };
         MaudioError::check(res)
     }
@@ -917,11 +942,17 @@ pub(crate) mod engine_ffi {
         }
     }
 
-    // AsEnginePtr
-    // TODO: Create ResourceManRef. Implement MA_NO_RESOURCE_MANAGER?
     #[inline]
-    pub fn ma_engine_get_resource_manager(engine: &Engine) -> *mut sys::ma_resource_manager {
-        unsafe { sys::ma_engine_get_resource_manager(engine.to_raw()) }
+    pub fn ma_engine_get_resource_manager<'a, E: AsEnginePtr + ?Sized>(
+        engine: &'a E,
+    ) -> Option<ResourceManagerRef<'a>> {
+        let ptr =
+            unsafe { sys::ma_engine_get_resource_manager(private_engine::engine_ptr(engine)) };
+        if ptr.is_null() {
+            None
+        } else {
+            Some(ResourceManagerRef::from_ptr(ptr))
+        }
     }
 
     // AsEnginePtr

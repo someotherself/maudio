@@ -1,9 +1,17 @@
 use maudio_sys::ffi as sys;
 
-use crate::device::Device;
+use crate::{device::Device, AsRawRef};
 
 pub struct DeviceBuilder {
-    pub(crate) inner: sys::ma_device_config,
+    inner: sys::ma_device_config,
+}
+
+impl AsRawRef for DeviceBuilder {
+    type Raw = sys::ma_device_config;
+
+    fn as_raw(&self) -> &Self::Raw {
+        &self.inner
+    }
 }
 
 impl DeviceBuilder {

@@ -13,7 +13,7 @@ use crate::{
     data_source::{private_data_source, AsSourcePtr, DataSourceRef},
     engine::AllocationCallbacks,
     pcm_frames::{PcmFormat, PcmFormatInternal, S24Packed, S24},
-    Binding, MaResult,
+    AsRawRef, Binding, MaResult,
 };
 
 /// Owned in-memory PCM audio buffer.
@@ -265,7 +265,7 @@ pub(crate) mod buffer_ffi {
             AsSourcePtr,
         },
         pcm_frames::{PcmFormat, PcmFormatInternal},
-        Binding, MaResult, MaudioError,
+        AsRawRef, Binding, MaResult, MaudioError,
     };
     use maudio_sys::ffi as sys;
 
@@ -274,7 +274,7 @@ pub(crate) mod buffer_ffi {
         config: &AudioBufferBuilder,
         buffer: *mut sys::ma_audio_buffer,
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_audio_buffer_init(&config.inner as *const _, buffer) };
+        let res = unsafe { sys::ma_audio_buffer_init(config.as_raw_ptr(), buffer) };
         MaudioError::check(res)
     }
 
@@ -283,7 +283,7 @@ pub(crate) mod buffer_ffi {
         config: &AudioBufferBuilder,
         buffer: *mut sys::ma_audio_buffer,
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_audio_buffer_init_copy(&config.inner as *const _, buffer) };
+        let res = unsafe { sys::ma_audio_buffer_init_copy(config.as_raw_ptr(), buffer) };
         MaudioError::check(res)
     }
 
@@ -487,12 +487,20 @@ impl<'a, F: PcmFormat> Drop for AudioBufferRef<'a, F> {
 ///
 /// Use `build_*` to copy data into an owned buffer, or `build_*_ref` to borrow the slice.
 pub struct AudioBufferBuilder<'a> {
-    pub(crate) inner: sys::ma_audio_buffer_config,
+    inner: sys::ma_audio_buffer_config,
     alloc_cb: Option<&'a AllocationCallbacks>,
     // This type and AudioBufferRef must keep a lifetime to the data provided to AudioBufferBuilder
     // Otherwise, the data can be dropped and result in a dangling pointer
     _marker: PhantomData<&'a [u8]>,
     // _data_keepalive: Option<Vec<>>
+}
+
+impl AsRawRef for AudioBufferBuilder<'_> {
+    type Raw = sys::ma_audio_buffer_config;
+
+    fn as_raw(&self) -> &Self::Raw {
+        &self.inner
+    }
 }
 
 impl<'a> AudioBufferBuilder<'a> {
@@ -715,7 +723,7 @@ impl<'a> AudioBufferBuilder<'a> {
         alloc_cb: Option<&'a AllocationCallbacks>,
     ) -> Self {
         let alloc: *const sys::ma_allocation_callbacks =
-            alloc_cb.map_or(core::ptr::null(), |c| &c.inner as *const _);
+            alloc_cb.map_or(core::ptr::null(), |c| c.as_raw_ptr());
 
         let ptr = buffer_config_ffi::ma_audio_buffer_config_init(
             format,

@@ -48,8 +48,6 @@ Almost all types in maudio are initialized using a builder pattern, allowing add
 
 ```rust
     let engine = Engine::new().unwrap();
-    // A Sound cannot be initialized without an existing engine.
-    // However, the other Nodes only need a NodeGraph.
     let mut sound = engine.new_sound_from_file(&path).unwrap();
     sound.play_sound().unwrap();
     // block thread while music plays

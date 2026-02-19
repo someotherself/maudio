@@ -62,8 +62,7 @@ pub extern crate maudio_sys;
 
 use maudio_sys::ffi as sys;
 
-// IMPORTANT: Only safe when type Raw is a pointer (*mut, *const)
-// TODO: Improve safety. Or remove?
+// IMPORTANT: type Raw must be a *mut pointer
 pub(crate) trait Binding: Sized {
     type Raw;
 
@@ -71,6 +70,20 @@ pub(crate) trait Binding: Sized {
     fn from_ptr(raw: Self::Raw) -> Self;
 
     fn to_raw(&self) -> Self::Raw;
+}
+
+// Used instead of impl Binding when type raw is a C struct (not a pointer)
+// Example- inner: sys::ma_waveform_config
+// Calling the Binding trait as &config.to_raw() as *const _ would not be safe.
+pub(crate) trait AsRawRef {
+    type Raw;
+
+    fn as_raw(&self) -> &Self::Raw;
+
+    #[inline]
+    fn as_raw_ptr(&self) -> *const Self::Raw {
+        self.as_raw() as *const _
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]

@@ -19,7 +19,7 @@ use crate::{
     },
     data_source::{private_data_source, AsSourcePtr, DataFormat, DataSourceRef},
     pcm_frames::{PcmFormat, S24Packed, S24},
-    Binding, MaResult,
+    AsRawRef, Binding, MaResult,
 };
 
 /// Audio decoder for a given PCM format and data source.
@@ -374,7 +374,7 @@ pub(crate) mod decoder_ffi {
         DataFormat,
     };
     use crate::pcm_frames::{PcmFormat, PcmFormatInternal};
-    use crate::{MaResult, MaudioError};
+    use crate::{AsRawRef, MaResult, MaudioError};
 
     #[inline]
     pub fn ma_decoder_init(
@@ -385,13 +385,7 @@ pub(crate) mod decoder_ffi {
         decoder: *mut sys::ma_decoder,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_decoder_init(
-                on_read,
-                on_seek,
-                user_data,
-                &config.inner as *const _,
-                decoder,
-            )
+            sys::ma_decoder_init(on_read, on_seek, user_data, config.as_raw_ptr(), decoder)
         };
         MaudioError::check(res)
     }
@@ -409,9 +403,8 @@ pub(crate) mod decoder_ffi {
         config: &DecoderBuilder,
         decoder: *mut sys::ma_decoder,
     ) -> MaResult<()> {
-        let res = unsafe {
-            sys::ma_decoder_init_memory(data, data_size, &config.inner as *const _, decoder)
-        };
+        let res =
+            unsafe { sys::ma_decoder_init_memory(data, data_size, config.as_raw_ptr(), decoder) };
         MaudioError::check(res)
     }
 
@@ -422,8 +415,7 @@ pub(crate) mod decoder_ffi {
         config: &DecoderBuilder,
         decoder: *mut sys::ma_decoder,
     ) -> MaResult<()> {
-        let res =
-            unsafe { sys::ma_decoder_init_file(path.as_ptr(), &config.inner as *const _, decoder) };
+        let res = unsafe { sys::ma_decoder_init_file(path.as_ptr(), config.as_raw_ptr(), decoder) };
         MaudioError::check(res)
     }
 
@@ -434,9 +426,8 @@ pub(crate) mod decoder_ffi {
         config: &DecoderBuilder,
         decoder: *mut sys::ma_decoder,
     ) -> MaResult<()> {
-        let res = unsafe {
-            sys::ma_decoder_init_file_w(path.as_ptr(), &config.inner as *const _, decoder)
-        };
+        let res =
+            unsafe { sys::ma_decoder_init_file_w(path.as_ptr(), config.as_raw_ptr(), decoder) };
         MaudioError::check(res)
     }
 
@@ -661,10 +652,18 @@ impl<F: PcmFormat, S> Drop for Decoder<F, S> {
 }
 
 pub struct DecoderBuilder {
-    pub(crate) inner: sys::ma_decoder_config,
+    inner: sys::ma_decoder_config,
     format: Format,
     channels: u32,
     sample_rate: SampleRate,
+}
+
+impl AsRawRef for DecoderBuilder {
+    type Raw = sys::ma_decoder_config;
+
+    fn as_raw(&self) -> &Self::Raw {
+        &self.inner
+    }
 }
 
 impl DecoderBuilder {

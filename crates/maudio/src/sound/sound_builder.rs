@@ -46,7 +46,7 @@ use crate::{
         notifier::EndNotifier, sound_flags::SoundFlags, sound_group::SoundGroup, Sound, SoundSource,
     },
     util::fence::Fence,
-    Binding, MaResult,
+    AsRawRef, Binding, MaResult,
 };
 
 /// Builder for constructing a [`Sound`]
@@ -104,7 +104,7 @@ use crate::{
 ///   miniaudio's "fill config → init" workflow.
 /// - If you only need a simple sound, prefer the convenience constructors on [`Engine`] / [`Sound`].
 pub struct SoundBuilder<'a> {
-    pub(crate) inner: sys::ma_sound_config,
+    inner: sys::ma_sound_config,
     engine: &'a Engine,
     source: SoundSource<'a>,
     owned_path: OwnedPathBuf,
@@ -113,6 +113,14 @@ pub struct SoundBuilder<'a> {
     group: Option<&'a SoundGroup<'a>>,
     end_notifier: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
     sound_state: SoundState,
+}
+
+impl AsRawRef for SoundBuilder<'_> {
+    type Raw = sys::ma_sound_config;
+
+    fn as_raw(&self) -> &Self::Raw {
+        &self.inner
+    }
 }
 
 #[derive(Default)]
@@ -339,7 +347,7 @@ impl<'a> SoundBuilder<'a> {
         self
     }
 
-    /// Sets the [`SoundFlags`]
+    /// Sets the [`SoundFlags`]. Removes any existing ones.
     pub fn flags(&mut self, flags: SoundFlags) -> &mut Self {
         self.inner.flags = flags.bits();
         self.flags = flags;

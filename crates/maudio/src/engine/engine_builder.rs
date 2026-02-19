@@ -11,17 +11,25 @@ use crate::{
         },
         Engine,
     },
-    MaResult,
+    AsRawRef, MaResult,
 };
 
 pub struct EngineBuilder {
-    pub(crate) inner: sys::ma_engine_config,
+    inner: sys::ma_engine_config,
     device: Option<*mut sys::ma_device>,
     resource_manager: Option<*mut sys::ma_resource_manager>,
     no_device: bool,
     channels: Option<u32>,
     sample_rate: Option<SampleRate>,
     process_notifier: Option<Arc<ProcessState>>,
+}
+
+impl AsRawRef for EngineBuilder {
+    type Raw = sys::ma_engine_config;
+
+    fn as_raw(&self) -> &Self::Raw {
+        &self.inner
+    }
 }
 
 impl Default for EngineBuilder {
@@ -37,12 +45,11 @@ impl Default for EngineBuilder {
 // periodSizeInFrames and periodSizeInMilliseconds
 // gainSmoothTimeInFrames and gainSmoothTimeInMilliseconds
 // defaultVolumeSmoothTimeInPCMFrames
-
 impl EngineBuilder {
     pub fn new() -> Self {
-        let ptr = unsafe { sys::ma_engine_config_init() };
+        let inner = unsafe { sys::ma_engine_config_init() };
         Self {
-            inner: ptr,
+            inner,
             device: None,
             resource_manager: None,
             no_device: false,

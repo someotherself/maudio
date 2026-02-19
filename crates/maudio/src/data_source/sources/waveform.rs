@@ -24,7 +24,7 @@ use crate::{
         DataSourceRef,
     },
     pcm_frames::{PcmFormat, S24Packed, S24},
-    Binding, MaResult,
+    AsRawRef, Binding, MaResult,
 };
 
 pub(crate) struct WaveState {
@@ -55,6 +55,19 @@ pub struct WaveForm<F: PcmFormat> {
     _sample_format: PhantomData<F>,
 }
 
+impl<F: PcmFormat> Binding for WaveForm<F> {
+    type Raw = *mut sys::ma_waveform;
+
+    /// !!! unimplemented !!!
+    fn from_ptr(_raw: Self::Raw) -> Self {
+        unimplemented!()
+    }
+
+    fn to_raw(&self) -> Self::Raw {
+        self.inner
+    }
+}
+
 #[doc(hidden)]
 impl<F: PcmFormat> AsSourcePtr for WaveForm<F> {
     type __PtrProvider = private_data_source::WaveFormProvider;
@@ -81,7 +94,7 @@ mod private_wave {
 
     impl<F: PcmFormat> WaveFormPtrProvider<WaveForm<F>> for WaveFormProvider {
         fn as_waveform_ptr(t: &WaveForm<F>) -> *mut sys::ma_waveform {
-            t.inner
+            t.to_raw()
         }
     }
 
@@ -148,7 +161,7 @@ pub(crate) mod waveform_ffi {
         audio::{formats::SampleBuffer, sample_rate::SampleRate, wave_shape::WaveFormType},
         data_source::sources::waveform::{private_wave, AsWaveFormPtr, WaveFormBuilder},
         pcm_frames::{PcmFormat, PcmFormatInternal},
-        MaResult, MaudioError,
+        AsRawRef, MaResult, MaudioError,
     };
     use maudio_sys::ffi as sys;
 
@@ -157,7 +170,7 @@ pub(crate) mod waveform_ffi {
         config: &WaveFormBuilder,
         waveform: *mut sys::ma_waveform,
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_waveform_init(&config.inner as *const _, waveform) };
+        let res = unsafe { sys::ma_waveform_init(config.as_raw_ptr(), waveform) };
         MaudioError::check(res)
     }
 
@@ -310,7 +323,7 @@ pub(crate) mod waveform_ffi {
 impl<F: PcmFormat> Drop for WaveForm<F> {
     fn drop(&mut self) {
         waveform_ffi::ma_waveform_uninit(self);
-        drop(unsafe { Box::from_raw(self.inner) });
+        drop(unsafe { Box::from_raw(self.to_raw()) });
     }
 }
 
@@ -323,6 +336,14 @@ pub struct WaveFormBuilder {
     wave_type: WaveFormType,
     amplitude: f64,
     frequency: f64,
+}
+
+impl AsRawRef for WaveFormBuilder {
+    type Raw = sys::ma_waveform_config;
+
+    fn as_raw(&self) -> &Self::Raw {
+        &self.inner
+    }
 }
 
 impl WaveFormBuilder {

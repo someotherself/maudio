@@ -11,7 +11,7 @@ use crate::{
         },
         AllocationCallbacks,
     },
-    Binding, MaResult,
+    AsRawRef, Binding, MaResult,
 };
 
 /// A node that applies a **high-shelf EQ** to an audio signal.
@@ -73,14 +73,14 @@ impl<'a> HiShelfNode<'a> {
         alloc: Option<&'a AllocationCallbacks>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
+            alloc.map_or(core::ptr::null(), |c| c.as_raw_ptr());
 
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_hishelf_node>> =
             Box::new(MaybeUninit::uninit());
 
         n_hishelf_ffi::ma_hishelf_node_init(
             node_graph,
-            &config.inner as *const _,
+            config.as_raw_ptr(),
             alloc_cb,
             mem.as_mut_ptr(),
         )?;
@@ -103,7 +103,7 @@ impl<'a> HiShelfNode<'a> {
 
     /// See [`HiShelfNodeParams`] for creating a config
     pub fn reinit(&mut self, config: &HiShelfNodeParams) -> MaResult<()> {
-        n_hishelf_ffi::ma_hishelf_node_reinit(&config.inner as *const _, self)
+        n_hishelf_ffi::ma_hishelf_node_reinit(config.as_raw_ptr(), self)
     }
 
     /// Returns a **borrowed view** as a node in the engine's node graph.
@@ -115,15 +115,15 @@ impl<'a> HiShelfNode<'a> {
     /// - insert into a custom routing graph
     /// - query node-level state exposed by the graph
     pub fn as_node(&self) -> NodeRef<'a> {
-        debug_assert!(!self.inner.is_null());
-        let ptr = self.inner.cast::<sys::ma_node>();
+        assert!(!self.to_raw().is_null());
+        let ptr = self.to_raw().cast::<sys::ma_node>();
         NodeRef::from_ptr(ptr)
     }
 
     #[inline]
     fn alloc_cb_ptr(&self) -> *const sys::ma_allocation_callbacks {
         match &self.alloc_cb {
-            Some(cb) => &cb.inner as *const _,
+            Some(cb) => cb.as_raw_ptr(),
             None => core::ptr::null(),
         }
     }
@@ -187,6 +187,14 @@ pub struct HiShelfNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     node_graph: &'a N,
 }
 
+impl<N: AsNodeGraphPtr + ?Sized> AsRawRef for HiShelfNodeBuilder<'_, N> {
+    type Raw = sys::ma_hishelf_node_config;
+
+    fn as_raw(&self) -> &Self::Raw {
+        &self.inner
+    }
+}
+
 impl<'a, N: AsNodeGraphPtr + ?Sized> HiShelfNodeBuilder<'a, N> {
     pub fn new(
         node_graph: &'a N,
@@ -218,6 +226,14 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> HiShelfNodeBuilder<'a, N> {
 
 pub struct HiShelfNodeParams {
     inner: sys::ma_hishelf_config,
+}
+
+impl AsRawRef for HiShelfNodeParams {
+    type Raw = sys::ma_hishelf_config;
+
+    fn as_raw(&self) -> &Self::Raw {
+        &self.inner
+    }
 }
 
 impl HiShelfNodeParams {

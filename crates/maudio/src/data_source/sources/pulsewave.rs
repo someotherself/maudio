@@ -18,7 +18,7 @@ use crate::{
     },
     data_source::{private_data_source, AsSourcePtr, DataSourceRef},
     pcm_frames::{PcmFormat, S24Packed, S24},
-    Binding, MaResult,
+    AsRawRef, Binding, MaResult,
 };
 
 #[derive(Debug)]
@@ -41,6 +41,19 @@ pub struct PulseWave<F: PcmFormat> {
     format: Format,
     state: PulseWaveState,
     _sample_format: PhantomData<F>,
+}
+
+impl<F: PcmFormat> Binding for PulseWave<F> {
+    type Raw = *mut sys::ma_pulsewave;
+
+    /// !!! unimplemented !!!
+    fn from_ptr(_raw: Self::Raw) -> Self {
+        unimplemented!()
+    }
+
+    fn to_raw(&self) -> Self::Raw {
+        self.inner
+    }
 }
 
 #[doc(hidden)]
@@ -74,7 +87,7 @@ mod private_pulsew {
 
     impl<F: PcmFormat> PulseWavePtrProvider<PulseWave<F>> for PulseWaveProvider {
         fn as_pulsewave_ptr(t: &PulseWave<F>) -> *mut sys::ma_pulsewave {
-            t.inner
+            t.to_raw()
         }
     }
 
@@ -143,7 +156,7 @@ pub(crate) mod pulsewave_ffi {
         audio::{formats::SampleBuffer, sample_rate::SampleRate},
         data_source::sources::pulsewave::{private_pulsew, AsPulseWavePtr, PulseWaveBuilder},
         pcm_frames::{PcmFormat, PcmFormatInternal},
-        MaResult, MaudioError,
+        AsRawRef, MaResult, MaudioError,
     };
 
     #[inline]
@@ -151,7 +164,7 @@ pub(crate) mod pulsewave_ffi {
         config: &PulseWaveBuilder,
         pulsewave: *mut sys::ma_pulsewave,
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_pulsewave_init(&config.inner as *const _, pulsewave) };
+        let res = unsafe { sys::ma_pulsewave_init(config.as_raw_ptr(), pulsewave) };
         MaudioError::check(res)
     }
 
@@ -311,6 +324,14 @@ pub struct PulseWaveBuilder {
     amplitude: f64,
     frequency: f64,
     duty_cycle: f64,
+}
+
+impl AsRawRef for PulseWaveBuilder {
+    type Raw = sys::ma_pulsewave_config;
+
+    fn as_raw(&self) -> &Self::Raw {
+        &self.inner
+    }
 }
 
 impl PulseWaveBuilder {

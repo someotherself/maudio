@@ -57,7 +57,7 @@ use crate::{
         node_graph::{node_builder::NodeState, NodeGraph, NodeGraphRef},
         AllocationCallbacks,
     },
-    Binding, MaResult,
+    AsRawRef, Binding, MaResult,
 };
 
 pub mod effects;
@@ -376,7 +376,7 @@ impl<'a> Node<'a> {
     #[inline]
     fn alloc_cb_ptr(&self) -> *const sys::ma_allocation_callbacks {
         match &self.alloc_cb {
-            Some(cb) => &cb.inner as *const _,
+            Some(cb) => cb.as_raw_ptr(),
             None => core::ptr::null(),
         }
     }

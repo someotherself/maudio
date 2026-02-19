@@ -80,8 +80,8 @@ impl<'a> Sound<'a> {
 
     /// Returns a **borrowed view** of this sound as a node in the engine's node graph.
     pub fn as_node(&self) -> NodeRef<'a> {
-        debug_assert!(!self.inner.is_null());
-        let ptr: *mut sys::ma_node = self.inner.cast::<sys::ma_node>();
+        assert!(!self.to_raw().is_null());
+        let ptr: *mut sys::ma_node = self.to_raw().cast::<sys::ma_node>();
         NodeRef::from_ptr(ptr)
     }
 
@@ -520,7 +520,7 @@ impl<'a> Drop for Sound<'a> {
         unsafe {
             sys::ma_sound_uninit(self.to_raw());
         }
-        drop(unsafe { Box::from_raw(self.inner) });
+        drop(unsafe { Box::from_raw(self.to_raw()) });
     }
 }
 
@@ -555,7 +555,6 @@ pub(crate) mod sound_ffi {
     use crate::data_source::AsSourcePtr;
     use crate::data_source::{private_data_source, DataFormat, DataSourceRef};
     use crate::util::fence::Fence;
-    use crate::MaResult;
     use crate::{
         audio::dsp::pan::PanMode,
         engine::{Engine, EngineRef},
@@ -563,6 +562,7 @@ pub(crate) mod sound_ffi {
             sound_builder::SoundBuilder, sound_flags::SoundFlags, sound_group::SoundGroup, Sound,
         },
     };
+    use crate::{AsRawRef, MaResult};
     use crate::{Binding, MaudioError};
 
     #[inline]
@@ -673,8 +673,7 @@ pub(crate) mod sound_ffi {
         config: &SoundBuilder,
         sound: *mut sys::ma_sound,
     ) -> MaResult<()> {
-        let res =
-            unsafe { sys::ma_sound_init_ex(engine.to_raw(), &config.inner as *const _, sound) };
+        let res = unsafe { sys::ma_sound_init_ex(engine.to_raw(), config.as_raw_ptr(), sound) };
         MaudioError::check(res)
     }
 

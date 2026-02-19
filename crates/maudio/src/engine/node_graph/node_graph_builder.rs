@@ -12,14 +12,22 @@
 //! by the graph configuration itself.
 use maudio_sys::ffi as sys;
 
-use crate::{engine::node_graph::NodeGraph, MaResult};
+use crate::{engine::node_graph::NodeGraph, AsRawRef, MaResult};
 
 /// Configures and constructs a [`NodeGraph`].
 ///
 /// This builder wraps `ma_node_graph_config` and exposes the small set of
 /// options required to create a node graph.
 pub struct NodeGraphBuilder {
-    pub(crate) inner: sys::ma_node_graph_config,
+    inner: sys::ma_node_graph_config,
+}
+
+impl AsRawRef for NodeGraphBuilder {
+    type Raw = sys::ma_node_graph_config;
+
+    fn as_raw(&self) -> &Self::Raw {
+        &self.inner
+    }
 }
 
 impl NodeGraphBuilder {

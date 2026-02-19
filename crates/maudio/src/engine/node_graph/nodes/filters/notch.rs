@@ -11,7 +11,7 @@ use crate::{
         },
         AllocationCallbacks,
     },
-    Binding, MaResult,
+    AsRawRef, Binding, MaResult,
 };
 
 /// A node that applies a **notch filter (band-stop)** to an audio signal.
@@ -74,14 +74,14 @@ impl<'a> NotchNode<'a> {
         alloc: Option<&'a AllocationCallbacks>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
+            alloc.map_or(core::ptr::null(), |c| c.as_raw_ptr());
 
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_notch_node>> =
             Box::new(MaybeUninit::uninit());
 
         n_notch_ffi::ma_notch_node_init(
             node_graph,
-            &config.inner as *const _,
+            config.as_raw_ptr(),
             alloc_cb,
             mem.as_mut_ptr(),
         )?;
@@ -100,7 +100,7 @@ impl<'a> NotchNode<'a> {
 
     /// See [`NotchNodeParams`] for creating a config
     pub fn reinit(&mut self, config: &NotchNodeParams) -> MaResult<()> {
-        n_notch_ffi::ma_notch_node_reinit(&config.inner as *const _, self)
+        n_notch_ffi::ma_notch_node_reinit(config.as_raw_ptr(), self)
     }
 
     /// Returns a **borrowed view** as a node in the engine's node graph.
@@ -112,15 +112,15 @@ impl<'a> NotchNode<'a> {
     /// - insert into a custom routing graph
     /// - query node-level state exposed by the graph
     pub fn as_node(&self) -> NodeRef<'a> {
-        debug_assert!(!self.inner.is_null());
-        let ptr = self.inner.cast::<sys::ma_node>();
+        assert!(!self.to_raw().is_null());
+        let ptr = self.to_raw().cast::<sys::ma_node>();
         NodeRef::from_ptr(ptr)
     }
 
     #[inline]
     fn alloc_cb_ptr(&self) -> *const sys::ma_allocation_callbacks {
         match &self.alloc_cb {
-            Some(cb) => &cb.inner as *const _,
+            Some(cb) => cb.as_raw_ptr(),
             None => core::ptr::null(),
         }
     }
@@ -184,6 +184,14 @@ pub struct NotchNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     node_graph: &'a N,
 }
 
+impl<N: AsNodeGraphPtr + ?Sized> AsRawRef for NotchNodeBuilder<'_, N> {
+    type Raw = sys::ma_notch_node_config;
+
+    fn as_raw(&self) -> &Self::Raw {
+        &self.inner
+    }
+}
+
 impl<'a, N: AsNodeGraphPtr + ?Sized> NotchNodeBuilder<'a, N> {
     pub fn new(
         node_graph: &'a N,
@@ -208,6 +216,14 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> NotchNodeBuilder<'a, N> {
 
 pub struct NotchNodeParams {
     inner: sys::ma_notch_config,
+}
+
+impl AsRawRef for NotchNodeParams {
+    type Raw = sys::ma_notch_config;
+
+    fn as_raw(&self) -> &Self::Raw {
+        &self.inner
+    }
 }
 
 impl NotchNodeParams {

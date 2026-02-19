@@ -10,7 +10,7 @@ use crate::{
         spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
     },
     engine::{node_graph::nodes::NodeRef, Engine, EngineRef},
-    Binding, MaResult,
+    AsRawRef, Binding, MaResult,
 };
 
 pub struct SoundGroup<'a> {
@@ -256,8 +256,8 @@ impl SoundGroup<'_> {
 
     // Safe to cast as ma_node in version 0.11.23
     pub fn as_node(&self) -> NodeRef<'_> {
-        debug_assert!(!self.inner.is_null());
-        let ptr = self.inner.cast::<sys::ma_node>();
+        assert!(!self.to_raw().is_null());
+        let ptr = self.to_raw().cast::<sys::ma_node>();
         NodeRef::from_ptr(ptr)
     }
 }
@@ -271,6 +271,14 @@ impl Drop for SoundGroup<'_> {
 
 pub struct SoundGroupConfig {
     inner: sys::ma_sound_group_config,
+}
+
+impl AsRawRef for SoundGroupConfig {
+    type Raw = sys::ma_sound_group_config;
+
+    fn as_raw(&self) -> &Self::Raw {
+        &self.inner
+    }
 }
 
 pub(crate) mod s_group_cfg_ffi {
@@ -296,7 +304,7 @@ pub(crate) mod s_group_ffi {
         },
         engine::{Engine, EngineRef},
         sound::sound_group::{SoundGroup, SoundGroupConfig},
-        Binding, MaResult, MaudioError,
+        AsRawRef, Binding, MaResult, MaudioError,
     };
 
     pub fn ma_sound_group_init_ex(
@@ -304,9 +312,8 @@ pub(crate) mod s_group_ffi {
         config: SoundGroupConfig,
         s_group: *mut sys::ma_sound_group,
     ) -> MaResult<()> {
-        let res = unsafe {
-            sys::ma_sound_group_init_ex(engine.to_raw(), &config.inner as *const _, s_group)
-        };
+        let res =
+            unsafe { sys::ma_sound_group_init_ex(engine.to_raw(), config.as_raw_ptr(), s_group) };
         MaudioError::check(res)
     }
 

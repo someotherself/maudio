@@ -15,7 +15,7 @@ use crate::{
         node_graph::{node_graph_builder::NodeGraphBuilder, nodes::NodeRef},
         AllocationCallbacks, Engine,
     },
-    Binding, MaResult, MaudioError,
+    AsRawRef, Binding, MaResult, MaudioError,
 };
 
 /// `NodeGraph` is the root of miniaudio’s node-based audio system. It owns an
@@ -198,8 +198,8 @@ impl<'a> NodeGraph<'a> {
         let mut mem: Box<MaybeUninit<sys::ma_node_graph>> = Box::new(MaybeUninit::uninit());
 
         let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.map_or(core::ptr::null(), |c| &c.inner as *const _);
-        graph_ffi::ma_node_graph_init(&config.inner as *const _, alloc_cb, mem.as_mut_ptr())?;
+            alloc.map_or(core::ptr::null(), |c| c.as_raw_ptr());
+        graph_ffi::ma_node_graph_init(config.as_raw_ptr(), alloc_cb, mem.as_mut_ptr())?;
 
         let inner: *mut sys::ma_node_graph = Box::into_raw(mem) as *mut sys::ma_node_graph;
         Ok(Self {
@@ -212,7 +212,7 @@ impl<'a> NodeGraph<'a> {
     #[inline]
     fn alloc_cb_ptr(&self) -> *const sys::ma_allocation_callbacks {
         match &self.alloc_cb {
-            Some(cb) => &cb.inner as *const _,
+            Some(cb) => cb.as_raw_ptr(),
             None => core::ptr::null(),
         }
     }
