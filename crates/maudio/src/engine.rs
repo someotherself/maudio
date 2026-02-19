@@ -75,7 +75,7 @@ pub mod engine_host;
 
 pub mod node_graph;
 pub mod process_notifier;
-mod resource;
+pub mod resource;
 
 /// High-level audio engine.
 ///

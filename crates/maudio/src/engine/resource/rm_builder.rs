@@ -25,6 +25,7 @@ impl AsRawRef for ResourceManagerBuilder {
 }
 
 impl ResourceManagerBuilder {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let inner = unsafe { sys::ma_resource_manager_config_init() };
         Self {

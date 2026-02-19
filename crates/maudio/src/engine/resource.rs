@@ -1,8 +1,21 @@
-use std::{marker::PhantomData, mem::MaybeUninit, path::Path};
+use std::{
+    marker::PhantomData,
+    mem::MaybeUninit,
+    path::{Path, PathBuf},
+};
 
 use maudio_sys::ffi as sys;
 
-use crate::{engine::resource::rm_builder::ResourceManagerBuilder, AsRawRef, Binding, MaResult};
+use crate::{
+    audio::{
+        formats::{Format, SampleBuffer},
+        sample_rate::SampleRate,
+    },
+    engine::resource::rm_builder::ResourceManagerBuilder,
+    pcm_frames::{PcmFormatInternal, S24Packed, S24},
+    test_assets::wav_i16_le,
+    AsRawRef, Binding, MaResult,
+};
 
 pub mod rm_builder;
 pub mod rm_flags;
@@ -92,105 +105,226 @@ impl AsRmPtr for ResourceManagerRef<'_> {
     type __PtrProvider = private_rm::RmRefProvider;
 }
 
-impl RmOps for ResourceManager {}
-impl RmOps for ResourceManagerRef<'_> {}
-
-pub struct ResourceRegistration<'a> {
-    rm: &'a ResourceManager,
+pub struct ResourceRegistration<'a, R: AsRmPtr + ?Sized> {
+    rm: &'a R,
 }
 
-pub trait RmOps: AsRmPtr {
-    fn register(&self) {}
-
-    fn register_file(&self, path: &Path, flags: u32) -> MaResult<()> {
+impl<'a, R: AsRmPtr + RmOps> ResourceRegistration<'a, R> {
+    pub fn file(self, path: &Path, flags: u32) -> MaResult<ResourceGuard<'a, R>> {
         #[cfg(unix)]
         {
             use crate::engine::cstring_from_path;
 
-            let path = cstring_from_path(path)?;
-            resource_ffi::ma_resource_manager_register_file(self, path, flags)?;
-            Ok(())
+            let c_path = cstring_from_path(path)?;
+            resource_ffi::ma_resource_manager_register_file(self.rm, c_path, flags)?;
+            Ok(ResourceGuard::from_path(self.rm, path))
         }
 
         #[cfg(windows)]
         {
             use crate::engine::wide_null_terminated;
 
-            let path = wide_null_terminated(path);
+            let c_path = wide_null_terminated(path);
 
-            resource_ffi::ma_resource_manager_register_file_w(self, &path, flags)?;
-            Ok(())
+            resource_ffi::ma_resource_manager_register_file_w(self.rm, &c_path, flags)?;
+            Ok(ResourceGuard::from_path(self.rm, path))
         }
 
         #[cfg(not(any(unix, windows)))]
         compile_error!("init decoder from file is only supported on unix and windows");
     }
 
-    // fn register_decoder_u8<'a>(
-    //     &self,
-    //     name: String,
-    //     data: &'a [u8],
-    //     channels: u32,
-    //     sample_rate: SampleRate,
-    // ) -> MaResult<()> {
-    //     resource_ffi::ma_resource_manager_register_decoded_data_internal::<u8, Self>(
-    //         self,
-    //         &name,
-    //         data,
-    //         Format::U8,
-    //         channels,
-    //         sample_rate,
-    //     )
-    // }
+    fn decoded_u8(
+        self,
+        name: &str,
+        data: &'a [u8],
+        channels: u32,
+        sample_rate: SampleRate,
+    ) -> MaResult<ResourceGuard<'a, R>> {
+        resource_ffi::ma_resource_manager_register_decoded_data_internal::<u8, R>(
+            self.rm,
+            name,
+            data,
+            Format::U8,
+            channels,
+            sample_rate,
+        )?;
+        Ok(ResourceGuard::from_data(self.rm, name, None))
+    }
 
-    // fn register_decoder_i16<'a>(
-    //     &self,
-    //     _name: String,
-    //     _data: &'a [i16],
-    //     _channels: u32,
-    //     _sample_rate: SampleRate,
-    // ) {
-    // }
+    fn decoded_i16(
+        self,
+        name: &str,
+        data: &'a [i16],
+        channels: u32,
+        sample_rate: SampleRate,
+    ) -> MaResult<ResourceGuard<'a, R>> {
+        resource_ffi::ma_resource_manager_register_decoded_data_internal::<i16, R>(
+            self.rm,
+            name,
+            data,
+            Format::S16,
+            channels,
+            sample_rate,
+        )?;
+        Ok(ResourceGuard::from_data(self.rm, name, None))
+    }
 
-    // fn register_decoder_i32<'a>(
-    //     &mut self,
-    //     _name: String,
-    //     _data: &'a [i32],
-    //     _channels: u32,
-    //     _sample_rate: SampleRate,
-    // ) {
-    // }
+    fn decoded_i32(
+        self,
+        name: &str,
+        data: &'a [i32],
+        channels: u32,
+        sample_rate: SampleRate,
+    ) -> MaResult<ResourceGuard<'a, R>> {
+        resource_ffi::ma_resource_manager_register_decoded_data_internal::<i32, R>(
+            self.rm,
+            name,
+            data,
+            Format::S32,
+            channels,
+            sample_rate,
+        )?;
+        Ok(ResourceGuard::from_data(self.rm, name, None))
+    }
 
-    // TODO: register_decoded_data does not copy, so the converted data needs to be stored somewhere else
-    // fn register_decoder_s24() {}
+    fn decoded_s24_packed(
+        self,
+        name: &str,
+        data: &'a [u8],
+        channels: u32,
+        sample_rate: SampleRate,
+    ) -> MaResult<ResourceGuard<'a, R>> {
+        resource_ffi::ma_resource_manager_register_decoded_data_internal::<S24Packed, R>(
+            self.rm,
+            name,
+            data,
+            Format::S24,
+            channels,
+            sample_rate,
+        )?;
+        Ok(ResourceGuard::from_data(self.rm, name, None))
+    }
 
-    // fn register_decoder_s24_packed<'a>(
-    //     &self,
-    //     _name: String,
-    //     _data: &'a [u8],
-    //     _channels: u32,
-    //     _sample_rate: SampleRate,
-    // ) {
-    // }
+    fn decoded_s24(
+        self,
+        name: &str,
+        data: &[i32],
+        channels: u32,
+        sample_rate: SampleRate,
+    ) -> MaResult<ResourceGuard<'a, R>> {
+        if channels == 0 {
+            return Err(crate::MaudioError::from_ma_result(
+                sys::ma_result_MA_INVALID_ARGS,
+            ));
+        }
 
-    // fn register_decoder_f32<'a>(
-    //     &self,
-    //     _name: String,
-    //     _data: &'a [f32],
-    //     _channels: u32,
-    //     _sample_rate: SampleRate,
-    // ) -> MaResult<()> {
-    //     todo!()
-    // }
+        let data_len = data.len();
+        if data_len % channels as usize != 0 {
+            return Err(crate::MaudioError::new_ma_error(
+                crate::ErrorKinds::InvalidDecodedDataLength,
+            ));
+        }
 
-    // fn register_decoded_data<'a, F: PcmFormat>(
-    //     &mut self,
-    //     name: String,
-    //     data: &'a [F::PcmUnit],
-    //     channels: u32,
-    //     sample_rate: SampleRate
-    // ) -> MaResult<()> {
-    // }
+        let frames = data_len / channels as usize;
+        let mut dst = SampleBuffer::<S24>::new_zeroed(frames, channels)?;
+        <S24 as PcmFormatInternal>::write_to_storage_internal(
+            &mut dst,
+            data,
+            frames,
+            channels as usize,
+        )?;
+        resource_ffi::ma_resource_manager_register_decoded_data_internal::<S24Packed, R>(
+            self.rm,
+            name,
+            &dst,
+            Format::S24,
+            channels,
+            sample_rate,
+        )?;
+        Ok(ResourceGuard::from_data(self.rm, name, Some(dst)))
+    }
+
+    fn decoded_f32(
+        self,
+        name: &str,
+        data: &'a [f32],
+        channels: u32,
+        sample_rate: SampleRate,
+    ) -> MaResult<ResourceGuard<'a, R>> {
+        resource_ffi::ma_resource_manager_register_decoded_data_internal::<f32, R>(
+            self.rm,
+            name,
+            data,
+            Format::F32,
+            channels,
+            sample_rate,
+        )?;
+        Ok(ResourceGuard::from_data(self.rm, name, None))
+    }
+
+    fn encoded(self, name: &str, data: &'a [u8]) -> MaResult<ResourceGuard<'a, R>> {
+        resource_ffi::ma_resource_manager_register_encoded_data_internal(self.rm, name, data)?;
+        Ok(ResourceGuard::from_data(self.rm, name, None))
+    }
+}
+
+pub struct ResourceGuard<'a, R: AsRmPtr + ?Sized> {
+    rm: &'a R,
+    data_name: RegisteredDataType,
+    data_store: Option<Vec<u8>>,
+    _data_marker: PhantomData<&'a [u8]>,
+}
+
+impl<'a, R: AsRmPtr + ?Sized> ResourceGuard<'a, R> {
+    pub(crate) fn from_path(rm: &'a R, path: &Path) -> Self {
+        Self {
+            rm,
+            data_name: RegisteredDataType::RegisteredPath {
+                path: path.to_path_buf(),
+            },
+            data_store: None,
+            _data_marker: PhantomData,
+        }
+    }
+
+    pub(crate) fn from_data(rm: &'a R, name: &str, data: Option<Vec<u8>>) -> Self {
+        Self {
+            rm,
+            data_name: RegisteredDataType::RegisteredData {
+                name: name.to_string(),
+            },
+            data_store: data,
+            _data_marker: PhantomData,
+        }
+    }
+}
+
+pub enum RegisteredDataType {
+    RegisteredPath { path: PathBuf },
+    RegisteredData { name: String },
+}
+
+impl<R: AsRmPtr + ?Sized> Drop for ResourceGuard<'_, R> {
+    fn drop(&mut self) {
+        match &self.data_name {
+            RegisteredDataType::RegisteredData { name } => {
+                let _ = resource_ffi::ma_resource_manager_unregister_data_internal(self.rm, name);
+            }
+            RegisteredDataType::RegisteredPath { path } => {
+                let _ = resource_ffi::ma_resource_manager_unregister_file_internal(self.rm, path);
+            }
+        }
+    }
+}
+
+impl RmOps for ResourceManager {}
+impl RmOps for ResourceManagerRef<'_> {}
+
+pub trait RmOps: AsRmPtr {
+    fn register<'a>(&'a self) -> ResourceRegistration<'a, Self> {
+        ResourceRegistration { rm: self }
+    }
 }
 
 impl ResourceManager {
@@ -207,7 +341,12 @@ impl ResourceManager {
 }
 
 pub(crate) mod resource_ffi {
-    use crate::engine::resource::{private_rm, AsRmPtr};
+    use std::path::Path;
+
+    use crate::{
+        engine::resource::{private_rm, AsRmPtr},
+        ErrorKinds,
+    };
     use maudio_sys::ffi as sys;
 
     #[cfg(unix)]
@@ -281,19 +420,40 @@ pub(crate) mod resource_ffi {
         Ok(())
     }
 
-    fn ma_resource_manager_register_decoded_data_internal<F: PcmFormat, R: AsRmPtr + ?Sized>(
+    pub fn ma_resource_manager_register_decoded_data_internal<F: PcmFormat, R: AsRmPtr + ?Sized>(
         rm: &R,
         name: &str,
-        data: &[F::PcmUnit],
+        data: &[F::StorageUnit],
         format: Format,
         channels: u32,
         sample_rate: SampleRate,
     ) -> MaResult<()> {
+        if channels == 0 {
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
+        }
+
+        let data_len = data.len();
+
+        let units_per_frame = (channels as usize)
+            .checked_mul(F::VEC_PCM_UNITS_PER_FRAME)
+            .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
+                op: "Units per frames",
+                lhs: channels as u64,
+                rhs: F::VEC_PCM_UNITS_PER_FRAME as u64,
+            }))?;
+
+        if data_len % units_per_frame != 0 {
+            return Err(crate::MaudioError::new_ma_error(
+                crate::ErrorKinds::InvalidDecodedDataLength,
+            ));
+        }
+
+        let frame_count = (data_len / units_per_frame) as u64;
+
         #[cfg(unix)]
         {
             let name = std::ffi::CString::new(name)
                 .map_err(|_| crate::MaudioError::new_ma_error(crate::ErrorKinds::InvalidCString))?;
-            let frame_count = 0;
             ma_resource_manager_register_decoded_data(
                 rm,
                 name.as_ptr(),
@@ -309,7 +469,6 @@ pub(crate) mod resource_ffi {
             use crate::engine::wide_null_terminated_name;
 
             let name = wide_null_terminated_name(name);
-            let frame_count = 0;
             ma_resource_manager_register_decoded_data_w(
                 rm,
                 &name,
@@ -377,16 +536,49 @@ pub(crate) mod resource_ffi {
         Ok(())
     }
 
+    pub fn ma_resource_manager_register_encoded_data_internal<R: AsRmPtr + ?Sized>(
+        rm: &R,
+        name: &str,
+        data: &[u8],
+    ) -> MaResult<()> {
+        #[cfg(unix)]
+        {
+            let name = std::ffi::CString::new(name)
+                .map_err(|_| crate::MaudioError::new_ma_error(crate::ErrorKinds::InvalidCString))?;
+            ma_resource_manager_register_encoded_data(
+                rm,
+                name.as_ptr(),
+                data.as_ptr() as *const _,
+                data.len(),
+            )
+        }
+        #[cfg(windows)]
+        {
+            use crate::engine::wide_null_terminated_name;
+
+            let name = wide_null_terminated_name(name);
+            ma_resource_manager_register_encoded_data_w(
+                rm,
+                name.as_ptr(),
+                data.as_ptr() as *const _,
+                data.len(),
+            )
+        }
+
+        #[cfg(not(any(unix, windows)))]
+        compile_error!("init decoder from file is only supported on unix and windows");
+    }
+
     #[inline]
     #[cfg(unix)]
-    pub fn ma_resource_manager_register_encoded_data(
-        rm: &ResourceManager,
+    fn ma_resource_manager_register_encoded_data<R: AsRmPtr + ?Sized>(
+        rm: &R,
         name: *const core::ffi::c_char,
         data: *const core::ffi::c_void,
         size: usize,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_resource_manager_register_encoded_data(rm.to_raw(), name, data, size)
+            sys::ma_resource_manager_register_encoded_data(private_rm::rm_ptr(rm), name, data, size)
         };
         MaudioError::check(res)?;
         Ok(())
@@ -394,59 +586,116 @@ pub(crate) mod resource_ffi {
 
     #[inline]
     #[cfg(windows)]
-    pub fn ma_resource_manager_register_encoded_data_w(
-        rm: &mut ResourceManager,
+    fn ma_resource_manager_register_encoded_data_w<R: AsRmPtr + ?Sized>(
+        rm: &mut R,
         name: &[u16],
         data: *const core::ffi::c_void,
         size: usize,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_resource_manager_register_encoded_data_w(rm.to_raw(), name.as_ptr(), data, size)
+            sys::ma_resource_manager_register_encoded_data_w(
+                private_rm::rm_ptr(rm),
+                name.as_ptr(),
+                data,
+                size,
+            )
         };
         MaudioError::check(res)?;
         Ok(())
     }
 
+    pub fn ma_resource_manager_unregister_file_internal<R: AsRmPtr + ?Sized>(
+        rm: &R,
+        path: &Path,
+    ) -> MaResult<()> {
+        #[cfg(unix)]
+        {
+            use crate::engine::cstring_from_path;
+
+            let c_path = cstring_from_path(path)?;
+            ma_resource_manager_unregister_file(rm, c_path)
+        }
+        #[cfg(windows)]
+        {
+            use crate::engine::wide_null_terminated;
+
+            let c_path = wide_null_terminated(path);
+            ma_resource_manager_unregister_file_w(rm, c_path)
+        }
+
+        #[cfg(not(any(unix, windows)))]
+        compile_error!("init decoder from file is only supported on unix and windows");
+    }
+
     #[inline]
     #[cfg(unix)]
-    pub fn ma_resource_manager_unregister_file(
-        rm: &mut ResourceManager,
+    fn ma_resource_manager_unregister_file<R: AsRmPtr + ?Sized>(
+        rm: &R,
         path: std::ffi::CString,
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_resource_manager_unregister_file(rm.to_raw(), path.as_ptr()) };
+        let res = unsafe {
+            sys::ma_resource_manager_unregister_file(private_rm::rm_ptr(rm), path.as_ptr())
+        };
         MaudioError::check(res)?;
         Ok(())
     }
 
     #[inline]
     #[cfg(windows)]
-    pub fn ma_resource_manager_unregister_file_w(
-        rm: &mut ResourceManager,
+    fn ma_resource_manager_unregister_file_w<R: AsRmPtr + ?Sized>(
+        rm: &R,
         path: &[u16],
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_resource_manager_unregister_file_w(rm.to_raw(), path.as_ptr()) };
+        let res = unsafe {
+            sys::ma_resource_manager_unregister_file_w(private_rm::rm_ptr(rm), path.as_ptr())
+        };
         MaudioError::check(res)?;
         Ok(())
+    }
+
+    pub fn ma_resource_manager_unregister_data_internal<R: AsRmPtr + ?Sized>(
+        rm: &R,
+        name: &str,
+    ) -> MaResult<()> {
+        #[cfg(unix)]
+        {
+            let name = std::ffi::CString::new(name)
+                .map_err(|_| crate::MaudioError::new_ma_error(crate::ErrorKinds::InvalidCString))?;
+
+            ma_resource_manager_unregister_data(rm, name.as_ptr())
+        }
+        #[cfg(windows)]
+        {
+            use crate::engine::wide_null_terminated_name;
+
+            let name = wide_null_terminated_name(name);
+            ma_resource_manager_unregister_data_w(rm, name.as_ptr())
+        }
+
+        #[cfg(not(any(unix, windows)))]
+        compile_error!("init decoder from file is only supported on unix and windows");
     }
 
     #[inline]
     #[cfg(unix)]
-    pub fn ma_resource_manager_unregister_data(
-        rm: &mut ResourceManager,
+    fn ma_resource_manager_unregister_data<R: AsRmPtr + ?Sized>(
+        rm: &R,
         name: *const core::ffi::c_char,
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_resource_manager_unregister_data(rm.to_raw(), name) };
+        let res = unsafe { sys::ma_resource_manager_unregister_data(private_rm::rm_ptr(rm), name) };
         MaudioError::check(res)?;
         Ok(())
     }
 
     #[inline]
     #[cfg(windows)]
-    pub fn ma_resource_manager_unregister_data_w(
-        rm: &mut ResourceManager,
+    fn ma_resource_manager_unregister_data_w<R: AsRmPtr + ?Sized>(
+        rm: &R,
         name: &[u16],
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_resource_manager_unregister_data_w(rm.to_raw(), name.as_ptr()) };
+        let res = unsafe {
+            sys::ma_resource_manager_unregister_data_w(private_rm::rm_ptr(rm), name.as_ptr())
+        };
         MaudioError::check(res)?;
         Ok(())
     }
@@ -570,5 +819,166 @@ pub(crate) mod resource_ffi {
         };
         MaudioError::check(res)?;
         Ok(())
+    }
+}
+
+impl Drop for ResourceManager {
+    fn drop(&mut self) {
+        resource_ffi::ma_resource_manager_uninit(self);
+        drop(unsafe { Box::from_raw(self.to_raw()) });
+    }
+}
+
+fn tiny_test_wav_mono(frames: usize) -> Vec<u8> {
+    let mut samples = Vec::with_capacity(frames);
+    for i in 0..frames {
+        samples.push(((i as i32 * 300) % i16::MAX as i32) as i16);
+    }
+    wav_i16_le(1, 48_000, &samples)
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{
+        engine::resource::{rm_builder::ResourceManagerBuilder, tiny_test_wav_mono, RmOps},
+        test_assets::{
+            decoded_data::{
+                asset_interleaved_f32, asset_interleaved_i16, asset_interleaved_i32,
+                asset_interleaved_s24_i32, asset_interleaved_s24_packed_le, asset_interleaved_u8,
+            },
+            temp_file::{unique_tmp_path, TempFileGuard},
+        },
+    };
+
+    #[test]
+    fn resource_man_basic_init() {
+        let rm = ResourceManagerBuilder::new().build().unwrap();
+        drop(rm);
+    }
+
+    #[test]
+    fn resource_man_basic_init_2() {
+        let rm = ResourceManagerBuilder::new()
+            .job_thread_count(1)
+            .channels(2)
+            .sample_rate(crate::audio::sample_rate::SampleRate::Sr11025)
+            .format(crate::audio::formats::Format::F32)
+            .build()
+            .unwrap();
+        drop(rm);
+    }
+
+    #[test]
+    fn resource_man_basic_register_file() {
+        let rm = ResourceManagerBuilder::new().build().unwrap();
+        let wav = tiny_test_wav_mono(20);
+        let path_guard = TempFileGuard::new(unique_tmp_path("wav"));
+        std::fs::write(path_guard.path(), &wav).unwrap();
+        let guard = rm.register().file(path_guard.path(), 0).unwrap();
+        drop(guard);
+    }
+
+    #[test]
+    fn resource_man_basic_register_encoded_data() {
+        let rm = ResourceManagerBuilder::new().build().unwrap();
+        let wav: Vec<u8> = tiny_test_wav_mono(20);
+        let guard = rm.register().encoded("test:wav", &wav).unwrap();
+        drop(guard);
+    }
+
+    #[test]
+    fn resource_man_decoded_u8() {
+        let rm = ResourceManagerBuilder::new().build().unwrap();
+        let data = asset_interleaved_u8(2, 100, 1);
+        let guard = rm
+            .register()
+            .decoded_u8(
+                "data",
+                &data,
+                2,
+                crate::audio::sample_rate::SampleRate::Sr48000,
+            )
+            .unwrap();
+        drop(guard);
+    }
+
+    #[test]
+    fn resource_man_decoded_i16() {
+        let rm = ResourceManagerBuilder::new().build().unwrap();
+        let data = asset_interleaved_i16(2, 100, 1);
+        let guard = rm
+            .register()
+            .decoded_i16(
+                "data",
+                &data,
+                2,
+                crate::audio::sample_rate::SampleRate::Sr48000,
+            )
+            .unwrap();
+        drop(guard);
+    }
+
+    #[test]
+    fn resource_man_decoded_i32() {
+        let rm = ResourceManagerBuilder::new().build().unwrap();
+        let data = asset_interleaved_i32(2, 100, 1);
+        let guard = rm
+            .register()
+            .decoded_i32(
+                "data",
+                &data,
+                2,
+                crate::audio::sample_rate::SampleRate::Sr48000,
+            )
+            .unwrap();
+        drop(guard);
+    }
+
+    #[test]
+    fn resource_man_decoded_f32() {
+        let rm = ResourceManagerBuilder::new().build().unwrap();
+        let data = asset_interleaved_f32(2, 100, 1.0);
+        let guard = rm
+            .register()
+            .decoded_f32(
+                "data",
+                &data,
+                2,
+                crate::audio::sample_rate::SampleRate::Sr48000,
+            )
+            .unwrap();
+        drop(guard);
+    }
+
+    #[test]
+    fn resource_man_decoded_s24_packed() {
+        let rm = ResourceManagerBuilder::new().build().unwrap();
+        let data = asset_interleaved_s24_packed_le(2, 100, 1);
+        let guard = rm
+            .register()
+            .decoded_s24_packed(
+                "data",
+                &data,
+                2,
+                crate::audio::sample_rate::SampleRate::Sr48000,
+            )
+            .unwrap();
+        drop(guard);
+    }
+
+    #[test]
+    fn resource_man_decoded_s24() {
+        let rm = ResourceManagerBuilder::new().build().unwrap();
+        let data = asset_interleaved_s24_i32(2, 100, 1);
+        let guard = rm
+            .register()
+            .decoded_s24(
+                "data",
+                &data,
+                2,
+                crate::audio::sample_rate::SampleRate::Sr48000,
+            )
+            .unwrap();
+        drop(guard);
     }
 }

@@ -55,6 +55,7 @@ mod device; // not implemented
 pub mod engine;
 pub mod pcm_frames;
 pub mod sound;
+pub(crate) mod test_assets;
 pub mod util;
 
 #[doc(hidden)]
@@ -178,6 +179,9 @@ impl std::fmt::Display for ErrorKinds {
             }
             ErrorKinds::IntegerOverflow { op, lhs, rhs } => {
                 write!(f, "integer overflow while computing {op} ({lhs} * {rhs})")
+            }
+            ErrorKinds::InvalidDecodedDataLength => {
+                write!(f, "Decoded data does not contain a whole number of frames")
             }
             ErrorKinds::S24OverFlow => {
                 write!(f, "Overflow when converting S24 to miniaudio storage")
@@ -357,6 +361,7 @@ pub enum ErrorKinds {
         available: usize,
         read: usize,
     },
+    InvalidDecodedDataLength,
     S24OverFlow,
     S24UnderFlow,
     InvalidGraphState,

@@ -801,77 +801,14 @@ pub(crate) mod decoder_b_ffi {
     }
 }
 
-struct TempFileGuard {
-    path: std::path::PathBuf,
-}
-
-impl TempFileGuard {
-    fn new(path: std::path::PathBuf) -> Self {
-        Self { path }
-    }
-
-    fn path(&self) -> &std::path::Path {
-        &self.path
-    }
-}
-
-impl Drop for TempFileGuard {
-    fn drop(&mut self) {
-        let _ = std::fs::remove_file(&self.path);
-    }
-}
-
 #[cfg(test)]
 mod tests {
+    use crate::test_assets::{
+        temp_file::{unique_tmp_path, TempFileGuard},
+        wav_i16_le,
+    };
+
     use super::*;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    fn unique_tmp_path(ext: &str) -> std::path::PathBuf {
-        let mut p = std::env::temp_dir();
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        p.push(format!("miniaudio_decoder_test_{nanos}.{ext}"));
-        p
-    }
-
-    /// Build a minimal PCM 16-bit little-endian WAV file.
-    fn wav_i16_le(channels: u16, sample_rate: u32, samples_interleaved: &[i16]) -> Vec<u8> {
-        assert!(channels > 0);
-        assert_eq!(samples_interleaved.len() % channels as usize, 0);
-
-        let bits_per_sample: u16 = 16;
-        let block_align: u16 = channels * (bits_per_sample / 8);
-        let byte_rate: u32 = sample_rate * block_align as u32;
-        let data_bytes_len: u32 = (samples_interleaved.len() * 2) as u32;
-
-        let riff_chunk_size: u32 = 4 + (8 + 16) + (8 + data_bytes_len);
-
-        let mut out = Vec::with_capacity((8 + riff_chunk_size) as usize);
-
-        out.extend_from_slice(b"RIFF");
-        out.extend_from_slice(&riff_chunk_size.to_le_bytes());
-        out.extend_from_slice(b"WAVE");
-
-        out.extend_from_slice(b"fmt ");
-        out.extend_from_slice(&16u32.to_le_bytes()); // PCM fmt chunk size
-        out.extend_from_slice(&1u16.to_le_bytes()); // AudioFormat = 1 (PCM)
-        out.extend_from_slice(&channels.to_le_bytes());
-        out.extend_from_slice(&sample_rate.to_le_bytes());
-        out.extend_from_slice(&byte_rate.to_le_bytes());
-        out.extend_from_slice(&block_align.to_le_bytes());
-        out.extend_from_slice(&bits_per_sample.to_le_bytes());
-
-        out.extend_from_slice(b"data");
-        out.extend_from_slice(&data_bytes_len.to_le_bytes());
-
-        for s in samples_interleaved {
-            out.extend_from_slice(&s.to_le_bytes());
-        }
-
-        out
-    }
 
     fn tiny_test_wav_mono(frames: usize) -> Vec<u8> {
         let mut samples = Vec::with_capacity(frames);
