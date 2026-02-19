@@ -547,7 +547,7 @@ pub(crate) fn wide_null_terminated(path: &Path) -> Vec<u16> {
 }
 
 #[cfg(windows)]
-pub(crate) fn wide_null_terminated_name(path: &str) -> Vec<u16> {
+pub(crate) fn wide_null_terminated_name(name: &str) -> Vec<u16> {
     use std::os::windows::prelude::OsStrExt;
 
     std::ffi::OsStr::new(name)

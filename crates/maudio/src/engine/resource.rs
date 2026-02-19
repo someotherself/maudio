@@ -118,7 +118,7 @@ pub trait RmOps: AsRmPtr {
 
             let path = wide_null_terminated(path);
 
-            decoder_ffi::ma_resource_manager_register_file_w(self, path, flags)?;
+            resource_ffi::ma_resource_manager_register_file_w(self, &path, flags)?;
             Ok(())
         }
 
@@ -207,12 +207,11 @@ impl ResourceManager {
 }
 
 pub(crate) mod resource_ffi {
-    use crate::engine::resource::private_rm;
+    use crate::engine::resource::{private_rm, AsRmPtr};
     use maudio_sys::ffi as sys;
-    use std::ffi::CString;
 
     #[cfg(unix)]
-    use crate::engine::resource::{AsRmPtr, RmOps};
+    use crate::engine::resource::RmOps;
     use crate::{
         audio::{
             formats::{Format, SampleBuffer},
@@ -270,13 +269,14 @@ pub(crate) mod resource_ffi {
 
     #[inline]
     #[cfg(windows)]
-    pub fn ma_resource_manager_register_file_w(
-        rm: &ResourceManager,
+    pub fn ma_resource_manager_register_file_w<R: AsRmPtr + ?Sized>(
+        rm: &R,
         path: &[u16],
         flags: u32,
     ) -> MaResult<()> {
-        let res =
-            unsafe { sys::ma_resource_manager_register_file_w(rm.to_raw(), path.as_ptr(), flags) };
+        let res = unsafe {
+            sys::ma_resource_manager_register_file_w(private_rm::rm_ptr(rm), path.as_ptr(), flags)
+        };
         MaudioError::check(res)?;
         Ok(())
     }
@@ -291,7 +291,7 @@ pub(crate) mod resource_ffi {
     ) -> MaResult<()> {
         #[cfg(unix)]
         {
-            let name = CString::new(name)
+            let name = std::ffi::CString::new(name)
                 .map_err(|_| crate::MaudioError::new_ma_error(crate::ErrorKinds::InvalidCString))?;
             let frame_count = 0;
             ma_resource_manager_register_decoded_data(
@@ -309,9 +309,10 @@ pub(crate) mod resource_ffi {
             use crate::engine::wide_null_terminated_name;
 
             let name = wide_null_terminated_name(name);
+            let frame_count = 0;
             ma_resource_manager_register_decoded_data_w(
                 rm,
-                name.as_ptr(),
+                &name,
                 data.as_ptr() as *const _,
                 frame_count,
                 format,
@@ -352,8 +353,8 @@ pub(crate) mod resource_ffi {
 
     #[inline]
     #[cfg(windows)]
-    fn ma_resource_manager_register_decoded_data_w(
-        rm: &ResourceManager,
+    fn ma_resource_manager_register_decoded_data_w<R: AsRmPtr + ?Sized>(
+        rm: &R,
         name: &[u16],
         data: *const core::ffi::c_void,
         frame_count: u64,
@@ -363,7 +364,7 @@ pub(crate) mod resource_ffi {
     ) -> MaResult<()> {
         let res = unsafe {
             sys::ma_resource_manager_register_decoded_data_w(
-                rm.to_raw(),
+                private_rm::rm_ptr(rm),
                 name.as_ptr(),
                 data,
                 frame_count,
@@ -400,7 +401,7 @@ pub(crate) mod resource_ffi {
         size: usize,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_resource_manager_register_encoded_data_w(rm.to_raw(), name, data, size)
+            sys::ma_resource_manager_register_encoded_data_w(rm.to_raw(), name.as_ptr(), data, size)
         };
         MaudioError::check(res)?;
         Ok(())
@@ -445,7 +446,7 @@ pub(crate) mod resource_ffi {
         rm: &mut ResourceManager,
         name: &[u16],
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_resource_manager_unregister_data_w(rm.to_raw(), name) };
+        let res = unsafe { sys::ma_resource_manager_unregister_data_w(rm.to_raw(), name.as_ptr()) };
         MaudioError::check(res)?;
         Ok(())
     }
