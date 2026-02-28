@@ -84,7 +84,7 @@ impl<F: PcmFormat> Binding for ResourceManagerRef<'_, F> {
     }
 }
 
-mod private_rm {
+pub(crate) mod private_rm {
     use super::*;
     use maudio_sys::ffi as sys;
 

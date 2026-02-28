@@ -54,7 +54,7 @@ use crate::{
         engine_builder::EngineBuilder,
         node_graph::{nodes::NodeRef, NodeGraphRef},
         process_notifier::ProcessState,
-        resource::ResourceManagerRef,
+        resource::{ResourceManager, ResourceManagerRef},
     },
     sound::{
         sound_builder::SoundBuilder,
@@ -90,6 +90,7 @@ pub mod resource;
 pub struct Engine {
     inner: *mut sys::ma_engine,
     process_notifier: Option<Arc<ProcessState>>,
+    resource_manager: Option<ResourceManager<f32>>, // a ref count, not ownership
     _not_sync: PhantomData<Cell<()>>,
 }
 
@@ -377,6 +378,7 @@ impl Engine {
         let inner: *mut sys::ma_engine = Box::into_raw(mem) as *mut sys::ma_engine;
         Ok(Self {
             inner,
+            resource_manager: None,
             process_notifier: None,
             _not_sync: PhantomData,
         })

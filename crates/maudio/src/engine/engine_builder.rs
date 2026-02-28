@@ -9,6 +9,7 @@ use crate::{
         process_notifier::{
             on_process_callback, EngineProcessCallback, ProcessNotifier, ProcessState,
         },
+        resource::{private_rm, ResourceManager},
         Engine,
     },
     AsRawRef, MaResult,
@@ -17,7 +18,7 @@ use crate::{
 pub struct EngineBuilder {
     inner: sys::ma_engine_config,
     device: Option<*mut sys::ma_device>,
-    resource_manager: Option<*mut sys::ma_resource_manager>,
+    resource_manager: Option<ResourceManager<f32>>, // a ref count, not ownership
     no_device: bool,
     channels: Option<u32>,
     sample_rate: Option<SampleRate>,
@@ -32,12 +33,6 @@ impl AsRawRef for EngineBuilder {
     }
 }
 
-impl Default for EngineBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 // TODO. To add:
 // ma_mono_expansion_mode
 // volumeSmoothTimeInPCMFrames
@@ -46,6 +41,7 @@ impl Default for EngineBuilder {
 // gainSmoothTimeInFrames and gainSmoothTimeInMilliseconds
 // defaultVolumeSmoothTimeInPCMFrames
 impl EngineBuilder {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let inner = unsafe { sys::ma_engine_config_init() };
         Self {
@@ -66,10 +62,9 @@ impl EngineBuilder {
         self
     }
 
-    // TODO: Implement wrapper for sys::ma_resource_manager
-    fn resource_manager(&mut self, manager: *mut sys::ma_resource_manager) -> &mut Self {
-        self.inner.pResourceManager = manager;
-        self.resource_manager = Some(manager);
+    fn resource_manager(&mut self, manager: &ResourceManager<f32>) -> &mut Self {
+        self.inner.pResourceManager = private_rm::rm_ptr(manager);
+        self.resource_manager = Some(manager.clone());
         self
     }
 
@@ -231,7 +226,7 @@ impl EngineBuilder {
 
 #[cfg(test)]
 mod test {
-    use crate::engine::EngineOps;
+    use crate::engine::{resource::rm_builder::ResourceManagerBuilder, EngineOps};
 
     use super::*;
 
@@ -257,7 +252,7 @@ mod test {
 
     #[test]
     fn test_engine_builder_default_trait_build_for_tests_ok() -> MaResult<()> {
-        let engine = build_ci_engine(EngineBuilder::default())?;
+        let engine = build_ci_engine(EngineBuilder::new())?;
         drop(engine);
         Ok(())
     }
@@ -378,5 +373,51 @@ mod test {
         let engine = b.build()?;
         drop(engine);
         Ok(())
+    }
+
+    #[test]
+    fn test_engine_builder_with_resource_manager() {
+        let rm = ResourceManagerBuilder::new().build_f32().unwrap();
+        let engine = EngineBuilder::new()
+            .resource_manager(&rm)
+            .build_for_tests()
+            .unwrap();
+        let _rm_ref = engine.resource_manager().unwrap();
+    }
+
+    #[test]
+    fn test_engine_builder_many_with_one_resource_manager() {
+        let rm = ResourceManagerBuilder::new().build_f32().unwrap();
+        let engine1 = EngineBuilder::new()
+            .resource_manager(&rm)
+            .build_for_tests()
+            .unwrap();
+        let engine2 = EngineBuilder::new()
+            .resource_manager(&rm)
+            .build_for_tests()
+            .unwrap();
+        let engine3 = EngineBuilder::new()
+            .resource_manager(&rm)
+            .build_for_tests()
+            .unwrap();
+        let engine4 = EngineBuilder::new()
+            .resource_manager(&rm)
+            .build_for_tests()
+            .unwrap();
+        let engine5 = EngineBuilder::new()
+            .resource_manager(&rm)
+            .build_for_tests()
+            .unwrap();
+        let engine6 = EngineBuilder::new()
+            .resource_manager(&rm)
+            .build_for_tests()
+            .unwrap();
+        let _rm_ref = engine1.resource_manager().unwrap();
+        let _rm_ref = engine1.resource_manager().unwrap();
+        let _rm_ref = engine2.resource_manager().unwrap();
+        let _rm_ref = engine3.resource_manager().unwrap();
+        let _rm_ref = engine4.resource_manager().unwrap();
+        let _rm_ref = engine5.resource_manager().unwrap();
+        let _rm_ref = engine6.resource_manager().unwrap();
     }
 }
