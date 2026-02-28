@@ -33,6 +33,7 @@ pub enum SampleRate {
     Sr8000,
     Sr352800,
     Sr384000,
+    Custom(u32),
 }
 
 impl From<SampleRate> for i32 {
@@ -56,6 +57,7 @@ impl From<SampleRate> for i32 {
 
             SampleRate::Sr352800 => 352_800,
             SampleRate::Sr384000 => 384_000,
+            SampleRate::Custom(v) => v as i32,
         }
     }
 }
@@ -81,6 +83,7 @@ impl From<SampleRate> for u32 {
 
             SampleRate::Sr352800 => 352_800,
             SampleRate::Sr384000 => 384_000,
+            SampleRate::Custom(v) => v,
         }
     }
 }
@@ -104,9 +107,10 @@ impl TryFrom<u32> for SampleRate {
             8_000 => Ok(SampleRate::Sr8000),
             352_800 => Ok(SampleRate::Sr352800),
             384_000 => Ok(SampleRate::Sr384000),
-            other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
+            v if v == 0 => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
                 SampleRate,
-            >(other as i64))),
+            >(v as i64))),
+            v => Ok(Self::Custom(v)),
         }
     }
 }
@@ -130,9 +134,10 @@ impl TryFrom<i32> for SampleRate {
             8_000 => Ok(SampleRate::Sr8000),
             352_800 => Ok(SampleRate::Sr352800),
             384_000 => Ok(SampleRate::Sr384000),
-            other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
+            v if v <= 0 => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
                 SampleRate,
-            >(other as i64))),
+            >(v as i64))),
+            v => Ok(Self::Custom(v as u32)),
         }
     }
 }
