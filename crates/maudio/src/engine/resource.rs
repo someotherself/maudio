@@ -64,12 +64,15 @@
 //! Create a resource manager, then attach it to an engine:
 //!
 //! ```rust,no_run
-//! # use maudio::*;
+//! # use maudio::engine::engine_builder::EngineBuilder;
+//! # use maudio::engine::resource::rm_builder::ResourceManagerBuilder;
+//! # fn main() -> maudio::MaResult<()> {
 //! let rm = ResourceManagerBuilder::new().build_f32()?;
 //! let engine = EngineBuilder::new()
 //!     .resource_manager(&rm)
 //!     .build()?;
-//! # Ok::<(), MaError>(())
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! If you already have an engine, you can access its resource manager via

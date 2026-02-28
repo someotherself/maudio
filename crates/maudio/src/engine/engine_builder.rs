@@ -45,12 +45,15 @@ impl AsRawRef for EngineBuilder {
 /// ### Example
 ///
 /// ```rust,no_run
-/// # use maudio::*;
+/// # use maudio::engine::engine_builder::EngineBuilder;
+/// # use maudio::engine::resource::rm_builder::ResourceManagerBuilder;
+/// # fn main() -> maudio::MaResult<()> {
 /// let rm = ResourceManagerBuilder::new().build_f32()?;
 /// let engine = EngineBuilder::new()
 ///     .resource_manager(&rm)
 ///     .build()?;
-/// # Ok::<(), MaError>(())
+/// # Ok(())
+/// # }
 /// ```
 impl EngineBuilder {
     #[allow(clippy::new_without_default)]
@@ -74,7 +77,7 @@ impl EngineBuilder {
         self
     }
 
-    fn resource_manager(&mut self, manager: &ResourceManager<f32>) -> &mut Self {
+    pub fn resource_manager(&mut self, manager: &ResourceManager<f32>) -> &mut Self {
         self.inner.pResourceManager = private_rm::rm_ptr(manager);
         self.resource_manager = Some(manager.clone());
         self

@@ -295,14 +295,17 @@ mod tests {
 
     #[test]
     fn test_sample_rate_try_from_sys_rejects_invalid_values() {
-        let bogus_i32 = (sys::ma_standard_sample_rate_ma_standard_sample_rate_48000) + 12_345;
-        let bogus_u32 = (sys::ma_standard_sample_rate_ma_standard_sample_rate_48000) + 12_345;
+        let bogus_i32_neg = -10;
+        let bogus_i32_zero = 0;
+        let bogus_u32_zero = 0;
 
-        let err_i32 = SampleRate::try_from(bogus_i32).unwrap_err();
-        let err_u32 = SampleRate::try_from(bogus_u32).unwrap_err();
+        let err_i32_neg = SampleRate::try_from(bogus_i32_neg).unwrap_err();
+        let err_i32_zero = SampleRate::try_from(bogus_i32_zero).unwrap_err();
+        let err_u32_zero = SampleRate::try_from(bogus_u32_zero).unwrap_err();
 
-        assert_eq!(err_i32, ma_error());
-        assert_eq!(err_u32, ma_error());
+        assert_eq!(err_i32_neg, ma_error());
+        assert_eq!(err_i32_zero, ma_error());
+        assert_eq!(err_u32_zero, ma_error());
     }
 
     #[test]
