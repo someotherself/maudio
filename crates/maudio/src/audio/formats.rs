@@ -21,8 +21,8 @@ use crate::{
 ///
 /// Note: `Format::S24` is miniaudio's 24-bit PCM storage format.
 /// In this crate, 24-bit PCM can be represented as either:
-/// - [`S24Packed`]: packed 3-byte samples (native miniaudio layout)
-/// - [`S24`]: 24-bit samples stored in `i32` (convenience representation)
+/// - [`S24Packed`](SampleFormat::S24Packed): packed 3-byte samples (native miniaudio layout)
+/// - [`S24`](SampleFormat::S24): 24-bit samples stored in `i32` (convenience representation)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
 pub enum Format {

@@ -1,3 +1,80 @@
+//! Resource manager
+//!
+//! The resource manager is Miniaudio’s asynchronous asset loader/decoder front-end.
+//! It is designed to be used from **multiple threads**: internally it uses a
+//! multi-producer / multi-consumer job queue plus background worker threads.
+//!
+//! In `maudio`, the resource manager is exposed in two forms:
+//!
+//! - [`ResourceManager<F>`]: an owned, reference-counted handle (`Arc`) that is
+//!   cheap to clone and can be shared across threads.
+//! - [`ResourceManagerRef<'a, F>`]: a non-owning reference tied to a lifetime,
+//!   primarily returned by other objects (e.g. the engine).
+//!
+//! ### PCM format choice
+//!
+//! Miniaudio’s resource manager can operate in different “native” PCM formats.
+//! However, for various reasons, `maudio` requires selecting a concrete PCM format up-front
+//! (most users should pick `f32`). The selected format becomes part of the type
+//! (`ResourceManager<f32>`, `ResourceManager<i16>`, etc.) and all APIs can then
+//! remain strongly typed.
+//!
+//! ## What is the resource manager (in Miniaudio)?
+//!
+//! Miniaudio’s resource manager (`ma_resource_manager`) is a high-level facility for
+//! **loading audio assets** (files or memory blobs) and exposing them as a standard
+//! `ma_data_source`.
+//!
+//! Conceptually, it sits between “where the bytes come from” and “who plays/consumes
+//! PCM frames”:
+//!
+//! - **I/O**: loads from files
+//! - **Decoding**: can decode compressed formats into PCM, and can do this
+//!   **asynchronously** using background worker threads.
+//! - **Streaming vs. fully loaded**: can either stream from the source, or load the
+//!   whole asset into memory (optionally decoded/uncompressed) depending on flags.
+//! - **Uniform interface**: the thing you get back is “just a data source”, which means it
+//!   plugs into the rest of Miniaudio anywhere a `ma_data_source` is accepted.
+//!
+//! In `maudio`, the resource manager primarily exists so you can:
+//! - share one loader/decoder across many sounds,
+//! - keep decoding/loading work off the audio callback thread,
+//! - and unify “load from file / load from memory” behind the same typed API.
+//!
+//! ### Sharing a resource manager between multiple engines
+//!
+//! A resource manager is **not tied to a single engine**. In Miniaudio, an engine
+//! can be configured to use an externally created `ma_resource_manager`, but it
+//! does not own it.
+//!
+//! The same design applies in `maudio`:
+//!
+//! - You can create one [`ResourceManager<F>`].
+//! - Attach it to multiple [`Engine`](crate::engine::Engine) instances.
+//! - All engines will share the same loader, decoder threads, and asset cache.
+//!
+//! This is particularly useful when:
+//!
+//! - You have multiple output devices (e.g. different audio backends or test engines).
+//! - You want a single shared asset cache across subsystems.
+//! - You want to centralize asynchronous loading/decoding.
+//!
+//! ### Typical usage
+//!
+//! Create a resource manager, then attach it to an engine:
+//!
+//! ```rust,no_run
+//! # use maudio::*;
+//! let rm = ResourceManagerBuilder::new().build_f32()?;
+//! let engine = EngineBuilder::new()
+//!     .resource_manager(&rm)
+//!     .build()?;
+//! # Ok::<(), MaError>(())
+//! ```
+//!
+//! If you already have an engine, you can access its resource manager via
+//! `engine.resource_manager()` which returns a borrowed [`ResourceManagerRef`].
+//!
 use std::{
     marker::PhantomData,
     mem::MaybeUninit,
@@ -31,6 +108,62 @@ pub mod rm_source;
 pub mod rm_source_flags;
 pub mod rm_stream;
 
+/// An owned resource manager handle.
+///
+/// Besides configuring background loading/decoding, the resource manager also acts as a
+/// **registry** for named resources. Registering a resource lets you later create
+/// resource-backed data sources (buffer/stream/source) using Miniaudio’s internal cache
+/// and job system.
+///
+/// ## Two ways to create resource-backed data sources
+///
+/// In `maudio` there are two primary workflows:
+///
+/// ### 1) Register first (recommended when you want caching and explicit lifetime control)
+///
+/// Registering a file or a memory blob returns a [`ResourceGuard`]. While the guard is alive,
+/// the registration is kept valid and you can build one or more data sources from it.
+///
+/// - `register_file()` registers a file path.
+/// - `register_decoded_*()` registers already-decoded PCM frames in a specific format.
+/// - `register_encoded()` registers encoded/compressed bytes (e.g. mp3/ogg/flac bytes).
+///
+/// The returned guard can then build:
+/// - [`ResourceManagerBuffer`] (fully buffered, typically decoded in memory),
+/// - [`ResourceManagerStream`] (streamed decode / read-ahead),
+/// - [`ResourceManagerSource`] (generic data source, may become buffer or stream depending on flags).
+///
+/// ### 2) Build directly (useful for one-off playback)
+///
+/// You can also create a buffer/stream/source **without** calling `register_*()` first by using
+/// the corresponding builder (e.g. [`ResourceManagerBufferBuilder`], [`ResourceManagerStreamBuilder`],
+/// [`ResourceManagerSourceBuilder`]) and providing a path directly.
+///
+/// The builders cannot be used for sounds already loaded in memory.
+///
+/// This is convenient for one-off usage, but you lose the explicit “guard keeps it registered”
+/// lifetime model.
+///
+/// ### Thread safety
+///
+/// `ResourceManager<F>` is cheap to clone and intended to be shared across threads.
+///
+/// Miniaudio documents `ma_resource_manager` as safe to use from multiple threads:
+/// it uses a multi-producer/multi-consumer job queue and background job threads.
+///
+/// ### Format parameter
+///
+/// `F` is the resource manager’s native PCM format. This is chosen when building
+/// the resource manager. Most applications, especially when used with an engine, should use `f32`.
+///
+/// ### Multiple engine support
+///
+/// A single `ResourceManager<F>` can be attached to multiple engines.
+/// The underlying Miniaudio resource manager is independent of the engine,
+/// and sharing it allows multiple engines to reuse the same job threads
+/// and asset cache.
+///
+/// Use [`ResourceManagerBuilder`] to initialize.
 #[derive(Clone)]
 pub struct ResourceManager<F: PcmFormat> {
     inner: Arc<InnerResourceManager<F>>,
@@ -61,6 +194,20 @@ impl<F: PcmFormat> Binding for ResourceManager<F> {
     }
 }
 
+/// A borrowed resource manager.
+///
+/// This is a lightweight non-owning view into an existing resource manager.
+/// It is primarily returned by other objects (for example `Engine::resource_manager()`).
+///
+/// You typically do not construct this directly. If you need an owned handle that
+/// can be cloned and moved between threads, use [`ResourceManager<F>`] instead.
+///
+/// The lifetime `'a` ties this reference to the owner that produced it.
+///
+/// ### Format parameter
+///
+/// `F` matches the native PCM format of the underlying resource manager.
+/// In practice, this is determined by how the original resource manager was created.
 pub struct ResourceManagerRef<'a, F: PcmFormat> {
     inner: *mut sys::ma_resource_manager,
     _format: PhantomData<F>,
@@ -128,6 +275,13 @@ impl<F: PcmFormat> AsRmPtr for ResourceManagerRef<'_, F> {
     type Format = F;
 }
 
+/// Keeps a resource manager registration alive.
+///
+/// A `ResourceGuard` is returned by `ResourceManager::register_*()` calls.
+/// While the guard exists, the registered resource remains available to the resource manager,
+/// and you can create one or more data sources from it via `build_buffer/build_stream/build_source`.
+///
+/// The guard may also hold ownership of the underlying bytes (for conversions done by maudio).
 pub struct ResourceGuard<'a, R: AsRmPtr + ?Sized> {
     rm: &'a R,
     data_name: RegisteredDataType,
@@ -137,9 +291,22 @@ pub struct ResourceGuard<'a, R: AsRmPtr + ?Sized> {
 
 // Builders for registered resources
 impl<'a, R: AsRmPtr + ?Sized> ResourceGuard<'a, R> {
+    /// ## Flags:
+    ///
+    /// - [`RmSourceFlags::LOOPING`] to enable looping
+    /// - [`RmSourceFlags::WAIT_INIT`]
+    ///   Only meaningful with [`RmSourceFlags::ASYNC`]. When set, blocks until the
+    ///   initial async initialization/prefill step completes before returning.
+    /// - [`RmSourceFlags::ASYNC`]
+    ///   Initialize and prefill the stream asynchronously using the resource manager’s worker threads.
+    /// - [`RmSourceFlags::STREAM`] flag is ignored by maudio
     pub fn build_buffer(&'a self, flags: RmSourceFlags) -> MaResult<ResourceManagerBuffer<'a, R>> {
         let mut builder = ResourceManagerBufferBuilder::new(self.rm);
-        builder.flags(flags); // TODO: Does it make sense to take flags here too?
+        let mut flags_check = flags;
+        if flags_check.intersects(RmSourceFlags::STREAM) {
+            flags_check.remove(RmSourceFlags::STREAM);
+        }
+        builder.flags(flags_check); // TODO: Does it make sense to take flags here too?
         match &self.data_name {
             RegisteredDataType::RegisteredPath { path } => builder.file_path(path),
             RegisteredDataType::RegisteredData { name } => builder.file_path(Path::new(name)),
@@ -147,10 +314,27 @@ impl<'a, R: AsRmPtr + ?Sized> ResourceGuard<'a, R> {
         builder.build()
     }
 
-    /// Will fail if the data is anything other than a file
+    /// Only works for file-backed registrations.
+    ///
+    /// If the resource was registered from in-memory data (decoded or encoded), streaming is not
+    /// supported and `build_stream()` will fail.
+    ///
+    /// ## Flags:
+    ///
+    /// - [`RmSourceFlags::LOOPING`] to enable looping
+    /// - [`RmSourceFlags::WAIT_INIT`]
+    ///   Only meaningful with [`RmSourceFlags::ASYNC`]. When set, blocks until the
+    ///   initial async initialization/prefill step completes before returning.
+    /// - [`RmSourceFlags::ASYNC`]
+    ///   Initialize and prefill the stream asynchronously using the resource manager’s worker threads.
+    /// - [`RmSourceFlags::STREAM`] flag is ignored by maudio
     pub fn build_stream(&'a self, flags: RmSourceFlags) -> MaResult<ResourceManagerStream<'a, R>> {
         let mut builder = ResourceManagerStreamBuilder::new(self.rm);
-        builder.flags(flags);
+        let mut flags_check = flags;
+        if !flags_check.intersects(RmSourceFlags::STREAM) {
+            flags_check.insert(RmSourceFlags::STREAM);
+        }
+        builder.flags(flags_check);
         match &self.data_name {
             RegisteredDataType::RegisteredPath { path } => builder.file_path(path),
             RegisteredDataType::RegisteredData { name } => builder.file_path(Path::new(name)),
@@ -158,9 +342,22 @@ impl<'a, R: AsRmPtr + ?Sized> ResourceGuard<'a, R> {
         builder.build()
     }
 
+    /// ## Flags:
+    ///
+    /// - [`RmSourceFlags::LOOPING`] to enable looping
+    /// - [`RmSourceFlags::WAIT_INIT`]
+    ///   Only meaningful with [`RmSourceFlags::ASYNC`]. When set, blocks until the
+    ///   initial async initialization/prefill step completes before returning.
+    /// - [`RmSourceFlags::ASYNC`]
+    ///   Initialize and prefill the stream asynchronously using the resource manager’s worker threads.
+    /// - [`RmSourceFlags::STREAM`] flag is ignored by maudio
     pub fn build_source(&'a self, flags: RmSourceFlags) -> MaResult<ResourceManagerSource<'a, R>> {
         let mut builder = ResourceManagerSourceBuilder::new(self.rm);
-        builder.flags(flags);
+        let mut flags_check = flags;
+        if flags_check.intersects(RmSourceFlags::STREAM) {
+            flags_check.remove(RmSourceFlags::STREAM);
+        }
+        builder.flags(flags_check);
         match &self.data_name {
             RegisteredDataType::RegisteredPath { path } => builder.file_path(path),
             RegisteredDataType::RegisteredData { name } => builder.file_path(Path::new(name)),
@@ -216,6 +413,18 @@ impl<F: PcmFormat> RmOps for ResourceManager<F> {}
 impl<F: PcmFormat> RmOps for ResourceManagerRef<'_, F> {}
 
 pub trait RmOps: AsRmPtr {
+    /// The [`RmSourceFlags`] used are:
+    /// - [`RmSourceFlags::WAIT_INIT`] -
+    ///   Only meaningful with [`RmSourceFlags::ASYNC`]. When set, blocks until the
+    ///   async initialization step has completed before returning.
+    ///   This does not necessarily wait for the entire file to be decoded.
+    /// - [`RmSourceFlags::ASYNC`] -
+    ///   Perform loading/decoding work on the resource manager’s background threads.
+    ///   Without this flag, registration performs the work synchronously.
+    ///   (If the resource manager has threading disabled, this flag is ignored.)
+    /// - [`RmSourceFlags::DECODE`] -
+    ///   Decode and cache PCM during registration instead of deferring
+    ///   decoding until the resource is initialized or read.
     fn register_file<'a>(
         &'a self,
         path: &Path,
@@ -244,6 +453,18 @@ pub trait RmOps: AsRmPtr {
         compile_error!("init decoder from file is only supported on unix and windows");
     }
 
+    /// The [`RmSourceFlags`] used are:
+    /// - [`RmSourceFlags::WAIT_INIT`] -
+    ///   Only meaningful with [`RmSourceFlags::ASYNC`]. When set, blocks until the
+    ///   async initialization step has completed before returning.
+    ///   This does not necessarily wait for the entire file to be decoded.
+    /// - [`RmSourceFlags::ASYNC`] -
+    ///   Perform loading/decoding work on the resource manager’s background threads.
+    ///   Without this flag, registration performs the work synchronously.
+    ///   (If the resource manager has threading disabled, this flag is ignored.)
+    /// - [`RmSourceFlags::DECODE`] -
+    ///   Decode and cache PCM during registration instead of deferring
+    ///   decoding until the resource is initialized or read.
     fn register_decoded_u8<'a>(
         &'a self,
         name: &str,
@@ -262,6 +483,18 @@ pub trait RmOps: AsRmPtr {
         Ok(ResourceGuard::from_data(self, name, None))
     }
 
+    /// The [`RmSourceFlags`] used are:
+    /// - [`RmSourceFlags::WAIT_INIT`] -
+    ///   Only meaningful with [`RmSourceFlags::ASYNC`]. When set, blocks until the
+    ///   async initialization step has completed before returning.
+    ///   This does not necessarily wait for the entire file to be decoded.
+    /// - [`RmSourceFlags::ASYNC`] -
+    ///   Perform loading/decoding work on the resource manager’s background threads.
+    ///   Without this flag, registration performs the work synchronously.
+    ///   (If the resource manager has threading disabled, this flag is ignored.)
+    /// - [`RmSourceFlags::DECODE`] -
+    ///   Decode and cache PCM during registration instead of deferring
+    ///   decoding until the resource is initialized or read.
     fn register_decoded_i16<'a>(
         &'a self,
         name: &str,
@@ -280,6 +513,18 @@ pub trait RmOps: AsRmPtr {
         Ok(ResourceGuard::from_data(self, name, None))
     }
 
+    /// The [`RmSourceFlags`] used are:
+    /// - [`RmSourceFlags::WAIT_INIT`] -
+    ///   Only meaningful with [`RmSourceFlags::ASYNC`]. When set, blocks until the
+    ///   async initialization step has completed before returning.
+    ///   This does not necessarily wait for the entire file to be decoded.
+    /// - [`RmSourceFlags::ASYNC`] -
+    ///   Perform loading/decoding work on the resource manager’s background threads.
+    ///   Without this flag, registration performs the work synchronously.
+    ///   (If the resource manager has threading disabled, this flag is ignored.)
+    /// - [`RmSourceFlags::DECODE`] -
+    ///   Decode and cache PCM during registration instead of deferring
+    ///   decoding until the resource is initialized or read.
     fn register_decoded_i32<'a>(
         &'a self,
         name: &str,
@@ -298,6 +543,18 @@ pub trait RmOps: AsRmPtr {
         Ok(ResourceGuard::from_data(self, name, None))
     }
 
+    /// The [`RmSourceFlags`] used are:
+    /// - [`RmSourceFlags::WAIT_INIT`] -
+    ///   Only meaningful with [`RmSourceFlags::ASYNC`]. When set, blocks until the
+    ///   async initialization step has completed before returning.
+    ///   This does not necessarily wait for the entire file to be decoded.
+    /// - [`RmSourceFlags::ASYNC`] -
+    ///   Perform loading/decoding work on the resource manager’s background threads.
+    ///   Without this flag, registration performs the work synchronously.
+    ///   (If the resource manager has threading disabled, this flag is ignored.)
+    /// - [`RmSourceFlags::DECODE`] -
+    ///   Decode and cache PCM during registration instead of deferring
+    ///   decoding until the resource is initialized or read.
     fn register_decoded_s24_packed<'a>(
         &'a self,
         name: &str,
@@ -316,6 +573,18 @@ pub trait RmOps: AsRmPtr {
         Ok(ResourceGuard::from_data(self, name, None))
     }
 
+    /// The [`RmSourceFlags`] used are:
+    /// - [`RmSourceFlags::WAIT_INIT`] -
+    ///   Only meaningful with [`RmSourceFlags::ASYNC`]. When set, blocks until the
+    ///   async initialization step has completed before returning.
+    ///   This does not necessarily wait for the entire file to be decoded.
+    /// - [`RmSourceFlags::ASYNC`] -
+    ///   Perform loading/decoding work on the resource manager’s background threads.
+    ///   Without this flag, registration performs the work synchronously.
+    ///   (If the resource manager has threading disabled, this flag is ignored.)
+    /// - [`RmSourceFlags::DECODE`] -
+    ///   Decode and cache PCM during registration instead of deferring
+    ///   decoding until the resource is initialized or read.
     fn register_decoded_s24<'a>(
         &'a self,
         name: &str,
@@ -355,6 +624,18 @@ pub trait RmOps: AsRmPtr {
         Ok(ResourceGuard::from_data(self, name, Some(dst.into())))
     }
 
+    /// The [`RmSourceFlags`] used are:
+    /// - [`RmSourceFlags::WAIT_INIT`] -
+    ///   Only meaningful with [`RmSourceFlags::ASYNC`]. When set, blocks until the
+    ///   async initialization step has completed before returning.
+    ///   This does not necessarily wait for the entire file to be decoded.
+    /// - [`RmSourceFlags::ASYNC`] -
+    ///   Perform loading/decoding work on the resource manager’s background threads.
+    ///   Without this flag, registration performs the work synchronously.
+    ///   (If the resource manager has threading disabled, this flag is ignored.)
+    /// - [`RmSourceFlags::DECODE`] -
+    ///   Decode and cache PCM during registration instead of deferring
+    ///   decoding until the resource is initialized or read.
     fn register_decoded_f32<'a>(
         &'a self,
         name: &str,
@@ -373,7 +654,16 @@ pub trait RmOps: AsRmPtr {
         Ok(ResourceGuard::from_data(self, name, None))
     }
 
-    fn encoded<'a>(&'a self, name: &str, data: &'a [u8]) -> MaResult<ResourceGuard<'a, Self>> {
+    /// Registers encoded/compressed audio bytes under a name.
+    ///
+    /// This only stores the provided bytes in the resource manager under `name`.
+    /// No [`RmSourceFlags`] are applied at registration time because the underlying
+    /// Miniaudio API does not accept flags for this operation.
+    fn register_encoded<'a>(
+        &'a self,
+        name: &str,
+        data: &'a [u8],
+    ) -> MaResult<ResourceGuard<'a, Self>> {
         resource_ffi::ma_resource_manager_register_encoded_data_internal(self, name, data)?;
         Ok(ResourceGuard::from_data(self, name, None))
     }
@@ -492,6 +782,7 @@ pub(crate) mod resource_ffi {
         Ok(())
     }
 
+    // Different from the miniaudio `static ma_result ma_resource_manager_register_decoded_data_internal`
     pub fn ma_resource_manager_register_decoded_data_internal<F: PcmFormat, R: AsRmPtr + ?Sized>(
         rm: &R,
         name: &str,
@@ -1563,7 +1854,7 @@ mod test {
     fn test_resource_man_basic_register_encoded_data() {
         let rm = ResourceManagerBuilder::new().build_f32().unwrap();
         let wav: Vec<u8> = tiny_test_wav_mono(20);
-        let guard = rm.encoded("test:wav", &wav).unwrap();
+        let guard = rm.register_encoded("test:wav", &wav).unwrap();
         let _buf = guard.build_buffer(RmSourceFlags::NONE).unwrap();
         let _src = guard.build_source(RmSourceFlags::NONE).unwrap();
     }

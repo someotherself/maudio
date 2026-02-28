@@ -1,10 +1,10 @@
 use maudio_sys::ffi as sys;
 
-type RmSoourceFlagsRaw = sys::ma_resource_manager_data_source_flags;
+type RmSourceFlagsRaw = sys::ma_resource_manager_data_source_flags;
 
 #[repr(transparent)]
 #[derive(Debug, PartialEq, Clone, Copy, Hash, Eq)]
-pub struct RmSourceFlags(RmSoourceFlagsRaw);
+pub struct RmSourceFlags(RmSourceFlagsRaw);
 
 impl RmSourceFlags {
     pub const NONE: Self = Self(0);
@@ -51,7 +51,7 @@ impl RmSourceFlags {
     /// Create RmSoourceFlags from a u32 bitmask
     #[inline]
     pub const fn from_bits(bits: u32) -> Self {
-        Self(bits as RmSoourceFlagsRaw)
+        Self(bits as RmSourceFlagsRaw)
     }
 
     /// Check if all the bits in other are set

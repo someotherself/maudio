@@ -40,6 +40,18 @@ impl AsRawRef for EngineBuilder {
 // periodSizeInFrames and periodSizeInMilliseconds
 // gainSmoothTimeInFrames and gainSmoothTimeInMilliseconds
 // defaultVolumeSmoothTimeInPCMFrames
+/// Builds a [`ResourceManager`] with a fixed native PCM format.
+///
+/// ### Example
+///
+/// ```rust,no_run
+/// # use maudio::*;
+/// let rm = ResourceManagerBuilder::new().build_f32()?;
+/// let engine = EngineBuilder::new()
+///     .resource_manager(&rm)
+///     .build()?;
+/// # Ok::<(), MaError>(())
+/// ```
 impl EngineBuilder {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
@@ -419,5 +431,6 @@ mod test {
         let _rm_ref = engine4.resource_manager().unwrap();
         let _rm_ref = engine5.resource_manager().unwrap();
         let _rm_ref = engine6.resource_manager().unwrap();
+        drop(rm); // safe
     }
 }
