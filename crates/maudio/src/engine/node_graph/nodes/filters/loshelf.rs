@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, mem::MaybeUninit};
+use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
 
 use maudio_sys::ffi as sys;
 
@@ -39,8 +39,8 @@ use crate::{
 /// Use [`LoShelfNodeBuilder`] to initialize
 pub struct LoShelfNode<'a> {
     inner: *mut sys::ma_loshelf_node,
-    alloc_cb: Option<&'a AllocationCallbacks>,
-    _marker: PhantomData<&'a NodeGraph<'a>>,
+    alloc_cb: Option<Arc<AllocationCallbacks>>,
+    _marker: PhantomData<&'a NodeGraph>,
     // Below is needed during a reinit
     channels: u32,
     // format is hard coded as ma_format_f32 in miniaudio `sys::ma_loshelf_node_config_init()`
@@ -70,10 +70,10 @@ impl<'a> LoShelfNode<'a> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &LoShelfNodeBuilder<N>,
-        alloc: Option<&'a AllocationCallbacks>,
+        alloc: Option<Arc<AllocationCallbacks>>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.map_or(core::ptr::null(), |c| c.as_raw_ptr());
+            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
 
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_loshelf_node>> =
             Box::new(MaybeUninit::uninit());
@@ -103,6 +103,18 @@ impl<'a> LoShelfNode<'a> {
 
     /// See [`LoShelfNodeParams`] for creating a config
     pub fn reinit(&mut self, config: &LoShelfNodeParams) -> MaResult<()> {
+        if !config.inner.frequency.is_finite() || config.inner.frequency <= 0.0 {
+            return Err(crate::MaudioError::from_ma_result(
+                sys::ma_result_MA_INVALID_ARGS,
+            ));
+        }
+
+        if !config.inner.shelfSlope.is_finite() || config.inner.shelfSlope <= 0.0 {
+            return Err(crate::MaudioError::from_ma_result(
+                sys::ma_result_MA_INVALID_ARGS,
+            ));
+        }
+
         n_loshelf_ffi::ma_loshelf_node_reinit(config.as_raw_ptr(), self)
     }
 
@@ -220,6 +232,18 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> LoShelfNodeBuilder<'a, N> {
     }
 
     pub fn build(&self) -> MaResult<LoShelfNode<'a>> {
+        if self.inner.loshelf.channels == 0 {
+            return Err(crate::MaudioError::from_ma_result(
+                sys::ma_result_MA_INVALID_ARGS,
+            ));
+        }
+
+        if !self.inner.loshelf.frequency.is_finite() || self.inner.loshelf.frequency <= 0.0 {
+            return Err(crate::MaudioError::from_ma_result(
+                sys::ma_result_MA_INVALID_ARGS,
+            ));
+        }
+
         LoShelfNode::new_with_cfg_alloc_internal(self.node_graph, self, None)
     }
 }
@@ -266,6 +290,7 @@ mod test {
             node_graph::nodes::filters::loshelf::{LoShelfNodeBuilder, LoShelfNodeParams},
             Engine, EngineOps,
         },
+        Binding,
     };
 
     #[test]
@@ -281,6 +306,7 @@ mod test {
         let config = LoShelfNodeParams::new(&node, SampleRate::Sr48000, 0.0, 0.1, 1200.0);
         node.reinit(&config).unwrap();
     }
+
     #[test]
     fn test_loshelf_reinit_sample_rate_change_ok() {
         let engine = Engine::new_for_tests().unwrap();
@@ -306,10 +332,8 @@ mod test {
                 .build()
                 .unwrap();
 
-        // Frequency 0 is almost certainly invalid.
         let cfg = LoShelfNodeParams::new(&node, SampleRate::Sr48000, 0.0, 0.5, 0.0);
-        // Does not return an error???
-        assert!(node.reinit(&cfg).is_ok());
+        assert!(node.reinit(&cfg).is_err());
     }
 
     #[test]
@@ -322,10 +346,8 @@ mod test {
                 .build()
                 .unwrap();
 
-        // Slope 0 or negative should error.
         let cfg = LoShelfNodeParams::new(&node, SampleRate::Sr48000, 0.0, 0.0, 200.0);
-        // Does not return an error???
-        assert!(node.reinit(&cfg).is_ok());
+        assert!(node.reinit(&cfg).is_err());
     }
 
     #[test]
@@ -338,12 +360,84 @@ mod test {
                 .build()
                 .unwrap();
 
-        // Very large gain values: miniaudio usually doesn't validate these strictly.
         let cfg = LoShelfNodeParams::new(&node, SampleRate::Sr48000, 120.0, 0.5, 200.0);
         assert!(node.reinit(&cfg).is_ok());
 
         let cfg = LoShelfNodeParams::new(&node, SampleRate::Sr48000, -120.0, 0.5, 200.0);
         assert!(node.reinit(&cfg).is_ok());
+    }
+
+    #[test]
+    fn test_loshelf_channels_zero_error() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let res =
+            LoShelfNodeBuilder::new(&node_graph, 0, SampleRate::Sr48000, 0.0, 0.5, 200.0).build();
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn valgrind_loshelf_create_drop_many() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        for _ in 0..10_000 {
+            let _node =
+                LoShelfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0.0, 0.5, 200.0)
+                    .build()
+                    .unwrap();
+        }
+    }
+
+    #[test]
+    fn valgrind_loshelf_reinit_stress() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let mut node =
+            LoShelfNodeBuilder::new(&node_graph, 2, SampleRate::Sr48000, 0.0, 0.5, 200.0)
+                .build()
+                .unwrap();
+
+        for i in 0..50_000 {
+            let freq = 20.0 + ((i % 10_000) as f64) * 0.1;
+            let gain = ((i % 240) as f64) - 120.0; // [-120, 119]
+            let slope = 0.1 + ((i % 100) as f64) * 0.01; // (0.1..1.09)
+
+            let cfg = LoShelfNodeParams::new(&node, SampleRate::Sr48000, gain, slope, freq);
+            node.reinit(&cfg).unwrap();
+        }
+    }
+
+    #[test]
+    fn test_loshelf_failed_reinit_then_drop_is_safe() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let mut node =
+            LoShelfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0.0, 0.5, 200.0)
+                .build()
+                .unwrap();
+
+        let cfg = LoShelfNodeParams::new(&node, SampleRate::Sr48000, 0.0, 0.5, 0.0);
+        assert!(node.reinit(&cfg).is_err());
+
+        let cfg2 = LoShelfNodeParams::new(&node, SampleRate::Sr48000, 3.0, 0.8, 250.0);
+        node.reinit(&cfg2).unwrap();
+    }
+
+    #[test]
+    fn test_loshelf_as_node_smoke() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let node = LoShelfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0.0, 0.5, 200.0)
+            .build()
+            .unwrap();
+
+        let nref = node.as_node();
+        assert!(!nref.to_raw().is_null());
     }
 
     #[test]
@@ -356,10 +450,22 @@ mod test {
                 .build()
                 .unwrap();
 
-        // Negative frequency is nonsensical, but depending on miniaudio internals it may not be checked.
         let cfg = LoShelfNodeParams::new(&node, SampleRate::Sr48000, 0.0, 0.5, -1.0);
 
-        // If you want this to be strict later, flip this to `is_err()` once you add validation on your side.
-        assert!(node.reinit(&cfg).is_ok());
+        assert!(node.reinit(&cfg).is_err());
+    }
+
+    #[test]
+    fn test_loshelf_reinit_nan_rejected() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let mut node =
+            LoShelfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0.0, 0.5, 200.0)
+                .build()
+                .unwrap();
+
+        let cfg = LoShelfNodeParams::new(&node, SampleRate::Sr48000, 0.0, 0.5, f64::NAN);
+        assert!(node.reinit(&cfg).is_err());
     }
 }

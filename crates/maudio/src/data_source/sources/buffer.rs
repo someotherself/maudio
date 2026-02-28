@@ -4,7 +4,7 @@
 //! used as a [`DataSource`](crate::data_source::DataSource) by the engine.
 //!
 //! Use the builder helpers (`build_*` / `build_*_ref`) to construct a buffer from existing PCM data.
-use std::{marker::PhantomData, mem::MaybeUninit};
+use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
 
 use maudio_sys::ffi as sys;
 
@@ -24,15 +24,15 @@ use crate::{
 /// (`frame = channels` samples).
 ///
 /// For 24-bit audio, prefer [`S24Packed`] when you already have packed 3-byte samples.
-pub struct AudioBuffer<'a, F: PcmFormat> {
+pub struct AudioBuffer<F: PcmFormat> {
     inner: *mut sys::ma_audio_buffer,
     format: Format,
     channels: u32,
     _sample_format: PhantomData<F>,
-    _alloc_keepalive: PhantomData<&'a AllocationCallbacks>,
+    _alloc_keepalive: PhantomData<Arc<AllocationCallbacks>>,
 }
 
-impl<F: PcmFormat> Binding for AudioBuffer<'_, F> {
+impl<F: PcmFormat> Binding for AudioBuffer<F> {
     type Raw = *mut sys::ma_audio_buffer;
 
     /// !!! unimplemented !!!
@@ -60,7 +60,7 @@ pub struct AudioBufferRef<'a, F: PcmFormat> {
     channels: u32,
     _data_marker: PhantomData<&'a [u8]>,
     _sample_format: PhantomData<F>,
-    _alloc_keepalive: PhantomData<&'a AllocationCallbacks>,
+    _alloc_keepalive: PhantomData<Arc<AllocationCallbacks>>,
 }
 
 impl<F: PcmFormat> Binding for AudioBufferRef<'_, F> {
@@ -88,7 +88,7 @@ mod private_abuffer {
     pub struct AudioBufferPtrPrivider;
     pub struct AudioBufferRefPtrPrivider;
 
-    impl<F: PcmFormat> AudioBufferProvider<AudioBuffer<'_, F>> for AudioBufferPtrPrivider {
+    impl<F: PcmFormat> AudioBufferProvider<AudioBuffer<F>> for AudioBufferPtrPrivider {
         fn as_buffer_ptr(t: &AudioBuffer<F>) -> *mut sys::ma_audio_buffer {
             t.to_raw()
         }
@@ -107,7 +107,7 @@ mod private_abuffer {
 
 // Allows AudioBuffer to pass as a DataSource
 #[doc(hidden)]
-impl<F: PcmFormat> AsSourcePtr for AudioBuffer<'_, F> {
+impl<F: PcmFormat> AsSourcePtr for AudioBuffer<F> {
     type __PtrProvider = private_data_source::AudioBufferProvider;
 }
 
@@ -125,7 +125,7 @@ pub trait AsAudioBufferPtr {
     fn channels(&self) -> u32;
 }
 
-impl<F: PcmFormat> AsAudioBufferPtr for AudioBuffer<'_, F> {
+impl<F: PcmFormat> AsAudioBufferPtr for AudioBuffer<F> {
     #[doc(hidden)]
     type __PtrProvider = private_abuffer::AudioBufferPtrPrivider;
 
@@ -151,7 +151,7 @@ impl<F: PcmFormat> AsAudioBufferPtr for AudioBufferRef<'_, F> {
     }
 }
 
-impl<F: PcmFormat> AudioBufferOps for AudioBuffer<'_, F> {
+impl<F: PcmFormat> AudioBufferOps for AudioBuffer<F> {
     type Format = F;
 }
 
@@ -212,7 +212,7 @@ pub trait AudioBufferOps: AsAudioBufferPtr + AsSourcePtr {
     }
 
     /// Returns a [`DataSourceRef`] view of this buffer.
-    fn as_source(&self) -> DataSourceRef<'_> {
+    fn as_source<'a>(&'a self) -> DataSourceRef<'a> {
         debug_assert!(!private_abuffer::buffer_ptr(self).is_null());
         let ptr = private_abuffer::buffer_ptr(self).cast::<sys::ma_data_source>();
         DataSourceRef::from_ptr(ptr)
@@ -238,7 +238,7 @@ impl<'a, F: PcmFormat> AudioBufferRef<'a, F> {
     }
 }
 
-impl<'a, F: PcmFormat> AudioBuffer<'a, F> {
+impl<F: PcmFormat> AudioBuffer<F> {
     fn copy_with_cfg_internal(config: &AudioBufferBuilder) -> MaResult<Self> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_audio_buffer>> =
             Box::new(MaybeUninit::uninit());
@@ -466,7 +466,7 @@ pub(crate) mod buffer_ffi {
     }
 }
 
-impl<F: PcmFormat> Drop for AudioBuffer<'_, F> {
+impl<F: PcmFormat> Drop for AudioBuffer<F> {
     fn drop(&mut self) {
         buffer_ffi::ma_audio_buffer_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -488,7 +488,7 @@ impl<'a, F: PcmFormat> Drop for AudioBufferRef<'a, F> {
 /// Use `build_*` to copy data into an owned buffer, or `build_*_ref` to borrow the slice.
 pub struct AudioBufferBuilder<'a> {
     inner: sys::ma_audio_buffer_config,
-    alloc_cb: Option<&'a AllocationCallbacks>,
+    alloc_cb: Option<Arc<AllocationCallbacks>>,
     // This type and AudioBufferRef must keep a lifetime to the data provided to AudioBufferBuilder
     // Otherwise, the data can be dropped and result in a dangling pointer
     _marker: PhantomData<&'a [u8]>,
@@ -569,7 +569,7 @@ impl<'a> AudioBufferBuilder<'a> {
         ))
     }
 
-    pub fn build_u8(channels: u32, data: &[u8]) -> MaResult<AudioBuffer<'a, u8>> {
+    pub fn build_u8(channels: u32, data: &[u8]) -> MaResult<AudioBuffer<u8>> {
         if channels == 0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
@@ -586,7 +586,7 @@ impl<'a> AudioBufferBuilder<'a> {
         AudioBuffer::copy_with_cfg_internal(&builder)
     }
 
-    pub fn build_i16(channels: u32, data: &[i16]) -> MaResult<AudioBuffer<'a, i16>> {
+    pub fn build_i16(channels: u32, data: &[i16]) -> MaResult<AudioBuffer<i16>> {
         if channels == 0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
@@ -604,7 +604,7 @@ impl<'a> AudioBufferBuilder<'a> {
         AudioBuffer::copy_with_cfg_internal(&builder)
     }
 
-    pub fn build_i32(channels: u32, data: &[i32]) -> MaResult<AudioBuffer<'a, i32>> {
+    pub fn build_i32(channels: u32, data: &[i32]) -> MaResult<AudioBuffer<i32>> {
         if channels == 0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
@@ -622,7 +622,7 @@ impl<'a> AudioBufferBuilder<'a> {
         AudioBuffer::copy_with_cfg_internal(&builder)
     }
 
-    pub fn build_f32(channels: u32, data: &[f32]) -> MaResult<AudioBuffer<'a, f32>> {
+    pub fn build_f32(channels: u32, data: &[f32]) -> MaResult<AudioBuffer<f32>> {
         if channels == 0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
@@ -640,7 +640,7 @@ impl<'a> AudioBufferBuilder<'a> {
         AudioBuffer::copy_with_cfg_internal(&builder)
     }
 
-    pub fn build_s24(channels: u32, data: &[i32]) -> MaResult<AudioBuffer<'a, S24>> {
+    pub fn build_s24(channels: u32, data: &[i32]) -> MaResult<AudioBuffer<S24>> {
         if channels == 0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
@@ -671,7 +671,7 @@ impl<'a> AudioBufferBuilder<'a> {
         AudioBuffer::copy_with_cfg_internal(&builder)
     }
 
-    pub fn build_s24_packed(channels: u32, data: &[u8]) -> MaResult<AudioBuffer<'a, S24Packed>> {
+    pub fn build_s24_packed(channels: u32, data: &[u8]) -> MaResult<AudioBuffer<S24Packed>> {
         if channels == 0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
@@ -720,10 +720,11 @@ impl<'a> AudioBufferBuilder<'a> {
         channels: u32,
         size_frames: u64,
         data: *const core::ffi::c_void,
-        alloc_cb: Option<&'a AllocationCallbacks>,
+        alloc_cb: Option<Arc<AllocationCallbacks>>,
     ) -> Self {
-        let alloc: *const sys::ma_allocation_callbacks =
-            alloc_cb.map_or(core::ptr::null(), |c| c.as_raw_ptr());
+        let alloc: *const sys::ma_allocation_callbacks = alloc_cb
+            .clone()
+            .map_or(core::ptr::null(), |c| c.as_raw_ptr());
 
         let ptr = buffer_config_ffi::ma_audio_buffer_config_init(
             format,

@@ -3,11 +3,13 @@ use maudio_sys::ffi as sys;
 use crate::{
     audio::{formats::Format, sample_rate::SampleRate},
     engine::resource::{rm_flags::RmFlags, ResourceManager},
+    pcm_frames::{S24Packed, S24},
     AsRawRef, MaResult,
 };
 
-// TODO: If format/channels/sample_rate are not set miniaudio uses the ones from the source
-// TODO: How to get them if they are not set?
+/// At the end, you will set the sample format that audio decoded by
+/// this `ResourceManager` will be converted to.
+/// The audio will decoded from its native sample format.
 pub struct ResourceManagerBuilder {
     inner: sys::ma_resource_manager_config,
     format: Option<Format>,
@@ -49,13 +51,7 @@ impl ResourceManagerBuilder {
         self
     }
 
-    /// Sets the sample format that audio decoded by this `ResourceManager` will be
-    /// converted to.
-    ///
-    /// By default, audio is decoded using the source’s native sample format. If set,
-    /// all resources loaded through this `ResourceManager` will be converted at load
-    /// time, which can reduce per-frame conversion costs during mixing/playback.
-    pub fn format(&mut self, format: Format) -> &mut Self {
+    fn set_format(&mut self, format: Format) -> &mut Self {
         self.inner.decodedFormat = format.into();
         self.format = Some(format);
         self
@@ -109,7 +105,33 @@ impl ResourceManagerBuilder {
         self
     }
 
-    pub fn build(&self) -> MaResult<ResourceManager> {
+    pub fn build_u8(&mut self) -> MaResult<ResourceManager<u8>> {
+        self.set_format(Format::U8);
+        ResourceManager::<u8>::new_with_config(self)
+    }
+
+    pub fn build_i16(&mut self) -> MaResult<ResourceManager<i16>> {
+        self.set_format(Format::S16);
         ResourceManager::new_with_config(self)
+    }
+
+    pub fn build_i32(&mut self) -> MaResult<ResourceManager<i32>> {
+        self.set_format(Format::S32);
+        ResourceManager::new_with_config(self)
+    }
+
+    pub fn build_s24_packed(&mut self) -> MaResult<ResourceManager<S24Packed>> {
+        self.set_format(Format::S24);
+        ResourceManager::new_with_config(self)
+    }
+
+    pub fn build_s24(&mut self) -> MaResult<ResourceManager<S24>> {
+        self.set_format(Format::S24);
+        ResourceManager::new_with_config(self)
+    }
+
+    pub fn build_f32(&mut self) -> MaResult<ResourceManager<f32>> {
+        self.set_format(Format::F32);
+        ResourceManager::<f32>::new_with_config(self)
     }
 }

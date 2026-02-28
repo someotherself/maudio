@@ -358,7 +358,7 @@ pub trait DecoderOps: AsDecoderPtr + AsSourcePtr {
     }
 
     /// Returns a [`DataSourceRef`] view of this decoder.
-    fn as_source(&self) -> DataSourceRef<'_> {
+    fn as_source<'a>(&'a self) -> DataSourceRef<'a> {
         debug_assert!(!private_decoder::decoder_ptr(self).is_null());
         let ptr = private_decoder::decoder_ptr(self).cast::<sys::ma_data_source>();
         DataSourceRef::from_ptr(ptr)
@@ -566,8 +566,8 @@ pub(crate) mod decoder_ffi {
 
         Ok(DataFormat {
             format: format_raw.try_into()?,
-            channels: channels as u32,
-            sample_rate: sample_rate as u32,
+            channels,
+            sample_rate: sample_rate.try_into()?,
             channel_map: Some(channel_map),
         })
     }
@@ -815,7 +815,7 @@ mod tests {
         for i in 0..frames {
             samples.push(((i as i32 * 300) % i16::MAX as i32) as i16);
         }
-        wav_i16_le(1, 48_000, &samples)
+        wav_i16_le(1, SampleRate::Sr48000, &samples)
     }
 
     #[test]
@@ -838,7 +838,7 @@ mod tests {
 
         let df = dec.data_format().unwrap();
         assert_eq!(df.channels, 1);
-        assert_eq!(df.sample_rate, 48_000);
+        assert_eq!(df.sample_rate, SampleRate::Sr48000);
         assert_eq!(df.format, Format::F32);
 
         let buf = dec.read_pcm_frames(10).unwrap();

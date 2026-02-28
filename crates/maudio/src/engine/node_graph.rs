@@ -1,11 +1,11 @@
 //! A pull-based audio processing graph.
-use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit};
+use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit, sync::Arc};
 
 mod node_builder; // Creating nodes is not implemented yet.
 mod node_flags; // Creating nodes is not implemented yet.
 pub mod node_graph_builder;
 pub mod nodes;
-pub mod voice;
+mod voice;
 
 use maudio_sys::ffi as sys;
 
@@ -57,13 +57,13 @@ use crate::{
 /// - non-standard processing graphs
 /// - offline rendering of audio
 /// - fine-grained control over how audio is evaluated
-pub struct NodeGraph<'a> {
+pub struct NodeGraph {
     inner: *mut sys::ma_node_graph,
-    alloc_cb: Option<&'a AllocationCallbacks>,
+    alloc_cb: Option<Arc<AllocationCallbacks>>,
     _not_sync: PhantomData<Cell<()>>,
 }
 
-impl Binding for NodeGraph<'_> {
+impl Binding for NodeGraph {
     type Raw = *mut sys::ma_node_graph;
 
     /// !!! Not Implemented !!!
@@ -87,7 +87,6 @@ impl Binding for NodeGraph<'_> {
 ///
 /// This type exists to safely model miniaudio APIs that return pointers to
 /// internally managed node graphs (for example `ma_engine_get_node_graph`).
-#[derive(Clone, Copy)]
 pub struct NodeGraphRef<'e> {
     ptr: *mut sys::ma_node_graph,
     _engine: PhantomData<&'e mut Engine>,
@@ -121,7 +120,7 @@ pub(crate) mod private_node_graph {
     pub struct NodeGraphProvider;
     pub struct NodeGraphRefProvider;
 
-    impl<'a> NodeGraphPtrProvider<NodeGraph<'a>> for NodeGraphProvider {
+    impl NodeGraphPtrProvider<NodeGraph> for NodeGraphProvider {
         #[inline]
         fn as_node_graph_ptr(t: &NodeGraph) -> *mut sys::ma_node_graph {
             t.to_raw()
@@ -146,7 +145,7 @@ pub trait AsNodeGraphPtr {
 }
 
 #[doc(hidden)]
-impl AsNodeGraphPtr for NodeGraph<'_> {
+impl AsNodeGraphPtr for NodeGraph {
     type __PtrProvider = private_node_graph::NodeGraphProvider;
 }
 
@@ -190,15 +189,15 @@ pub trait NodeGraphOps: AsNodeGraphPtr {
     }
 }
 
-impl<'a> NodeGraph<'a> {
+impl NodeGraph {
     fn with_alloc_callbacks(
         config: &NodeGraphBuilder,
-        alloc: Option<&'a AllocationCallbacks>,
+        alloc: Option<Arc<AllocationCallbacks>>,
     ) -> MaResult<Self> {
         let mut mem: Box<MaybeUninit<sys::ma_node_graph>> = Box::new(MaybeUninit::uninit());
 
         let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.map_or(core::ptr::null(), |c| c.as_raw_ptr());
+            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
         graph_ffi::ma_node_graph_init(config.as_raw_ptr(), alloc_cb, mem.as_mut_ptr())?;
 
         let inner: *mut sys::ma_node_graph = Box::into_raw(mem) as *mut sys::ma_node_graph;
@@ -335,7 +334,7 @@ mod graph_ffi {
     }
 }
 
-impl<'a> Drop for NodeGraph<'a> {
+impl Drop for NodeGraph {
     fn drop(&mut self) {
         graph_ffi::ma_node_graph_uninit(self.to_raw(), self.alloc_cb_ptr());
         drop(unsafe { Box::from_raw(self.to_raw()) });

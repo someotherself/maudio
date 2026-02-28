@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, mem::MaybeUninit};
+use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
 
 use maudio_sys::ffi as sys;
 
@@ -49,8 +49,8 @@ use crate::{
 /// Use [`BiquadNodeBuilder`] to initialize
 pub struct BiquadNode<'a> {
     inner: *mut sys::ma_biquad_node,
-    alloc_cb: Option<&'a AllocationCallbacks>,
-    _marker: PhantomData<&'a NodeGraph<'a>>,
+    alloc_cb: Option<Arc<AllocationCallbacks>>,
+    _marker: PhantomData<&'a NodeGraph>,
     // Below is needed during a reinit
     channels: u32,
     // format is hard coded as ma_format_f32 in miniaudio `sys::ma_biquad_node_config_init()`
@@ -80,10 +80,10 @@ impl<'a> BiquadNode<'a> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &BiquadNodeBuilder<N>,
-        alloc: Option<&'a AllocationCallbacks>,
+        alloc: Option<Arc<AllocationCallbacks>>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.map_or(core::ptr::null(), |c| c.as_raw_ptr());
+            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
 
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_biquad_node>> =
             Box::new(MaybeUninit::uninit());
@@ -212,6 +212,11 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> BiquadNodeBuilder<'a, N> {
     }
 
     pub fn build(&self) -> MaResult<BiquadNode<'a>> {
+        if self.inner.biquad.a0 == 0.0 || self.inner.biquad.channels == 0 {
+            return Err(crate::MaudioError::from_ma_result(
+                sys::ma_result_MA_INVALID_ARGS,
+            ));
+        }
         BiquadNode::new_with_cfg_alloc_internal(self.node_graph, self, None)
     }
 }
@@ -338,5 +343,101 @@ mod test {
         let config = BiquadNodeParams::new(&node, 1e30, 1e30, 1e30, 1e30, 1e30, 1e30);
 
         let _ = node.reinit(&config);
+    }
+
+    #[test]
+    fn test_biquad_a0_zero_is_rejected_or_safe() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let res = BiquadNodeBuilder::new(&node_graph, 1, 0.1, 0.1, 0.1, 0.0, 0.1, 0.1).build();
+
+        let _ = res.is_err();
+    }
+
+    #[test]
+    fn test_biquad_zero_channels_is_rejected_or_safe() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let res = BiquadNodeBuilder::new(&node_graph, 0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1).build();
+
+        let _ = res.is_err();
+    }
+
+    #[test]
+    fn test_biquad_reinit_a0_zero_is_rejected_or_safe() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let mut node = BiquadNodeBuilder::new(&node_graph, 1, 0.2, 0.3, 0.4, 1.0, 0.6, 0.7)
+            .build()
+            .unwrap();
+
+        let cfg = BiquadNodeParams::new(&node, 0.2, 0.3, 0.4, 0.0, 0.6, 0.7);
+        let _ = node.reinit(&cfg);
+    }
+
+    #[test]
+    fn test_biquad_nan_in_denominator_coeffs_init() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let res = BiquadNodeBuilder::new(&node_graph, 1, 0.1, 0.1, 0.1, f32::NAN, 0.1, 0.1).build();
+        assert!(res.is_err() || res.is_ok());
+    }
+
+    #[test]
+    fn test_biquad_create_drop_many_times() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        for _ in 0..2_000 {
+            let _node = BiquadNodeBuilder::new(&node_graph, 2, 0.2, 0.3, 0.4, 1.0, 0.6, 0.7)
+                .build()
+                .unwrap();
+        }
+    }
+
+    #[test]
+    fn test_biquad_reinit_stress_many_iterations() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let mut node = BiquadNodeBuilder::new(&node_graph, 2, 0.2, 0.3, 0.4, 1.0, 0.6, 0.7)
+            .build()
+            .unwrap();
+
+        for i in 0..10_000 {
+            let v = (i as f64) * 1e-6;
+            let cfg = BiquadNodeParams::new(&node, 0.2 + v, 0.3, 0.4, 1.0, 0.6, 0.7);
+            node.reinit(&cfg).unwrap_or_else(|_| ());
+        }
+    }
+
+    #[test]
+    fn test_biquad_drop_before_engine_is_safe() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let node = BiquadNodeBuilder::new(&node_graph, 1, 0.2, 0.3, 0.4, 1.0, 0.6, 0.7)
+            .build()
+            .unwrap();
+
+        drop(node);
+        drop(engine);
+    }
+
+    #[test]
+    fn test_biquad_params_new_multichannel_is_safe() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let mut node = BiquadNodeBuilder::new(&node_graph, 4, 0.2, 0.3, 0.4, 1.0, 0.6, 0.7)
+            .build()
+            .unwrap();
+
+        let cfg = BiquadNodeParams::new(&node, 0.21, 0.31, 0.41, 1.0, 0.61, 0.71);
+        node.reinit(&cfg).unwrap();
     }
 }

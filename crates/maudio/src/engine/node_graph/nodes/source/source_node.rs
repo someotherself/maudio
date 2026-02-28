@@ -19,7 +19,7 @@ use crate::{
 
 pub struct SourceNode<'a> {
     inner: *mut sys::ma_data_source_node,
-    alloc_cb: Option<&'a AllocationCallbacks>,
+    alloc_cb: Option<Arc<AllocationCallbacks>>,
     _src_graph: PhantomData<&'a ()>, // borrow to the graph and source
 }
 
@@ -45,10 +45,10 @@ impl<'a> SourceNode<'a> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr, S: AsSourcePtr>(
         node_graph: &N,
         config: &SourceNodeBuilder<'a, N, S>,
-        alloc: Option<&'a AllocationCallbacks>,
+        alloc: Option<Arc<AllocationCallbacks>>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.map_or(core::ptr::null(), |c| c.as_raw_ptr());
+            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
 
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_data_source_node>> =
             Box::new(MaybeUninit::uninit());
@@ -88,7 +88,7 @@ impl<'a> SourceNode<'a> {
 
 pub struct AttachedSourceNode<'a, S: AsSourcePtr> {
     inner: *mut sys::ma_data_source_node,
-    alloc_cb: Option<&'a AllocationCallbacks>,
+    alloc_cb: Option<Arc<AllocationCallbacks>>,
     source: Arc<S>,
     _graph: PhantomData<&'a ()>,
 }
@@ -120,10 +120,10 @@ impl<'a, S: AsSourcePtr> AttachedSourceNode<'a, S> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr>(
         node_graph: &N,
         config: &AttachedSourceNodeBuilder<'a, N, S>,
-        alloc: Option<&'a AllocationCallbacks>,
+        alloc: Option<Arc<AllocationCallbacks>>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.map_or(core::ptr::null(), |c| c.as_raw_ptr());
+            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
 
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_data_source_node>> =
             Box::new(MaybeUninit::uninit());
@@ -153,7 +153,7 @@ impl<'a, S: AsSourcePtr> AttachedSourceNode<'a, S> {
         NodeRef::from_ptr(ptr)
     }
 
-    pub fn as_source(&self) -> DataSourceRef<'_> {
+    pub fn as_source(&'a self) -> DataSourceRef<'a> {
         debug_assert!(!private_data_source::source_ptr(self.source.as_ref()).is_null());
         let ptr =
             private_data_source::source_ptr(self.source.as_ref()).cast::<sys::ma_data_source>();

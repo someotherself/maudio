@@ -61,6 +61,8 @@ pub mod util;
 #[doc(hidden)]
 pub extern crate maudio_sys;
 
+use std::sync::Arc;
+
 use maudio_sys::ffi as sys;
 
 // IMPORTANT: type Raw must be a *mut pointer
@@ -85,6 +87,12 @@ pub(crate) trait AsRawRef {
     fn as_raw_ptr(&self) -> *const Self::Raw {
         self.as_raw() as *const _
     }
+}
+
+pub(crate) trait AsRoot {
+    type Root;
+
+    fn as_root(&self) -> Arc<Self::Root>;
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -212,6 +220,7 @@ impl std::fmt::Display for ErrorKinds {
             ErrorKinds::ChannelSendError => write!(f, "channel send error"),
             ErrorKinds::InvalidFormat => write!(f, "invalid format"),
             ErrorKinds::InvalidCString => write!(f, "invalid C string"),
+            ErrorKinds::InvalidOperation(error) => write!(f, "{}", error),
         }
     }
 }
@@ -373,6 +382,7 @@ pub enum ErrorKinds {
     InvalidFormat,
     /// Error coverting Path to CString
     InvalidCString,
+    InvalidOperation(&'static str),
 }
 
 /// Error type returned by the maudio crate.

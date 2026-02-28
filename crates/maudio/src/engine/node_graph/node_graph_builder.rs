@@ -47,7 +47,18 @@ impl NodeGraphBuilder {
     /// The resulting graph is not attached to any audio device and does not
     /// begin processing until it is driven by a caller (such as an engine
     /// or manual frame reads).
-    pub fn build<'a>(&mut self) -> MaResult<NodeGraph<'a>> {
+    pub fn build(&mut self) -> MaResult<NodeGraph> {
         NodeGraph::with_alloc_callbacks(self, None)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_node_graph_builder_basic_init() {
+        let graph = NodeGraphBuilder::new(2).build().unwrap();
+        drop(graph);
     }
 }

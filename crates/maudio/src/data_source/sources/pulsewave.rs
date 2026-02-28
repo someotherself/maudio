@@ -142,7 +142,7 @@ pub trait PulseWaveOps: AsPulseWavePtr + AsSourcePtr {
     }
 
     /// Returns a [`DataSourceRef`] view of this pulse wave generator.
-    fn as_source(&self) -> DataSourceRef<'_> {
+    fn as_source<'a>(&'a self) -> DataSourceRef<'a> {
         debug_assert!(!private_pulsew::pulsewave_ptr(self).is_null());
         let ptr = private_pulsew::pulsewave_ptr(self).cast::<sys::ma_data_source>();
         DataSourceRef::from_ptr(ptr)

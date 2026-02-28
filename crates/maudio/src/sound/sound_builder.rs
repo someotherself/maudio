@@ -136,7 +136,7 @@ struct SoundState {
 
 // Keeps the ptr to the path alive
 #[derive(Default)]
-enum OwnedPathBuf {
+pub(crate) enum OwnedPathBuf {
     #[default]
     None,
     #[cfg(unix)]
@@ -161,7 +161,7 @@ impl<'a> SoundBuilder<'a> {
         notifier
     }
 
-    pub fn with_end_notifier(&mut self) -> MaResult<(Sound<'a>, EndNotifier)> {
+    pub fn with_end_notifier(&'a mut self) -> MaResult<(Sound<'a>, EndNotifier)> {
         self.set_source()?;
         let notifier = self.set_end_notifier();
 
@@ -251,21 +251,6 @@ impl<'a> SoundBuilder<'a> {
     ///
     /// A sound can be initialized from **either** a file path **or** a data source,
     /// but not both. Calling this method overrides any previously set file path.
-    ///
-    /// # Lifetime
-    /// The provided `source` must:
-    ///
-    /// - point to a valid, initialized [`DataSource`](crate::data_source::DataSource)
-    /// - remain alive for the entire lifetime of the created sound
-    ///
-    /// # When to use this
-    /// This method is intended for more advanced use cases, such as:
-    ///
-    /// - procedural or generated audio
-    /// - streaming audio from memory or network sources
-    /// - reusing a single data source across multiple sounds
-    ///
-    /// For simple file playback, prefer initializing the sound from a file path.
     pub fn data_source<S: AsSourcePtr + ?Sized>(&mut self, source: &'a S) -> &mut Self {
         self.source = SoundSource::DataSource(DataSourceRef::from_ptr(
             private_data_source::source_ptr(source),

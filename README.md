@@ -1,5 +1,3 @@
-## IN EARLY DEVELOPMENT
-
 # Rust bindings to the miniaudio library
 
 ### To learn more about miniaudio, check https://miniaud.io/ and https://github.com/mackron/miniaudio

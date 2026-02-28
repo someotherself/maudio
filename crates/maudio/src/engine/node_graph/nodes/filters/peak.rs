@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, mem::MaybeUninit};
+use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
 
 use maudio_sys::ffi as sys;
 
@@ -42,8 +42,8 @@ use crate::{
 /// Use [`PeakNodeBuilder`] to initialize.
 pub struct PeakNode<'a> {
     inner: *mut sys::ma_peak_node,
-    alloc_cb: Option<&'a AllocationCallbacks>,
-    _marker: PhantomData<&'a NodeGraph<'a>>,
+    alloc_cb: Option<Arc<AllocationCallbacks>>,
+    _marker: PhantomData<&'a NodeGraph>,
     // Below is needed during a reinit
     channels: u32,
     // format is hard coded as ma_format_f32 in miniaudio `sys::ma_peak_node_config_init()`
@@ -74,10 +74,10 @@ impl<'a> PeakNode<'a> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &PeakNodeBuilder<'_, N>,
-        alloc: Option<&'a AllocationCallbacks>,
+        alloc: Option<Arc<AllocationCallbacks>>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.map_or(core::ptr::null(), |c| c.as_raw_ptr());
+            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
 
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_peak_node>> =
             Box::new(MaybeUninit::uninit());

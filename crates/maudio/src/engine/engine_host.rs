@@ -1,10 +1,9 @@
-#![cfg(feature = "engine_host")]
 // Experimental feature
 
 use std::{collections::HashMap, sync::mpsc::Sender, thread::JoinHandle};
 
 use crate::{
-    audio::{math::vec3::Vec3, spatial::cone::Cone},
+    audio::{formats::SampleBuffer, math::vec3::Vec3, spatial::cone::Cone},
     engine::{
         node_graph::{nodes::NodeRef, NodeGraphRef},
         Engine, EngineOps,
@@ -16,15 +15,20 @@ use crate::{
 pub struct SoundId(u64);
 
 #[derive(Default)]
-pub struct SoundHosts<'a> {
+struct Hosts<'a> {
+    sounds: SoundHosts<'a>,
+}
+
+#[derive(Default)]
+struct SoundHosts<'a> {
     next_sound_id: u64,
     sounds: HashMap<SoundId, Sound<'a>>,
 }
 
-type Job = Box<dyn FnOnce(&mut Engine) + Send + 'static>;
+type Job = Box<dyn FnOnce(&mut Engine, &mut SoundHosts) + Send + 'static>;
 
 pub struct EngineHandle {
-    handle: JoinHandle<std::io::Result<()>>,
+    handle: JoinHandle<MaResult<()>>,
     sender: Sender<Job>,
 }
 
@@ -32,10 +36,12 @@ impl Engine {
     pub fn spawn() -> MaResult<EngineHandle> {
         let (tx, rx) = std::sync::mpsc::channel::<Job>();
 
-        let mut engine = Engine::new()?;
-        let join = std::thread::spawn(move || -> std::io::Result<()> {
+        let join = std::thread::spawn(move || -> MaResult<()> {
+            let mut engine = Engine::new()?;
+            let mut sound_hosts = SoundHosts::default();
+
             while let Ok(job) = rx.recv() {
-                job(&mut engine)
+                job(&mut engine, &mut sound_hosts)
             }
             Ok(())
         });
@@ -54,7 +60,7 @@ impl EngineHandle {
 
     fn post<F>(&self, f: F) -> MaResult<()>
     where
-        F: FnOnce(&mut Engine) + Send + 'static,
+        F: FnOnce(&mut Engine, &mut SoundHosts) + Send + 'static,
     {
         self.sender
             .send(Box::new(f))
@@ -63,12 +69,12 @@ impl EngineHandle {
 
     fn call<F, R>(&self, f: F) -> MaResult<R>
     where
-        F: FnOnce(&mut Engine) -> R + Send + 'static,
+        F: FnOnce(&mut Engine, &mut SoundHosts) -> R + Send + 'static,
         R: Send + 'static,
     {
         let (rtx, rrx) = std::sync::mpsc::channel::<R>();
-        self.post(move |eng| {
-            let r = f(eng);
+        self.post(move |eng, sounds| {
+            let r = f(eng, sounds);
             let _ = rtx.send(r);
         })?;
         rrx.recv()
@@ -78,75 +84,75 @@ impl EngineHandle {
 
 impl EngineHandle {
     pub fn set_volume(&self, volume: f32) -> MaResult<()> {
-        self.call(move |e| e.set_volume(volume))?
+        self.call(move |e, _s| e.set_volume(volume))?
     }
 
     pub fn volume(&self) -> MaResult<f32> {
-        self.call(move |e| e.volume())
+        self.call(move |e, _s| e.volume())
     }
 
     pub fn set_gain_db(&self, db_gain: f32) -> MaResult<()> {
-        self.call(move |e| e.set_gain_db(db_gain))?
+        self.call(move |e, _s| e.set_gain_db(db_gain))?
     }
 
     pub fn gain_db(&self) -> MaResult<f32> {
-        self.call(move |e| e.gain_db())
+        self.call(move |e, _s| e.gain_db())
     }
 
     pub fn listener_count(&self) -> MaResult<u32> {
-        self.call(move |e| e.listener_count())
+        self.call(move |e, _s| e.listener_count())
     }
 
     pub fn closest_listener(&self, position: Vec3) -> MaResult<u32> {
-        self.call(move |e| e.closest_listener(position))
+        self.call(move |e, _s| e.closest_listener(position))
     }
 
     pub fn set_position(&self, listener: u32, position: Vec3) -> MaResult<()> {
-        self.post(move |e| e.set_position(listener, position))
+        self.post(move |e, _s| e.set_position(listener, position))
     }
 
     pub fn position(&self, listener: u32) -> MaResult<Vec3> {
-        self.call(move |e| e.position(listener))
+        self.call(move |e, _s| e.position(listener))
     }
 
     pub fn set_direction(&self, listener: u32, direction: Vec3) -> MaResult<()> {
-        self.post(move |e| e.set_direction(listener, direction))
+        self.post(move |e, _s| e.set_direction(listener, direction))
     }
 
     pub fn direction(&self, listener: u32) -> MaResult<Vec3> {
-        self.call(move |e| e.direction(listener))
+        self.call(move |e, _s| e.direction(listener))
     }
 
     pub fn set_velocity(&self, listener: u32, position: Vec3) -> MaResult<()> {
-        self.post(move |e| e.set_velocity(listener, position))
+        self.post(move |e, _s| e.set_velocity(listener, position))
     }
 
     pub fn velocity(&self, listener: u32) -> MaResult<Vec3> {
-        self.call(move |e| e.velocity(listener))
+        self.call(move |e, _s| e.velocity(listener))
     }
 
     pub fn set_cone(&self, listener: u32, cone: Cone) -> MaResult<()> {
-        self.post(move |e| e.set_cone(listener, cone))
+        self.post(move |e, _s| e.set_cone(listener, cone))
     }
 
     pub fn cone(&self, listener: u32) -> MaResult<Cone> {
-        self.call(move |e| e.cone(listener))
+        self.call(move |e, _s| e.cone(listener))
     }
 
     pub fn set_world_up(&self, listener: u32, up_direction: Vec3) -> MaResult<()> {
-        self.post(move |e| e.set_world_up(listener, up_direction))
+        self.post(move |e, _s| e.set_world_up(listener, up_direction))
     }
 
     pub fn get_world_up(&self, listener: u32) -> MaResult<Vec3> {
-        self.call(move |e| e.get_world_up(listener))
+        self.call(move |e, _s| e.get_world_up(listener))
     }
 
     pub fn toggle_listener(&self, listener: u32, enabled: bool) -> MaResult<()> {
-        self.post(move |e| e.toggle_listener(listener, enabled))
+        self.post(move |e, _s| e.toggle_listener(listener, enabled))
     }
 
     pub fn listener_enabled(&self, listener: u32) -> MaResult<bool> {
-        self.call(move |e| e.listener_enabled(listener))
+        self.call(move |e, _s| e.listener_enabled(listener))
     }
 
     fn as_node_graph(&self) -> Option<NodeGraphRef<'_>> {
@@ -167,8 +173,8 @@ impl EngineHandle {
     ///   **fewer frames**.
     /// - The number of frames actually rendered is returned alongside the samples.
     ///
-    pub fn read_pcm_frames(&self, frame_count: u64) -> MaResult<(Vec<f32>, u64)> {
-        self.call(move |e| e.read_pcm_frames(frame_count))?
+    pub fn read_pcm_frames(&self, frame_count: u64) -> MaResult<SampleBuffer<f32>> {
+        self.call(move |e, _s| e.read_pcm_frames(frame_count))?
     }
 
     /// Returns the engine’s **endpoint node**.
@@ -206,8 +212,7 @@ impl EngineHandle {
     ///   [`EngineHost::set_time_pcm()`].
     /// - The value is independent of any individual sound’s playback position
     fn time_pcm(&self) -> MaResult<u64> {
-        self.set_time_pcm();
-        self.call(move |e| e.time_pcm())
+        self.call(move |e, _s| e.time_pcm())
     }
 
     /// Returns the current engine time in **milliseconds**.
@@ -217,7 +222,7 @@ impl EngineHandle {
     ///
     /// - For sample-accurate work, prefer [`EngineHost::set_time_pcm()`].
     fn time_mili(&self) -> MaResult<u64> {
-        self.call(move |e| e.time_mili())
+        self.call(move |e, _s| e.time_mili())
     }
 
     /// Sets the engine’s global time in **PCM frames**.
@@ -233,7 +238,7 @@ impl EngineHandle {
     /// Changing engine time while audio is playing may cause audible artifacts,
     /// depending on the active nodes and sounds.
     fn set_time_pcm(&self, time: u64) -> MaResult<()> {
-        self.post(move |e| e.set_time_pcm(time))
+        self.post(move |e, _s| e.set_time_pcm(time))
     }
 
     /// Sets the engine’s global time in **milliseconds**.
@@ -245,7 +250,7 @@ impl EngineHandle {
     /// - Internally converted to PCM frames.
     /// - Precision may be lower than [`set_time_pcm`](Self).
     fn set_time_mili(&self, time: u64) -> MaResult<()> {
-        self.post(move |e| e.set_time_mili(time))
+        self.post(move |e, _s| e.set_time_mili(time))
     }
 
     /// Returns the number of output **channels** used by the engine.
@@ -257,7 +262,7 @@ impl EngineHandle {
     /// This reflects the channel count of the engine’s internal node graph
     /// and output device.
     fn channels(&self) -> MaResult<u32> {
-        self.call(move |e| e.channels())
+        self.call(move |e, _s| e.channels())
     }
 
     /// Returns the engine’s **sample rate**, in Hz.
@@ -269,6 +274,6 @@ impl EngineHandle {
     /// - Typically matches the output device’s sample rate.
     /// - Used to convert between PCM frames and real time.
     fn sample_rate(&self) -> MaResult<u32> {
-        self.call(move |e| e.sample_rate())
+        self.call(move |e, _s| e.sample_rate())
     }
 }

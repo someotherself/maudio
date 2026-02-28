@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, mem::MaybeUninit};
+use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
 
 use maudio_sys::ffi as sys;
 
@@ -39,8 +39,8 @@ use crate::{
 /// Use [`HiShelfNodeBuilder`] to initialize
 pub struct HiShelfNode<'a> {
     inner: *mut sys::ma_hishelf_node,
-    alloc_cb: Option<&'a AllocationCallbacks>,
-    _marker: PhantomData<&'a NodeGraph<'a>>,
+    alloc_cb: Option<Arc<AllocationCallbacks>>,
+    _marker: PhantomData<&'a NodeGraph>,
     // Below is needed during a reinit
     channels: u32,
     // format is hard coded as ma_format_f32 in miniaudio `sys::ma_hishelf_node_config_init()`
@@ -70,10 +70,10 @@ impl<'a> HiShelfNode<'a> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &HiShelfNodeBuilder<N>,
-        alloc: Option<&'a AllocationCallbacks>,
+        alloc: Option<Arc<AllocationCallbacks>>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.map_or(core::ptr::null(), |c| c.as_raw_ptr());
+            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
 
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_hishelf_node>> =
             Box::new(MaybeUninit::uninit());
@@ -103,6 +103,18 @@ impl<'a> HiShelfNode<'a> {
 
     /// See [`HiShelfNodeParams`] for creating a config
     pub fn reinit(&mut self, config: &HiShelfNodeParams) -> MaResult<()> {
+        if !config.inner.frequency.is_finite() || config.inner.frequency <= 0.0 {
+            return Err(crate::MaudioError::from_ma_result(
+                sys::ma_result_MA_INVALID_ARGS,
+            ));
+        }
+
+        if !config.inner.shelfSlope.is_finite() || config.inner.shelfSlope <= 0.0 {
+            return Err(crate::MaudioError::from_ma_result(
+                sys::ma_result_MA_INVALID_ARGS,
+            ));
+        }
+
         n_hishelf_ffi::ma_hishelf_node_reinit(config.as_raw_ptr(), self)
     }
 
@@ -220,6 +232,24 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> HiShelfNodeBuilder<'a, N> {
     }
 
     pub fn build(&self) -> MaResult<HiShelfNode<'a>> {
+        if self.inner.hishelf.channels == 0 {
+            return Err(crate::MaudioError::from_ma_result(
+                sys::ma_result_MA_INVALID_ARGS,
+            ));
+        }
+
+        if !self.inner.hishelf.frequency.is_finite() || self.inner.hishelf.frequency <= 0.0 {
+            return Err(crate::MaudioError::from_ma_result(
+                sys::ma_result_MA_INVALID_ARGS,
+            ));
+        }
+
+        if !self.inner.hishelf.shelfSlope.is_finite() || self.inner.hishelf.shelfSlope <= 0.0 {
+            return Err(crate::MaudioError::from_ma_result(
+                sys::ma_result_MA_INVALID_ARGS,
+            ));
+        }
+
         HiShelfNode::new_with_cfg_alloc_internal(self.node_graph, self, None)
     }
 }
@@ -292,7 +322,6 @@ mod test {
                 .build()
                 .unwrap();
 
-        // Change sample rate: should be OK.
         let cfg = HiShelfNodeParams::new(&node, SampleRate::Sr44100, 0.0, 0.5, 2000.0);
         node.reinit(&cfg).unwrap();
     }
@@ -307,10 +336,8 @@ mod test {
                 .build()
                 .unwrap();
 
-        // Frequency 0 is almost certainly invalid.
         let cfg = HiShelfNodeParams::new(&node, SampleRate::Sr48000, 0.0, 0.5, 0.0);
-        // Does not return an error???
-        assert!(node.reinit(&cfg).is_ok());
+        assert!(node.reinit(&cfg).is_err());
     }
 
     #[test]
@@ -325,7 +352,119 @@ mod test {
 
         // Slope 0 or negative should error.
         let cfg = HiShelfNodeParams::new(&node, SampleRate::Sr48000, 0.0, 0.0, 2000.0);
-        // Does not return an error???
-        assert!(node.reinit(&cfg).is_ok());
+        assert!(node.reinit(&cfg).is_err());
+    }
+
+    #[test]
+    fn test_hishelf_builder_channels_zero_is_err() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let res =
+            HiShelfNodeBuilder::new(&node_graph, 0, SampleRate::Sr48000, 0.0, 0.5, 2000.0).build();
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_hishelf_as_node_is_non_null() {
+        use crate::engine::node_graph::nodes::private_node;
+
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let node = HiShelfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0.0, 0.5, 2000.0)
+            .build()
+            .unwrap();
+
+        let node_ref = node.as_node();
+        assert!(!private_node::node_ptr(&node_ref).is_null());
+    }
+
+    #[test]
+    fn test_hishelf_create_drop_many_times() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        for _ in 0..2_000 {
+            let _node =
+                HiShelfNodeBuilder::new(&node_graph, 2, SampleRate::Sr48000, 3.0, 0.7, 6000.0)
+                    .build()
+                    .unwrap();
+        }
+    }
+
+    #[test]
+    fn test_hishelf_reinit_stress_many_iterations() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let mut node =
+            HiShelfNodeBuilder::new(&node_graph, 2, SampleRate::Sr48000, 0.0, 0.7, 4000.0)
+                .build()
+                .unwrap();
+
+        for i in 0..10_000 {
+            let gain = ((i % 200) as f64) * 0.1 - 10.0; // [-10dB, +10dB]
+            let freq = 1000.0 + ((i % 3000) as f64); // 1k..4k
+            let slope = 0.1 + ((i % 90) as f64) * 0.01; // 0.1..1.0
+
+            let cfg = HiShelfNodeParams::new(&node, SampleRate::Sr48000, gain, slope, freq);
+            let _ = node.reinit(&cfg);
+        }
+    }
+
+    #[test]
+    fn test_hishelf_drop_before_engine_is_safe() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let node = HiShelfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0.0, 0.7, 4000.0)
+            .build()
+            .unwrap();
+
+        drop(node);
+        drop(engine);
+    }
+
+    #[test]
+    fn test_hishelf_builder_nan_inputs_no_panic() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let _ = HiShelfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, f64::NAN, 0.5, 2000.0)
+            .build();
+        let _ = HiShelfNodeBuilder::new(
+            &node_graph,
+            1,
+            SampleRate::Sr48000,
+            0.0,
+            f64::INFINITY,
+            2000.0,
+        )
+        .build();
+        let _ = HiShelfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0.0, 0.5, f64::NAN)
+            .build();
+    }
+
+    #[test]
+    fn test_hishelf_reinit_nan_inputs_errors_no_panic() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let mut node =
+            HiShelfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0.0, 0.5, 2000.0)
+                .build()
+                .unwrap();
+
+        let cfg = HiShelfNodeParams::new(&node, SampleRate::Sr48000, f64::NAN, 0.5, 2000.0);
+        let _ = node.reinit(&cfg); // no panic
+
+        let cfg = HiShelfNodeParams::new(&node, SampleRate::Sr48000, 0.0, f64::INFINITY, 2000.0);
+        let res = node.reinit(&cfg);
+        assert!(res.is_err());
+
+        let cfg = HiShelfNodeParams::new(&node, SampleRate::Sr48000, 0.0, 0.5, f64::NAN);
+        let res = node.reinit(&cfg);
+        assert!(res.is_err());
     }
 }

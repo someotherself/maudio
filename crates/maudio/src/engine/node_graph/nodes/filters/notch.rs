@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, mem::MaybeUninit};
+use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
 
 use maudio_sys::ffi as sys;
 
@@ -39,8 +39,8 @@ use crate::{
 /// Use [`NotchNodeBuilder`] to initialize.
 pub struct NotchNode<'a> {
     inner: *mut sys::ma_notch_node,
-    alloc_cb: Option<&'a AllocationCallbacks>,
-    _marker: PhantomData<&'a NodeGraph<'a>>,
+    alloc_cb: Option<Arc<AllocationCallbacks>>,
+    _marker: PhantomData<&'a NodeGraph>,
     // Below is needed during a reinit
     channels: u32,
     // format is hard coded as ma_format_f32 in miniaudio `sys::ma_hpf_node_config_init()`
@@ -71,10 +71,10 @@ impl<'a> NotchNode<'a> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &NotchNodeBuilder<'_, N>,
-        alloc: Option<&'a AllocationCallbacks>,
+        alloc: Option<Arc<AllocationCallbacks>>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.map_or(core::ptr::null(), |c| c.as_raw_ptr());
+            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
 
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_notch_node>> =
             Box::new(MaybeUninit::uninit());
@@ -100,6 +100,20 @@ impl<'a> NotchNode<'a> {
 
     /// See [`NotchNodeParams`] for creating a config
     pub fn reinit(&mut self, config: &NotchNodeParams) -> MaResult<()> {
+        if config.inner.channels == 0 {
+            return Err(crate::MaudioError::from_ma_result(
+                sys::ma_result_MA_INVALID_ARGS,
+            ));
+        }
+
+        let sample_rate: u32 = config.inner.sampleRate;
+        let cutoff = config.inner.frequency;
+        if !cutoff.is_finite() || cutoff <= 0.0 || cutoff >= sample_rate as f64 / 2.0 {
+            return Err(crate::MaudioError::from_ma_result(
+                sys::ma_result_MA_INVALID_ARGS,
+            ));
+        }
+
         n_notch_ffi::ma_notch_node_reinit(config.as_raw_ptr(), self)
     }
 
@@ -210,6 +224,20 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> NotchNodeBuilder<'a, N> {
     }
 
     pub fn build(&self) -> MaResult<NotchNode<'a>> {
+        if self.inner.notch.channels == 0 {
+            return Err(crate::MaudioError::from_ma_result(
+                sys::ma_result_MA_INVALID_ARGS,
+            ));
+        }
+
+        let sample_rate: u32 = self.inner.notch.sampleRate;
+        let freq = self.inner.notch.frequency;
+        if !freq.is_finite() || freq <= 0.0 || freq >= sample_rate as f64 / 2.0 {
+            return Err(crate::MaudioError::from_ma_result(
+                sys::ma_result_MA_INVALID_ARGS,
+            ));
+        }
+
         NotchNode::new_with_cfg_alloc_internal(self.node_graph, self, None)
     }
 }
@@ -301,9 +329,8 @@ mod test {
             .build()
             .unwrap();
 
-        // TODO: zero frequency also valid?
         let bad_cfg = NotchNodeParams::new(&node, 1.0, 0.0);
-        assert!(node.reinit(&bad_cfg).is_ok());
+        assert!(node.reinit(&bad_cfg).is_err());
     }
 
     #[test]

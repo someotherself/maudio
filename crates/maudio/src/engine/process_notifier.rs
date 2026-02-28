@@ -1,7 +1,10 @@
 //! Callback fired whenever the engine processes and outputs audio frames.
-use std::sync::{
-    atomic::{AtomicU64, Ordering},
-    Arc,
+use std::{
+    cell::UnsafeCell,
+    sync::{
+        atomic::{AtomicBool, AtomicU64, Ordering},
+        Arc,
+    },
 };
 
 use maudio_sys::ffi as sys;
@@ -9,7 +12,9 @@ use maudio_sys::ffi as sys;
 #[derive(Default)]
 pub struct ProcessState {
     frames_read: AtomicU64,
-    cb: Option<Box<EngineProcessCallback>>,
+    channels: u32,
+    cb: UnsafeCell<Option<Box<EngineProcessCallback>>>,
+    in_cb: AtomicBool,
 }
 
 #[derive(Clone)]
@@ -21,9 +26,11 @@ pub struct ProcessNotifier {
 
 impl ProcessNotifier {
     pub(crate) fn new(channels: u32, cb: Option<Box<EngineProcessCallback>>) -> Self {
-        let state: ProcessState = ProcessState {
+        let state = ProcessState {
             frames_read: AtomicU64::new(0),
-            cb,
+            channels,
+            cb: UnsafeCell::new(cb),
+            in_cb: AtomicBool::new(false),
         };
         Self {
             channels,
@@ -93,11 +100,11 @@ pub struct EngineProcessProc {
     pub channels: u32,
 }
 
-pub type EngineProcessCallback = dyn FnMut(&mut [f32]) + Send + 'static;
+pub type EngineProcessCallback = dyn FnMut(&mut [f32], u32) + Send + 'static;
 
 pub(crate) unsafe extern "C" fn on_process_callback(
     user_data: *mut core::ffi::c_void,
-    _frames_out: *mut f32,
+    frames_out: *mut f32,
     frame_count: sys::ma_uint64,
 ) {
     if user_data.is_null() {
@@ -107,14 +114,28 @@ pub(crate) unsafe extern "C" fn on_process_callback(
     let ctx = unsafe { &*(user_data as *const ProcessState) };
     ctx.frames_read.fetch_add(frame_count, Ordering::Relaxed);
 
-    // if frames_out.is_null() {
-    //     return;
-    // }
+    if ctx.cb.get().as_ref().is_none() || frames_out.is_null() || frame_count == 0 {
+        return;
+    }
 
-    // let Some(process) = ctx.cb.as_ref() else {
-    //     return;
-    // };
+    if ctx
+        .in_cb
+        .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+        .is_err()
+    {
+        return;
+    }
 
-    // let out = unsafe { core::slice::from_raw_parts_mut(frames_out, frame_count as usize) };
-    // unsafe { process.process(ctx, out) }
+    let channels = ctx.channels as usize;
+    let samples = (frame_count as usize).saturating_mul(channels);
+
+    // Out is only valid for the duration of the callback
+    let out = core::slice::from_raw_parts_mut(frames_out, samples);
+
+    let cb_slot = &mut *ctx.cb.get();
+    if let Some(cb) = cb_slot.as_mut() {
+        cb(out, ctx.channels);
+    }
+
+    ctx.in_cb.store(false, Ordering::Release);
 }

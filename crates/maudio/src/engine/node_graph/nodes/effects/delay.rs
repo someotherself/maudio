@@ -1,8 +1,9 @@
-use std::{marker::PhantomData, mem::MaybeUninit};
+use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
 
 use maudio_sys::ffi as sys;
 
 use crate::{
+    audio::sample_rate::SampleRate,
     engine::{
         node_graph::{
             nodes::{private_node, AsNodePtr, NodeRef},
@@ -24,8 +25,8 @@ use crate::{
 /// Use [`DelayNodeBuilder`] to initialize
 pub struct DelayNode<'a> {
     inner: *mut sys::ma_delay_node,
-    alloc_cb: Option<&'a AllocationCallbacks>,
-    _marker: PhantomData<&'a NodeGraph<'a>>,
+    alloc_cb: Option<Arc<AllocationCallbacks>>,
+    _marker: PhantomData<&'a NodeGraph>,
 }
 
 impl Binding for DelayNode<'_> {
@@ -106,10 +107,10 @@ impl<'a> DelayNode<'a> {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &DelayNodeBuilder<N>,
-        alloc: Option<&'a AllocationCallbacks>,
+        alloc: Option<Arc<AllocationCallbacks>>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.map_or(core::ptr::null(), |c| c.as_raw_ptr());
+            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
 
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_delay_node>> =
             Box::new(MaybeUninit::uninit());
@@ -228,12 +229,13 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> DelayNodeBuilder<'a, N> {
     pub fn new(
         node_graph: &'a N,
         channels: u32,
-        sample_rate: u32,
+        sample_rate: SampleRate,
         delay_frames: u32,
         decay: f32,
     ) -> Self {
-        let inner =
-            unsafe { sys::ma_delay_node_config_init(channels, sample_rate, delay_frames, decay) };
+        let inner = unsafe {
+            sys::ma_delay_node_config_init(channels, sample_rate.into(), delay_frames, decay)
+        };
         Self { inner, node_graph }
     }
 
@@ -311,11 +313,17 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> DelayNodeBuilder<'a, N> {
     /// This is a convenience wrapper around `start_frame` that converts
     /// millisseconds to frames using the configured sample rate.
     pub fn start_milli(&mut self, millis: u32) -> &mut Self {
-        self.inner.delay.delayStart = self.millis_to_frames(millis);
+        self.inner.delay.delayInFrames = self.millis_to_frames(millis);
         self
     }
 
     pub fn build(&self) -> MaResult<DelayNode<'a>> {
+        if self.inner.delay.channels == 0 {
+            return Err(crate::MaudioError::from_ma_result(
+                sys::ma_result_MA_INVALID_ARGS,
+            ));
+        }
+
         DelayNode::new_with_cfg_alloc_internal(self.node_graph, self, None)
     }
 
@@ -344,7 +352,7 @@ mod test {
     fn test_delay_node_test_basic_init() {
         let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
-        let delay = DelayNodeBuilder::new(&node_graph, 1, 441000, 0, 0.0)
+        let delay = DelayNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 0, 0.0)
             .build()
             .unwrap();
 
@@ -359,7 +367,7 @@ mod test {
     fn test_delay_node_test_set_get_wet_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
-        let mut delay = DelayNodeBuilder::new(&node_graph, 1, 441000, 0, 0.0)
+        let mut delay = DelayNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 0, 0.0)
             .build()
             .unwrap();
 
@@ -374,7 +382,7 @@ mod test {
     fn test_delay_node_test_set_get_dry_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
-        let mut delay = DelayNodeBuilder::new(&node_graph, 1, 441000, 0, 0.0)
+        let mut delay = DelayNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 0, 0.0)
             .build()
             .unwrap();
 
@@ -389,7 +397,7 @@ mod test {
     fn test_delay_node_test_set_get_decay_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
-        let mut delay = DelayNodeBuilder::new(&node_graph, 1, 441000, 0, 0.0)
+        let mut delay = DelayNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 0, 0.0)
             .build()
             .unwrap();
 
@@ -407,12 +415,147 @@ mod test {
     fn test_delay_node_test_as_node_is_non_null() {
         let engine = Engine::new_for_tests().unwrap();
         let node_graph = engine.as_node_graph().unwrap();
-        let delay = DelayNodeBuilder::new(&node_graph, 1, 441000, 0, 0.0)
+        let delay = DelayNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 0, 0.0)
             .build()
             .unwrap();
 
         let node_ref = delay.as_node();
         assert!(!private_node::node_ptr(&node_ref).is_null());
         let _ = node_ref;
+    }
+
+    #[test]
+    fn test_delay_node_test_mix_clamps_and_overwrites_wet_dry() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let mut b = DelayNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0, 0.0);
+
+        b.wet(0.123).dry(0.456);
+        b.mix(-1.0);
+        assert_approx_eq(b.as_raw().delay.wet, 0.0, 1e-6);
+        assert_approx_eq(b.as_raw().delay.dry, 1.0, 1e-6);
+
+        b.mix(2.0);
+        assert_approx_eq(b.as_raw().delay.wet, 1.0, 1e-6);
+        assert_approx_eq(b.as_raw().delay.dry, 0.0, 1e-6);
+
+        b.mix(0.25);
+        assert_approx_eq(b.as_raw().delay.wet, 0.25, 1e-6);
+        assert_approx_eq(b.as_raw().delay.dry, 0.75, 1e-6);
+    }
+
+    #[test]
+    fn test_delay_node_test_delay_milli_rounding() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        // sr=48k: 1ms -> 48 frames exactly
+        let mut b = DelayNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0, 0.0);
+        b.delay_milli(1);
+        assert_eq!(b.as_raw().delay.delayInFrames, 48);
+
+        // sr=44.1k: 1ms -> 44.1 frames -> rounds to 44
+        let mut b = DelayNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 0, 0.0);
+        b.delay_milli(1);
+        assert_eq!(b.as_raw().delay.delayInFrames, 44);
+
+        // 2ms -> 88.2 -> rounds to 88
+        b.delay_milli(2);
+        assert_eq!(b.as_raw().delay.delayInFrames, 88);
+
+        // 3ms -> 132.3 -> rounds to 132
+        b.delay_milli(3);
+        assert_eq!(b.as_raw().delay.delayInFrames, 132);
+    }
+
+    #[test]
+    fn test_delay_node_test_start_milli_sets_start_frame_not_flag() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let mut b = DelayNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0, 0.0);
+        b.start_milli(10);
+
+        assert_eq!(b.as_raw().delay.delayStart, 1);
+        assert_eq!(b.as_raw().delay.delayInFrames, 480);
+    }
+
+    #[test]
+    fn test_delay_node_test_create_drop_many_times() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        for _ in 0..1_000 {
+            let _delay = DelayNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0, 0.0)
+                .wet(0.5)
+                .dry(0.5)
+                .build()
+                .unwrap();
+        }
+    }
+
+    #[test]
+    fn test_delay_node_test_set_get_stress() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let mut delay = DelayNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 10, 0.25)
+            .build()
+            .unwrap();
+
+        for i in 0..10_000 {
+            let w = (i as f32) * 0.0001;
+            let d = 1.0 - w;
+            let dec = (i as f32) * 0.00001;
+
+            delay.set_wet(w);
+            delay.set_dry(d);
+            delay.set_decay_frames(dec);
+
+            let _ = delay.wet();
+            let _ = delay.dry();
+            let _ = delay.decay_frames();
+        }
+    }
+
+    #[test]
+    fn test_delay_node_test_as_node_pointer_stable() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let delay = DelayNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0, 0.0)
+            .build()
+            .unwrap();
+
+        let a = private_node::node_ptr(&delay.as_node());
+        let b = private_node::node_ptr(&delay.as_node());
+        assert_eq!(a, b);
+        assert!(!a.is_null());
+    }
+
+    #[test]
+    fn test_delay_node_test_large_delay_frames_no_ub() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        // Pick something "large but not insane" to avoid OOM in CI.
+        // If this returns Err that's fine; goal is no crash/UB.
+        let res =
+            DelayNodeBuilder::new(&node_graph, 2, SampleRate::Sr48000, 48_000 * 2, 0.5).build();
+        let _ = res.ok();
+    }
+
+    #[test]
+    fn test_delay_node_test_drop_before_engine_is_safe() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+
+        let delay = DelayNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0, 0.0)
+            .build()
+            .unwrap();
+
+        drop(delay);
+        drop(engine);
     }
 }

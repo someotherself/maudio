@@ -33,6 +33,123 @@ pub enum Format {
     F32,
 }
 
+// TODO
+#[non_exhaustive]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
+pub enum SampleFormat {
+    U8,
+    S16,
+    S24,
+    S24Packed,
+    S32,
+    F32,
+}
+
+impl From<SampleFormat> for sys::ma_format {
+    fn from(value: SampleFormat) -> Self {
+        match value {
+            SampleFormat::U8 => sys::ma_format_ma_format_u8,
+            SampleFormat::S16 => sys::ma_format_ma_format_s16,
+            SampleFormat::S24 => sys::ma_format_ma_format_s24,
+            SampleFormat::S24Packed => sys::ma_format_ma_format_s24,
+            SampleFormat::S32 => sys::ma_format_ma_format_s32,
+            SampleFormat::F32 => sys::ma_format_ma_format_f32,
+        }
+    }
+}
+
+impl From<Format> for sys::ma_format {
+    fn from(value: Format) -> Self {
+        match value {
+            Format::U8 => sys::ma_format_ma_format_u8,
+            Format::S16 => sys::ma_format_ma_format_s16,
+            Format::S24 => sys::ma_format_ma_format_s24,
+            Format::S32 => sys::ma_format_ma_format_s32,
+            Format::F32 => sys::ma_format_ma_format_f32,
+        }
+    }
+}
+
+impl TryFrom<sys::ma_format> for Format {
+    type Error = MaudioError;
+    fn try_from(value: sys::ma_format) -> Result<Self, Self::Error> {
+        match value {
+            sys::ma_format_ma_format_u8 => Ok(Format::U8),
+            sys::ma_format_ma_format_s16 => Ok(Format::S16),
+            sys::ma_format_ma_format_s24 => Ok(Format::S24),
+            sys::ma_format_ma_format_s32 => Ok(Format::S32),
+            sys::ma_format_ma_format_f32 => Ok(Format::F32),
+            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidFormat)),
+        }
+    }
+}
+
+/// Controls dithering applied during sample format conversion.
+///
+/// Dithering is used to reduce quantization distortion when converting
+/// from a higher-precision format to a lower-precision one. The selected
+/// mode is a **hint** — dithering is only applied when it is meaningful
+/// for the conversion.
+///
+/// ### Modes (ordered by efficiency)
+///
+/// - **`Dither::None`**  
+///   No dithering.
+///
+/// - **`Dither::Rectangle`**  
+///   Rectangular probability distribution function (RPDF).
+///
+/// - **`Dither::Triangle`**  
+///   Triangular probability distribution function (TPDF).
+///
+/// ### When dithering is applied
+///
+/// Dithering is currently used for the following format conversions:
+///
+/// - `S16 → U8`
+/// - `S24 → U8`
+/// - `S32 → U8`
+/// - `F32 → U8`
+/// - `S24 → S16`
+/// - `S32 → S16`
+/// - `F32 → S16`
+///
+/// For conversions where dithering is unnecessary, the selected mode is
+/// silently ignored. Passing a dithering mode other than `None` in these
+/// cases is **not** an error.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(C)]
+pub enum Dither {
+    None,
+    Rectangle,
+    Triangle,
+}
+
+impl From<Dither> for sys::ma_dither_mode {
+    fn from(value: Dither) -> Self {
+        match value {
+            Dither::None => sys::ma_dither_mode_ma_dither_mode_none,
+            Dither::Rectangle => sys::ma_dither_mode_ma_dither_mode_rectangle,
+            Dither::Triangle => sys::ma_dither_mode_ma_dither_mode_triangle,
+        }
+    }
+}
+
+impl TryFrom<sys::ma_dither_mode> for Dither {
+    type Error = MaudioError;
+
+    fn try_from(value: sys::ma_dither_mode) -> Result<Self, Self::Error> {
+        match value {
+            sys::ma_dither_mode_ma_dither_mode_none => Ok(Dither::None),
+            sys::ma_dither_mode_ma_dither_mode_rectangle => Ok(Dither::Rectangle),
+            sys::ma_dither_mode_ma_dither_mode_triangle => Ok(Dither::Triangle),
+            other => Err(MaudioError::new_ma_error(
+                ErrorKinds::unknown_enum::<Dither>(other as i64),
+            )),
+        }
+    }
+}
+
 // Always holds the sample format used by the user
 /// An owned, interleaved audio sample buffer.
 ///
@@ -177,98 +294,6 @@ impl<F: PcmFormat> SampleBuffer<F> {
 
         self.data.truncate(vec_el);
         Ok(())
-    }
-}
-
-impl From<Format> for sys::ma_format {
-    fn from(value: Format) -> Self {
-        match value {
-            Format::U8 => sys::ma_format_ma_format_u8,
-            Format::S16 => sys::ma_format_ma_format_s16,
-            Format::S24 => sys::ma_format_ma_format_s24,
-            Format::S32 => sys::ma_format_ma_format_s32,
-            Format::F32 => sys::ma_format_ma_format_f32,
-        }
-    }
-}
-
-impl TryFrom<sys::ma_format> for Format {
-    type Error = MaudioError;
-    fn try_from(value: sys::ma_format) -> Result<Self, Self::Error> {
-        match value {
-            sys::ma_format_ma_format_u8 => Ok(Format::U8),
-            sys::ma_format_ma_format_s16 => Ok(Format::S16),
-            sys::ma_format_ma_format_s24 => Ok(Format::S24),
-            sys::ma_format_ma_format_s32 => Ok(Format::S32),
-            sys::ma_format_ma_format_f32 => Ok(Format::F32),
-            _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidFormat)),
-        }
-    }
-}
-
-/// Controls dithering applied during sample format conversion.
-///
-/// Dithering is used to reduce quantization distortion when converting
-/// from a higher-precision format to a lower-precision one. The selected
-/// mode is a **hint** — dithering is only applied when it is meaningful
-/// for the conversion.
-///
-/// ### Modes (ordered by efficiency)
-///
-/// - **`Dither::None`**  
-///   No dithering.
-///
-/// - **`Dither::Rectangle`**  
-///   Rectangular probability distribution function (RPDF).
-///
-/// - **`Dither::Triangle`**  
-///   Triangular probability distribution function (TPDF).
-///
-/// ### When dithering is applied
-///
-/// Dithering is currently used for the following format conversions:
-///
-/// - `S16 → U8`
-/// - `S24 → U8`
-/// - `S32 → U8`
-/// - `F32 → U8`
-/// - `S24 → S16`
-/// - `S32 → S16`
-/// - `F32 → S16`
-///
-/// For conversions where dithering is unnecessary, the selected mode is
-/// silently ignored. Passing a dithering mode other than `None` in these
-/// cases is **not** an error.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(C)]
-pub enum Dither {
-    None,
-    Rectangle,
-    Triangle,
-}
-
-impl From<Dither> for sys::ma_dither_mode {
-    fn from(value: Dither) -> Self {
-        match value {
-            Dither::None => sys::ma_dither_mode_ma_dither_mode_none,
-            Dither::Rectangle => sys::ma_dither_mode_ma_dither_mode_rectangle,
-            Dither::Triangle => sys::ma_dither_mode_ma_dither_mode_triangle,
-        }
-    }
-}
-
-impl TryFrom<sys::ma_dither_mode> for Dither {
-    type Error = MaudioError;
-
-    fn try_from(value: sys::ma_dither_mode) -> Result<Self, Self::Error> {
-        match value {
-            sys::ma_dither_mode_ma_dither_mode_none => Ok(Dither::None),
-            sys::ma_dither_mode_ma_dither_mode_rectangle => Ok(Dither::Rectangle),
-            sys::ma_dither_mode_ma_dither_mode_triangle => Ok(Dither::Triangle),
-            other => Err(MaudioError::new_ma_error(
-                ErrorKinds::unknown_enum::<Dither>(other as i64),
-            )),
-        }
     }
 }
 

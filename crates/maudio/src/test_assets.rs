@@ -1,3 +1,5 @@
+use crate::audio::sample_rate::SampleRate;
+
 pub mod decoded_data {
     #[inline]
     fn assert_valid(channels: u32, frames: usize) {
@@ -156,7 +158,12 @@ pub mod temp_file {
 }
 
 /// Build a minimal PCM 16-bit little-endian WAV file.
-pub(crate) fn wav_i16_le(channels: u16, sample_rate: u32, samples_interleaved: &[i16]) -> Vec<u8> {
+pub(crate) fn wav_i16_le(
+    channels: u16,
+    sample_rate: SampleRate,
+    samples_interleaved: &[i16],
+) -> Vec<u8> {
+    let sample_rate: u32 = sample_rate.into();
     assert!(channels > 0);
     assert_eq!(samples_interleaved.len() % channels as usize, 0);
 

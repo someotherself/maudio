@@ -64,14 +64,13 @@ use crate::{
         Sound,
     },
     util::fence::Fence,
-    AsRawRef, Binding, MaResult,
+    AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
 };
 
 use maudio_sys::ffi as sys;
 
 pub mod engine_builder;
-#[cfg(feature = "engine_host")]
-pub mod engine_host;
+mod engine_host;
 
 pub mod node_graph;
 pub mod process_notifier;
@@ -114,8 +113,6 @@ pub struct EngineRef<'a> {
     _marker: PhantomData<&'a ()>,
     _not_sync: PhantomData<Cell<()>>,
 }
-
-unsafe impl Send for Engine {}
 
 impl<'a> Binding for EngineRef<'a> {
     type Raw = *mut sys::ma_engine;
@@ -277,12 +274,17 @@ pub trait EngineOps: AsEnginePtr {
     }
 
     /// Returns the engine's internal resource manager, if available.
-    fn resource_manager(&self) -> Option<ResourceManagerRef<'_>> {
+    fn resource_manager(&self) -> Option<ResourceManagerRef<'_, f32>> {
         engine_ffi::ma_engine_get_resource_manager(self)
     }
 
     /// Reads PCM frames into `dst`, returning the number of frames read.
     fn read_pcm_frames_into(&self, dst: &mut [f32]) -> MaResult<usize> {
+        if engine_ffi::ma_engine_get_device(self).is_some() {
+            return Err(MaudioError::new_ma_error(ErrorKinds::InvalidOperation(
+                "read_pcm_frames is not allowed when engine has a device",
+            )));
+        }
         engine_ffi::ma_engine_read_pcm_frames_into(self, dst)
     }
 
@@ -293,6 +295,11 @@ pub trait EngineOps: AsEnginePtr {
     /// - The engine will attempt to render `frame_count` frames, but it may return
     ///   **fewer frames**.
     fn read_pcm_frames(&self, frame_count: u64) -> MaResult<SampleBuffer<f32>> {
+        if engine_ffi::ma_engine_get_device(self).is_some() {
+            return Err(MaudioError::new_ma_error(ErrorKinds::InvalidOperation(
+                "read_pcm_frames is not allowed when engine has a device",
+            )));
+        }
         engine_ffi::ma_engine_read_pcm_frames(self, frame_count)
     }
 
@@ -356,9 +363,7 @@ impl Engine {
     pub(crate) fn new_for_tests() -> MaResult<Self> {
         if cfg!(feature = "ci-tests") {
             EngineBuilder::new()
-                .no_device(true)
-                .set_channels(2)
-                .set_sample_rate(SampleRate::Sr44100)
+                .no_device(2, SampleRate::Sr44100)
                 .build()
         } else {
             Engine::new()
@@ -564,14 +569,7 @@ pub(crate) fn wide_null_terminated_name(name: &str) -> Vec<u16> {
 /// If callbacks are not provided, miniaudio uses its default allocator
 /// (typically the system allocator).
 ///
-/// ## Lifetimes when borrowed by other types
-///
-/// `AllocationCallbacks` itself owns the callback table and does not carry a lifetime.
-/// However, types that *borrow* an `AllocationCallbacks` (for example `NodeGraph<'a>`)
-/// use a lifetime parameter to ensure the callbacks outlive the initialized object.
-///
-/// This matters because miniaudio requires the same allocation callbacks to be passed
-/// again during uninitialization so it can free any internal allocations consistently.
+/// Custom allocators are currently not implemented.
 pub struct AllocationCallbacks {
     inner: sys::ma_allocation_callbacks,
 }
@@ -776,7 +774,10 @@ mod test {
 
     #[test]
     fn test_engine_read_pcm_frames_shapes_output() {
-        let engine = Engine::new_for_tests().unwrap();
+        let engine = EngineBuilder::new()
+            .no_device(2, SampleRate::Sr44100)
+            .build()
+            .unwrap();
 
         let requested = 256u64;
         let buffer = engine.read_pcm_frames(requested).unwrap();
@@ -945,7 +946,7 @@ pub(crate) mod engine_ffi {
     #[inline]
     pub fn ma_engine_get_resource_manager<'a, E: AsEnginePtr + ?Sized>(
         engine: &'a E,
-    ) -> Option<ResourceManagerRef<'a>> {
+    ) -> Option<ResourceManagerRef<'a, f32>> {
         let ptr =
             unsafe { sys::ma_engine_get_resource_manager(private_engine::engine_ptr(engine)) };
         if ptr.is_null() {
@@ -958,8 +959,15 @@ pub(crate) mod engine_ffi {
     // AsEnginePtr
     // TODO: Create Device(Ref?)
     #[inline]
-    pub fn ma_engine_get_device(engine: &Engine) -> *mut sys::ma_device {
-        unsafe { sys::ma_engine_get_device(engine.to_raw()) }
+    pub fn ma_engine_get_device<E: AsEnginePtr + ?Sized>(
+        engine: &E,
+    ) -> Option<*mut sys::ma_device> {
+        let ptr = unsafe { sys::ma_engine_get_device(private_engine::engine_ptr(engine)) };
+        if ptr.is_null() {
+            None
+        } else {
+            Some(ptr)
+        }
     }
 
     // AsEnginePtr

@@ -1176,8 +1176,8 @@ pub(crate) mod sound_ffi {
 
         Ok(DataFormat {
             format: format_raw.try_into()?,
-            channels: channels as u32,
-            sample_rate: sample_rate as u32,
+            channels,
+            sample_rate: sample_rate.try_into()?,
             channel_map: Some(channel_map),
         })
     }
@@ -1241,6 +1241,7 @@ mod test {
         },
         data_source::sources::buffer::{AudioBufferBuilder, AudioBufferOps},
         engine::{node_graph::nodes::NodeOps, Engine, EngineOps},
+        sound::sound_builder::SoundBuilder,
     };
 
     fn assert_f32_eq(a: f32, b: f32) {
@@ -1588,7 +1589,10 @@ mod test {
 
         let src = buf.as_source();
 
-        let mut sound = engine.sound().data_source(&src).build().unwrap();
+        let mut sound = SoundBuilder::new(&engine)
+            .data_source(&src)
+            .build()
+            .unwrap();
 
         sound.set_looping(false);
         assert!(!sound.looping());

@@ -48,7 +48,7 @@
 //! let state = node.state().unwrap();
 //! println!("node state: {:?}", state);
 //! ```
-use std::{cell::Cell, marker::PhantomData};
+use std::{cell::Cell, marker::PhantomData, sync::Arc};
 
 use maudio_sys::ffi as sys;
 
@@ -68,8 +68,8 @@ pub mod source;
 // Would be used for fully custom nodes. Not used for now
 struct Node<'a> {
     inner: *mut sys::ma_node,
-    alloc_cb: Option<&'a AllocationCallbacks>,
-    _marker: PhantomData<&'a NodeGraph<'a>>,
+    alloc_cb: Option<Arc<AllocationCallbacks>>,
+    _marker: PhantomData<&'a NodeGraph>,
     _not_sync: PhantomData<Cell<()>>,
 }
 
@@ -150,7 +150,7 @@ pub(crate) mod private_node {
 
     impl<'a> NodePtrProvider<Node<'a>> for NodeProvider {
         #[inline]
-        fn as_node_ptr(t: &Node<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &Node) -> *mut sys::ma_node {
             t.to_raw()
         }
     }
@@ -250,7 +250,7 @@ pub trait AsNodePtr {
 }
 
 #[doc(hidden)]
-impl AsNodePtr for Node<'_> {
+impl<'a> AsNodePtr for Node<'a> {
     type __PtrProvider = private_node::NodeProvider;
 }
 
@@ -364,7 +364,10 @@ pub trait NodeOps: AsNodePtr {
 
 // These should be not available to NodeRef
 impl<'a> Node<'a> {
-    pub(crate) fn new(inner: *mut sys::ma_node, alloc_cb: Option<&'a AllocationCallbacks>) -> Self {
+    pub(crate) fn new(
+        inner: *mut sys::ma_node,
+        alloc_cb: Option<Arc<AllocationCallbacks>>,
+    ) -> Self {
         Self {
             inner,
             alloc_cb,

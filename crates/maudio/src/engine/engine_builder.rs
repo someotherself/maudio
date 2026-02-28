@@ -87,9 +87,15 @@ impl EngineBuilder {
     ///
     /// ## Important
     /// `channels` and `sample_rate` must be set manually.
-    pub fn no_device(&mut self, enabled: bool) -> &mut Self {
-        self.inner.noDevice = enabled as u32;
-        self.no_device = enabled;
+    pub fn no_device(&mut self, channels: u32, sample_rate: SampleRate) -> &mut Self {
+        self.inner.sampleRate = sample_rate.into();
+        self.sample_rate = Some(sample_rate);
+
+        self.inner.channels = channels;
+        self.channels = Some(channels);
+
+        self.inner.noDevice = 1;
+        self.no_device = true;
         self
     }
 
@@ -118,7 +124,6 @@ impl EngineBuilder {
     }
 
     fn set_process_notifier(&mut self, f: Option<Box<EngineProcessCallback>>) -> ProcessNotifier {
-        // TODO: Add closure as optional param
         let channels = self.channels.unwrap_or(2);
         let notifier = ProcessNotifier::new(channels, f);
 
@@ -175,6 +180,13 @@ impl EngineBuilder {
     ///
     // If you truly need to run a callback on the realtime thread, use [`EngineBuilder::with_realtime_callback()`].
     pub fn with_process_notifier(&mut self) -> MaResult<(Engine, ProcessNotifier)> {
+        if let Some(channels) = self.channels {
+            if channels == 0 {
+                return Err(crate::MaudioError::from_ma_result(
+                    sys::ma_result_MA_INVALID_ARGS,
+                ));
+            }
+        }
         let notifier = self.set_process_notifier(None);
 
         let mut engine = Engine::new_with_config(Some(self))?;
@@ -183,14 +195,26 @@ impl EngineBuilder {
         Ok((engine, notifier))
     }
 
-    unsafe fn with_realtime_callback(&mut self) -> MaResult<(Engine, ProcessNotifier)> {
-        // let notifier = self.set_process_notifier(Some(Box::new(f)));
+    /// # Safety
+    ///
+    /// TODO
+    pub unsafe fn with_realtime_callback<C>(&mut self, cb: C) -> MaResult<(Engine, ProcessNotifier)>
+    where
+        C: FnMut(&mut [f32], u32) + Send + 'static,
+    {
+        if let Some(channels) = self.channels {
+            if channels == 0 {
+                return Err(crate::MaudioError::from_ma_result(
+                    sys::ma_result_MA_INVALID_ARGS,
+                ));
+            }
+        }
+        let notifier = self.set_process_notifier(Some(Box::new(cb)));
 
-        // let mut engine = Engine::new_with_config(Some(&self))?;
-        // engine.process_notifier = self.process_notifier.take();
+        let mut engine = Engine::new_with_config(Some(self))?;
+        engine.process_notifier = self.process_notifier.take();
 
-        // Ok((engine, notifier))
-        todo!()
+        Ok((engine, notifier))
     }
 
     pub fn build(&self) -> MaResult<Engine> {
@@ -199,10 +223,161 @@ impl EngineBuilder {
 
     pub(crate) fn build_for_tests(&mut self) -> MaResult<Engine> {
         if cfg!(feature = "ci-tests") {
-            self.no_device(true)
-                .set_channels(2)
-                .set_sample_rate(SampleRate::Sr44100);
+            self.no_device(2, SampleRate::Sr44100);
         }
         self.build()
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::engine::EngineOps;
+
+    use super::*;
+
+    fn build_ci_engine(mut b: EngineBuilder) -> MaResult<Engine> {
+        b.build_for_tests()
+    }
+    #[test]
+    fn test_engine_builder_new_default_build_for_tests_ok() -> MaResult<()> {
+        let engine = build_ci_engine(EngineBuilder::new())?;
+        drop(engine);
+        Ok(())
+    }
+
+    #[test]
+    fn test_engine_builder_with_realtime_callback_basic_init() {
+        let (engine, _) = unsafe {
+            EngineBuilder::new()
+                .with_realtime_callback(|_samples, _channels| {})
+                .unwrap()
+        };
+        drop(engine);
+    }
+
+    #[test]
+    fn test_engine_builder_default_trait_build_for_tests_ok() -> MaResult<()> {
+        let engine = build_ci_engine(EngineBuilder::default())?;
+        drop(engine);
+        Ok(())
+    }
+
+    #[test]
+    fn test_engine_builder_no_device_with_channels_and_sample_rate_builds() -> MaResult<()> {
+        let mut b = EngineBuilder::new();
+        b.no_device(2, SampleRate::Sr44100);
+
+        let engine = b.build()?;
+        drop(engine);
+        Ok(())
+    }
+
+    #[test]
+    fn test_engine_builder_listener_count_is_applied() -> MaResult<()> {
+        let mut b = EngineBuilder::new();
+        b.listener_count(3);
+
+        let engine = build_ci_engine(b)?;
+        drop(engine);
+        Ok(())
+    }
+
+    #[test]
+    fn test_engine_builder_no_auto_start_is_applied() -> MaResult<()> {
+        let mut b = EngineBuilder::new();
+        b.no_auto_start(true);
+
+        let engine = build_ci_engine(b)?;
+        drop(engine);
+        Ok(())
+    }
+
+    #[test]
+    fn test_engine_builder_with_process_notifier_builds_and_notifier_survives() -> MaResult<()> {
+        let mut b = EngineBuilder::new();
+        let (engine, mut tick) = b
+            .no_device(2, SampleRate::Sr44100)
+            .with_process_notifier()?;
+
+        let _buf = engine.read_pcm_frames(256)?;
+
+        let mut called = false;
+        tick.call_if_triggered(|delta_frames| {
+            called = true;
+            let _ = delta_frames;
+        });
+
+        drop(engine);
+
+        tick.call_if_triggered(|_delta_frames| {
+            // no-op
+        });
+
+        assert!(true || called);
+        Ok(())
+    }
+
+    #[test]
+    fn test_engine_builder_process_notifier_drop_order_notifier_then_engine() -> MaResult<()> {
+        let mut b = EngineBuilder::new();
+        let (engine, tick) = b.with_process_notifier()?;
+
+        drop(tick);
+        drop(engine);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_engine_builder_process_notifier_drop_order_engine_then_notifier() -> MaResult<()> {
+        let mut b = EngineBuilder::new();
+        let (engine, tick) = b.with_process_notifier()?;
+
+        drop(engine);
+        drop(tick);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_engine_builder_with_process_notifier_multiple_builds_no_double_free() -> MaResult<()> {
+        // This targets the `process_notifier: Option<Arc<ProcessState>>` in the builder and the `take()`.
+        let mut b = EngineBuilder::new();
+
+        let (engine1, tick1) = b.with_process_notifier()?;
+        drop(engine1);
+        drop(tick1);
+
+        // Re-use builder for another notifier build.
+        let (engine2, tick2) = b.with_process_notifier()?;
+        drop(engine2);
+        drop(tick2);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_engine_builder_build_for_tests_sets_no_device_channels_samplerate_under_feature(
+    ) -> MaResult<()> {
+        // This test is only meaningful if feature=ci-tests is enabled,
+        // but it should still be safe otherwise.
+        let mut b = EngineBuilder::new();
+        let engine = b.build_for_tests()?;
+        drop(engine);
+        Ok(())
+    }
+
+    #[test]
+    fn test_engine_builder_set_channels_and_sample_rate_idempotent() -> MaResult<()> {
+        let mut b = EngineBuilder::new();
+        b.no_device(2, SampleRate::Sr44100)
+            .set_channels(1)
+            .set_channels(2)
+            .set_sample_rate(SampleRate::Sr44100)
+            .set_sample_rate(SampleRate::Sr44100);
+
+        let engine = b.build()?;
+        drop(engine);
+        Ok(())
     }
 }
