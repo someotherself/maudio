@@ -313,7 +313,6 @@ mod test {
             // no-op
         });
 
-        assert!(true || called);
         Ok(())
     }
 

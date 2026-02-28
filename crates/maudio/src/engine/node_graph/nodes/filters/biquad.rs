@@ -411,7 +411,7 @@ mod test {
         for i in 0..10_000 {
             let v = (i as f64) * 1e-6;
             let cfg = BiquadNodeParams::new(&node, 0.2 + v, 0.3, 0.4, 1.0, 0.6, 0.7);
-            node.reinit(&cfg).unwrap_or_else(|_| ());
+            node.reinit(&cfg).unwrap();
         }
     }
 

@@ -236,8 +236,8 @@ pub trait RmOps: AsRmPtr {
 
             let c_path = wide_null_terminated(path);
 
-            resource_ffi::ma_resource_manager_register_file_w(self.rm, &c_path, flags)?;
-            Ok(ResourceGuard::from_path(self.rm, path))
+            resource_ffi::ma_resource_manager_register_file_w(self, &c_path, flags)?;
+            Ok(ResourceGuard::from_path(self, path))
         }
 
         #[cfg(not(any(unix, windows)))]
@@ -414,7 +414,7 @@ pub(crate) mod resource_ffi {
             rm_source::{ResourceManagerSource, ResourceManagerSourceBuilder},
             rm_source_flags::RmSourceFlags,
             rm_stream::{ResourceManagerStream, ResourceManagerStreamBuilder},
-            AsRmPtr, InnerResourceManager, ResourceManager, RmOps,
+            AsRmPtr, InnerResourceManager, ResourceManager,
         },
         pcm_frames::PcmFormat,
         Binding, MaResult, MaudioError,
@@ -457,7 +457,7 @@ pub(crate) mod resource_ffi {
 
     #[inline]
     #[cfg(unix)]
-    pub fn ma_resource_manager_register_file<R: RmOps + ?Sized>(
+    pub fn ma_resource_manager_register_file<R: AsRmPtr + ?Sized>(
         rm: &R,
         path: std::ffi::CString,
         flags: RmSourceFlags,
@@ -631,7 +631,7 @@ pub(crate) mod resource_ffi {
             let name = wide_null_terminated_name(name);
             ma_resource_manager_register_encoded_data_w(
                 rm,
-                name.as_ptr(),
+                &name,
                 data.as_ptr() as *const _,
                 data.len(),
             )
@@ -659,7 +659,7 @@ pub(crate) mod resource_ffi {
     #[inline]
     #[cfg(windows)]
     fn ma_resource_manager_register_encoded_data_w<R: AsRmPtr + ?Sized>(
-        rm: &mut R,
+        rm: &R,
         name: &[u16],
         data: *const core::ffi::c_void,
         size: usize,
@@ -692,7 +692,7 @@ pub(crate) mod resource_ffi {
             use crate::engine::wide_null_terminated;
 
             let c_path = wide_null_terminated(path);
-            ma_resource_manager_unregister_file_w(rm, c_path)
+            ma_resource_manager_unregister_file_w(rm, &c_path)
         }
 
         #[cfg(not(any(unix, windows)))]
@@ -741,7 +741,7 @@ pub(crate) mod resource_ffi {
             use crate::engine::wide_null_terminated_name;
 
             let name = wide_null_terminated_name(name);
-            ma_resource_manager_unregister_data_w(rm, name.as_ptr())
+            ma_resource_manager_unregister_data_w(rm, &name)
         }
 
         #[cfg(not(any(unix, windows)))]
