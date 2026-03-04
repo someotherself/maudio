@@ -6,11 +6,14 @@ use crate::{
     data_source::{private_data_source, AsSourcePtr, DataSourceRef, SharedSource},
     engine::resource::{
         resource_ffi, rm_source::SourceBufSource, rm_source_flags::RmSourceFlags, AsRmPtr,
+        PendingResource,
     },
     sound::sound_builder::OwnedPathBuf,
+    util::fence::Fence,
     AsRawRef, Binding, MaResult,
 };
 
+#[derive(Debug)]
 pub struct ResourceManagerBuffer<'a, R: AsRmPtr + ?Sized> {
     inner: *mut sys::ma_resource_manager_data_buffer,
     _format: PhantomData<R::Format>,
@@ -48,7 +51,7 @@ impl<'a, R: AsRmPtr> ResourceManagerBuffer<'a, R> {
 }
 
 // private methods
-impl<'a, R: AsRmPtr + ?Sized> ResourceManagerBuffer<'a, R> {
+impl<'a, R: AsRmPtr> ResourceManagerBuffer<'a, R> {
     fn new_copy_with_config(
         config: &ResourceManagerBufferBuilder<'a, R>,
         existing: &ResourceManagerBuffer<'a, R>,
@@ -99,6 +102,8 @@ impl<'a, R: AsRmPtr + ?Sized> Drop for ResourceManagerBuffer<'a, R> {
 pub struct ResourceManagerBufferBuilder<'a, R: AsRmPtr + ?Sized> {
     rm: &'a R,
     inner: sys::ma_resource_manager_data_source_config,
+    flags: RmSourceFlags,
+    fence: Option<&'a Fence>,
     source: SourceBufSource<'a>,
     owned_path: OwnedPathBuf,
 }
@@ -111,7 +116,7 @@ impl<'a, R: AsRmPtr + ?Sized> AsRawRef for ResourceManagerBufferBuilder<'a, R> {
     }
 }
 
-impl<'a, R: AsRmPtr + ?Sized> ResourceManagerBufferBuilder<'a, R> {
+impl<'a, R: AsRmPtr> ResourceManagerBufferBuilder<'a, R> {
     pub(crate) fn new_internal(
         rm: &'a R,
         inner: sys::ma_resource_manager_data_source_config,
@@ -119,6 +124,8 @@ impl<'a, R: AsRmPtr + ?Sized> ResourceManagerBufferBuilder<'a, R> {
         Self {
             rm,
             inner,
+            flags: RmSourceFlags::NONE,
+            fence: None,
             source: SourceBufSource::None,
             owned_path: OwnedPathBuf::None,
         }
@@ -131,6 +138,7 @@ impl<'a, R: AsRmPtr + ?Sized> ResourceManagerBufferBuilder<'a, R> {
 
     pub fn flags(&mut self, flags: RmSourceFlags) -> &mut Self {
         self.inner.flags = flags.bits();
+        self.flags = flags;
         self
     }
 
@@ -175,9 +183,35 @@ impl<'a, R: AsRmPtr + ?Sized> ResourceManagerBufferBuilder<'a, R> {
         Ok(())
     }
 
-    pub fn build(&mut self) -> MaResult<ResourceManagerBuffer<'a, R>> {
+    pub fn async_load(&mut self, yes: bool) -> &mut Self {
+        let mut flags = RmSourceFlags::from_bits(self.inner.flags);
+        if yes {
+            flags.insert(RmSourceFlags::ASYNC);
+        } else {
+            flags.remove(RmSourceFlags::ASYNC);
+        }
+        self.inner.flags = flags.bits();
+        self.flags = flags;
+        self
+    }
+
+    pub fn fence(&mut self, fence: &'a Fence) -> &mut Self {
+        self.fence = Some(fence);
+        self.async_load(true);
+        self
+    }
+
+    pub(crate) fn build_internal(&mut self) -> MaResult<ResourceManagerBuffer<'a, R>> {
         self.set_source()?;
         ResourceManagerBuffer::<R>::new_with_config(self)
+    }
+
+    pub fn build(&mut self) -> MaResult<PendingResource<ResourceManagerBuffer<'a, R>>> {
+        let buf = self.build_internal()?;
+        if self.flags.intersects(RmSourceFlags::ASYNC) {
+            return Ok(PendingResource::Pending { inner: Some(buf) });
+        }
+        Ok(PendingResource::Ready { inner: buf })
     }
 
     pub fn build_copy(

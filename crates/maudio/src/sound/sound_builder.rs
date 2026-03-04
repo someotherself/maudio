@@ -171,6 +171,10 @@ impl<'a> SoundBuilder<'a> {
     }
 
     fn start_sound(&mut self, notif: Option<Arc<AtomicBool>>) -> MaResult<Sound<'a>> {
+        if let Some(fence) = self.fence {
+            self.inner.pDoneFence = fence.to_raw()
+        };
+
         let mut sound = match self.source {
             SoundSource::DataSource(_) => {
                 if self.fence.is_some() {

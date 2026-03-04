@@ -4,11 +4,13 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     data_source::{private_data_source, AsSourcePtr, DataSourceRef, SharedSource},
-    engine::resource::{resource_ffi, rm_source_flags::RmSourceFlags, AsRmPtr},
+    engine::resource::{resource_ffi, rm_source_flags::RmSourceFlags, AsRmPtr, PendingResource},
     sound::sound_builder::OwnedPathBuf,
+    util::fence::Fence,
     AsRawRef, Binding, MaResult,
 };
 
+#[derive(Debug)]
 pub struct ResourceManagerSource<'a, R: AsRmPtr + ?Sized> {
     inner: *mut sys::ma_resource_manager_data_source,
     _format: PhantomData<R::Format>,
@@ -88,6 +90,8 @@ impl<'a, R: AsRmPtr + ?Sized> ResourceManagerSource<'a, R> {
 pub struct ResourceManagerSourceBuilder<'a, R: AsRmPtr + ?Sized> {
     rm: &'a R,
     inner: sys::ma_resource_manager_data_source_config,
+    flags: RmSourceFlags,
+    fence: Option<&'a Fence>,
     source: SourceBufSource<'a>,
     owned_path: OwnedPathBuf,
 }
@@ -115,12 +119,14 @@ pub enum SourceBufSource<'a> {
 // rangeEndInPCMFrames;
 // loopPointBegInPCMFrames;
 // loopPointEndInPCMFrames;
-impl<'a, R: AsRmPtr + ?Sized> ResourceManagerSourceBuilder<'a, R> {
+impl<'a, R: AsRmPtr> ResourceManagerSourceBuilder<'a, R> {
     pub fn new(rm: &'a R) -> Self {
         let inner = unsafe { sys::ma_resource_manager_data_source_config_init() };
         Self {
             rm,
             inner,
+            flags: RmSourceFlags::NONE,
+            fence: None,
             source: SourceBufSource::None,
             owned_path: OwnedPathBuf::None,
         }
@@ -128,6 +134,7 @@ impl<'a, R: AsRmPtr + ?Sized> ResourceManagerSourceBuilder<'a, R> {
 
     pub fn flags(&mut self, flags: RmSourceFlags) -> &mut Self {
         self.inner.flags = flags.bits();
+        self.flags = flags;
         self
     }
 
@@ -171,9 +178,35 @@ impl<'a, R: AsRmPtr + ?Sized> ResourceManagerSourceBuilder<'a, R> {
         Ok(())
     }
 
-    pub fn build(&mut self) -> MaResult<ResourceManagerSource<'a, R>> {
+    pub fn async_load(&mut self, yes: bool) -> &mut Self {
+        let mut flags = RmSourceFlags::from_bits(self.inner.flags);
+        if yes {
+            flags.insert(RmSourceFlags::ASYNC);
+        } else {
+            flags.remove(RmSourceFlags::ASYNC);
+        }
+        self.inner.flags = flags.bits();
+        self.flags = flags;
+        self
+    }
+
+    pub fn fence(&mut self, fence: &'a Fence) -> &mut Self {
+        self.fence = Some(fence);
+        self.async_load(true);
+        self
+    }
+
+    pub(crate) fn build_internal(&mut self) -> MaResult<ResourceManagerSource<'a, R>> {
         self.set_source()?;
-        ResourceManagerSource::new_with_config(self)
+        ResourceManagerSource::<R>::new_with_config(self)
+    }
+
+    pub fn build(&mut self) -> MaResult<PendingResource<ResourceManagerSource<'a, R>>> {
+        let buf = self.build_internal()?;
+        if self.flags.intersects(RmSourceFlags::ASYNC) {
+            return Ok(PendingResource::Pending { inner: Some(buf) });
+        }
+        Ok(PendingResource::Ready { inner: buf })
     }
 
     pub fn build_copy(

@@ -90,8 +90,7 @@ impl Fence {
 
     /// Blocks the current thread until the fence is released.
     ///
-    /// This call will block until another thread releases the fence.
-    /// It does not spin or poll.
+    /// This is a blocking wait using OS primitives (no busy-spinning).
     pub fn wait(&self) -> MaResult<()> {
         fence_ffi::ma_fence_wait(self)
     }

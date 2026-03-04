@@ -385,6 +385,18 @@ impl<'a> Node<'a> {
     }
 }
 
+pub(crate) unsafe extern "C" fn on_get_required_input_frame_count(
+    _node: *mut sys::ma_node,
+    out_frames_count: u32,
+    in_frame_count: *mut u32,
+) -> sys::ma_result {
+    // no resampling
+    if !in_frame_count.is_null() {
+        *in_frame_count = out_frames_count;
+    }
+    sys::ma_result_MA_SUCCESS
+}
+
 pub(super) mod node_ffi {
     use maudio_sys::ffi as sys;
 

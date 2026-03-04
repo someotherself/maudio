@@ -111,6 +111,11 @@ impl MaudioError {
         }
     }
 
+    pub fn is_busy(&self) -> bool {
+        let a = self.ma_result;
+        a.name() == "MA_BUSY"
+    }
+
     /// Returns the wrapper-level error is present.
     pub fn is_kind(&self) -> bool {
         self.native.is_some()
@@ -338,7 +343,7 @@ impl ErrorKinds {
 /// - Detecting arithmetic overflow
 ///
 /// Miniaudio-native errors are represented separately by `MA_RESULT`.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 #[non_exhaustive]
 pub enum ErrorKinds {
     // Error converting a raw value to an enum variant
@@ -397,10 +402,23 @@ pub enum ErrorKinds {
 ///
 /// When `Some`, the error was produced by the wrapper and may include an
 /// associated miniaudio result for context. In this case, ma_result will be `MA_ERROR (-1)`.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub struct MaudioError {
     native: Option<ErrorKinds>,
     ma_result: MaError,
 }
 
 pub type MaResult<T> = std::result::Result<T, MaudioError>;
+
+#[cfg(test)]
+mod test {
+    use crate::MaudioError;
+
+    #[test]
+    fn test_maudioerror_is_busy() {
+        use maudio_sys::ffi as sys;
+
+        let err = MaudioError::from_ma_result(sys::ma_result_MA_BUSY);
+        assert!(err.is_busy());
+    }
+}

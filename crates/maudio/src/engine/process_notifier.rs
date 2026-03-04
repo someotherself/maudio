@@ -1,6 +1,7 @@
 //! Callback fired whenever the engine processes and outputs audio frames.
 use std::{
     cell::UnsafeCell,
+    panic::{catch_unwind, AssertUnwindSafe},
     sync::{
         atomic::{AtomicBool, AtomicU64, Ordering},
         Arc,
@@ -14,6 +15,7 @@ pub struct ProcessState {
     frames_read: AtomicU64,
     channels: u32,
     cb: UnsafeCell<Option<Box<EngineProcessCallback>>>,
+    panic_flag: AtomicBool, // TODO
     in_cb: AtomicBool,
 }
 
@@ -30,6 +32,7 @@ impl ProcessNotifier {
             frames_read: AtomicU64::new(0),
             channels,
             cb: UnsafeCell::new(cb),
+            panic_flag: AtomicBool::new(false),
             in_cb: AtomicBool::new(false),
         };
         Self {
@@ -134,7 +137,15 @@ pub(crate) unsafe extern "C" fn on_process_callback(
 
     let cb_slot = &mut *ctx.cb.get();
     if let Some(cb) = cb_slot.as_mut() {
-        cb(out, ctx.channels);
+        let result = catch_unwind(AssertUnwindSafe(|| {
+            cb(out, ctx.channels);
+        }));
+
+        if result.is_err() {
+            // Disable callback permanently after panic.
+            ctx.panic_flag.store(true, Ordering::Release);
+            *cb_slot = None;
+        }
     }
 
     ctx.in_cb.store(false, Ordering::Release);

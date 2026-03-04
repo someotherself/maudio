@@ -92,7 +92,11 @@ use crate::{
         formats::{Format, SampleBuffer},
         sample_rate::SampleRate,
     },
+    data_source::{AsSourcePtr, SharedSource},
     engine::resource::{
+        private_async_src::{
+            AsyncCheckProvider, BufferCheckProvider, SourceCheckProvider, StreamCheckProvider,
+        },
         rm_buffer::{ResourceManagerBuffer, ResourceManagerBufferBuilder},
         rm_builder::ResourceManagerBuilder,
         rm_source::{ResourceManagerSource, ResourceManagerSourceBuilder},
@@ -101,12 +105,13 @@ use crate::{
     },
     pcm_frames::{PcmFormat, PcmFormatInternal, S24Packed, S24},
     test_assets::wav_i16_le,
-    AsRawRef, Binding, MaResult,
+    AsRawRef, Binding, MaResult, MaudioError,
 };
 
 pub mod rm_buffer;
 pub mod rm_builder;
 pub mod rm_flags;
+mod rm_notif; // Not implemented
 pub mod rm_source;
 pub mod rm_source_flags;
 pub mod rm_stream;
@@ -118,34 +123,72 @@ pub mod rm_stream;
 /// resource-backed data sources (buffer/stream/source) using Miniaudio’s internal cache
 /// and job system.
 ///
-/// ## Two ways to create resource-backed data sources
+/// ## Two Ways to Create Resource-Backed Audio
 ///
-/// In `maudio` there are two primary workflows:
+/// `maudio` supports two distinct workflows for creating resource-backed audio.
+/// The difference is primarily about **who owns the backing data** and
+/// whether you want **explicit lifetime control**.
 ///
-/// ### 1) Register first (recommended when you want caching and explicit lifetime control)
+/// ---------------------------------------------------------------------------
 ///
-/// Registering a file or a memory blob returns a [`ResourceGuard`]. While the guard is alive,
-/// the registration is kept valid and you can build one or more data sources from it.
+/// ## 1) Register First — Explicit Ownership Model
 ///
-/// - `register_file()` registers a file path.
-/// - `register_decoded_*()` registers already-decoded PCM frames in a specific format.
-/// - `register_encoded()` registers encoded/compressed bytes (e.g. mp3/ogg/flac bytes).
+/// Use `register_*()` when:
+/// - You already have audio data in memory (encoded or decoded),
+/// - You want explicit control over the lifetime of a resource,
+/// - You want to share a single registered asset across multiple sounds,
+/// - You want to ensure caching behavior is clearly scoped.
 ///
-/// The returned guard can then build:
-/// - [`ResourceManagerBuffer`] (fully buffered, typically decoded in memory),
-/// - [`ResourceManagerStream`] (streamed decode / read-ahead),
-/// - [`ResourceManagerSource`] (generic data source, may become buffer or stream depending on flags).
+/// Registering returns a [`ResourceGuard`]. While the guard is alive,
+/// the resource remains registered inside the resource manager.
 ///
-/// ### 2) Build directly (useful for one-off playback)
+/// ### What gets registered?
 ///
-/// You can also create a buffer/stream/source **without** calling `register_*()` first by using
-/// the corresponding builder (e.g. [`ResourceManagerBufferBuilder`], [`ResourceManagerStreamBuilder`],
-/// [`ResourceManagerSourceBuilder`]) and providing a path directly.
+/// - `register_file()`  
+///   Registers a file path under the resource manager. The file itself is not
+///   immediately loaded unless required, but the name is reserved and tracked.
 ///
-/// The builders cannot be used for sounds already loaded in memory.
+/// - `register_decoded_*()`  
+///   Registers already-decoded PCM frames.  
+///   The memory remains owned by the caller. The resource manager will not copy
+///   or free it. The caller must ensure it stays valid for the duration of use.
 ///
-/// This is convenient for one-off usage, but you lose the explicit “guard keeps it registered”
-/// lifetime model.
+/// - `register_encoded()`  
+///   Registers encoded/compressed bytes (e.g. mp3/ogg/flac).  
+///   The memory remains caller-owned.
+///
+/// From the returned guard you can build:
+/// - [`ResourceManagerBuffer`]  (fully buffered, typically decoded into memory)
+/// - [`ResourceManagerStream`]  (streamed decode / read-ahead)
+/// - [`ResourceManagerSource`]  (generic data source)
+///
+/// Dropping the guard unregisters the resource (after all active users are gone).
+///
+/// This workflow is recommended when:
+/// - You manage your own assets,
+/// - You want predictable lifetime semantics,
+/// - You want to preload or alias resources explicitly.
+///
+/// ---------------------------------------------------------------------------
+///
+/// ## 2) Build Directly — Resource Manager Managed
+///
+/// You can also construct buffers/streams/sources directly from a file path
+/// without calling `register_*()` first.
+///
+/// In this case:
+/// - The resource manager opens and reads the file itself.
+/// - For non-streaming buffers, the data may be cached internally and shared
+///   across multiple builds of the same path.
+/// - The resource manager owns and frees the loaded data.
+///
+/// This workflow is convenient for:
+/// - One-off playback,
+/// - Quick loading without explicit lifetime management.
+///
+/// Limitations:
+/// - Cannot be used for audio already loaded in memory.
+/// - Lifetime is implicit — resources are kept alive internally by reference counting.
 ///
 /// ### Thread safety
 ///
@@ -167,11 +210,12 @@ pub mod rm_stream;
 /// and asset cache.
 ///
 /// Use [`ResourceManagerBuilder`] to initialize.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ResourceManager<F: PcmFormat> {
     inner: Arc<InnerResourceManager<F>>,
 }
 
+#[derive(Debug)]
 pub(crate) struct InnerResourceManager<F: PcmFormat> {
     inner: *mut sys::ma_resource_manager,
     channels: Option<u32>,
@@ -293,7 +337,7 @@ pub struct ResourceGuard<'a, R: AsRmPtr + ?Sized> {
 }
 
 // Builders for registered resources
-impl<'a, R: AsRmPtr + ?Sized> ResourceGuard<'a, R> {
+impl<'a, R: AsRmPtr> ResourceGuard<'a, R> {
     /// ## Flags:
     ///
     /// - [`RmSourceFlags::LOOPING`] to enable looping
@@ -303,18 +347,25 @@ impl<'a, R: AsRmPtr + ?Sized> ResourceGuard<'a, R> {
     /// - [`RmSourceFlags::ASYNC`]
     ///   Initialize and prefill the stream asynchronously using the resource manager’s worker threads.
     /// - [`RmSourceFlags::STREAM`] flag is ignored by maudio
-    pub fn build_buffer(&'a self, flags: RmSourceFlags) -> MaResult<ResourceManagerBuffer<'a, R>> {
+    pub fn build_buffer(
+        &'a self,
+        flags: RmSourceFlags,
+    ) -> MaResult<PendingResource<ResourceManagerBuffer<'a, R>>> {
         let mut builder = ResourceManagerBufferBuilder::new(self.rm);
         let mut flags_check = flags;
         if flags_check.intersects(RmSourceFlags::STREAM) {
             flags_check.remove(RmSourceFlags::STREAM);
         }
-        builder.flags(flags_check); // TODO: Does it make sense to take flags here too?
+        builder.flags(flags_check);
         match &self.data_name {
             RegisteredDataType::RegisteredPath { path } => builder.file_path(path),
             RegisteredDataType::RegisteredData { name } => builder.file_path(Path::new(name)),
         };
-        builder.build()
+        let guard = builder.build_internal()?;
+        if flags_check.intersects(RmSourceFlags::ASYNC) {
+            return Ok(PendingResource::Pending { inner: Some(guard) });
+        }
+        Ok(PendingResource::Ready { inner: guard })
     }
 
     /// Only works for file-backed registrations.
@@ -331,7 +382,10 @@ impl<'a, R: AsRmPtr + ?Sized> ResourceGuard<'a, R> {
     /// - [`RmSourceFlags::ASYNC`]
     ///   Initialize and prefill the stream asynchronously using the resource manager’s worker threads.
     /// - [`RmSourceFlags::STREAM`] flag is ignored by maudio
-    pub fn build_stream(&'a self, flags: RmSourceFlags) -> MaResult<ResourceManagerStream<'a, R>> {
+    pub fn build_stream(
+        &'a self,
+        flags: RmSourceFlags,
+    ) -> MaResult<PendingResource<ResourceManagerStream<'a, R>>> {
         let mut builder = ResourceManagerStreamBuilder::new(self.rm);
         let mut flags_check = flags;
         if !flags_check.intersects(RmSourceFlags::STREAM) {
@@ -342,10 +396,17 @@ impl<'a, R: AsRmPtr + ?Sized> ResourceGuard<'a, R> {
             RegisteredDataType::RegisteredPath { path } => builder.file_path(path),
             RegisteredDataType::RegisteredData { name } => builder.file_path(Path::new(name)),
         };
-        builder.build()
+        let guard = builder.build_internal()?;
+        if flags_check.intersects(RmSourceFlags::ASYNC) {
+            return Ok(PendingResource::Pending { inner: Some(guard) });
+        }
+        Ok(PendingResource::Ready { inner: guard })
     }
 
     /// ## Flags:
+    /// Under the hood, this type is either `ResourceManagerBuffer` or `ResourceManagerStream`.
+    ///
+    /// `ResourceManagerSource` is an abstraction and underlying type can be chosen using the `STREAM` flag.
     ///
     /// - [`RmSourceFlags::LOOPING`] to enable looping
     /// - [`RmSourceFlags::WAIT_INIT`]
@@ -353,19 +414,25 @@ impl<'a, R: AsRmPtr + ?Sized> ResourceGuard<'a, R> {
     ///   initial async initialization/prefill step completes before returning.
     /// - [`RmSourceFlags::ASYNC`]
     ///   Initialize and prefill the stream asynchronously using the resource manager’s worker threads.
-    /// - [`RmSourceFlags::STREAM`] flag is ignored by maudio
-    pub fn build_source(&'a self, flags: RmSourceFlags) -> MaResult<ResourceManagerSource<'a, R>> {
+    /// - [`RmSourceFlags::STREAM`]
+    ///   If this flag is passed, this source will be initialized as a `ResourceManagerStream`.
+    ///   Without this flag, it be initialized as a `ResourceManagerBuffer`
+    pub fn build_source(
+        &'a self,
+        flags: RmSourceFlags,
+    ) -> MaResult<PendingResource<ResourceManagerSource<'a, R>>> {
         let mut builder = ResourceManagerSourceBuilder::new(self.rm);
-        let mut flags_check = flags;
-        if flags_check.intersects(RmSourceFlags::STREAM) {
-            flags_check.remove(RmSourceFlags::STREAM);
-        }
-        builder.flags(flags_check);
+
+        builder.flags(flags);
         match &self.data_name {
             RegisteredDataType::RegisteredPath { path } => builder.file_path(path),
             RegisteredDataType::RegisteredData { name } => builder.file_path(Path::new(name)),
         };
-        builder.build()
+        let guard = builder.build_internal()?;
+        if flags.intersects(RmSourceFlags::ASYNC) {
+            return Ok(PendingResource::Pending { inner: Some(guard) });
+        }
+        Ok(PendingResource::Ready { inner: guard })
     }
 }
 
@@ -394,11 +461,6 @@ impl<'a, R: AsRmPtr + ?Sized> ResourceGuard<'a, R> {
     }
 }
 
-pub enum RegisteredDataType {
-    RegisteredPath { path: PathBuf },
-    RegisteredData { name: String },
-}
-
 impl<R: AsRmPtr + ?Sized> Drop for ResourceGuard<'_, R> {
     fn drop(&mut self) {
         match &self.data_name {
@@ -410,6 +472,135 @@ impl<R: AsRmPtr + ?Sized> Drop for ResourceGuard<'_, R> {
             }
         }
     }
+}
+
+pub enum RegisteredDataType {
+    RegisteredPath { path: PathBuf },
+    RegisteredData { name: String },
+}
+
+#[derive(Debug)]
+pub enum PendingResource<B: AsAsyncSource> {
+    /// MA_SUCCESS
+    Ready { inner: B },
+    /// MA_BUSY
+    Pending { inner: Option<B> },
+    /// Other Error
+    Failed(MaudioError),
+}
+
+impl<B: AsAsyncSource> PendingResource<B> {
+    /// Polls the resource.
+    ///
+    /// Returns:
+    /// - **Ok(true)** => resource is ready (or was already ready and no polling was done).
+    /// - **Ok(false)** => resource pending (BUSY)
+    /// - **Err(e)** => Failed (and cached)
+    ///
+    /// **Do not spin loop. Use fence instead.**
+    pub fn poll_ready(&mut self) -> MaResult<bool> {
+        match self {
+            PendingResource::Ready { inner: _ } => Ok(true),
+            PendingResource::Pending { inner } => {
+                if let Some(buf) = inner {
+                    match private_async_src::result_check(buf) {
+                        Ok(_) => {
+                            let inner = inner.take();
+                            *self = PendingResource::Ready {
+                                inner: inner.unwrap(),
+                            }; // unwrap is guaranteed to not panic
+                            Ok(true)
+                        }
+                        Err(e) if e.is_busy() => Ok(false),
+                        Err(e) => {
+                            *self = PendingResource::Failed(e);
+                            Err(e)
+                        }
+                    }
+                } else {
+                    unreachable!()
+                }
+            }
+            PendingResource::Failed(e) => Err(*e),
+        }
+    }
+
+    /// Checks if the resource is available. **Does not poll**.
+    pub fn is_ready(&self) -> bool {
+        matches!(self, PendingResource::Ready { inner: _ })
+    }
+
+    /// Returns a reference to the resource, if ready. **Does not poll**.
+    pub fn as_ready(&self) -> Option<&B> {
+        match self {
+            PendingResource::Ready { inner } => Some(inner),
+            _ => None,
+        }
+    }
+
+    /// Returns a mutable reference to the resource, if ready. **Does not poll**.
+    pub fn as_read_mut(&mut self) -> Option<&mut B> {
+        match self {
+            PendingResource::Ready { inner } => Some(inner),
+            _ => None,
+        }
+    }
+
+    /// Consumes the guard and returns the resource, if ready, otherwise returns self. **Does not poll**.
+    pub fn into_ready(self) -> Result<B, Self> {
+        match self {
+            PendingResource::Ready { inner } => Ok(inner),
+            other => Err(other),
+        }
+    }
+}
+
+mod private_async_src {
+    use super::*;
+
+    pub trait AsyncCheckProvider<T: ?Sized> {
+        fn as_result_check(t: &T) -> MaResult<()>;
+    }
+
+    pub struct SourceCheckProvider;
+    pub struct BufferCheckProvider;
+    pub struct StreamCheckProvider;
+
+    impl<'a, R: AsRmPtr> AsyncCheckProvider<ResourceManagerSource<'a, R>> for SourceCheckProvider {
+        fn as_result_check(t: &ResourceManagerSource<'a, R>) -> MaResult<()> {
+            resource_ffi::ma_resource_manager_data_source_result(t)
+        }
+    }
+
+    impl<'a, R: AsRmPtr> AsyncCheckProvider<ResourceManagerBuffer<'a, R>> for BufferCheckProvider {
+        fn as_result_check(t: &ResourceManagerBuffer<'a, R>) -> MaResult<()> {
+            resource_ffi::ma_resource_manager_data_buffer_result(t)
+        }
+    }
+
+    impl<'a, R: AsRmPtr> AsyncCheckProvider<ResourceManagerStream<'a, R>> for StreamCheckProvider {
+        fn as_result_check(t: &ResourceManagerStream<'a, R>) -> MaResult<()> {
+            resource_ffi::ma_resource_manager_data_stream_result(t)
+        }
+    }
+
+    pub fn result_check<T: AsAsyncSource + ?Sized>(t: &T) -> MaResult<()> {
+        <T as AsAsyncSource>::__ResultProvider::as_result_check(t)
+    }
+}
+
+pub trait AsAsyncSource: AsSourcePtr + SharedSource {
+    type __ResultProvider: AsyncCheckProvider<Self>;
+}
+
+impl<'a, R: AsRmPtr> AsAsyncSource for ResourceManagerSource<'a, R> {
+    type __ResultProvider = SourceCheckProvider;
+}
+impl<'a, R: AsRmPtr> AsAsyncSource for ResourceManagerBuffer<'a, R> {
+    type __ResultProvider = BufferCheckProvider;
+}
+impl<'a, R: AsRmPtr> AsAsyncSource for ResourceManagerStream<'a, R> {
+    type __ResultProvider = StreamCheckProvider;
 }
 
 impl<F: PcmFormat> RmOps for ResourceManager<F> {}
@@ -1958,6 +2149,38 @@ mod test {
             .unwrap();
         let _buf = guard.build_buffer(RmSourceFlags::NONE).unwrap();
         let _src = guard.build_source(RmSourceFlags::NONE).unwrap();
+    }
+
+    #[test]
+    fn test_resource_man_async_without_fence() {
+        let rm = ResourceManagerBuilder::new().build_f32().unwrap();
+
+        let wav = tiny_test_wav_mono(200);
+        let path_guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let path = path_guard.path().to_path_buf();
+        std::fs::write(&path, &wav).unwrap();
+
+        let guard = rm.register_file(&path, RmSourceFlags::ASYNC).unwrap();
+        let mut buffer = guard.build_buffer(RmSourceFlags::ASYNC).unwrap();
+        let now = std::time::Instant::now();
+        let mut elapsed: std::time::Duration;
+        let mut loops: usize = 0;
+        loop {
+            elapsed = now.elapsed();
+            if buffer.poll_ready().unwrap() {
+                println!(
+                    "Succesful poll after: {} micros and {loops} loops",
+                    elapsed.as_micros()
+                );
+                break;
+            }
+            if elapsed.as_millis() > 20 {
+                assert!(buffer.is_ready(), "Polling timed out, resource not ready");
+                break;
+            }
+            loops += 1;
+            std::thread::sleep(std::time::Duration::from_micros(5));
+        }
     }
 
     #[test]

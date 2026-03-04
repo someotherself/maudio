@@ -6,11 +6,14 @@ use crate::{
     data_source::{private_data_source, AsSourcePtr, DataSourceRef, SharedSource},
     engine::resource::{
         resource_ffi, rm_source::SourceBufSource, rm_source_flags::RmSourceFlags, AsRmPtr,
+        PendingResource,
     },
     sound::sound_builder::OwnedPathBuf,
+    util::fence::Fence,
     AsRawRef, Binding, MaResult,
 };
 
+#[derive(Debug)]
 pub struct ResourceManagerStream<'a, R: AsRmPtr + ?Sized> {
     inner: *mut sys::ma_resource_manager_data_stream,
     _format: PhantomData<R::Format>,
@@ -50,6 +53,8 @@ impl<'a, R: AsRmPtr> ResourceManagerStream<'a, R> {
 pub struct ResourceManagerStreamBuilder<'a, R: AsRmPtr + ?Sized> {
     rm: &'a R,
     inner: sys::ma_resource_manager_data_source_config,
+    flags: RmSourceFlags,
+    fence: Option<&'a Fence>,
     source: SourceBufSource<'a>,
     owned_path: OwnedPathBuf,
 }
@@ -63,7 +68,7 @@ impl<'a, R: AsRmPtr + ?Sized> AsRawRef for ResourceManagerStreamBuilder<'a, R> {
 }
 
 // private methods
-impl<'a, R: AsRmPtr + ?Sized> ResourceManagerStream<'a, R> {
+impl<'a, R: AsRmPtr> ResourceManagerStream<'a, R> {
     fn new_with_config(config: &ResourceManagerStreamBuilder<'a, R>) -> MaResult<Self> {
         let mut mem: Box<MaybeUninit<sys::ma_resource_manager_data_stream>> =
             Box::new(MaybeUninit::uninit());
@@ -81,12 +86,14 @@ impl<'a, R: AsRmPtr + ?Sized> ResourceManagerStream<'a, R> {
     }
 }
 
-impl<'a, R: AsRmPtr + ?Sized> ResourceManagerStreamBuilder<'a, R> {
+impl<'a, R: AsRmPtr> ResourceManagerStreamBuilder<'a, R> {
     pub fn new(rm: &'a R) -> Self {
         let inner = unsafe { sys::ma_resource_manager_data_source_config_init() };
         Self {
             rm,
             inner,
+            flags: RmSourceFlags::NONE,
+            fence: None,
             source: SourceBufSource::None,
             owned_path: OwnedPathBuf::None,
         }
@@ -135,9 +142,35 @@ impl<'a, R: AsRmPtr + ?Sized> ResourceManagerStreamBuilder<'a, R> {
         Ok(())
     }
 
-    pub fn build(&mut self) -> MaResult<ResourceManagerStream<'a, R>> {
+    pub fn async_load(&mut self, yes: bool) -> &mut Self {
+        let mut flags = RmSourceFlags::from_bits(self.inner.flags);
+        if yes {
+            flags.insert(RmSourceFlags::ASYNC);
+        } else {
+            flags.remove(RmSourceFlags::ASYNC);
+        }
+        self.inner.flags = flags.bits();
+        self.flags = flags;
+        self
+    }
+
+    pub fn fence(&mut self, fence: &'a Fence) -> &mut Self {
+        self.fence = Some(fence);
+        self.async_load(true);
+        self
+    }
+
+    pub(crate) fn build_internal(&mut self) -> MaResult<ResourceManagerStream<'a, R>> {
         self.set_source()?;
         ResourceManagerStream::<R>::new_with_config(self)
+    }
+
+    pub fn build(&mut self) -> MaResult<PendingResource<ResourceManagerStream<'a, R>>> {
+        let buf = self.build_internal()?;
+        if self.flags.intersects(RmSourceFlags::ASYNC) {
+            return Ok(PendingResource::Pending { inner: Some(buf) });
+        }
+        Ok(PendingResource::Ready { inner: buf })
     }
 }
 

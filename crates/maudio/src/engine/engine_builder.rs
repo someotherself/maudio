@@ -207,7 +207,34 @@ impl EngineBuilder {
 
     /// # Safety
     ///
-    /// TODO
+    /// This API installs a callback that is executed from the engine’s **real-time audio thread**
+    /// (Miniaudio’s `onProcess` hook). Misuse will not usually cause immediate UB, but it can
+    /// easily cause audible glitches, deadlocks, or stalls in the audio callback.
+    ///
+    /// ## Real-time callback rules
+    ///
+    /// The callback `cb` **must be real-time safe**:
+    ///
+    /// - **Do not block.** Never call `Mutex::lock()` (or anything that may wait), never join threads,
+    ///   never wait on condition variables, channels, or I/O.
+    /// - **Do not perform file/network I/O** or other operations with unbounded latency.
+    /// - **Avoid allocations.** Do not allocate on the heap (`Vec`, `String`, formatting, logging).
+    /// - **Keep it fast and deterministic.** Prefer simple DSP, pointer-free loops, and preallocated state.
+    ///
+    /// ## Reentrancy
+    ///
+    /// The callback must not call back into the same engine in a way that would re-enter the
+    /// process callback. Reentrancy is suppressed: if the process callback is already running,
+    /// further invocations will be dropped.
+    ///
+    /// ## Memory validity
+    ///
+    /// - The slice passed to `cb` is borrowed from Miniaudio’s output buffer.
+    ///   It is **only valid for the duration of the callback** and must not be stored
+    ///   or referenced after the callback returns.
+    /// - The callback must not panic. A panic unwinding through the FFI boundary is undefined behavior.
+    ///   (If you need to report errors, store them in lock-free shared state and handle them on a
+    ///   non-real-time thread.)
     pub unsafe fn with_realtime_callback<C>(&mut self, cb: C) -> MaResult<(Engine, ProcessNotifier)>
     where
         C: FnMut(&mut [f32], u32) + Send + 'static,
