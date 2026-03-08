@@ -988,11 +988,10 @@ fn drop_loopback_device_state<F: PcmFormat, C>(ptr: *mut core::ffi::c_void) {
 
 #[cfg(test)]
 mod test {
-    use crate::device::device_builder::{DeviceBuilder, DeviceBuilderOps};
-
     #[cfg(not(feature = "ci-tests"))]
     #[test]
     fn test_device_builder_basic_playback_init() {
+        use crate::device::device_builder::{DeviceBuilder, DeviceBuilderOps};
         let mut device = DeviceBuilder::playback()
             .f32()
             .playback_channels(2)
@@ -1008,6 +1007,7 @@ mod test {
     #[cfg(not(feature = "ci-tests"))]
     #[test]
     fn test_device_builder_basic_capture_init() {
+        use crate::device::device_builder::{DeviceBuilder, DeviceBuilderOps};
         let mut device = DeviceBuilder::capture()
             .f32()
             .capture_channels(2)
@@ -1021,6 +1021,7 @@ mod test {
     #[cfg(not(feature = "ci-tests"))]
     #[test]
     fn test_device_builder_basic_duplex_init() {
+        use crate::device::device_builder::{DeviceBuilder, DeviceBuilderOps};
         let mut device = DeviceBuilder::duplex()
             .f32()
             .playback_channels(2)
@@ -1038,6 +1039,7 @@ mod test {
     #[cfg(windows)]
     #[test]
     fn test_device_builder_basic_loopback_init() {
+        use crate::device::device_builder::{DeviceBuilder, DeviceBuilderOps};
         let mut device = DeviceBuilder::loopback()
             .f32()
             .capture_channels(2)
