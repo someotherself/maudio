@@ -131,7 +131,7 @@ impl<F: PcmFormat, S> Decoder<F, S> {
         config: &DecoderBuilder,
     ) -> MaResult<Decoder<S24Packed, External>> {
         let inner = Decoder::<S24Packed, External>::init_file_internal(path, config)?;
-        Ok(Decoder::new(inner, config, Format::S24, External))
+        Ok(Decoder::new(inner, config, Format::S24Packed, External))
     }
 
     fn init_f32_file(path: &Path, config: &DecoderBuilder) -> MaResult<Decoder<f32, External>> {
@@ -160,7 +160,12 @@ impl<F: PcmFormat, S> Decoder<F, S> {
         config: &DecoderBuilder,
     ) -> MaResult<Decoder<S24, Borrowed<'a>>> {
         let inner = Self::init_ref_internal(data, config)?;
-        Ok(Decoder::new(inner, config, Format::S24, Borrowed(data)))
+        Ok(Decoder::new(
+            inner,
+            config,
+            Format::S24Packed,
+            Borrowed(data),
+        ))
     }
 
     fn init_s24_packed_ref_from_memory<'a>(
@@ -168,7 +173,12 @@ impl<F: PcmFormat, S> Decoder<F, S> {
         config: &DecoderBuilder,
     ) -> MaResult<Decoder<S24Packed, Borrowed<'a>>> {
         let inner = Self::init_ref_internal(data, config)?;
-        Ok(Decoder::new(inner, config, Format::S24, Borrowed(data)))
+        Ok(Decoder::new(
+            inner,
+            config,
+            Format::S24Packed,
+            Borrowed(data),
+        ))
     }
 
     fn init_i32_ref_from_memory<'a>(
@@ -211,7 +221,12 @@ impl<F: PcmFormat, S> Decoder<F, S> {
     ) -> MaResult<Decoder<S24Packed, Owned>> {
         let data_arc = data.into();
         let inner = Self::init_copy_internal(data_arc.clone(), config)?;
-        Ok(Decoder::new(inner, config, Format::S24, Owned(data_arc)))
+        Ok(Decoder::new(
+            inner,
+            config,
+            Format::S24Packed,
+            Owned(data_arc),
+        ))
     }
 
     fn init_i32_copy_from_memory<D: Into<Arc<[u8]>>>(
@@ -685,12 +700,12 @@ impl DecoderBuilder {
         &mut self,
         data: &'a [u8],
     ) -> MaResult<Decoder<S24Packed, Borrowed<'a>>> {
-        self.inner.format = Format::S24.into();
+        self.inner.format = Format::S24Packed.into();
         Decoder::<S24Packed, Borrowed<'a>>::init_s24_packed_ref_from_memory(data, self)
     }
 
     pub fn s24_memory<'a>(&mut self, data: &'a [u8]) -> MaResult<Decoder<S24, Borrowed<'a>>> {
-        self.inner.format = Format::S24.into();
+        self.inner.format = Format::S24Packed.into();
         Decoder::<S24, Borrowed<'a>>::init_s24_ref_from_memory(data, self)
     }
 
@@ -721,7 +736,7 @@ impl DecoderBuilder {
         &mut self,
         data: D,
     ) -> MaResult<Decoder<S24Packed, Owned>> {
-        self.inner.format = Format::S24.into();
+        self.inner.format = Format::S24Packed.into();
         Decoder::<S24Packed, Owned>::init_s24_copy_from_memory(data, self)
     }
 
@@ -729,7 +744,7 @@ impl DecoderBuilder {
         &mut self,
         _data: D,
     ) -> MaResult<Decoder<S24, Owned>> {
-        self.inner.format = Format::S24.into();
+        self.inner.format = Format::S24Packed.into();
         // Decoder::<S24, Owned>::init_s24_copy_from_memory(data, self)
         todo!()
     }
@@ -761,7 +776,7 @@ impl DecoderBuilder {
     }
 
     pub fn s24_file(&mut self, path: &Path) -> MaResult<Decoder<S24Packed, External>> {
-        self.inner.format = Format::S24.into();
+        self.inner.format = Format::S24Packed.into();
         Decoder::<S24Packed, External>::init_s24_file(path, self)
     }
 

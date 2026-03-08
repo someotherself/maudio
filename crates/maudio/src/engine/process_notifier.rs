@@ -117,7 +117,7 @@ pub(crate) unsafe extern "C" fn on_process_callback(
     let ctx = unsafe { &*(user_data as *const ProcessState) };
     ctx.frames_read.fetch_add(frame_count, Ordering::Relaxed);
 
-    if ctx.cb.get().as_ref().is_none() || frames_out.is_null() || frame_count == 0 {
+    if frames_out.is_null() || frame_count == 0 {
         return;
     }
 

@@ -971,9 +971,9 @@ pub(crate) mod private_pcm {
 pub trait PcmFormat {
     type __PcmFramesProvider: private_pcm::PcmInterface<Self>;
 
-    /// The sample format used by the user. Not a whole frame.
+    /// The sample format used by the user.
     type PcmUnit: Default + Copy;
-    /// Sample format used by miniaudio. Not a whole frame.
+    /// Sample format used by miniaudio.
     type StorageUnit: Default + Copy;
     /// Number of `StorageUnit` items per channel sample in a buffer.
     ///
@@ -985,6 +985,7 @@ pub trait PcmFormat {
     const VEC_PCM_UNITS_PER_FRAME: usize;
     /// Used for simple logic only, when we don't want to call the PcmInterface trait
     const DIRECT_READ: bool;
+    const SILENCE: Self::StorageUnit;
 }
 
 impl PcmFormat for u8 {
@@ -995,6 +996,7 @@ impl PcmFormat for u8 {
     const VEC_STORE_UNITS_PER_FRAME: usize = 1;
     const VEC_PCM_UNITS_PER_FRAME: usize = 1;
     const DIRECT_READ: bool = true;
+    const SILENCE: Self::StorageUnit = 128;
 }
 
 impl PcmFormat for i16 {
@@ -1005,6 +1007,7 @@ impl PcmFormat for i16 {
     const VEC_STORE_UNITS_PER_FRAME: usize = 1;
     const VEC_PCM_UNITS_PER_FRAME: usize = 1;
     const DIRECT_READ: bool = true;
+    const SILENCE: Self::StorageUnit = 0;
 }
 
 impl PcmFormat for S24Packed {
@@ -1015,6 +1018,7 @@ impl PcmFormat for S24Packed {
     const VEC_STORE_UNITS_PER_FRAME: usize = 3;
     const VEC_PCM_UNITS_PER_FRAME: usize = 3;
     const DIRECT_READ: bool = true;
+    const SILENCE: Self::StorageUnit = 0;
 }
 
 impl PcmFormat for S24 {
@@ -1025,6 +1029,7 @@ impl PcmFormat for S24 {
     const VEC_STORE_UNITS_PER_FRAME: usize = 3;
     const VEC_PCM_UNITS_PER_FRAME: usize = 1;
     const DIRECT_READ: bool = false;
+    const SILENCE: Self::StorageUnit = 0;
 }
 
 impl PcmFormat for i32 {
@@ -1035,6 +1040,7 @@ impl PcmFormat for i32 {
     const VEC_STORE_UNITS_PER_FRAME: usize = 1;
     const VEC_PCM_UNITS_PER_FRAME: usize = 1;
     const DIRECT_READ: bool = true;
+    const SILENCE: Self::StorageUnit = 0;
 }
 
 impl PcmFormat for f32 {
@@ -1044,4 +1050,5 @@ impl PcmFormat for f32 {
     const VEC_STORE_UNITS_PER_FRAME: usize = 1;
     const VEC_PCM_UNITS_PER_FRAME: usize = 1;
     const DIRECT_READ: bool = true;
+    const SILENCE: Self::StorageUnit = 0.0;
 }

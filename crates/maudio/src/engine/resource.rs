@@ -760,7 +760,7 @@ pub trait RmOps: AsRmPtr {
             self,
             name,
             data,
-            Format::S24,
+            Format::S24Packed,
             channels,
             sample_rate,
         )?;
@@ -811,7 +811,7 @@ pub trait RmOps: AsRmPtr {
             self,
             name,
             &dst,
-            Format::S24,
+            Format::S24Packed,
             channels,
             sample_rate,
         )?;

@@ -121,12 +121,12 @@ impl ResourceManagerBuilder {
     }
 
     pub fn build_s24_packed(&mut self) -> MaResult<ResourceManager<S24Packed>> {
-        self.set_format(Format::S24);
+        self.set_format(Format::S24Packed);
         ResourceManager::new_with_config(self)
     }
 
     pub fn build_s24(&mut self) -> MaResult<ResourceManager<S24>> {
-        self.set_format(Format::S24);
+        self.set_format(Format::S24Packed);
         ResourceManager::new_with_config(self)
     }
 

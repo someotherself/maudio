@@ -28,7 +28,7 @@ use crate::{
 pub enum Format {
     U8,
     S16,
-    S24,
+    S24Packed,
     S32,
     F32,
 }
@@ -63,7 +63,7 @@ impl From<Format> for sys::ma_format {
         match value {
             Format::U8 => sys::ma_format_ma_format_u8,
             Format::S16 => sys::ma_format_ma_format_s16,
-            Format::S24 => sys::ma_format_ma_format_s24,
+            Format::S24Packed => sys::ma_format_ma_format_s24,
             Format::S32 => sys::ma_format_ma_format_s32,
             Format::F32 => sys::ma_format_ma_format_f32,
         }
@@ -76,7 +76,7 @@ impl TryFrom<sys::ma_format> for Format {
         match value {
             sys::ma_format_ma_format_u8 => Ok(Format::U8),
             sys::ma_format_ma_format_s16 => Ok(Format::S16),
-            sys::ma_format_ma_format_s24 => Ok(Format::S24),
+            sys::ma_format_ma_format_s24 => Ok(Format::S24Packed),
             sys::ma_format_ma_format_s32 => Ok(Format::S32),
             sys::ma_format_ma_format_f32 => Ok(Format::F32),
             _ => Err(MaudioError::new_ma_error(ErrorKinds::InvalidFormat)),
@@ -319,7 +319,7 @@ mod tests {
             sys::ma_format_ma_format_s16
         );
         assert_eq!(
-            sys::ma_format::from(Format::S24),
+            sys::ma_format::from(Format::S24Packed),
             sys::ma_format_ma_format_s24
         );
         assert_eq!(
@@ -344,7 +344,7 @@ mod tests {
         );
         assert_eq!(
             Format::try_from(sys::ma_format_ma_format_s24).unwrap(),
-            Format::S24
+            Format::S24Packed
         );
         assert_eq!(
             Format::try_from(sys::ma_format_ma_format_s32).unwrap(),

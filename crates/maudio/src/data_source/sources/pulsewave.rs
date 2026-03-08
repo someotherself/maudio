@@ -430,28 +430,28 @@ impl PulseWaveBuilder {
     }
 
     pub fn build_s24(&mut self) -> MaResult<PulseWave<S24>> {
-        self.inner.format = Format::S24.into();
+        self.inner.format = Format::S24Packed.into();
 
         let inner = self.new_inner()?;
         let state = self.new_state();
 
         Ok(PulseWave {
             inner,
-            format: Format::S24,
+            format: Format::S24Packed,
             state,
             _sample_format: PhantomData,
         })
     }
 
     pub fn build_s24_packed(&mut self) -> MaResult<PulseWave<S24Packed>> {
-        self.inner.format = Format::S24.into();
+        self.inner.format = Format::S24Packed.into();
 
         let inner = self.new_inner()?;
         let state = self.new_state();
 
         Ok(PulseWave {
             inner,
-            format: Format::S24,
+            format: Format::S24Packed,
             state,
             _sample_format: PhantomData,
         })

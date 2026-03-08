@@ -277,19 +277,19 @@ impl PcmRingBuffer {
         size_frames: u32,
         channels: u32,
     ) -> MaResult<(PcmRbSend<S24Packed>, PcmRbRecv<S24Packed>)> {
-        let inner = Self::new_inner_ex(size_frames, Format::S24, channels, 1, 0)?;
+        let inner = Self::new_inner_ex(size_frames, Format::S24Packed, channels, 1, 0)?;
         Self::init::<S24Packed>(inner, channels)
     }
 
     /// Constructs a ring-buffer for interleaved audio frames.
     pub fn new_s24(size_frames: u32, channels: u32) -> MaResult<(PcmRbSend<S24>, PcmRbRecv<S24>)> {
-        let inner = Self::new_inner_ex(size_frames, Format::S24, channels, 1, 0)?;
+        let inner = Self::new_inner_ex(size_frames, Format::S24Packed, channels, 1, 0)?;
         Self::init::<S24>(inner, channels)
     }
 
     /// Constructs a ring-buffer for interleaved audio frames.
     pub fn new_i32(size_frames: u32, channels: u32) -> MaResult<(PcmRbSend<i32>, PcmRbRecv<i32>)> {
-        let inner = Self::new_inner_ex(size_frames, Format::S24, channels, 1, 0)?;
+        let inner = Self::new_inner_ex(size_frames, Format::S24Packed, channels, 1, 0)?;
         Self::init::<i32>(inner, channels)
     }
 

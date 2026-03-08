@@ -33,6 +33,27 @@
 //!
 //! This crate builds and links the vendored **miniaudio** C library and exposes raw FFI bindings.
 //!
+//! ## Backend Features
+//!
+//! These features disable specific miniaudio backends.
+//!
+//! | Feature | Backend |
+//! |-------|--------|
+//! | `no_wasapi` | Windows WASAPI |
+//! | `no_dsound` | Windows DirectSound |
+//! | `no_winmm` | Windows WinMM |
+//! | `no_alsa` | Linux ALSA |
+//! | `no_pulseaudio` | Linux PulseAudio |
+//! | `no_jack` | JACK |
+//! | `no_coreaudio` | macOS/iOS CoreAudio |
+//! | `no_sndio` | OpenBSD sndio |
+//! | `no_audio4` | NetBSD audio |
+//! | `no_oss` | OSS |
+//! | `no_aaudio` | Android AAudio |
+//! | `no_opensl` | Android OpenSL |
+//!
+//! By default **all backends are enabled** unless explicitly disabled.
+//!
 //! ## `vorbis`
 //! Enables Ogg/Vorbis decoding by compiling the `stb_vorbis` implementation into the miniaudio
 //! translation unit.
@@ -49,6 +70,7 @@
 #![allow(dead_code)]
 
 pub mod audio;
+pub mod backend;
 mod context; // not implemented
 pub mod data_source;
 mod device; // not implemented
@@ -65,7 +87,7 @@ use std::sync::Arc;
 
 use maudio_sys::ffi as sys;
 
-// IMPORTANT: type Raw must be a *mut pointer
+/// IMPORTANT: type Raw must be a *mut pointer
 pub(crate) trait Binding: Sized {
     type Raw;
 

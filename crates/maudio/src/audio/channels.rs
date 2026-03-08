@@ -194,7 +194,7 @@ impl TryFrom<sys::ma_standard_channel_map> for ChannelMap {
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Channel(pub sys::ma_channel);
+pub struct Channel(sys::ma_channel);
 
 impl Channel {
     #[inline]

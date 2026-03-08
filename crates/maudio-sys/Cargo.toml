@@ -15,6 +15,20 @@ default = []
 generate-bindings = ["dep:bindgen"]
 vorbis = []
 
+# Disable specific backends
+no-wasapi = []
+no-dsound = []
+no-winmm = []
+no-alsa = []
+no-pulseaudio = []
+no-jack = []
+no-coreaudio = []
+no-sndio = []
+no-audio4 = []
+no-oss = []
+no-aaudio = []
+no-opensl = []
+
 [build-dependencies.bindgen]
 version = "0.72.1"
 optional = true

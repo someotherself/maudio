@@ -1,6 +1,8 @@
 use std::env;
 use std::path::PathBuf;
 
+use cc::Build;
+
 #[cfg(feature = "generate-bindings")]
 fn write_bindings(out_bindings: &std::path::Path) {
     let mut builder = bindgen::Builder::default()
@@ -32,6 +34,45 @@ fn write_bindings(out_bindings: &std::path::Path) {
         .expect("Failed to copy pre-generated bindings to OUT_DIR");
 }
 
+fn backend_features(builder: &mut Build) {
+    if cfg!(feature = "no-wasapi") {
+        builder.define("MA_NO_WASAPI", "1");
+    }
+    if cfg!(feature = "no-dsound") {
+        builder.define("MA_NO_DSOUND", "1");
+    }
+    if cfg!(feature = "no-winmm") {
+        builder.define("MA_NO_WINMM", "1");
+    }
+    if cfg!(feature = "no-alsa") {
+        builder.define("MA_NO_ALSA", "1");
+    }
+    if cfg!(feature = "no-pulseaudio") {
+        builder.define("MA_NO_PULSEAUDIO", "1");
+    }
+    if cfg!(feature = "no-jack") {
+        builder.define("MA_NO_JACK", "1");
+    }
+    if cfg!(feature = "no-coreaudio") {
+        builder.define("MA_NO_COREAUDIO", "1");
+    }
+    if cfg!(feature = "no-sndio") {
+        builder.define("MA_NO_SNDIO", "1");
+    }
+    if cfg!(feature = "no-audio4") {
+        builder.define("MA_NO_AUDIO4", "1");
+    }
+    if cfg!(feature = "no-oss") {
+        builder.define("MA_NO_OSS", "1");
+    }
+    if cfg!(feature = "no-aaudio") {
+        builder.define("MA_NO_AAUDIO", "1");
+    }
+    if cfg!(feature = "no-opensl") {
+        builder.define("MA_NO_OPENSL", "1");
+    }
+}
+
 fn main() {
     if cfg!(feature = "generate-bindings") {
         let minor = rustc_minor().unwrap_or(0);
@@ -56,6 +97,9 @@ fn main() {
     } else {
         cc_builder.define("MA_NO_VORBIS", "1");
     }
+
+    // backend features
+    backend_features(&mut cc_builder);
 
     cc_builder
         .file("native/miniaudio_version_check.c")

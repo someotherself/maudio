@@ -1,0 +1,82 @@
+use std::fmt::Display;
+
+use maudio_sys::ffi as sys;
+
+use crate::{ErrorKinds, MaudioError};
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum DeviceType {
+    PlayBack,
+    Capture,
+    Duplex,
+    LoopBack,
+}
+
+impl From<DeviceType> for sys::ma_device_type {
+    fn from(v: DeviceType) -> Self {
+        match v {
+            DeviceType::PlayBack => sys::ma_device_type_ma_device_type_playback,
+            DeviceType::Capture => sys::ma_device_type_ma_device_type_capture,
+            DeviceType::Duplex => sys::ma_device_type_ma_device_type_duplex,
+            DeviceType::LoopBack => sys::ma_device_type_ma_device_type_loopback,
+        }
+    }
+}
+
+impl TryFrom<sys::ma_device_type> for DeviceType {
+    type Error = MaudioError;
+
+    fn try_from(value: sys::ma_device_type) -> Result<Self, Self::Error> {
+        match value {
+            sys::ma_device_type_ma_device_type_playback => Ok(DeviceType::PlayBack),
+            sys::ma_device_type_ma_device_type_capture => Ok(DeviceType::Capture),
+            sys::ma_device_type_ma_device_type_duplex => Ok(DeviceType::Duplex),
+            sys::ma_device_type_ma_device_type_loopback => Ok(DeviceType::LoopBack),
+            other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
+                DeviceType,
+            >(other as i64))),
+        }
+    }
+}
+
+impl Display for DeviceType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DeviceType::PlayBack => write!(f, "PlayBack"),
+            DeviceType::Capture => write!(f, "Capture"),
+            DeviceType::LoopBack => write!(f, "LoopBack"),
+            DeviceType::Duplex => write!(f, "Duplex"),
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub enum DeviceShareMode {
+    Shared,
+    Exclusive,
+}
+
+impl From<DeviceShareMode> for sys::ma_share_mode {
+    fn from(value: DeviceShareMode) -> Self {
+        match value {
+            DeviceShareMode::Shared => sys::ma_share_mode_ma_share_mode_shared,
+            DeviceShareMode::Exclusive => sys::ma_share_mode_ma_share_mode_exclusive,
+        }
+    }
+}
+
+impl TryFrom<sys::ma_share_mode> for DeviceShareMode {
+    type Error = MaudioError;
+
+    fn try_from(value: sys::ma_share_mode) -> Result<Self, Self::Error> {
+        match value {
+            sys::ma_share_mode_ma_share_mode_shared => Ok(DeviceShareMode::Shared),
+            sys::ma_share_mode_ma_share_mode_exclusive => Ok(DeviceShareMode::Exclusive),
+            other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
+                DeviceShareMode,
+            >(other as i64))),
+        }
+    }
+}

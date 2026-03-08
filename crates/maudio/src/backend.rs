@@ -2,7 +2,8 @@ use maudio_sys::ffi as sys;
 
 use crate::{ErrorKinds, MaudioError};
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 #[repr(C)]
 pub enum Backend {
     Wasapi,
@@ -90,7 +91,8 @@ impl Backend {
         Backend::Null,
     ];
 
-    pub const fn supported_on_this_platform(self) -> bool {
+    /// Compile time check. Does not check for feature such as `no_wasapi`
+    pub const fn possible_on_this_target(self) -> bool {
         match self {
             // Windows
             Backend::Wasapi | Backend::DSound | Backend::WinMm => cfg!(windows),
@@ -127,15 +129,14 @@ impl Backend {
         Self::ALL
             .iter()
             .copied()
-            .filter(|b| b.supported_on_this_platform())
+            .filter(|b| b.possible_on_this_target())
     }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::context::backend::Backend;
+    use super::*;
 
-    // TODO: Create a reliable way to order them
     #[test]
     fn backends_test_supported_on_platform() {
         let backends = Backend::all_supported_on_this_platform();

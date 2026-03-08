@@ -662,7 +662,7 @@ impl<'a> AudioBufferBuilder<'a> {
             channels as usize,
         )?;
         let builder = Self::init(
-            Format::S24,
+            Format::S24Packed,
             channels,
             frames as u64,
             dst.as_ptr() as *const _,
@@ -681,7 +681,7 @@ impl<'a> AudioBufferBuilder<'a> {
             data.len() / channels as usize / <S24Packed as PcmFormat>::VEC_PCM_UNITS_PER_FRAME;
 
         let builder = Self::init(
-            Format::S24,
+            Format::S24Packed,
             channels,
             frames as u64,
             data.as_ptr() as *const _,
@@ -711,7 +711,7 @@ impl<'a> AudioBufferBuilder<'a> {
         channels: u32,
         data: &'a [u8],
     ) -> MaResult<AudioBufferRef<'a, S24Packed>> {
-        let builder = Self::new_ref::<S24Packed>(Format::S24, channels, data)?;
+        let builder = Self::new_ref::<S24Packed>(Format::S24Packed, channels, data)?;
         AudioBufferRef::new_with_cfg_internal(&builder)
     }
 

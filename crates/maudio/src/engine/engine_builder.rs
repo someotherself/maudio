@@ -284,12 +284,11 @@ mod test {
 
     #[test]
     fn test_engine_builder_with_realtime_callback_basic_init() {
-        let (engine, _) = unsafe {
+        let (_engine, _notifier) = unsafe {
             EngineBuilder::new()
                 .with_realtime_callback(|_samples, _channels| {})
                 .unwrap()
         };
-        drop(engine);
     }
 
     #[test]
@@ -356,10 +355,7 @@ mod test {
     #[test]
     fn test_engine_builder_process_notifier_drop_order_notifier_then_engine() -> MaResult<()> {
         let mut b = EngineBuilder::new();
-        let (engine, tick) = b.with_process_notifier()?;
-
-        drop(tick);
-        drop(engine);
+        let (_engine, _tick) = b.with_process_notifier()?;
 
         Ok(())
     }
