@@ -141,12 +141,10 @@ mod test {
     fn test_devices_iter() {
         let ctx = ContextBuilder::new().build().unwrap();
         let devices = ctx.get_devices().unwrap();
-        let mut iter = devices.capture();
-        while let Some((_, info)) = iter.next() {
+        for (_, info) in devices.capture() {
             println!("Capture device: {}", info.device_name());
         }
-        let mut iter = devices.playback();
-        while let Some((_, info)) = iter.next() {
+        for (_, info) in devices.playback() {
             println!("PlayBack device: {}", info.device_name());
         }
         let total_devices = devices.iter().count();
@@ -154,8 +152,7 @@ mod test {
             total_devices,
             devices.capture.len() + devices.playback.len()
         );
-        let mut iter = devices.iter();
-        while let Some((device_type, info)) = iter.next() {
+        for (device_type, info) in devices.iter() {
             println!("{} device: {}", device_type, info.device_name());
         }
     }
