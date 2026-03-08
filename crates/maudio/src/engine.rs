@@ -856,6 +856,7 @@ pub(crate) mod engine_ffi {
 
     use crate::{
         audio::{formats::SampleBuffer, math::vec3::Vec3, spatial::cone::Cone},
+        device::DeviceRef,
         engine::{
             engine_builder::EngineBuilder,
             node_graph::{nodes::NodeRef, NodeGraphRef},
@@ -959,16 +960,15 @@ pub(crate) mod engine_ffi {
     }
 
     // AsEnginePtr
-    // TODO: Create Device(Ref?)
     #[inline]
-    pub fn ma_engine_get_device<E: AsEnginePtr + ?Sized>(
-        engine: &E,
-    ) -> Option<*mut sys::ma_device> {
+    pub fn ma_engine_get_device<'a, E: AsEnginePtr + ?Sized>(
+        engine: &'a E,
+    ) -> Option<DeviceRef<'a>> {
         let ptr = unsafe { sys::ma_engine_get_device(private_engine::engine_ptr(engine)) };
         if ptr.is_null() {
             None
         } else {
-            Some(ptr)
+            Some(DeviceRef::from_ptr(ptr))
         }
     }
 
