@@ -71,11 +71,12 @@
 
 pub mod audio;
 pub mod backend;
-mod context; // not implemented
+pub mod context;
 pub mod data_source;
-mod device; // not implemented
+pub mod device;
 pub mod engine;
 pub mod pcm_frames;
+mod resampler; // not implemented
 pub mod sound;
 pub(crate) mod test_assets;
 pub mod util;

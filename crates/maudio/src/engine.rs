@@ -43,17 +43,24 @@
 //! Time can be queried or modified in either PCM frames or milliseconds.
 //!
 //! For sample-accurate control, prefer the PCM-frame APIs.
-use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit, path::Path, sync::Arc};
+use std::{
+    cell::Cell,
+    marker::PhantomData,
+    mem::MaybeUninit,
+    path::Path,
+    sync::{atomic::AtomicBool, Arc},
+};
 
 use crate::{
     audio::{
         formats::SampleBuffer, math::vec3::Vec3, sample_rate::SampleRate, spatial::cone::Cone,
     },
     data_source::AsSourcePtr,
+    device::DeviceRef,
     engine::{
         engine_builder::EngineBuilder,
         node_graph::{nodes::NodeRef, NodeGraphRef},
-        process_notifier::ProcessState,
+        process_cb::ProcessState,
         resource::{ResourceManager, ResourceManagerRef},
     },
     sound::{
@@ -63,7 +70,7 @@ use crate::{
         sound_group::{s_group_cfg_ffi, s_group_ffi, SoundGroup, SoundGroupConfig},
         Sound,
     },
-    util::fence::Fence,
+    util::{device_notif::DeviceStateNotifier, fence::Fence},
     AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
 };
 
@@ -72,8 +79,9 @@ use maudio_sys::ffi as sys;
 pub mod engine_builder;
 mod engine_host;
 
+pub mod engine_cb_notif;
 pub mod node_graph;
-pub mod process_notifier;
+pub mod process_cb;
 pub mod resource;
 
 /// High-level audio engine.
@@ -89,8 +97,10 @@ pub mod resource;
 /// - optionally interact with the engine’s endpoint node / node graph for effects
 pub struct Engine {
     inner: *mut sys::ma_engine,
-    process_notifier: Option<Arc<ProcessState>>,
+    process_data_ptr: Option<*mut ProcessState>, // userdata (self.inner.pProcessUserData)
+    process_data_panic: Option<Arc<AtomicBool>>, // true = callback panicked and is now poisoned
     resource_manager: Option<ResourceManager<f32>>, // a ref count, not ownership
+    state_notifier: Option<DeviceStateNotifier>,
     _not_sync: PhantomData<Cell<()>>,
 }
 
@@ -279,6 +289,11 @@ pub trait EngineOps: AsEnginePtr {
         engine_ffi::ma_engine_get_resource_manager(self)
     }
 
+    /// Returns the engine's internal device, if available
+    fn device(&self) -> Option<DeviceRef<'_>> {
+        engine_ffi::ma_engine_get_device(self)
+    }
+
     /// Reads PCM frames into `dst`, returning the number of frames read.
     fn read_pcm_frames_into(&self, dst: &mut [f32]) -> MaResult<usize> {
         if engine_ffi::ma_engine_get_device(self).is_some() {
@@ -361,14 +376,19 @@ impl Engine {
         Self::new_with_config(None)
     }
 
-    pub(crate) fn new_for_tests() -> MaResult<Self> {
-        if cfg!(feature = "ci-tests") {
-            EngineBuilder::new()
-                .no_device(2, SampleRate::Sr44100)
-                .build()
-        } else {
-            Engine::new()
+    /// Checks if the data onProcess callback is poisoned
+    pub fn data_callback_panicked(&self) -> bool {
+        match &self.process_data_panic {
+            Some(flag) => flag.load(std::sync::atomic::Ordering::Relaxed),
+            None => false,
         }
+    }
+
+    /// Retrieves a [`DeviceStateNotifier`] if one is present, that fires when the state of the device is changed
+    ///
+    /// `DeviceStateNotifier` is cheap to clone, and this function can be safely called multiple times
+    pub fn get_state_notifier(&self) -> Option<DeviceStateNotifier> {
+        self.state_notifier.clone()
     }
 
     fn new_with_config(config: Option<&EngineBuilder>) -> MaResult<Self> {
@@ -379,7 +399,9 @@ impl Engine {
         Ok(Self {
             inner,
             resource_manager: None,
-            process_notifier: None,
+            process_data_ptr: None,
+            process_data_panic: None,
+            state_notifier: None,
             _not_sync: PhantomData,
         })
     }
@@ -440,6 +462,47 @@ impl Engine {
         self.new_sound_with_file_internal(path, flags, None, done_fence)
     }
 
+    pub fn new_sound_group(&self) -> MaResult<SoundGroup<'_>> {
+        let mut mem: Box<MaybeUninit<sys::ma_sound_group>> = Box::new(MaybeUninit::uninit());
+        let config = self.new_sound_group_config();
+
+        s_group_ffi::ma_sound_group_init_ex(self, config, mem.as_mut_ptr())?;
+
+        let inner: *mut sys::ma_sound_group = Box::into_raw(mem) as *mut sys::ma_sound_group;
+        Ok(SoundGroup::from_ptr(inner))
+    }
+
+    pub fn new_sound_group_config(&self) -> SoundGroupConfig {
+        s_group_cfg_ffi::ma_sound_group_config_init_2(self)
+    }
+}
+
+// Private mathods
+impl Engine {
+    fn new_sound_instance_internal<'a>(
+        &'a self,
+        sound: &Sound,
+        flags: SoundFlags,
+        sound_group: Option<&mut SoundGroup>,
+    ) -> MaResult<Sound<'a>> {
+        let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new(MaybeUninit::uninit());
+
+        sound_ffi::ma_sound_init_copy(self, sound, flags, sound_group, mem.as_mut_ptr())?;
+
+        let inner: *mut sys::ma_sound = Box::into_raw(mem) as *mut sys::ma_sound;
+        Ok(Sound::from_ptr(inner))
+    }
+
+    pub(crate) fn new_for_tests() -> MaResult<Self> {
+        if cfg!(feature = "ci-tests") {
+            EngineBuilder::new()
+                .no_device(2, SampleRate::Sr44100)
+                .build()
+        } else {
+            Engine::new()
+        }
+    }
+
     pub(crate) fn new_sound_with_config_internal(
         &self,
         config: Option<&SoundBuilder>,
@@ -452,6 +515,10 @@ impl Engine {
 
         let inner: *mut sys::ma_sound = Box::into_raw(mem) as *mut sys::ma_sound;
         Ok(Sound::from_ptr(inner))
+    }
+
+    pub fn clone_sound(&self, sound: &Sound, flags: SoundFlags) -> MaResult<Sound<'_>> {
+        self.new_sound_instance_internal(sound, flags, None)
     }
 
     pub(crate) fn new_sound_with_source_internal<'a, D: AsSourcePtr + ?Sized>(
@@ -495,43 +562,14 @@ impl Engine {
         let inner: *mut sys::ma_sound = Box::into_raw(mem) as *mut sys::ma_sound;
         Ok(Sound::from_ptr(inner))
     }
-
-    pub fn clone_sound(&self, sound: &Sound, flags: SoundFlags) -> MaResult<Sound<'_>> {
-        self.new_sound_instance_internal(sound, flags, None)
-    }
-
-    fn new_sound_instance_internal<'a>(
-        &'a self,
-        sound: &Sound,
-        flags: SoundFlags,
-        sound_group: Option<&mut SoundGroup>,
-    ) -> MaResult<Sound<'a>> {
-        let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new(MaybeUninit::uninit());
-
-        sound_ffi::ma_sound_init_copy(self, sound, flags, sound_group, mem.as_mut_ptr())?;
-
-        let inner: *mut sys::ma_sound = Box::into_raw(mem) as *mut sys::ma_sound;
-        Ok(Sound::from_ptr(inner))
-    }
-
-    pub fn new_sound_group(&self) -> MaResult<SoundGroup<'_>> {
-        let mut mem: Box<MaybeUninit<sys::ma_sound_group>> = Box::new(MaybeUninit::uninit());
-        let config = self.new_sound_group_config();
-
-        s_group_ffi::ma_sound_group_init_ex(self, config, mem.as_mut_ptr())?;
-
-        let inner: *mut sys::ma_sound_group = Box::into_raw(mem) as *mut sys::ma_sound_group;
-        Ok(SoundGroup::from_ptr(inner))
-    }
-
-    pub fn new_sound_group_config(&self) -> SoundGroupConfig {
-        s_group_cfg_ffi::ma_sound_group_config_init_2(self)
-    }
 }
 
 impl Drop for Engine {
     fn drop(&mut self) {
         engine_ffi::engine_uninit(self);
+        if let Some(proc_data_ptr) = self.process_data_ptr {
+            drop(unsafe { Box::from_raw(proc_data_ptr) });
+        }
         drop(unsafe { Box::from_raw(self.to_raw()) });
     }
 }

@@ -30,7 +30,7 @@ use crate::{Binding, MaResult};
 
 /// An owned fence used to synchronize sound initialization.
 ///
-/// `Fence` can be used internally when creating a `Sound` from a file path with
+/// `Fence` can be used internally when creating certain types (like `Sound`) from a file path with
 /// asynchronous loading enabled.
 ///
 /// In that mode, miniaudio can return from initialization before the sound is

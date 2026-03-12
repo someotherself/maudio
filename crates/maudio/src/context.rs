@@ -14,7 +14,6 @@ use crate::{
         device_id::DeviceId,
         device_info::{DeviceBasicInfo, DeviceInfo, Devices},
         device_type::DeviceType,
-        Device,
     },
     engine::AllocationCallbacks,
     AsRawRef, Binding, MaResult, MaudioError,
@@ -60,7 +59,7 @@ impl Binding for Context {
 
 pub struct ContextRef<'a> {
     inner: *mut sys::ma_context,
-    _keep_alive: PhantomData<&'a Device>,
+    _keep_alive: PhantomData<&'a ()>,
 }
 
 impl Binding for ContextRef<'_> {
@@ -373,6 +372,7 @@ impl AsRawRef for ContextBuilder<'_> {
 }
 
 impl<'a> ContextBuilder<'a> {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let inner = unsafe { sys::ma_context_config_init() };
         Self {
@@ -389,6 +389,11 @@ impl<'a> ContextBuilder<'a> {
 
     pub fn preferred_backends(&mut self, backends: &'a [Backend]) -> &mut Self {
         self.backends = Some(backends);
+        self
+    }
+
+    fn stack_size(&mut self, bytes: usize) -> &mut Self {
+        self.inner.threadStackSize = bytes;
         self
     }
 

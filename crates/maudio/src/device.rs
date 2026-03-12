@@ -15,10 +15,12 @@ use crate::{
         device_state::DeviceState,
         device_type::DeviceType,
     },
+    util::{device_notif::DeviceStateNotifier, prof_notif::ProcFramesNotif},
     Binding, MaResult,
 };
 
 pub mod device_builder;
+pub mod device_cb_notif;
 pub mod device_id;
 pub mod device_info;
 pub mod device_state;
@@ -33,6 +35,8 @@ pub(crate) struct DeviceInner {
     callback_user_data: *mut core::ffi::c_void, // userdata (self.inner.pUserData)
     callback_user_data_drop: fn(*mut core::ffi::c_void), // destructor for the callback_user_data
     callback_panic: Arc<AtomicBool>,            // true = callback panicked and is now poisoned
+    callback_process_notifier: ProcFramesNotif,
+    state_notifier: Option<DeviceStateNotifier>, // used by ma_device_notification
 }
 
 impl Binding for DeviceInner {
@@ -198,10 +202,28 @@ impl Device {
         device_ffi::ma_device_stop(self)
     }
 
+    /// If an error happens inside the user provided function, the callback will be poisoned
+    /// and will not run the provided function
+    ///
+    /// This method can be used to check if the callback is poisoned
     pub fn data_callback_panicked(&self) -> bool {
         self.inner
             .callback_panic
             .load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    /// Retrieves a [`ProcFramesNotif`] that fires when frames are processed inside the data callback
+    ///
+    /// `ProcFramesNotif` is cheap to clone, and this function can be safely called multiple times
+    pub fn get_callback_notifier(&self) -> ProcFramesNotif {
+        self.inner.callback_process_notifier.clone()
+    }
+
+    /// Retrieves a [`DeviceStateNotifier`] if one is present, that fires when the state of the device is changed
+    ///
+    /// `DeviceStateNotifier` is cheap to clone, and this function can be safely called multiple times
+    pub fn get_state_notifier(&self) -> Option<DeviceStateNotifier> {
+        self.inner.state_notifier.clone()
     }
 }
 
@@ -211,6 +233,7 @@ impl Device {
         config: &B,
         context_cfg: Option<&ContextBuilder>,
         backends: Option<&[Backend]>,
+        data_notif: ProcFramesNotif,
     ) -> MaResult<Self> {
         let mut mem: Box<MaybeUninit<sys::ma_device>> = Box::new(MaybeUninit::uninit());
 
@@ -229,6 +252,8 @@ impl Device {
                 callback_user_data: cb_info.data_callback,
                 callback_user_data_drop: cb_info.data_callback_drop,
                 callback_panic: cb_info.data_callback_panic,
+                callback_process_notifier: data_notif,
+                state_notifier: private_device_b::get_state_cb_info(config),
             }),
         })
     }
