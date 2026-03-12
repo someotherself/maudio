@@ -253,7 +253,7 @@ impl Device {
                 callback_user_data_drop: cb_info.data_callback_drop,
                 callback_panic: cb_info.data_callback_panic,
                 callback_process_notifier: data_notif,
-                state_notifier: private_device_b::get_state_cb_info(config),
+                state_notifier: Some(cb_info.state_notif.clone()),
             }),
         })
     }

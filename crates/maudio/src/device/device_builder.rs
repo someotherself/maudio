@@ -45,7 +45,7 @@ pub struct PlayBackDeviceBuilder<'a, F = Unknown> {
     context: Option<&'a ContextBuilder<'a>>,
     backends: Option<&'a [Backend]>,
     data_callback_info: Option<DeviceBuilderDataCallBack>,
-    state_notifier: Option<DeviceStateNotifier>,
+    state_notifier: bool,
     _format: PhantomData<F>,
 }
 
@@ -54,7 +54,7 @@ pub struct CaptureDeviceBuilder<'a, F = Unknown> {
     context: Option<&'a ContextBuilder<'a>>,
     backends: Option<&'a [Backend]>,
     data_callback_info: Option<DeviceBuilderDataCallBack>,
-    state_notifier: Option<DeviceStateNotifier>,
+    state_notifier: bool,
     _format: PhantomData<F>,
 }
 
@@ -63,7 +63,7 @@ pub struct DuplexDeviceBuilder<'a, F = Unknown> {
     context: Option<&'a ContextBuilder<'a>>,
     backends: Option<&'a [Backend]>,
     data_callback_info: Option<DeviceBuilderDataCallBack>,
-    state_notifier: Option<DeviceStateNotifier>,
+    state_notifier: bool,
     _format: PhantomData<F>,
 }
 
@@ -72,7 +72,7 @@ pub struct LoopBackDeviceBuilder<'a, F = Unknown> {
     context: Option<&'a ContextBuilder<'a>>,
     backends: Option<&'a [Backend]>,
     data_callback_info: Option<DeviceBuilderDataCallBack>,
-    state_notifier: Option<DeviceStateNotifier>,
+    state_notifier: bool,
     _format: PhantomData<F>,
 }
 
@@ -81,6 +81,7 @@ pub(crate) struct DeviceBuilderDataCallBack {
     pub(crate) data_callback: *mut core::ffi::c_void, // type erased for each State (ex: LoopBackDeviceState)
     pub(crate) data_callback_drop: fn(*mut core::ffi::c_void),
     pub(crate) data_callback_panic: Arc<AtomicBool>,
+    pub(crate) state_notif: DeviceStateNotifier,
 }
 
 impl<F> AsRawRef for PlayBackDeviceBuilder<'_, F> {
@@ -157,7 +158,6 @@ pub(crate) mod private_device_b {
         fn set_context<'s>(t: &'s mut T, context: &'a ContextBuilder);
         fn get_callback_info(t: &T) -> Option<DeviceBuilderDataCallBack>;
         fn set_state_cb_info(t: &mut T);
-        fn get_state_cb_info(t: &T) -> Option<DeviceStateNotifier>;
         fn inner(t: &mut T) -> &mut sys::ma_device_config;
         fn as_raw(t: &'a T) -> &'a sys::ma_device_config;
         fn as_raw_ptr(t: &T) -> *const sys::ma_device_config;
@@ -190,12 +190,7 @@ pub(crate) mod private_device_b {
         }
 
         fn set_state_cb_info(t: &mut PlayBackDeviceBuilder<'a, F>) {
-            let notif = DeviceStateNotifier::default();
-            t.state_notifier = Some(notif);
-        }
-
-        fn get_state_cb_info(t: &PlayBackDeviceBuilder<'a, F>) -> Option<DeviceStateNotifier> {
-            t.state_notifier.clone()
+            t.state_notifier = true;
         }
 
         fn inner<'s>(t: &'s mut PlayBackDeviceBuilder<'a, F>) -> &'s mut sys::ma_device_config {
@@ -231,12 +226,7 @@ pub(crate) mod private_device_b {
         }
 
         fn set_state_cb_info(t: &mut CaptureDeviceBuilder<'a, F>) {
-            let notif = DeviceStateNotifier::default();
-            t.state_notifier = Some(notif);
-        }
-
-        fn get_state_cb_info(t: &CaptureDeviceBuilder<'a, F>) -> Option<DeviceStateNotifier> {
-            t.state_notifier.clone()
+            t.state_notifier = true;
         }
 
         fn inner<'s>(t: &'s mut CaptureDeviceBuilder<'a, F>) -> &'s mut sys::ma_device_config {
@@ -272,12 +262,7 @@ pub(crate) mod private_device_b {
         }
 
         fn set_state_cb_info(t: &mut DuplexDeviceBuilder<'a, F>) {
-            let notif = DeviceStateNotifier::default();
-            t.state_notifier = Some(notif);
-        }
-
-        fn get_state_cb_info(t: &DuplexDeviceBuilder<'a, F>) -> Option<DeviceStateNotifier> {
-            t.state_notifier.clone()
+            t.state_notifier = true;
         }
 
         fn inner<'s>(t: &'s mut DuplexDeviceBuilder<'a, F>) -> &'s mut sys::ma_device_config {
@@ -315,12 +300,7 @@ pub(crate) mod private_device_b {
         }
 
         fn set_state_cb_info(t: &mut LoopBackDeviceBuilder<'a, F>) {
-            let notif = DeviceStateNotifier::default();
-            t.state_notifier = Some(notif);
-        }
-
-        fn get_state_cb_info(t: &LoopBackDeviceBuilder<'a, F>) -> Option<DeviceStateNotifier> {
-            t.state_notifier.clone()
+            t.state_notifier = true;
         }
 
         fn inner<'s>(t: &'s mut LoopBackDeviceBuilder<'a, F>) -> &'s mut sys::ma_device_config {
@@ -366,12 +346,6 @@ pub(crate) mod private_device_b {
         <T as AsDeviceBuilder>::_DeviceBuilderProvider::set_state_cb_info(t);
     }
 
-    pub fn get_state_cb_info<'a, 's, T: AsDeviceBuilder<'a> + ?Sized>(
-        t: &'s T,
-    ) -> Option<DeviceStateNotifier> {
-        <T as AsDeviceBuilder>::_DeviceBuilderProvider::get_state_cb_info(t)
-    }
-
     pub fn inner<'a, 's, T: AsDeviceBuilder<'a> + ?Sized>(
         t: &'s mut T,
     ) -> &'s mut sys::ma_device_config {
@@ -394,7 +368,7 @@ impl<'a> PlayBackDeviceBuilder<'a, Unknown> {
             context: None,
             backends: self.backends,
             data_callback_info: None,
-            state_notifier: None,
+            state_notifier: false,
             _format: PhantomData,
         }
     }
@@ -432,33 +406,33 @@ impl<'a> CaptureDeviceBuilder<'a, Unknown> {
             context: None,
             backends: self.backends,
             data_callback_info: None,
-            state_notifier: None,
+            state_notifier: false,
             _format: PhantomData,
         }
     }
 
     pub fn u8(&mut self) -> CaptureDeviceBuilder<'a, u8> {
-        self.inner.playback.format = sys::ma_format_ma_format_u8;
+        self.inner.capture.format = sys::ma_format_ma_format_u8;
         self.new_inner::<u8>()
     }
 
     pub fn i16(&mut self) -> CaptureDeviceBuilder<'a, i16> {
-        self.inner.playback.format = sys::ma_format_ma_format_s16;
+        self.inner.capture.format = sys::ma_format_ma_format_s16;
         self.new_inner::<i16>()
     }
 
     pub fn i32(&mut self) -> CaptureDeviceBuilder<'a, i32> {
-        self.inner.playback.format = sys::ma_format_ma_format_s32;
+        self.inner.capture.format = sys::ma_format_ma_format_s32;
         self.new_inner::<i32>()
     }
 
     pub fn s24_packed(&mut self) -> CaptureDeviceBuilder<'a, S24Packed> {
-        self.inner.playback.format = sys::ma_format_ma_format_s32;
+        self.inner.capture.format = sys::ma_format_ma_format_s32;
         self.new_inner::<S24Packed>()
     }
 
     pub fn f32(&mut self) -> CaptureDeviceBuilder<'a, f32> {
-        self.inner.playback.format = sys::ma_format_ma_format_s32;
+        self.inner.capture.format = sys::ma_format_ma_format_s32;
         self.new_inner::<f32>()
     }
 }
@@ -470,33 +444,38 @@ impl<'a> DuplexDeviceBuilder<'a, Unknown> {
             context: None,
             backends: self.backends,
             data_callback_info: None,
-            state_notifier: None,
+            state_notifier: false,
             _format: PhantomData,
         }
     }
 
     pub fn u8(&mut self) -> DuplexDeviceBuilder<'a, u8> {
         self.inner.playback.format = sys::ma_format_ma_format_u8;
+        self.inner.capture.format = sys::ma_format_ma_format_u8;
         self.new_inner::<u8>()
     }
 
     pub fn i16(&mut self) -> DuplexDeviceBuilder<'a, i16> {
         self.inner.playback.format = sys::ma_format_ma_format_s16;
+        self.inner.capture.format = sys::ma_format_ma_format_s16;
         self.new_inner::<i16>()
     }
 
     pub fn i32(&mut self) -> DuplexDeviceBuilder<'a, i32> {
         self.inner.playback.format = sys::ma_format_ma_format_s32;
+        self.inner.capture.format = sys::ma_format_ma_format_s32;
         self.new_inner::<i32>()
     }
 
     pub fn s24_packed(&mut self) -> DuplexDeviceBuilder<'a, S24Packed> {
         self.inner.playback.format = sys::ma_format_ma_format_s32;
+        self.inner.capture.format = sys::ma_format_ma_format_s32;
         self.new_inner::<S24Packed>()
     }
 
     pub fn f32(&mut self) -> DuplexDeviceBuilder<'a, f32> {
         self.inner.playback.format = sys::ma_format_ma_format_s32;
+        self.inner.capture.format = sys::ma_format_ma_format_s32;
         self.new_inner::<f32>()
     }
 }
@@ -508,33 +487,33 @@ impl<'a> LoopBackDeviceBuilder<'a, Unknown> {
             context: None,
             backends: self.backends,
             data_callback_info: None,
-            state_notifier: None,
+            state_notifier: false,
             _format: PhantomData,
         }
     }
 
     pub fn u8(&mut self) -> LoopBackDeviceBuilder<'a, u8> {
-        self.inner.playback.format = sys::ma_format_ma_format_u8;
+        self.inner.capture.format = sys::ma_format_ma_format_u8;
         self.new_inner::<u8>()
     }
 
     pub fn i16(&mut self) -> LoopBackDeviceBuilder<'a, i16> {
-        self.inner.playback.format = sys::ma_format_ma_format_s16;
+        self.inner.capture.format = sys::ma_format_ma_format_s16;
         self.new_inner::<i16>()
     }
 
     pub fn i32(&mut self) -> LoopBackDeviceBuilder<'a, i32> {
-        self.inner.playback.format = sys::ma_format_ma_format_s32;
+        self.inner.capture.format = sys::ma_format_ma_format_s32;
         self.new_inner::<i32>()
     }
 
     pub fn s24_packed(&mut self) -> LoopBackDeviceBuilder<'a, S24Packed> {
-        self.inner.playback.format = sys::ma_format_ma_format_s32;
+        self.inner.capture.format = sys::ma_format_ma_format_s32;
         self.new_inner::<S24Packed>()
     }
 
     pub fn f32(&mut self) -> LoopBackDeviceBuilder<'a, f32> {
-        self.inner.playback.format = sys::ma_format_ma_format_s32;
+        self.inner.capture.format = sys::ma_format_ma_format_s32;
         self.new_inner::<f32>()
     }
 }
@@ -644,7 +623,7 @@ pub trait DeviceBuilderOps<'a>: AsDeviceBuilder<'a> {
     ///
     /// Set to false by default
     fn pre_silenced_output(&mut self, yes: bool) -> &mut Self {
-        private_device_b::inner(self).noPreSilencedOutputBuffer = yes as u8;
+        private_device_b::inner(self).noPreSilencedOutputBuffer = (!yes) as u8;
         self
     }
 
@@ -698,7 +677,7 @@ impl<'a> DeviceBuilder {
             context: None,
             backends: None,
             data_callback_info: None,
-            state_notifier: None,
+            state_notifier: false,
             _format: PhantomData,
         }
     }
@@ -710,7 +689,7 @@ impl<'a> DeviceBuilder {
             context: None,
             backends: None,
             data_callback_info: None,
-            state_notifier: None,
+            state_notifier: false,
             _format: PhantomData,
         }
     }
@@ -722,7 +701,7 @@ impl<'a> DeviceBuilder {
             context: None,
             backends: None,
             data_callback_info: None,
-            state_notifier: None,
+            state_notifier: false,
             _format: PhantomData,
         }
     }
@@ -734,7 +713,7 @@ impl<'a> DeviceBuilder {
             context: None,
             backends: None,
             data_callback_info: None,
-            state_notifier: None,
+            state_notifier: false,
             _format: PhantomData,
         }
     }
@@ -746,11 +725,13 @@ impl<'a, F: PcmFormat> PlayBackDeviceBuilder<'a, F> {
         C: FnMut(CallBackDevice, &mut [F::StorageUnit], u32) + Send + 'static,
     {
         let panic_flag = Arc::new(AtomicBool::new(false));
+        let state_notif = DeviceStateNotifier::default();
         let state: PlayBackDeviceState<F, C> = PlayBackDeviceState {
             f: UnsafeCell::new(f),
             frames_processed: ProcFramesNotif::default(),
             panic_flag: panic_flag.clone(),
-            state_notif: DeviceStateNotifier::default(),
+            // If state notif was not set in `set_state_cb_info`, it will never get fired
+            state_notif: state_notif.clone(),
             _format: PhantomData,
         };
 
@@ -762,13 +743,14 @@ impl<'a, F: PcmFormat> PlayBackDeviceBuilder<'a, F> {
             data_callback: state_ptr.cast(),
             data_callback_drop: drop_playback_device_state::<F, C>,
             data_callback_panic: panic_flag,
+            state_notif: state_notif.clone(),
         };
 
         self.data_callback_info = Some(callback_info);
 
         // Set all the callbacks and user data in the config
         self.inner.dataCallback = Some(device_data_playback_callback::<F, C>);
-        if self.state_notifier.is_some() {
+        if self.state_notifier {
             self.inner.notificationCallback = Some(device_notification_playback_callback::<F, C>);
         }
         self.inner.pUserData = state_ptr as *mut core::ffi::c_void;
@@ -788,11 +770,14 @@ impl<'a, F: PcmFormat> CaptureDeviceBuilder<'a, F> {
         C: FnMut(CallBackDevice, &[F::StorageUnit], u32) + Send + 'static,
     {
         let panic_flag = Arc::new(AtomicBool::new(false));
+        let state_notif = DeviceStateNotifier::default();
+
         let state: CaptureDeviceState<F, C> = CaptureDeviceState {
             f: UnsafeCell::new(f),
             frames_processed: ProcFramesNotif::default(),
             panic_flag: panic_flag.clone(),
-            state_notif: DeviceStateNotifier::default(),
+            // If state notif was not set in `set_state_cb_info`, it will never get fired
+            state_notif: state_notif.clone(),
             _format: PhantomData,
         };
 
@@ -802,15 +787,16 @@ impl<'a, F: PcmFormat> CaptureDeviceBuilder<'a, F> {
         let state_ptr: *mut CaptureDeviceState<F, C> = Box::into_raw(state_box);
         let callback_info: DeviceBuilderDataCallBack = DeviceBuilderDataCallBack {
             data_callback: state_ptr.cast(),
-            data_callback_drop: drop_playback_device_state::<F, C>,
+            data_callback_drop: drop_capture_device_state::<F, C>,
             data_callback_panic: panic_flag,
+            state_notif: state_notif.clone(),
         };
 
         self.data_callback_info = Some(callback_info);
 
         // Set all the callbacks and user data in the config
         self.inner.dataCallback = Some(device_data_capture_callback::<F, C>);
-        if self.state_notifier.is_some() {
+        if self.state_notifier {
             self.inner.notificationCallback = Some(device_notification_capture_callback::<F, C>);
         }
         self.inner.pUserData = state_ptr as *mut core::ffi::c_void;
@@ -830,11 +816,13 @@ impl<'a, F: PcmFormat> DuplexDeviceBuilder<'a, F> {
         C: FnMut(CallBackDevice, &mut [F::StorageUnit], &[F::StorageUnit], u32) + Send + 'static,
     {
         let panic_flag = Arc::new(AtomicBool::new(false));
+        let state_notif = DeviceStateNotifier::default();
         let state: DuplexDeviceState<F, C> = DuplexDeviceState {
             f: UnsafeCell::new(f),
             frames_processed: ProcFramesNotif::default(),
             panic_flag: panic_flag.clone(),
-            state_notif: DeviceStateNotifier::default(),
+            // If state notif was not set in `set_state_cb_info`, it will never get fired
+            state_notif: state_notif.clone(),
             _format: PhantomData,
         };
 
@@ -844,15 +832,16 @@ impl<'a, F: PcmFormat> DuplexDeviceBuilder<'a, F> {
         let state_ptr: *mut DuplexDeviceState<F, C> = Box::into_raw(state_box);
         let callback_info: DeviceBuilderDataCallBack = DeviceBuilderDataCallBack {
             data_callback: state_ptr.cast(),
-            data_callback_drop: drop_playback_device_state::<F, C>,
+            data_callback_drop: drop_duplex_device_state::<F, C>,
             data_callback_panic: panic_flag,
+            state_notif: state_notif.clone(),
         };
 
         self.data_callback_info = Some(callback_info);
 
         // Set all the callbacks and user data in the config
         self.inner.dataCallback = Some(device_data_duplex_callback::<F, C>);
-        if self.state_notifier.is_some() {
+        if self.state_notifier {
             self.inner.notificationCallback = Some(device_notification_duplex_callback::<F, C>);
         }
         self.inner.pUserData = state_ptr as *mut core::ffi::c_void;
@@ -872,11 +861,13 @@ impl<'a, F: PcmFormat> LoopBackDeviceBuilder<'a, F> {
         C: FnMut(CallBackDevice, &[F::StorageUnit], u32) + Send + 'static,
     {
         let panic_flag = Arc::new(AtomicBool::new(false));
+        let state_notif = DeviceStateNotifier::default();
         let state: LoopBackDeviceState<F, C> = LoopBackDeviceState {
             f: UnsafeCell::new(f),
             frames_processed: ProcFramesNotif::default(),
             panic_flag: panic_flag.clone(),
-            state_notif: DeviceStateNotifier::default(),
+            // If state notif was not set in `set_state_cb_info`, it will never get fired
+            state_notif: state_notif.clone(),
             _format: PhantomData,
         };
 
@@ -886,15 +877,16 @@ impl<'a, F: PcmFormat> LoopBackDeviceBuilder<'a, F> {
         let state_ptr: *mut LoopBackDeviceState<F, C> = Box::into_raw(state_box);
         let callback_info: DeviceBuilderDataCallBack = DeviceBuilderDataCallBack {
             data_callback: state_ptr.cast(),
-            data_callback_drop: drop_playback_device_state::<F, C>,
+            data_callback_drop: drop_loopback_device_state::<F, C>,
             data_callback_panic: panic_flag,
+            state_notif: state_notif.clone(),
         };
 
         self.data_callback_info = Some(callback_info);
 
         // Set all the callbacks and user data in the config
         self.inner.dataCallback = Some(device_data_loopback_callback::<F, C>);
-        if self.state_notifier.is_some() {
+        if self.state_notifier {
             self.inner.notificationCallback = Some(device_notification_loopback_callback::<F, C>);
         }
         self.inner.pUserData = state_ptr as *mut core::ffi::c_void;
@@ -1270,7 +1262,7 @@ mod test {
 
     #[cfg(not(feature = "ci-tests"))]
     #[test]
-    fn test_device_builder_state_notifier() {
+    fn test_device_builder_playback_state_notifier() {
         use crate::{
             device::device_builder::{DeviceBuilder, DeviceBuilderOps},
             util::device_notif::DeviceNotificationType,
@@ -1278,10 +1270,78 @@ mod test {
         let mut device = DeviceBuilder::playback()
             .f32()
             .playback_channels(2)
+            .state_notifier()
             .with_callback(|_a, _b, _c| {})
             .unwrap();
-        device.device_start().unwrap();
         let notif = device.get_state_notifier().unwrap();
+        assert!(!notif.contains(DeviceNotificationType::Started));
+        device.device_start().unwrap();
+        std::thread::sleep(std::time::Duration::from_micros(10));
+        assert!(notif.contains(DeviceNotificationType::Started));
+        device.device_stop().unwrap();
+    }
+
+    #[cfg(not(feature = "ci-tests"))]
+    #[test]
+    fn test_device_builder_capture_state_notifier() {
+        use crate::{
+            device::device_builder::{DeviceBuilder, DeviceBuilderOps},
+            util::device_notif::DeviceNotificationType,
+        };
+        let mut device = DeviceBuilder::capture()
+            .f32()
+            .capture_channels(2)
+            .state_notifier()
+            .with_callback(|_a, _b, _c| {})
+            .unwrap();
+        let notif = device.get_state_notifier().unwrap();
+        assert!(!notif.contains(DeviceNotificationType::Started));
+        device.device_start().unwrap();
+        std::thread::sleep(std::time::Duration::from_micros(10));
+        assert!(notif.contains(DeviceNotificationType::Started));
+        device.device_stop().unwrap();
+    }
+
+    #[cfg(not(feature = "ci-tests"))]
+    #[test]
+    fn test_device_builder_duplex_state_notifier() {
+        use crate::{
+            device::device_builder::{DeviceBuilder, DeviceBuilderOps},
+            util::device_notif::DeviceNotificationType,
+        };
+        let mut device = DeviceBuilder::duplex()
+            .f32()
+            .playback_channels(2)
+            .capture_channels(2)
+            .state_notifier()
+            .with_callback(|_a, _b, _c, _d| {})
+            .unwrap();
+        let notif = device.get_state_notifier().unwrap();
+        assert!(!notif.contains(DeviceNotificationType::Started));
+        device.device_start().unwrap();
+        std::thread::sleep(std::time::Duration::from_micros(10));
+        assert!(notif.contains(DeviceNotificationType::Started));
+        device.device_stop().unwrap();
+    }
+
+    #[cfg(not(feature = "ci-tests"))]
+    #[cfg(windows)]
+    #[test]
+    fn test_device_builder_lookback_state_notifier() {
+        use crate::{
+            device::device_builder::{DeviceBuilder, DeviceBuilderOps},
+            util::device_notif::DeviceNotificationType,
+        };
+        let mut device = DeviceBuilder::loopback()
+            .f32()
+            .capture_channels(2)
+            .state_notifier()
+            .with_callback(|_a, _b, _c| {})
+            .unwrap();
+        let notif = device.get_state_notifier().unwrap();
+        assert!(!notif.contains(DeviceNotificationType::Started));
+        device.device_start().unwrap();
+        std::thread::sleep(std::time::Duration::from_micros(10));
         assert!(notif.contains(DeviceNotificationType::Started));
         device.device_stop().unwrap();
     }

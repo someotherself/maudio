@@ -248,7 +248,7 @@ impl std::fmt::Display for ErrorKinds {
             ErrorKinds::ChannelSendError => write!(f, "channel send error"),
             ErrorKinds::InvalidFormat => write!(f, "invalid format"),
             ErrorKinds::InvalidCString => write!(f, "invalid C string"),
-            ErrorKinds::InvalidOperation(error) => write!(f, "{}", error),
+            ErrorKinds::InvalidOperation(error) => write!(f, "{error}",),
         }
     }
 }

@@ -10,6 +10,10 @@ pub struct DeviceStateNotifier {
 }
 
 impl DeviceStateNotifier {
+    pub(crate) fn debug_ptr(&self) -> *const AtomicU32 {
+        Arc::as_ptr(&self.mask)
+    }
+
     pub(crate) fn store_notifications(&self, flags: u32) {
         self.mask
             .fetch_or(flags, std::sync::atomic::Ordering::Relaxed);
@@ -21,12 +25,12 @@ impl DeviceStateNotifier {
     }
 
     pub fn notifications(&self) -> DeviceNotificationSet {
-        let bits = self.mask.load(std::sync::atomic::Ordering::Acquire);
+        let bits = self.mask.load(std::sync::atomic::Ordering::Relaxed);
         DeviceNotificationSet(bits)
     }
 
     pub fn clear(&self) {
-        self.mask.store(0, std::sync::atomic::Ordering::Release);
+        self.mask.store(0, std::sync::atomic::Ordering::Relaxed);
     }
 
     pub fn contains(&self, flags: impl Into<DeviceNotificationSet>) -> bool {

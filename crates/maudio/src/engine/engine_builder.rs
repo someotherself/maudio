@@ -149,7 +149,6 @@ impl EngineBuilder {
         let state_ptr = Box::into_raw(state_box);
 
         self.inner.pProcessUserData = state_ptr.cast();
-        self.inner.onProcess = Some(on_process_callback);
 
         self.process_data_ptr = Some(state_ptr); // Will be set on the engine returned by Engine::new_with_config
         self.process_data_panic = Some(proc_data_panic); // Will be set on the engine returned by Engine::new_with_config
@@ -211,6 +210,7 @@ impl EngineBuilder {
             }
         }
         let notifier = self.set_process_notifier(None);
+        self.inner.onProcess = Some(on_process_callback);
 
         let mut engine = self.build()?;
         // Set the process data ptr and panic flag on the engine
@@ -251,7 +251,7 @@ impl EngineBuilder {
     /// - The callback must not panic. A panic unwinding through the FFI boundary is undefined behavior.
     ///   (If you need to report errors, store them in lock-free shared state and handle them on a
     ///   non-real-time thread.)
-    pub unsafe fn with_realtime_callback<C>(&mut self, cb: C) -> MaResult<(Engine, ProcFramesNotif)>
+    pub fn with_realtime_callback<C>(&mut self, cb: C) -> MaResult<(Engine, ProcFramesNotif)>
     where
         C: FnMut(&mut [f32], u32) + Send + 'static,
     {
@@ -262,7 +262,10 @@ impl EngineBuilder {
                 ));
             }
         }
+
+        // Set state and proc notifier callback
         let notifier = self.set_process_notifier(Some(Box::new(cb)));
+        self.inner.onProcess = Some(on_process_callback);
 
         let mut engine = self.build()?;
         // Set the process data ptr and panic flag on the engine
@@ -273,10 +276,15 @@ impl EngineBuilder {
     }
 
     pub fn build(&mut self) -> MaResult<Engine> {
+        let _ = self.set_process_notifier(None);
+
+        if !self.no_device && self.state_notif_exists {
+            self.inner.notificationCallback = Some(engine_notification_callback);
+        }
+
         let mut engine = Engine::new_with_config(Some(self))?;
         // Check if we set the state notifier callback
         if !self.no_device && self.state_notif_exists {
-            self.inner.notificationCallback = Some(engine_notification_callback);
             engine.state_notifier = self.state_notif.clone();
         }
         Ok(engine)
@@ -297,7 +305,10 @@ impl EngineBuilder {
 
 #[cfg(test)]
 mod test {
-    use crate::engine::{resource::rm_builder::ResourceManagerBuilder, EngineOps};
+    use crate::{
+        engine::{resource::rm_builder::ResourceManagerBuilder, EngineOps},
+        util::device_notif::DeviceNotificationType,
+    };
 
     use super::*;
 
@@ -311,13 +322,66 @@ mod test {
         Ok(())
     }
 
+    #[cfg(not(feature = "ci-tests"))]
+    #[test]
+    fn test_engine_builder_with_state_notifier_and_realtime_cb() {
+        let (engine, _) = EngineBuilder::new()
+            .state_notifier()
+            .no_auto_start(true)
+            .with_realtime_callback(|_a, _b| {})
+            .unwrap();
+        let notif = engine.get_state_notifier().unwrap();
+        assert_eq!(notif.notifications().bits(), 0);
+
+        assert!(!notif.contains(DeviceNotificationType::Started));
+        engine.start().unwrap();
+        std::thread::sleep(std::time::Duration::from_micros(50));
+        assert!(notif.contains(DeviceNotificationType::Started));
+        engine.stop().unwrap();
+    }
+
+    #[cfg(not(feature = "ci-tests"))]
+    #[test]
+    fn test_engine_builder_with_state_notifier_and_process_notif() {
+        // let engine = EngineBuilder::new().state_notifier().no_auto_start(true).build().unwrap();
+        let (engine, _) = EngineBuilder::new()
+            .state_notifier()
+            .no_auto_start(true)
+            .with_process_notifier()
+            .unwrap();
+        let notif = engine.get_state_notifier().unwrap();
+        assert_eq!(notif.notifications().bits(), 0);
+
+        assert!(!notif.contains(DeviceNotificationType::Started));
+        engine.start().unwrap();
+        std::thread::sleep(std::time::Duration::from_micros(50));
+        assert!(notif.contains(DeviceNotificationType::Started));
+        engine.stop().unwrap();
+    }
+
+    #[cfg(not(feature = "ci-tests"))]
+    #[test]
+    fn test_engine_builder_with_state_notifier() {
+        let engine = EngineBuilder::new()
+            .state_notifier()
+            .no_auto_start(true)
+            .build()
+            .unwrap();
+        let notif = engine.get_state_notifier().unwrap();
+        assert_eq!(notif.notifications().bits(), 0);
+
+        assert!(!notif.contains(DeviceNotificationType::Started));
+        engine.start().unwrap();
+        std::thread::sleep(std::time::Duration::from_micros(50));
+        assert!(notif.contains(DeviceNotificationType::Started));
+        engine.stop().unwrap();
+    }
+
     #[test]
     fn test_engine_builder_with_realtime_callback_basic_init() {
-        let (_engine, _notifier) = unsafe {
-            EngineBuilder::new()
-                .with_realtime_callback(|_samples, _channels| {})
-                .unwrap()
-        };
+        let (_engine, _notifier) = EngineBuilder::new()
+            .with_realtime_callback(|_samples, _channels| {})
+            .unwrap();
     }
 
     #[test]

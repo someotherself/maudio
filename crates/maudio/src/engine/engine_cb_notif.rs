@@ -14,12 +14,15 @@ pub(crate) unsafe extern "C" fn engine_notification_callback(
         return;
     }
 
-    let user_data = (*device).pUserData;
-    if user_data.is_null() {
+    let engine = (*device).pUserData.cast::<sys::ma_engine>();
+    if engine.is_null() {
         return;
     }
 
-    let state = user_data.cast::<ProcessState>();
+    let state = (*engine).pProcessUserData.cast::<ProcessState>();
+    if state.is_null() {
+        return;
+    }
 
     let mask = match (&*notification).type_ {
         sys::ma_device_notification_type_ma_device_notification_type_started => {
@@ -42,6 +45,5 @@ pub(crate) unsafe extern "C" fn engine_notification_callback(
         }
         _ => 0,
     };
-
     (*state).state_notif.store_notifications(mask);
 }
