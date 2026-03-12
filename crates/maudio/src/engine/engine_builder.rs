@@ -305,10 +305,7 @@ impl EngineBuilder {
 
 #[cfg(test)]
 mod test {
-    use crate::{
-        engine::{resource::rm_builder::ResourceManagerBuilder, EngineOps},
-        util::device_notif::DeviceNotificationType,
-    };
+    use crate::engine::{resource::rm_builder::ResourceManagerBuilder, EngineOps};
 
     use super::*;
 
@@ -325,6 +322,8 @@ mod test {
     #[cfg(not(feature = "ci-tests"))]
     #[test]
     fn test_engine_builder_with_state_notifier_and_realtime_cb() {
+        use crate::util::device_notif::DeviceNotificationType;
+
         let (engine, _) = EngineBuilder::new()
             .state_notifier()
             .no_auto_start(true)
@@ -343,7 +342,8 @@ mod test {
     #[cfg(not(feature = "ci-tests"))]
     #[test]
     fn test_engine_builder_with_state_notifier_and_process_notif() {
-        // let engine = EngineBuilder::new().state_notifier().no_auto_start(true).build().unwrap();
+        use crate::util::device_notif::DeviceNotificationType;
+
         let (engine, _) = EngineBuilder::new()
             .state_notifier()
             .no_auto_start(true)
@@ -362,6 +362,8 @@ mod test {
     #[cfg(not(feature = "ci-tests"))]
     #[test]
     fn test_engine_builder_with_state_notifier() {
+        use crate::util::device_notif::DeviceNotificationType;
+
         let engine = EngineBuilder::new()
             .state_notifier()
             .no_auto_start(true)
