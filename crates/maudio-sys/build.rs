@@ -71,6 +71,9 @@ fn backend_features(builder: &mut Build) {
     if cfg!(feature = "no-opensl") {
         builder.define("MA_NO_OPENSL", "1");
     }
+    if cfg!(feature = "no-webaudio") {
+        builder.define("MA_NO_WEBAUDIO", "1");
+    }
 }
 
 fn main() {

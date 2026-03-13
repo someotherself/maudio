@@ -1,3 +1,33 @@
+//! Audio backend context and device discovery.
+//!
+//! A [`Context`] represents an initialized miniaudio backend context. It is primarily used
+//! for device enumeration, device information queries, backend selection, and capability checks.
+//!
+//! In most applications, a single shared `Context` is enough.
+//!
+//! # Context vs. Device
+//!
+//! [`Context`] and [`Device`](crate::device::Device) serve different roles:
+//!
+//! - [`Context`] manages backend-level operations such as initialization and device discovery
+//! - [`Device`](crate::device::Device) represents an opened audio stream used for playback,
+//!   capture, or duplex I/O
+//!
+//! A `Context` is commonly used to discover devices and choose a [`DeviceId`](crate::device::DeviceId)
+//! before creating a `Device`.
+//!
+//! # Enumerating devices
+//!
+//! Device enumeration is available in three forms:
+//!
+//! - [`ContextOps::get_devices`] for an owned snapshot
+//! - [`ContextOps::with_devices`] for temporary borrowed slices
+//! - [`ContextOps::enumerate_devices`] for lightweight callback-based iteration
+//!
+//! # Ownership
+//!
+//! [`Context`] is the owning handle to the backend context, while [`ContextRef`] is a borrowed
+//! view. Both implement [`ContextOps`].
 use core::slice;
 use std::{
     marker::PhantomData,
@@ -16,9 +46,19 @@ use crate::{
         device_type::DeviceType,
     },
     engine::AllocationCallbacks,
-    AsRawRef, Binding, MaResult, MaudioError,
+    AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
 };
 
+/// An owning handle to a miniaudio context.
+///
+/// A context is the entry point for backend-level audio operations such as:
+///
+/// - device enumeration
+/// - querying device information
+/// - checking backend capabilities
+/// - creating devices against a specific backend context
+///
+/// For temporary borrowed access, see [`ContextRef`].
 #[derive(Clone)]
 pub struct Context {
     inner: Arc<ContextInner>,
@@ -57,6 +97,12 @@ impl Binding for Context {
     }
 }
 
+/// A borrowed reference to a miniaudio context.
+///
+/// `ContextRef` does not own the underlying context. It is mainly useful for APIs that need
+/// to expose temporary context access without cloning or transferring ownership.
+///
+/// The lifetime `'a` ties this reference to the source that produced it.
 pub struct ContextRef<'a> {
     inner: *mut sys::ma_context,
     _keep_alive: PhantomData<&'a ()>,
@@ -124,7 +170,18 @@ impl<'a> AsContextPtr for ContextRef<'a> {
 impl ContextOps for Context {}
 impl ContextOps for ContextRef<'_> {}
 
+/// Common operations available on both owned and borrowed context handles.
+///
+/// This trait is implemented for [`Context`] and [`ContextRef`], allowing the same
+/// enumeration and query APIs to be used regardless of ownership.
 pub trait ContextOps: AsContextPtr {
+    /// Returns the currently available playback and capture devices.
+    ///
+    /// This method copies the device information reported by miniaudio into owned Rust values.
+    /// The returned [`Devices`] collection is therefore independent of the temporary buffers used
+    /// by the backend during enumeration.
+    ///
+    /// Use this when you want to keep device information around after the call returns.
     fn get_devices(&self) -> MaResult<Devices> {
         let (playback_info, playback_count, capture_info, capture_count) =
             context_ffi::ma_context_get_devices(self)?;
@@ -148,6 +205,35 @@ pub trait ContextOps: AsContextPtr {
         Ok(Devices::from_owned(playback, capture))
     }
 
+    /// Exposes the currently available playback and capture devices as borrowed slices.
+    ///
+    /// The closure `f` receives two slices:
+    ///
+    /// - `playback`: all available playback devices
+    /// - `capture`: all available capture devices
+    ///
+    /// The slices passed to the closure are only valid for the duration of `f`. They borrow
+    /// the temporary device list returned by miniaudio and must not be stored.
+    ///
+    /// Compared to [`get_devices`](Self::get_devices), this avoids allocating and copying the
+    /// device list into owned Rust values.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use maudio::context::{ContextBuilder, ContextOps};
+    /// let ctx = ContextBuilder::new().build().unwrap();
+    ///
+    /// ctx.with_devices(|playback, capture| {
+    ///     for device in playback {
+    ///         println!("Playback: {}", device.device_name());
+    ///     }
+    ///
+    ///     for device in capture {
+    ///         println!("Capture: {}", device.device_name());
+    ///     }
+    /// }).unwrap();
+    /// ```
     fn with_devices<F>(&self, f: F) -> MaResult<()>
     where
         F: FnOnce(&[DeviceInfo], &[DeviceInfo]),
@@ -180,14 +266,57 @@ pub trait ContextOps: AsContextPtr {
         Ok(())
     }
 
+    /// Queries detailed information for a specific device ID.
+    ///
+    /// This is typically used after obtaining a [`DeviceId`] from enumeration to fetch the
+    /// latest backend-reported details for that device.
     fn device_info(&self, device_type: DeviceType, device_id: &DeviceId) -> MaResult<DeviceInfo> {
         context_ffi::ma_context_get_device_info(self, device_type, device_id)
     }
 
+    /// Returns whether the active backend configuration supports loopback devices.
+    ///
+    /// Loopback support is backend and platform specific.
     fn is_loopback_supported(&self) -> bool {
         context_ffi::ma_context_is_loopback_supported(self)
     }
 
+    /// Enumerates devices one by one via a callback.
+    ///
+    /// This is the most lightweight device enumeration API. Unlike
+    /// [`get_devices`](Self::get_devices), it does not build and return owned device lists.
+    /// Instead, each device is reported immediately to the callback as it is enumerated.
+    ///
+    /// The callback receives:
+    ///
+    /// - the [`DeviceType`] of the current device
+    /// - a borrowed [`DeviceBasicInfo`] describing that device
+    ///
+    /// This method is useful when you only need lightweight information such as the
+    /// device name, ID, or default-device status, or when you want to stop enumeration
+    /// early after finding a matching device.
+    ///
+    /// Return [`EnumerateControl::Continue`] to keep enumerating, or
+    /// [`EnumerateControl::Stop`] to stop early.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// # use maudio::context::{ContextBuilder, ContextOps, EnumerateControl};
+    /// let ctx = ContextBuilder::new().build().unwrap();
+    ///
+    /// ctx.enumerate_devices(|device_type, info| {
+    ///     println!("{}: {}", device_type, info.name());
+    ///
+    ///     if info.is_default() {
+    ///         println!("found default device");
+    ///         return EnumerateControl::Stop;
+    ///     }
+    ///
+    ///     EnumerateControl::Continue
+    /// })?;
+    /// # Ok::<(), maudio::MaudioError>(())
+    /// ```
     fn enumerate_devices<F>(&self, mut f: F) -> MaResult<()>
     where
         F: FnMut(DeviceType, DeviceBasicInfo<'_>) -> EnumerateControl,
@@ -371,6 +500,12 @@ impl AsRawRef for ContextBuilder<'_> {
     }
 }
 
+/// Builder for creating a [`Context`].
+///
+/// A context controls backend selection and backend-wide behavior such as thread settings
+/// used internally by miniaudio.
+///
+/// In most applications, a single shared context is enough.
 impl<'a> ContextBuilder<'a> {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
@@ -382,16 +517,26 @@ impl<'a> ContextBuilder<'a> {
         }
     }
 
-    pub fn thread_priority(&mut self, priority: sys::ma_thread_priority) -> &mut Self {
-        self.inner.threadPriority = priority;
+    /// Sets the thread priority used by internal context threads, if applicable.
+    ///
+    /// The exact effect is backend and platform dependent.
+    pub fn thread_priority(&mut self, priority: ThreadPriority) -> &mut Self {
+        self.inner.threadPriority = priority.into();
         self
     }
 
+    /// Sets the preferred backend order for context initialization.
+    ///
+    /// Miniaudio will try the provided backends in order until one succeeds.
+    /// If not set, miniaudio uses its default backend selection logic.
     pub fn preferred_backends(&mut self, backends: &'a [Backend]) -> &mut Self {
         self.backends = Some(backends);
         self
     }
 
+    /// Sets the stack size, in bytes, for internal threads created by the context.
+    ///
+    /// This is an advanced option and usually does not need to be changed.
     fn stack_size(&mut self, bytes: usize) -> &mut Self {
         self.inner.threadStackSize = bytes;
         self
@@ -411,8 +556,11 @@ where
     err: Option<MaudioError>,
 }
 
+/// Controls whether device enumeration should continue.
 pub enum EnumerateControl {
+    /// Continue enumerating remaining devices.
     Continue,
+    /// Stop enumeration early.
     Stop,
 }
 
@@ -458,6 +606,51 @@ where
         Err(_) => {
             state.err = Some(MaudioError::from_ma_result(sys::ma_result_MA_ERROR));
             sys::MA_FALSE
+        }
+    }
+}
+
+pub enum ThreadPriority {
+    Default,
+    Idle,
+    Lowest,
+    Low,
+    Normal,
+    High,
+    Highest,
+    Realtime,
+}
+
+impl From<ThreadPriority> for sys::ma_thread_priority {
+    fn from(value: ThreadPriority) -> Self {
+        match value {
+            ThreadPriority::Default => sys::ma_thread_priority_ma_thread_priority_default,
+            ThreadPriority::Idle => sys::ma_thread_priority_ma_thread_priority_idle,
+            ThreadPriority::Lowest => sys::ma_thread_priority_ma_thread_priority_lowest,
+            ThreadPriority::Low => sys::ma_thread_priority_ma_thread_priority_low,
+            ThreadPriority::Normal => sys::ma_thread_priority_ma_thread_priority_normal,
+            ThreadPriority::High => sys::ma_thread_priority_ma_thread_priority_high,
+            ThreadPriority::Highest => sys::ma_thread_priority_ma_thread_priority_highest,
+            ThreadPriority::Realtime => sys::ma_thread_priority_ma_thread_priority_realtime,
+        }
+    }
+}
+
+impl TryFrom<sys::ma_thread_priority> for ThreadPriority {
+    type Error = MaudioError;
+
+    fn try_from(value: sys::ma_thread_priority) -> Result<Self, Self::Error> {
+        match value {
+            sys::ma_thread_priority_ma_thread_priority_idle => Ok(ThreadPriority::Idle),
+            sys::ma_thread_priority_ma_thread_priority_lowest => Ok(ThreadPriority::Lowest),
+            sys::ma_thread_priority_ma_thread_priority_low => Ok(ThreadPriority::Low),
+            sys::ma_thread_priority_ma_thread_priority_normal => Ok(ThreadPriority::Normal),
+            sys::ma_thread_priority_ma_thread_priority_high => Ok(ThreadPriority::High),
+            sys::ma_thread_priority_ma_thread_priority_highest => Ok(ThreadPriority::Highest),
+            sys::ma_thread_priority_ma_thread_priority_realtime => Ok(ThreadPriority::Realtime),
+            other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
+                ThreadPriority,
+            >(other as i64))),
         }
     }
 }

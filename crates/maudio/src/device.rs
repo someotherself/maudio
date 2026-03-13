@@ -20,7 +20,7 @@ use crate::{
 };
 
 pub mod device_builder;
-pub mod device_cb_notif;
+pub(crate) mod device_cb_notif;
 pub mod device_id;
 pub mod device_info;
 pub mod device_state;

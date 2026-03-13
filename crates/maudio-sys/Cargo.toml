@@ -28,6 +28,7 @@ no-audio4 = []
 no-oss = []
 no-aaudio = []
 no-opensl = []
+no-webaudio = []
 
 [build-dependencies.bindgen]
 version = "0.72.1"

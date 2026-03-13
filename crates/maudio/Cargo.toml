@@ -11,5 +11,20 @@ categories = ["multimedia::audio", "multimedia"]
 [features]
 ci-tests = [] # disable the backend for the github CI
 
+# Disable specific backends
+no-wasapi = ["maudio-sys/no-wasapi"]
+no-dsound = ["maudio-sys/no-dsound"]
+no-winmm = ["maudio-sys/no-winmm"]
+no-alsa = ["maudio-sys/no-alsa"]
+no-pulseaudio = ["maudio-sys/no-pulseaudio"]
+no-jack = ["maudio-sys/no-jack"]
+no-coreaudio = ["maudio-sys/no-coreaudio"]
+no-sndio = ["maudio-sys/no-sndio"]
+no-audio4 = ["maudio-sys/no-audio4"]
+no-oss = ["maudio-sys/no-oss"]
+no-aaudio = ["maudio-sys/no-aaudio"]
+no-opensl = ["maudio-sys/no-opensl"]
+no-webaudio = ["maudio-sys/no-webaudio"]
+
 [dependencies]
-maudio-sys = { version = "0.1.0", path = "../maudio-sys"}
+maudio-sys = { version = "0.1.2", path = "../maudio-sys"}

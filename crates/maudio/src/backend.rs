@@ -125,6 +125,29 @@ impl Backend {
         }
     }
 
+    pub const fn is_enabled_in_build(self) -> bool {
+        match self {
+            Backend::Wasapi => !cfg!(feature = "no-wasapi"),
+            Backend::DSound => !cfg!(feature = "no-dsound"),
+            Backend::WinMm => !cfg!(feature = "no-winmm"),
+            Backend::CoreAudio => !cfg!(feature = "no-coreaudio"),
+            Backend::Sndio => !cfg!(feature = "no-sndio"),
+            Backend::Audio4 => !cfg!(feature = "no-audio4"),
+            Backend::Oss => !cfg!(feature = "no-oss"),
+            Backend::PulseAudio => !cfg!(feature = "no-pulseaudio"),
+            Backend::Alsa => !cfg!(feature = "no-alsa"),
+            Backend::Jack => !cfg!(feature = "no-jack"),
+            Backend::Aaudio => !cfg!(feature = "no-aaudio"),
+            Backend::Opensl => !cfg!(feature = "no-opensl"),
+            Backend::WebAudio => !cfg!(feature = "no-webaudio"),
+            Backend::Custom | Backend::Null => true,
+        }
+    }
+
+    pub const fn is_available_in_build(self) -> bool {
+        self.possible_on_this_target() && self.is_enabled_in_build()
+    }
+
     pub fn all_supported_on_this_platform() -> impl Iterator<Item = Backend> {
         Self::ALL
             .iter()
