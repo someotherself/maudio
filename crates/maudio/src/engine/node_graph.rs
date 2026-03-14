@@ -5,7 +5,7 @@ mod node_builder; // Creating nodes is not implemented yet.
 mod node_flags; // Creating nodes is not implemented yet.
 pub mod node_graph_builder;
 pub mod nodes;
-mod voice;
+mod voice; // experiment
 
 use maudio_sys::ffi as sys;
 
@@ -35,9 +35,6 @@ use crate::{
 /// ```text
 /// [Decoder / Generator Nodes] → [Mixers / Effects] → [Graph Endpoint] → output
 /// ```
-///
-/// ## Allocation callbacks
-/// See [`AllocationCallbacks`]
 ///
 /// ## Relationship to `Engine`
 ///

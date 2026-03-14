@@ -103,7 +103,7 @@ pub struct ResourceManagerBufferBuilder<'a, R: AsRmPtr + ?Sized> {
     rm: &'a R,
     inner: sys::ma_resource_manager_data_source_config,
     flags: RmSourceFlags,
-    fence: Option<&'a Fence>,
+    fence: Option<Fence>,
     source: SourceBufSource<'a>,
     owned_path: OwnedPathBuf,
 }
@@ -195,7 +195,7 @@ impl<'a, R: AsRmPtr> ResourceManagerBufferBuilder<'a, R> {
         self
     }
 
-    pub fn fence(&mut self, fence: &'a Fence) -> &mut Self {
+    pub fn fence(&mut self, fence: Fence) -> &mut Self {
         self.fence = Some(fence);
         self.async_load(true);
         self

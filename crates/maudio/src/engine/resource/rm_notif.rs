@@ -21,10 +21,10 @@ pub enum NotifyAt {
     Done,
 }
 
-pub enum NotificationPipelineBuilder<'a> {
+pub enum NotificationPipelineBuilder {
     Fence {
         at: NotifyAt,
-        fence: &'a Fence,
+        fence: Fence,
     },
     Callback {
         at: NotifyAt,
@@ -32,24 +32,28 @@ pub enum NotificationPipelineBuilder<'a> {
     },
 }
 
-impl<'a> NotificationPipelineBuilder<'a> {
-    fn init_with_fence(fence: &'a Fence) -> NotificationPipeline {
+impl NotificationPipelineBuilder {
+    fn init_with_fence(fence: Fence) -> NotificationPipeline {
         let mut notif = NotificationPipeline::init();
         notif.inner.init.pFence = fence.to_raw();
         notif
     }
 
-    fn done_with_fence(fence: &'a Fence) -> NotificationPipeline {
+    fn done_with_fence(fence: Fence) -> NotificationPipeline {
         let mut notif = NotificationPipeline::init();
         notif.inner.done.pFence = fence.to_raw();
         notif
     }
 
     fn init_with_cb() -> NotificationPipeline {
+        // TODO
         todo!()
     }
 
-    fn done_with_cb() {}
+    fn done_with_cb() {
+        // TODO
+        todo!()
+    }
 }
 
 #[repr(C)]

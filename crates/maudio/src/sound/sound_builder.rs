@@ -103,19 +103,19 @@ use crate::{
 /// - `SoundBuilder` is consumed by `build()` and should be used once, matching
 ///   miniaudio's "fill config → init" workflow.
 /// - If you only need a simple sound, prefer the convenience constructors on [`Engine`] / [`Sound`].
-pub struct SoundBuilder<'a> {
+pub struct SoundBuilder<'a, 'b> {
     inner: sys::ma_sound_config,
     engine: &'a Engine,
     source: SoundSource<'a>,
     owned_path: OwnedPathBuf,
-    fence: Option<&'a Fence>,
+    fence: Option<Fence>, // a ref
     flags: SoundFlags,
-    group: Option<&'a SoundGroup<'a>>,
+    group: Option<&'b SoundGroup<'b>>,
     end_notifier: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
     sound_state: SoundState,
 }
 
-impl AsRawRef for SoundBuilder<'_> {
+impl<'a, 'b> AsRawRef for SoundBuilder<'a, 'b> {
     type Raw = sys::ma_sound_config;
 
     fn as_raw(&self) -> &Self::Raw {
@@ -146,7 +146,7 @@ pub(crate) enum OwnedPathBuf {
 }
 
 // TODO: Add ma_mono_expansion_mode
-impl<'a> SoundBuilder<'a> {
+impl<'a, 'b> SoundBuilder<'a, 'b> {
     pub fn new(engine: &'a Engine) -> Self {
         SoundBuilder::init(engine)
     }
@@ -171,7 +171,7 @@ impl<'a> SoundBuilder<'a> {
     }
 
     fn start_sound(&mut self, notif: Option<Arc<AtomicBool>>) -> MaResult<Sound<'a>> {
-        if let Some(fence) = self.fence {
+        if let Some(fence) = self.fence.clone() {
             self.inner.pDoneFence = fence.to_raw()
         };
 
@@ -262,7 +262,7 @@ impl<'a> SoundBuilder<'a> {
         self
     }
 
-    pub fn sound_group(&mut self, group: &'a SoundGroup) -> &mut Self {
+    pub fn sound_group(&mut self, group: &'b SoundGroup) -> &mut Self {
         self.inner.pInitialAttachment = private_node::node_ptr(&group.as_node());
         self.group = Some(group);
 
@@ -275,7 +275,7 @@ impl<'a> SoundBuilder<'a> {
     ///
     /// A fence is only meaningful when the sound is created from a file.
     /// Using a fence without a file source will result in a runtime error.
-    pub fn fence(&mut self, fence: &'a Fence) -> &mut Self {
+    pub fn fence(&mut self, fence: Fence) -> &mut Self {
         self.fence = Some(fence);
         self.async_load(true)
     }
@@ -665,7 +665,7 @@ impl<'a> SoundBuilder<'a> {
     }
 }
 
-impl<'a> SoundBuilder<'a> {
+impl<'a, 'b> SoundBuilder<'a, 'b> {
     pub(crate) fn init(inner: &'a Engine) -> Self {
         let ptr = unsafe { sys::ma_sound_config_init_2(inner.to_raw()) };
         let state = SoundState::default();
@@ -690,6 +690,6 @@ mod test {
     #[test]
     fn sound_builder_test_basic() {
         let engine = Engine::new_for_tests().unwrap();
-        let _sound = engine.sound().channels_in(1).build().unwrap();
+        let _sound = engine.sound_config().channels_in(1).build().unwrap();
     }
 }

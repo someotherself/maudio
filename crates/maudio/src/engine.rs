@@ -407,10 +407,15 @@ impl Engine {
     }
 
     /// Equivalent to calling [`SoundBuilder::new()`]
-    pub fn sound(&self) -> SoundBuilder<'_> {
+    pub fn sound_config<'a, 'b>(&'a self) -> SoundBuilder<'a, 'b> {
         SoundBuilder::init(self)
     }
 
+    /// Creates an empty sound node with no audio source.
+    ///
+    /// Unlike sounds created from a file or data source, this object does not
+    /// produce audio by itself. It is mainly useful as an intermediate node in
+    /// the engine's node graph, where other sounds or nodes can be attached to it.
     pub fn new_sound(&self) -> MaResult<Sound<'_>> {
         self.new_sound_with_config_internal(None)
     }
@@ -424,6 +429,10 @@ impl Engine {
         source: &D,
     ) -> MaResult<Sound<'_>> {
         self.new_sound_with_source_internal(SoundFlags::NONE, None, source)
+    }
+
+    pub fn clone_sound(&self, sound: &Sound, flags: SoundFlags) -> MaResult<Sound<'_>> {
+        self.new_sound_instance_internal(sound, flags, None)
     }
 
     /// Manually starts the engine
@@ -447,7 +456,7 @@ impl Engine {
         &'a self,
         path: &Path,
         sound_group: &'a SoundGroup,
-        done_fence: Option<&Fence>,
+        done_fence: Option<Fence>,
     ) -> MaResult<Sound<'a>> {
         self.new_sound_with_file_internal(path, SoundFlags::NONE, Some(sound_group), done_fence)
     }
@@ -457,7 +466,7 @@ impl Engine {
         &self,
         path: &Path,
         flags: SoundFlags,
-        done_fence: Option<&Fence>,
+        done_fence: Option<Fence>,
     ) -> MaResult<Sound<'_>> {
         self.new_sound_with_file_internal(path, flags, None, done_fence)
     }
@@ -517,10 +526,6 @@ impl Engine {
         Ok(Sound::from_ptr(inner))
     }
 
-    pub fn clone_sound(&self, sound: &Sound, flags: SoundFlags) -> MaResult<Sound<'_>> {
-        self.new_sound_instance_internal(sound, flags, None)
-    }
-
     pub(crate) fn new_sound_with_source_internal<'a, D: AsSourcePtr + ?Sized>(
         &'a self,
         flags: SoundFlags,
@@ -546,7 +551,7 @@ impl Engine {
         path: &Path,
         flags: SoundFlags,
         sound_group: Option<&'a SoundGroup>,
-        done_fence: Option<&Fence>,
+        done_fence: Option<Fence>,
     ) -> MaResult<Sound<'a>> {
         let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new(MaybeUninit::uninit());
 
@@ -610,7 +615,7 @@ pub(crate) fn wide_null_terminated_name(name: &str) -> Vec<u16> {
 /// (typically the system allocator).
 ///
 /// Custom allocators are currently not implemented.
-pub struct AllocationCallbacks {
+pub(crate) struct AllocationCallbacks {
     inner: sys::ma_allocation_callbacks,
 }
 

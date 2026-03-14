@@ -13,7 +13,7 @@
 //! - [`Device`](crate::device::Device) represents an opened audio stream used for playback,
 //!   capture, or duplex I/O
 //!
-//! A `Context` is commonly used to discover devices and choose a [`DeviceId`](crate::device::DeviceId)
+//! A `Context` is commonly used to discover devices and choose a [`DeviceId`]
 //! before creating a `Device`.
 //!
 //! # Enumerating devices

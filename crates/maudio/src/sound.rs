@@ -1,6 +1,7 @@
 //! Sound playback primitives.
 //!
 //! This module defines [`Sound`], an engine-managed audio voice.
+#[cfg(unix)]
 use std::{cell::Cell, marker::PhantomData, path::Path};
 
 use maudio_sys::ffi as sys;
@@ -493,7 +494,7 @@ impl<'a> Sound<'a> {
         path: &Path,
         flags: SoundFlags,
         sound_group: Option<&SoundGroup>,
-        fence: Option<&Fence>,
+        fence: Option<Fence>,
     ) -> MaResult<()> {
         #[cfg(unix)]
         {
@@ -572,7 +573,7 @@ pub(crate) mod sound_ffi {
         path: std::ffi::CString,
         flags: SoundFlags,
         s_group: Option<&SoundGroup>,
-        done_fence: Option<&Fence>,
+        done_fence: Option<Fence>,
         sound: *mut sys::ma_sound,
     ) -> MaResult<()> {
         let s_group: *mut sys::ma_sound_group =
@@ -601,7 +602,7 @@ pub(crate) mod sound_ffi {
         path: &[u16],
         flags: SoundFlags,
         s_group: Option<&SoundGroup>,
-        done_fence: Option<&Fence>,
+        done_fence: Option<Fence>,
         sound: *mut sys::ma_sound,
     ) -> MaResult<()> {
         let s_group: *mut sys::ma_sound_group =

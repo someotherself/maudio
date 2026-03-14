@@ -427,8 +427,7 @@ pub(crate) mod device_ffi {
 
     // Callback: not safe
     // Theadsafe: not safe
-    // TODO
-    // Only used for custom backends
+    // Not implemented. Only used for custom backends
     #[inline]
     pub fn ma_device_post_init<D: AsDevicePtr + ?Sized>(
         device: &D,
@@ -485,7 +484,7 @@ pub(crate) mod device_ffi {
 
     // Callback: called by miniaudio
     // Theadsafe: called by miniaudio
-    // TODO
+    // Not implemented. Only used for custom backends
     #[inline]
     pub fn ma_device_handle_backend_data_callback<D: AsDevicePtr + ?Sized>(
         device: &D,
@@ -506,7 +505,7 @@ pub(crate) mod device_ffi {
 
     // Callback: called by miniaudio
     // Theadsafe: called by miniaudio
-    // TODO
+    // Not implemented. Only used for custom backends
     #[inline]
     pub fn ma_calculate_buffer_size_in_frames_from_descriptor(
         descriptor: *const sys::ma_device_descriptor,

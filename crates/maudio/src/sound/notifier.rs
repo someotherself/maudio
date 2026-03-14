@@ -16,7 +16,7 @@ use maudio_sys::ffi as sys;
 /// The `EndNotifier` is not triggered by scheduled events like [`Sound::set_stop_time_pcm()`](crate::sound::Sound::set_stop_time_pcm())
 ///
 /// Cloning an `EndNotifier` creates another handle to the same underlying notification flag.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct EndNotifier {
     flag: Arc<AtomicBool>,
 }

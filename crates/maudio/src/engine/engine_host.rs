@@ -1,6 +1,6 @@
 // Experimental feature
 
-use std::{collections::HashMap, sync::mpsc::Sender, thread::JoinHandle};
+use std::{collections::HashMap, marker::PhantomData, sync::mpsc::Sender, thread::JoinHandle};
 
 use crate::{
     audio::{formats::SampleBuffer, math::vec3::Vec3, spatial::cone::Cone},
@@ -8,15 +8,65 @@ use crate::{
         node_graph::{nodes::NodeRef, NodeGraphRef},
         Engine, EngineOps,
     },
-    sound::Sound,
+    sound::{sound_builder::SoundBuilder, sound_group::SoundGroup, Sound},
     ErrorKinds, MaResult,
 };
 
-pub struct SoundId(u64);
+pub type Id = u64;
+pub type SoundId = u64;
+pub type GroupId = u64;
+pub type NodeId = u64;
 
-#[derive(Default)]
 struct Hosts<'a> {
-    sounds: SoundHosts<'a>,
+    node_graph: NodeGraphRef<'a>,
+    endpoint: NodeRef<'a>,
+    sounds: Store<SoundId, Sound<'a>>,
+    groups: Store<GroupId, SoundGroup<'a>>,
+    nodes: Store<NodeId, NodeRef<'a>>,
+}
+
+impl<'a> Hosts<'a> {
+    fn new(engine: &'a Engine) -> Self {
+        let endpoint = engine.endpoint().unwrap();
+        let node_graph = engine.as_node_graph().unwrap();
+        let sounds: Store<SoundId, Sound<'a>> = Store {
+            next: 1,
+            values: HashMap::new(),
+            _marker: PhantomData,
+        };
+        let groups: Store<GroupId, SoundGroup<'a>> = Store {
+            next: 1,
+            values: HashMap::new(),
+            _marker: PhantomData,
+        };
+        let nodes: Store<NodeId, NodeRef<'a>> = Store {
+            next: 1,
+            values: HashMap::new(),
+            _marker: PhantomData,
+        };
+        Hosts {
+            endpoint,
+            node_graph,
+            sounds,
+            groups,
+            nodes,
+        }
+    }
+
+    fn new_sound<'b>(&mut self, builder: SoundBuilder<'a, 'b>) -> MaResult<()> {
+        let mut builder = builder;
+        let sound = builder.build()?;
+        let next = self.sounds.next;
+        self.sounds.next += 1;
+        self.sounds.values.insert(next, sound);
+        Ok(())
+    }
+}
+
+struct Store<Id, T> {
+    next: u64,
+    values: HashMap<u64, T>,
+    _marker: PhantomData<Id>,
 }
 
 #[derive(Default)]
@@ -25,7 +75,7 @@ struct SoundHosts<'a> {
     sounds: HashMap<SoundId, Sound<'a>>,
 }
 
-type Job = Box<dyn FnOnce(&mut Engine, &mut SoundHosts) + Send + 'static>;
+type Job = Box<dyn FnOnce(&Engine, &mut Hosts<'_>) + Send + 'static>;
 
 pub struct EngineHandle {
     handle: JoinHandle<MaResult<()>>,
@@ -37,11 +87,12 @@ impl Engine {
         let (tx, rx) = std::sync::mpsc::channel::<Job>();
 
         let join = std::thread::spawn(move || -> MaResult<()> {
-            let mut engine = Engine::new()?;
-            let mut sound_hosts = SoundHosts::default();
+            let engine = Engine::new()?;
+
+            let mut hosts = Hosts::new(&engine);
 
             while let Ok(job) = rx.recv() {
-                job(&mut engine, &mut sound_hosts)
+                job(&engine, &mut hosts)
             }
             Ok(())
         });
@@ -60,7 +111,7 @@ impl EngineHandle {
 
     fn post<F>(&self, f: F) -> MaResult<()>
     where
-        F: FnOnce(&mut Engine, &mut SoundHosts) + Send + 'static,
+        F: FnOnce(&Engine, &mut Hosts<'_>) + Send + 'static,
     {
         self.sender
             .send(Box::new(f))
@@ -69,12 +120,12 @@ impl EngineHandle {
 
     fn call<F, R>(&self, f: F) -> MaResult<R>
     where
-        F: FnOnce(&mut Engine, &mut SoundHosts) -> R + Send + 'static,
+        F: FnOnce(&Engine, &mut Hosts<'_>) -> R + Send + 'static,
         R: Send + 'static,
     {
         let (rtx, rrx) = std::sync::mpsc::channel::<R>();
-        self.post(move |eng, sounds| {
-            let r = f(eng, sounds);
+        self.post(move |eng, hosts| {
+            let r = f(eng, hosts);
             let _ = rtx.send(r);
         })?;
         rrx.recv()
@@ -83,6 +134,13 @@ impl EngineHandle {
 }
 
 impl EngineHandle {
+    pub fn new_sound<'a, 'b>(&self, _builder: SoundBuilder<'a, 'b>) -> MaResult<()> {
+        self.call(|_, _h| {
+            // h.new_sound(builder);
+            todo!()
+        })
+    }
+
     pub fn set_volume(&self, volume: f32) -> MaResult<()> {
         self.call(move |e, _s| e.set_volume(volume))?
     }
