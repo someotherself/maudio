@@ -26,6 +26,7 @@ pub mod device_info;
 pub mod device_state;
 pub mod device_type;
 
+#[derive(Clone)]
 pub struct Device {
     inner: Arc<DeviceInner>,
 }

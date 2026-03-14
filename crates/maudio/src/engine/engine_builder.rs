@@ -5,6 +5,7 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     audio::sample_rate::SampleRate,
+    device::Device,
     engine::{
         engine_cb_notif::engine_notification_callback,
         process_cb::{on_process_callback, EngineProcessCallback, ProcessState},
@@ -12,18 +13,15 @@ use crate::{
         Engine,
     },
     util::{device_notif::DeviceStateNotifier, prof_notif::ProcFramesNotif},
-    AsRawRef, MaResult,
+    AsRawRef, Binding, MaResult,
 };
 
 pub struct EngineBuilder {
     inner: sys::ma_engine_config,
-    device: Option<*mut sys::ma_device>,
-    resource_manager: Option<ResourceManager<f32>>, // a ref count, not ownership
-    no_device: bool,
-    channels: Option<u32>,
-    sample_rate: Option<SampleRate>,
+    pub(crate) device: Option<Device>, // a ref count, not ownership
+    pub(crate) resource_manager: Option<ResourceManager<f32>>, // a ref count, not ownership
     process_data_ptr: Option<*mut ProcessState>,
-    pub(crate) process_data_panic: Option<Arc<AtomicBool>>,
+    process_data_panic: Option<Arc<AtomicBool>>,
     state_notif_exists: bool,
     state_notif: Option<DeviceStateNotifier>, // Always set by set_process_notifier. Dropped if state_notif_exists is false
 }
@@ -66,9 +64,6 @@ impl EngineBuilder {
             inner,
             device: None,
             resource_manager: None,
-            no_device: false,
-            channels: None,
-            sample_rate: None,
             process_data_ptr: None,
             process_data_panic: None,
             state_notif_exists: false,
@@ -76,11 +71,10 @@ impl EngineBuilder {
         }
     }
 
-    // TODO: Implement wrapper for sys::ma_device
-    // TODO: How to avoid adding a lifetime to a Device?
     // If set, the caller is responsible for calling ma_engine_data_callback() in the device's data callback.
-    fn device(&mut self, device: *mut sys::ma_device) -> &mut Self {
-        self.inner.pDevice = device;
+    fn device(&mut self, device: Device) -> &mut Self {
+        self.inner.pDevice = device.to_raw();
+        self.device = Some(device);
         self
     }
 
@@ -103,13 +97,10 @@ impl EngineBuilder {
     /// Data can be read manually using [`EngineOps::read_pcm_frames()`](crate::engine::EngineOps::read_pcm_frames())
     pub fn no_device(&mut self, channels: u32, sample_rate: SampleRate) -> &mut Self {
         self.inner.sampleRate = sample_rate.into();
-        self.sample_rate = Some(sample_rate);
 
         self.inner.channels = channels;
-        self.channels = Some(channels);
 
         self.inner.noDevice = 1;
-        self.no_device = true;
         self
     }
 
@@ -118,14 +109,12 @@ impl EngineBuilder {
     /// When set to 0, will use the native channel count of the device.
     pub fn set_channels(&mut self, channels: u32) -> &mut Self {
         self.inner.channels = channels;
-        self.channels = Some(channels);
         self
     }
 
     /// When set to 0 will use the native sample rate of the device.
     pub fn set_sample_rate(&mut self, sample_rate: SampleRate) -> &mut Self {
         self.inner.sampleRate = sample_rate.into();
-        self.sample_rate = Some(sample_rate);
         self
     }
 
@@ -138,7 +127,7 @@ impl EngineBuilder {
     }
 
     fn set_process_notifier(&mut self, f: Option<Box<EngineProcessCallback>>) -> ProcFramesNotif {
-        let channels = self.channels.unwrap_or(2); // engine is init with 2 channels by default
+        let channels = self.inner.channels; // engine is init with 2 channels by default
         let state = ProcessState::new(channels, f);
 
         let proc_notif = state.clone_proc_notif();
@@ -202,13 +191,6 @@ impl EngineBuilder {
     ///
     // If you truly need to run a callback on the realtime thread, use [`EngineBuilder::with_realtime_callback()`].
     pub fn with_process_notifier(&mut self) -> MaResult<(Engine, ProcFramesNotif)> {
-        if let Some(channels) = self.channels {
-            if channels == 0 {
-                return Err(crate::MaudioError::from_ma_result(
-                    sys::ma_result_MA_INVALID_ARGS,
-                ));
-            }
-        }
         let notifier = self.set_process_notifier(None);
         self.inner.onProcess = Some(on_process_callback);
 
@@ -250,14 +232,6 @@ impl EngineBuilder {
     where
         C: FnMut(&mut [f32], u32) + Send + 'static,
     {
-        if let Some(channels) = self.channels {
-            if channels == 0 {
-                return Err(crate::MaudioError::from_ma_result(
-                    sys::ma_result_MA_INVALID_ARGS,
-                ));
-            }
-        }
-
         // Set state and proc notifier callback
         let notifier = self.set_process_notifier(Some(Box::new(cb)));
         self.inner.onProcess = Some(on_process_callback);
@@ -273,13 +247,13 @@ impl EngineBuilder {
     pub fn build(&mut self) -> MaResult<Engine> {
         let _ = self.set_process_notifier(None);
 
-        if !self.no_device && self.state_notif_exists {
+        if self.inner.noDevice == 1 && self.state_notif_exists {
             self.inner.notificationCallback = Some(engine_notification_callback);
         }
 
         let mut engine = Engine::new_with_config(Some(self))?;
         // Check if we set the state notifier callback
-        if !self.no_device && self.state_notif_exists {
+        if self.inner.noDevice == 1 && self.state_notif_exists {
             engine.state_notifier = self.state_notif.clone();
         }
         Ok(engine)

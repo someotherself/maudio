@@ -56,7 +56,7 @@ use crate::{
         formats::SampleBuffer, math::vec3::Vec3, sample_rate::SampleRate, spatial::cone::Cone,
     },
     data_source::AsSourcePtr,
-    device::DeviceRef,
+    device::{Device, DeviceRef},
     engine::{
         engine_builder::EngineBuilder,
         node_graph::{nodes::NodeRef, NodeGraphRef},
@@ -97,9 +97,10 @@ pub mod resource;
 /// - optionally interact with the engine’s endpoint node / node graph for effects
 pub struct Engine {
     inner: *mut sys::ma_engine,
+    device: Option<Device>, // a ref count, not ownership
+    resource_manager: Option<ResourceManager<f32>>, // a ref count, not ownership
     process_data_ptr: Option<*mut ProcessState>, // userdata (self.inner.pProcessUserData)
     process_data_panic: Option<Arc<AtomicBool>>, // true = callback panicked and is now poisoned
-    resource_manager: Option<ResourceManager<f32>>, // a ref count, not ownership
     state_notifier: Option<DeviceStateNotifier>,
     _not_sync: PhantomData<Cell<()>>,
 }
@@ -392,16 +393,20 @@ impl Engine {
     }
 
     fn new_with_config(config: Option<&EngineBuilder>) -> MaResult<Self> {
+        let (device, rm) = config.map_or((None, None), |c| {
+            (c.device.clone(), c.resource_manager.clone())
+        });
         let mut mem: Box<MaybeUninit<sys::ma_engine>> = Box::new(MaybeUninit::uninit());
         engine_ffi::engine_init(config, mem.as_mut_ptr())?;
         // Safety: If mem is not initialized, engine_init will return an error
         let inner: *mut sys::ma_engine = Box::into_raw(mem) as *mut sys::ma_engine;
         Ok(Self {
             inner,
-            resource_manager: None,
-            process_data_ptr: None,
-            process_data_panic: None,
-            state_notifier: None,
+            device,
+            resource_manager: rm,
+            process_data_ptr: None,   // set in builder after returning this
+            process_data_panic: None, // set in builder after returning this
+            state_notifier: None,     // set in builder after returning this
             _not_sync: PhantomData,
         })
     }
