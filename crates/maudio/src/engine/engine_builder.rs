@@ -26,6 +26,8 @@ pub struct EngineBuilder {
     state_notif: Option<DeviceStateNotifier>, // Always set by set_process_notifier. Dropped if state_notif_exists is false
 }
 
+unsafe impl Send for EngineBuilder {}
+
 impl AsRawRef for EngineBuilder {
     type Raw = sys::ma_engine_config;
 
@@ -72,7 +74,7 @@ impl EngineBuilder {
     }
 
     // If set, the caller is responsible for calling ma_engine_data_callback() in the device's data callback.
-    fn device(&mut self, device: Device) -> &mut Self {
+    pub fn device(&mut self, device: Device) -> &mut Self {
         self.inner.pDevice = device.to_raw();
         self.device = Some(device);
         self
@@ -174,7 +176,8 @@ impl EngineBuilder {
     /// # use maudio::engine::engine_builder::EngineBuilder;
     /// # use maudio::*;
     /// # fn main() -> maudio::MaResult<()> {
-    /// let (engine, mut tick) = EngineBuilder::new().with_process_notifier()?;
+    /// let engine = EngineBuilder::new().with_process_notifier()?;
+    /// let tick = engine.get_data_notifier().unwrap();
     ///
     /// loop {
     ///     tick.call_if_triggered(|delta_frames| {
@@ -190,7 +193,7 @@ impl EngineBuilder {
     /// ```
     ///
     // If you truly need to run a callback on the realtime thread, use [`EngineBuilder::with_realtime_callback()`].
-    pub fn with_process_notifier(&mut self) -> MaResult<(Engine, ProcFramesNotif)> {
+    pub fn with_process_notifier(&mut self) -> MaResult<Engine> {
         let notifier = self.set_process_notifier(None);
         self.inner.onProcess = Some(on_process_callback);
 
@@ -198,8 +201,9 @@ impl EngineBuilder {
         // Set the process data ptr and panic flag on the engine
         engine.process_data_ptr = self.process_data_ptr;
         engine.process_data_panic = self.process_data_panic.take();
+        engine.process_data_notif = Some(notifier);
 
-        Ok((engine, notifier))
+        Ok(engine)
     }
 
     /// This API installs a callback that is executed from the engine’s **real-time audio thread**
@@ -228,7 +232,7 @@ impl EngineBuilder {
     ///   It is **only valid for the duration of the callback** and must not be stored
     ///   or referenced after the callback returns.
     /// - The callback should not panic.
-    pub fn with_realtime_callback<C>(&mut self, cb: C) -> MaResult<(Engine, ProcFramesNotif)>
+    pub fn with_realtime_callback<C>(&mut self, cb: C) -> MaResult<Engine>
     where
         C: FnMut(&mut [f32], u32) + Send + 'static,
     {
@@ -240,8 +244,9 @@ impl EngineBuilder {
         // Set the process data ptr and panic flag on the engine
         engine.process_data_ptr = self.process_data_ptr;
         engine.process_data_panic = self.process_data_panic.take();
+        engine.process_data_notif = Some(notifier);
 
-        Ok((engine, notifier))
+        Ok(engine)
     }
 
     pub fn build(&mut self) -> MaResult<Engine> {
@@ -293,7 +298,7 @@ mod test {
     fn test_engine_builder_with_state_notifier_and_realtime_cb() {
         use crate::util::device_notif::DeviceNotificationType;
 
-        let (engine, _) = EngineBuilder::new()
+        let engine = EngineBuilder::new()
             .state_notifier()
             .no_auto_start(true)
             .with_realtime_callback(|_a, _b| {})
@@ -313,7 +318,7 @@ mod test {
     fn test_engine_builder_with_state_notifier_and_process_notif() {
         use crate::util::device_notif::DeviceNotificationType;
 
-        let (engine, _) = EngineBuilder::new()
+        let engine = EngineBuilder::new()
             .state_notifier()
             .no_auto_start(true)
             .with_process_notifier()
@@ -350,7 +355,7 @@ mod test {
 
     #[test]
     fn test_engine_builder_with_realtime_callback_basic_init() {
-        let (_engine, _notifier) = EngineBuilder::new()
+        let _engine = EngineBuilder::new()
             .with_realtime_callback(|_samples, _channels| {})
             .unwrap();
     }
@@ -395,10 +400,11 @@ mod test {
     #[test]
     fn test_engine_builder_with_process_notifier_builds_and_notifier_survives() -> MaResult<()> {
         let mut b = EngineBuilder::new();
-        let (engine, mut tick) = b
+        let engine = b
             .no_device(2, SampleRate::Sr44100)
             .with_process_notifier()?;
 
+        let tick = engine.get_data_notifier().unwrap();
         let _buf = engine.read_pcm_frames(256)?;
 
         let mut called = false;
@@ -419,7 +425,7 @@ mod test {
     #[test]
     fn test_engine_builder_process_notifier_drop_order_notifier_then_engine() -> MaResult<()> {
         let mut b = EngineBuilder::new();
-        let (_engine, _tick) = b.with_process_notifier()?;
+        let _engine = b.with_process_notifier()?;
 
         Ok(())
     }
@@ -427,7 +433,8 @@ mod test {
     #[test]
     fn test_engine_builder_process_notifier_drop_order_engine_then_notifier() -> MaResult<()> {
         let mut b = EngineBuilder::new();
-        let (engine, tick) = b.with_process_notifier()?;
+        let engine = b.with_process_notifier()?;
+        let tick = engine.get_data_notifier().unwrap();
 
         drop(engine);
         drop(tick);
@@ -440,12 +447,14 @@ mod test {
         // This targets the `process_notifier: Option<Arc<ProcessState>>` in the builder and the `take()`.
         let mut b = EngineBuilder::new();
 
-        let (engine1, tick1) = b.with_process_notifier()?;
+        let engine1 = b.with_process_notifier()?;
+        let tick1 = engine1.get_data_notifier().unwrap();
         drop(engine1);
         drop(tick1);
 
         // Re-use builder for another notifier build.
-        let (engine2, tick2) = b.with_process_notifier()?;
+        let engine2 = b.with_process_notifier()?;
+        let tick2 = engine2.get_data_notifier().unwrap();
         drop(engine2);
         drop(tick2);
 

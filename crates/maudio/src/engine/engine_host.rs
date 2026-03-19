@@ -1,10 +1,17 @@
-// Experimental feature
+//! Experimental feature
 
-use std::{collections::HashMap, marker::PhantomData, sync::mpsc::Sender, thread::JoinHandle};
+use std::{
+    cell::RefCell,
+    collections::HashMap,
+    marker::PhantomData,
+    sync::{atomic::AtomicBool, mpsc::Sender, Arc},
+    thread::JoinHandle,
+};
 
 use crate::{
     audio::{formats::SampleBuffer, math::vec3::Vec3, spatial::cone::Cone},
     engine::{
+        engine_host::sound_handle::SoundHostBuilder,
         node_graph::{nodes::NodeRef, NodeGraphRef},
         Engine, EngineOps,
     },
@@ -12,54 +19,87 @@ use crate::{
     ErrorKinds, MaResult,
 };
 
+pub(crate) mod enginehost_builder;
+pub(crate) mod sound_handle;
+pub(crate) mod soundgroup_handle;
+
 pub type Id = u64;
 pub type SoundId = u64;
 pub type GroupId = u64;
 pub type NodeId = u64;
+pub type BuilderId = u64;
 
-struct Hosts<'a> {
-    node_graph: NodeGraphRef<'a>,
-    endpoint: NodeRef<'a>,
-    sounds: Store<SoundId, Sound<'a>>,
-    groups: Store<GroupId, SoundGroup<'a>>,
-    nodes: Store<NodeId, NodeRef<'a>>,
+pub(crate) enum HostedNodes {}
+pub(crate) enum HostedBuilders<'a, 'b> {
+    Sounds { value: SoundBuilder<'a, 'b> },
 }
 
-impl<'a> Hosts<'a> {
-    fn new(engine: &'a Engine) -> Self {
-        let endpoint = engine.endpoint().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
-        let sounds: Store<SoundId, Sound<'a>> = Store {
-            next: 1,
-            values: HashMap::new(),
-            _marker: PhantomData,
-        };
-        let groups: Store<GroupId, SoundGroup<'a>> = Store {
-            next: 1,
-            values: HashMap::new(),
-            _marker: PhantomData,
-        };
-        let nodes: Store<NodeId, NodeRef<'a>> = Store {
-            next: 1,
-            values: HashMap::new(),
-            _marker: PhantomData,
-        };
-        Hosts {
+pub(crate) struct HostStore<'a, 'b> {
+    is_shutdown: Arc<AtomicBool>,
+    engine: &'a Engine,
+    engine_handle: EngineHandle,
+    node_graph: Option<NodeGraphRef<'a>>,
+    endpoint: Option<NodeRef<'a>>,
+    sounds: Store<SoundId, Sound<'a>>,
+    groups: Store<GroupId, SoundGroup<'a>>,
+    nodes: Store<NodeId, HostedNodes>,
+    builders: Store<BuilderId, HostedBuilders<'a, 'b>>,
+}
+
+impl<'a, 'b> HostStore<'a, 'b> {
+    fn new(engine: &'a Engine, sender: Sender<Job>, is_shutdown: Arc<AtomicBool>) -> Self {
+        let engine_handle = EngineHandle::new(sender, is_shutdown.clone());
+        let endpoint = engine.endpoint();
+        let node_graph = engine.as_node_graph();
+
+        HostStore {
+            is_shutdown: is_shutdown.clone(),
+            engine,
+            engine_handle,
             endpoint,
             node_graph,
-            sounds,
-            groups,
-            nodes,
+            sounds: Store::<SoundId, Sound<'a>>::new(),
+            groups: Store::<GroupId, SoundGroup<'a>>::new(),
+            nodes: Store::<NodeId, HostedNodes>::new(),
+            builders: Store::<BuilderId, HostedBuilders>::new(),
         }
     }
 
-    fn new_sound<'b>(&mut self, builder: SoundBuilder<'a, 'b>) -> MaResult<()> {
-        let mut builder = builder;
-        let sound = builder.build()?;
-        let next = self.sounds.next;
+    pub(crate) fn insert_sound(&mut self, sound: Sound<'a>) -> u64 {
+        let id = self.builders.next;
         self.sounds.next += 1;
-        self.sounds.values.insert(next, sound);
-        Ok(())
+        self.sounds.values.insert(id, sound);
+        id
+    }
+
+    pub(crate) fn insert_builder(&mut self, builder: SoundBuilder<'a, 'b>) -> u64 {
+        let id = self.builders.next;
+        self.builders.next += 1;
+        self.builders
+            .values
+            .insert(id, HostedBuilders::Sounds { value: builder });
+        id
+    }
+
+    pub(crate) fn sound_builder_sound_group(
+        &mut self,
+        builder_id: SoundId,
+        group: &'b SoundGroup<'a>,
+    ) {
+        let mut builder = self.builders.values.get_mut(&builder_id).unwrap();
+        match &mut builder {
+            HostedBuilders::Sounds { value } => {
+                value.sound_group(group);
+            }
+        }
+    }
+
+    pub(crate) fn get_sound(&mut self, id: SoundId) -> &mut Sound<'a> {
+        self.sounds.values.get_mut(&id).unwrap() // TODO Return error instead.
+    }
+
+    pub(crate) fn get_group(&self, id: GroupId) -> &SoundGroup<'_> {
+        self.groups.values.get(&id).unwrap() // TODO Return error instead.
     }
 }
 
@@ -69,58 +109,88 @@ struct Store<Id, T> {
     _marker: PhantomData<Id>,
 }
 
+impl<ID, T> Store<ID, T> {
+    fn new() -> Self {
+        Self {
+            next: 0,
+            values: HashMap::<u64, T>::new(),
+            _marker: PhantomData,
+        }
+    }
+}
+
+struct BuildStore<Id, T> {
+    next: u64,
+    values: RefCell<HashMap<u64, T>>,
+    _marker: PhantomData<Id>,
+}
+
+impl<ID, T> BuildStore<ID, T> {
+    fn new() -> Self {
+        Self {
+            next: 0,
+            values: RefCell::new(HashMap::<u64, T>::new()),
+            _marker: PhantomData,
+        }
+    }
+}
+
 #[derive(Default)]
-struct SoundHosts<'a> {
+struct SoundHostStore<'a> {
     next_sound_id: u64,
     sounds: HashMap<SoundId, Sound<'a>>,
 }
 
-type Job = Box<dyn FnOnce(&Engine, &mut Hosts<'_>) + Send + 'static>;
+type Job = Box<dyn FnOnce(&Engine, &mut HostStore<'_, '_>) + Send + 'static>;
 
-pub struct EngineHandle {
+pub struct Host {
+    shared: Arc<HostShared>,
     handle: JoinHandle<MaResult<()>>,
-    sender: Sender<Job>,
 }
 
-impl Engine {
-    pub fn spawn() -> MaResult<EngineHandle> {
-        let (tx, rx) = std::sync::mpsc::channel::<Job>();
+struct HostShared {
+    sender: std::sync::mpsc::Sender<Job>,
+    is_shutdown: Arc<AtomicBool>,
+}
 
+unsafe impl Send for HostShared {}
+unsafe impl Sync for HostShared {}
+
+impl Engine {
+    pub fn spawn() -> MaResult<Host> {
+        let (tx, rx) = std::sync::mpsc::channel::<Job>();
+        let is_shutdown = Arc::new(AtomicBool::new(false));
+        let is_shutdown_clone = is_shutdown.clone();
+
+        let tx_clone = tx.clone();
         let join = std::thread::spawn(move || -> MaResult<()> {
             let engine = Engine::new()?;
 
-            let mut hosts = Hosts::new(&engine);
+            let mut hosts = HostStore::new(&engine, tx_clone, is_shutdown_clone);
 
             while let Ok(job) = rx.recv() {
                 job(&engine, &mut hosts)
             }
             Ok(())
         });
-        Ok(EngineHandle {
+        Ok(Host {
+            shared: Arc::new(HostShared {
+                sender: tx,
+                is_shutdown,
+            }),
             handle: join,
-            sender: tx,
         })
     }
 }
 
-impl EngineHandle {
-    pub fn shutdown(self) {
-        drop(self.sender);
-        let _ = self.handle.join().unwrap();
-    }
-
+trait HostDispatcher {
     fn post<F>(&self, f: F) -> MaResult<()>
     where
-        F: FnOnce(&Engine, &mut Hosts<'_>) + Send + 'static,
-    {
-        self.sender
-            .send(Box::new(f))
-            .map_err(|_| crate::MaudioError::new_ma_error(ErrorKinds::ChannelSendError))
-    }
+        F: FnOnce(&Engine, &mut HostStore<'_, '_>) + Send + 'static;
 
-    fn call<F, R>(&self, f: F) -> MaResult<R>
+    fn call<F, R>(&self, f: F) -> crate::MaResult<R>
     where
-        F: FnOnce(&Engine, &mut Hosts<'_>) -> R + Send + 'static,
+        F: FnOnce(&Engine, &mut HostStore<'_, '_>) -> R + Send + 'static,
         R: Send + 'static,
     {
         let (rtx, rrx) = std::sync::mpsc::channel::<R>();
@@ -133,14 +203,116 @@ impl EngineHandle {
     }
 }
 
+impl HostDispatcher for Host {
+    fn post<F>(&self, f: F) -> MaResult<()>
+    where
+        F: FnOnce(&Engine, &mut HostStore<'_, '_>) + Send + 'static,
+    {
+        self.shared
+            .sender
+            .send(Box::new(f))
+            .map_err(|_| crate::MaudioError::new_ma_error(ErrorKinds::ChannelSendError))
+    }
+}
+
+#[derive(Clone)]
+pub struct EngineHandle {
+    inner: Arc<EngineHandleInner>,
+}
+
+impl HostDispatcher for EngineHandle {
+    fn post<F>(&self, f: F) -> MaResult<()>
+    where
+        F: FnOnce(&Engine, &mut HostStore<'_, '_>) + Send + 'static,
+    {
+        self.inner
+            .sender
+            .send(Box::new(f))
+            .map_err(|_| crate::MaudioError::new_ma_error(ErrorKinds::ChannelSendError))
+    }
+}
+
 impl EngineHandle {
-    pub fn new_sound<'a, 'b>(&self, _builder: SoundBuilder<'a, 'b>) -> MaResult<()> {
-        self.call(|_, _h| {
-            // h.new_sound(builder);
-            todo!()
+    fn new(sender: Sender<Job>, is_shutdown: Arc<AtomicBool>) -> Self {
+        Self {
+            inner: Arc::new(EngineHandleInner {
+                sender,
+                is_shutdown,
+            }),
+        }
+    }
+}
+
+struct EngineHandleInner {
+    sender: Sender<Job>,
+    is_shutdown: Arc<AtomicBool>,
+}
+
+unsafe impl Send for EngineHandleInner {}
+unsafe impl Sync for EngineHandleInner {}
+
+impl Host {
+    pub(crate) fn spawn_with<F>(init: F) -> MaResult<Host>
+    where
+        F: FnOnce() -> MaResult<Engine> + Send + 'static,
+    {
+        let (tx, rx) = std::sync::mpsc::channel::<Job>();
+        let (init_tx, init_rx) = std::sync::mpsc::channel::<MaResult<()>>();
+        let is_shutdown = Arc::new(AtomicBool::new(false));
+        let is_shutdown_clone = is_shutdown.clone();
+
+        let tx_clone = tx.clone();
+        let join = std::thread::spawn(move || -> MaResult<()> {
+            let engine = match init() {
+                Ok(engine) => {
+                    let _ = init_tx.send(Ok(()));
+                    engine
+                }
+                Err(e) => {
+                    let _ = init_tx.send(Err(e));
+                    return Ok(());
+                }
+            };
+
+            let mut hosts = HostStore::new(&engine, tx_clone, is_shutdown_clone);
+
+            while let Ok(job) = rx.recv() {
+                job(&engine, &mut hosts)
+            }
+            Ok(())
+        });
+
+        init_rx
+            .recv()
+            .map_err(|_| crate::MaudioError::new_ma_error(ErrorKinds::ChannelRecieveError))??;
+
+        Ok(Host {
+            shared: Arc::new(HostShared {
+                sender: tx,
+                is_shutdown,
+            }),
+            handle: join,
         })
     }
 
+    // TODO
+    pub fn shutdown(self) {
+        // TODO: Add a shutdown job?
+        drop(self.shared);
+        let _ = self.handle.join().unwrap();
+    }
+
+    pub fn get_engine(&self) -> MaResult<EngineHandle> {
+        self.call(move |_, h| h.engine_handle.clone())
+    }
+
+    pub fn new_sound(&self) -> MaResult<SoundHostBuilder> {
+        let sender = self.shared.sender.clone();
+        self.call(move |_e, h| SoundHostBuilder::new(h, sender))
+    }
+}
+
+impl EngineHandle {
     pub fn set_volume(&self, volume: f32) -> MaResult<()> {
         self.call(move |e, _s| e.set_volume(volume))?
     }

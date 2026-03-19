@@ -231,15 +231,15 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
     ///
     /// The provided path is converted to the platform-specific format required by
     /// miniaudio and is only used during sound initialization.
-    pub fn file_path(&mut self, path: &'a Path) -> &mut Self {
+    pub fn file_path(&mut self, path: &Path) -> &mut Self {
         self.source = SoundSource::None;
         #[cfg(unix)]
         {
-            self.source = SoundSource::FileUtf8(path);
+            self.source = SoundSource::FileUtf8(path.to_path_buf());
         }
         #[cfg(windows)]
         {
-            self.source = SoundSource::FileWide(path);
+            self.source = SoundSource::FileWide(path.to_path_buf());
         }
         self
     }
@@ -647,16 +647,16 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
                 self.inner.pDataSource = private_data_source::source_ptr(&src);
             }
             #[cfg(unix)]
-            SoundSource::FileUtf8(p) => {
-                null_fields(self);
+            SoundSource::FileUtf8(ref p) => {
                 let cstring = crate::engine::cstring_from_path(p)?;
+                null_fields(self);
                 self.inner.pFilePath = cstring.as_ptr();
                 self.owned_path = OwnedPathBuf::Utf8(cstring); // keep the pointer alive
             }
             #[cfg(windows)]
-            SoundSource::FileWide(p) => {
-                null_fields(self);
+            SoundSource::FileWide(ref p) => {
                 let wide_path = crate::engine::wide_null_terminated(p);
+                null_fields(self);
                 self.inner.pFilePathW = wide_path.as_ptr();
                 self.owned_path = OwnedPathBuf::Wide(wide_path); // keep the pointer alive
             }

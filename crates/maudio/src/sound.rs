@@ -2,7 +2,11 @@
 //!
 //! This module defines [`Sound`], an engine-managed audio voice.
 #[cfg(unix)]
-use std::{cell::Cell, marker::PhantomData, path::Path};
+use std::{
+    cell::Cell,
+    marker::PhantomData,
+    path::{Path, PathBuf},
+};
 
 use maudio_sys::ffi as sys;
 
@@ -31,9 +35,9 @@ pub mod sound_group;
 pub enum SoundSource<'a> {
     None,
     #[cfg(unix)]
-    FileUtf8(&'a Path),
+    FileUtf8(PathBuf), // Could be better to copy the PathBuf here.
     #[cfg(windows)]
-    FileWide(&'a Path),
+    FileWide(PathBuf), // Could be better to copy the PathBuf here.
     DataSource(DataSourceRef<'a>),
 }
 
@@ -1267,6 +1271,34 @@ mod test {
         let state = node_ref.state();
         assert!(state.is_ok());
         let _state = state.unwrap();
+    }
+
+    #[test]
+    fn test_sound_drop_group_before_sound() {
+        let engine = Engine::new_for_tests().unwrap();
+        let group = engine.new_sound_group().unwrap();
+
+        let sound = SoundBuilder::new(&engine)
+            .sound_group(&group)
+            .build()
+            .unwrap();
+        drop(group);
+        let _vol = sound.volume();
+        drop(sound);
+    }
+
+    #[test]
+    fn test_sound_drop_sound_before_sound() {
+        let engine = Engine::new_for_tests().unwrap();
+        let group = engine.new_sound_group().unwrap();
+
+        let sound = SoundBuilder::new(&engine)
+            .sound_group(&group)
+            .build()
+            .unwrap();
+        drop(sound);
+        let _vol = group.volume();
+        drop(group);
     }
 
     #[test]

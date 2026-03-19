@@ -60,7 +60,7 @@ impl ProcFramesNotif {
     ///
     /// Because the underlying state is shared, this affects all clones of this notifier.
     #[inline]
-    pub fn clear(&mut self) {
+    pub fn clear(&self) {
         self.inner.frames_processed.store(0, Ordering::Relaxed);
         self.inner.old_frames.store(0, Ordering::Relaxed);
     }
@@ -75,7 +75,7 @@ impl ProcFramesNotif {
     /// Because the cursor is shared, calling this on one clone also consumes the pending
     /// delta for all other clones.
     #[inline]
-    pub fn take_delta(&mut self) -> u64 {
+    pub fn take_delta(&self) -> u64 {
         let cur = self.inner.frames_processed.load(Ordering::Relaxed);
         let delta = cur.saturating_sub(self.inner.old_frames.load(Ordering::Relaxed));
         self.inner.old_frames.store(cur, Ordering::Relaxed);
@@ -95,7 +95,7 @@ impl ProcFramesNotif {
     /// }
     /// ```
     #[inline]
-    pub fn call_if_triggered<F: FnOnce(u64)>(&mut self, f: F) {
+    pub fn call_if_triggered<F: FnOnce(u64)>(&self, f: F) {
         let delta = self.take_delta();
         if delta != 0 {
             f(delta);

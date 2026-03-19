@@ -67,10 +67,10 @@ use crate::{
         sound_builder::SoundBuilder,
         sound_ffi,
         sound_flags::SoundFlags,
-        sound_group::{s_group_cfg_ffi, s_group_ffi, SoundGroup, SoundGroupConfig},
+        sound_group::{s_group_cfg_ffi, s_group_ffi, SoundGroup, SoundGroupBuilder},
         Sound,
     },
-    util::{device_notif::DeviceStateNotifier, fence::Fence},
+    util::{device_notif::DeviceStateNotifier, fence::Fence, prof_notif::ProcFramesNotif},
     AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
 };
 
@@ -101,6 +101,7 @@ pub struct Engine {
     resource_manager: Option<ResourceManager<f32>>, // a ref count, not ownership
     process_data_ptr: Option<*mut ProcessState>, // userdata (self.inner.pProcessUserData)
     process_data_panic: Option<Arc<AtomicBool>>, // true = callback panicked and is now poisoned
+    process_data_notif: Option<ProcFramesNotif>,
     state_notifier: Option<DeviceStateNotifier>,
     _not_sync: PhantomData<Cell<()>>,
 }
@@ -377,6 +378,13 @@ impl Engine {
         Self::new_with_config(None)
     }
 
+    /// Retrieves a [`ProcFramesNotif`] if one is present.
+    ///
+    /// `ProcFramesNotif` is cheap to clone, and this function can be safely called multiple times
+    pub fn get_data_notifier(&self) -> Option<ProcFramesNotif> {
+        self.process_data_notif.clone()
+    }
+
     /// Checks if the data onProcess callback is poisoned
     pub fn data_callback_panicked(&self) -> bool {
         match &self.process_data_panic {
@@ -406,6 +414,7 @@ impl Engine {
             resource_manager: rm,
             process_data_ptr: None,   // set in builder after returning this
             process_data_panic: None, // set in builder after returning this
+            process_data_notif: None, // set in builder after returning this
             state_notifier: None,     // set in builder after returning this
             _not_sync: PhantomData,
         })
@@ -486,7 +495,8 @@ impl Engine {
         Ok(SoundGroup::from_ptr(inner))
     }
 
-    pub fn new_sound_group_config(&self) -> SoundGroupConfig {
+    // TODO
+    fn new_sound_group_config(&self) -> SoundGroupBuilder {
         s_group_cfg_ffi::ma_sound_group_config_init_2(self)
     }
 }

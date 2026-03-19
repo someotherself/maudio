@@ -269,11 +269,12 @@ impl Drop for SoundGroup<'_> {
     }
 }
 
-pub struct SoundGroupConfig {
+// TODO
+pub(crate) struct SoundGroupBuilder {
     inner: sys::ma_sound_group_config,
 }
 
-impl AsRawRef for SoundGroupConfig {
+impl AsRawRef for SoundGroupBuilder {
     type Raw = sys::ma_sound_group_config;
 
     fn as_raw(&self) -> &Self::Raw {
@@ -285,11 +286,11 @@ pub(crate) mod s_group_cfg_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::Binding;
-    use crate::{engine::Engine, sound::sound_group::SoundGroupConfig};
+    use crate::{engine::Engine, sound::sound_group::SoundGroupBuilder};
 
-    pub fn ma_sound_group_config_init_2(engine: &Engine) -> SoundGroupConfig {
+    pub fn ma_sound_group_config_init_2(engine: &Engine) -> SoundGroupBuilder {
         let ptr = unsafe { sys::ma_sound_group_config_init_2(engine.to_raw()) };
-        SoundGroupConfig { inner: ptr }
+        SoundGroupBuilder { inner: ptr }
     }
 }
 
@@ -303,13 +304,13 @@ pub(crate) mod s_group_ffi {
             spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
         },
         engine::{Engine, EngineRef},
-        sound::sound_group::{SoundGroup, SoundGroupConfig},
+        sound::sound_group::{SoundGroup, SoundGroupBuilder},
         AsRawRef, Binding, MaResult, MaudioError,
     };
 
     pub fn ma_sound_group_init_ex(
         engine: &Engine,
-        config: SoundGroupConfig,
+        config: SoundGroupBuilder,
         s_group: *mut sys::ma_sound_group,
     ) -> MaResult<()> {
         let res =
