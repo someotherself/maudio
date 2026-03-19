@@ -77,7 +77,6 @@ use crate::{
 use maudio_sys::ffi as sys;
 
 pub mod engine_builder;
-mod engine_host;
 
 pub mod engine_cb_notif;
 pub mod node_graph;
