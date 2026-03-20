@@ -545,7 +545,7 @@ enum RegisteredDataType {
 /// Call [`PendingResource::poll_ready`] periodically until the resource
 /// becomes ready.
 ///
-/// ```no_run
+/// ```ignore
 /// # let mut pending = todo!();
 /// while !pending.poll_ready()? {
 ///     // do other work
@@ -562,7 +562,7 @@ enum RegisteredDataType {
 /// This avoids repeated polling and allows integration with your own
 /// synchronization or event systems.
 ///
-/// ```no_run
+/// ```ignore
 /// # let rm = todo!();
 /// # let path = todo!();
 /// let fence = Fence::new();

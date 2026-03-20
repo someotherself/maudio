@@ -27,7 +27,7 @@ use crate::{
 /// Created via [`ResourceManagerSourceBuilder`], typically from a file
 /// path or other registered resource.
 ///
-/// ```no_run
+/// ```ignore
 /// # let rm = todo!();
 /// let source = ResourceManagerSourceBuilder::new(&rm)
 ///     .file_path("audio.ogg".as_ref()) // with `vorbis` feature

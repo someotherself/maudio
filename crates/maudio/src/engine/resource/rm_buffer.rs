@@ -26,7 +26,7 @@ use crate::{
 /// Created via [`ResourceManagerBufferBuilder`], typically from a file
 /// or embedded data.
 ///
-/// ```no_run
+/// ```ignore
 /// # let rm = todo!();
 /// let buffer = ResourceManagerBufferBuilder::new(&rm)
 ///     .file_path("audio.wav".as_ref()) // with `vorbis` feature

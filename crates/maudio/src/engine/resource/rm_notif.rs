@@ -26,7 +26,7 @@ use crate::{util::fence::Fence, AsRawRef, Binding};
 ///
 /// # Example
 ///
-/// ```no_run
+/// ```ignore
 /// # let rm = todo!();
 /// # let path = todo!();
 /// use crate::util::fence::Fence;

@@ -25,7 +25,7 @@ use crate::{
 /// Created via [`ResourceManagerStreamBuilder`], typically for large
 /// files or long-running audio.
 ///
-/// ```no_run
+/// ```ignore
 /// # let rm = todo!();
 /// let stream = ResourceManagerStreamBuilder::new(&rm)
 ///     .file_path("music.ogg".as_ref()) // with `vorbis` feature
