@@ -1,7 +1,11 @@
+//! Audio backends supported by miniaudio.
 use maudio_sys::ffi as sys;
 
 use crate::{ErrorKinds, MaudioError};
 
+/// Audio backend identifiers used for device and context initialization.
+///
+/// Each variant maps directly to a `ma_backend` in miniaudio.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 #[repr(C)]
@@ -91,7 +95,9 @@ impl Backend {
         Backend::Null,
     ];
 
-    /// Compile time check. Does not check for feature such as `no_wasapi`
+    /// Returns `true` if this backend is supported on the current target OS.
+    ///
+    /// This is a compile-time check and does not account for disabled features.
     pub const fn possible_on_this_target(self) -> bool {
         match self {
             // Windows
@@ -125,6 +131,9 @@ impl Backend {
         }
     }
 
+    /// Returns `true` if this backend is enabled in the current build configuration.
+    ///
+    /// Controlled by `no-*` feature flags.
     pub const fn is_enabled_in_build(self) -> bool {
         match self {
             Backend::Wasapi => !cfg!(feature = "no-wasapi"),
@@ -144,10 +153,15 @@ impl Backend {
         }
     }
 
+    /// Returns `true` if this backend is both supported on this target
+    /// and enabled in the current build.
     pub const fn is_available_in_build(self) -> bool {
         self.possible_on_this_target() && self.is_enabled_in_build()
     }
 
+    /// Returns all backends supported on the current target OS.
+    ///
+    /// This does not account for feature flags.
     pub fn all_supported_on_this_platform() -> impl Iterator<Item = Backend> {
         Self::ALL
             .iter()

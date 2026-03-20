@@ -195,6 +195,7 @@ impl<'a> AsSourcePtr for DataSourceRef<'a> {
     type __PtrProvider = private_data_source::DataSourceRefProvider;
 }
 
+/// Carries for [`PcmFormat`] for data sources implementing [`DataSourceOps`]
 pub trait SharedSource {
     type Format: PcmFormat;
 }

@@ -1,3 +1,6 @@
+//! Audio device abstraction and control.
+//!
+//! Provides safe wrappers around `ma_device` for playback and capture.
 use std::{
     marker::PhantomData,
     mem::MaybeUninit,
@@ -10,7 +13,7 @@ use crate::{
     backend::Backend,
     context::{ContextBuilder, ContextRef},
     device::{
-        device_builder::{private_device_b, AsDeviceBuilder, CallBackDevice},
+        device_builder::{private_device_b, AsDeviceBuilder},
         device_info::DeviceInfo,
         device_state::DeviceState,
         device_type::DeviceType,
@@ -26,6 +29,12 @@ pub mod device_info;
 pub mod device_state;
 pub mod device_type;
 
+/// Owned audio device.
+///
+/// Manages the lifetime of a `ma_device` and provides control over
+/// playback, capture, and device state.
+///
+/// Cloning this type creates another handle to the same underlying device.
 #[derive(Clone)]
 pub struct Device {
     inner: Arc<DeviceInner>,
@@ -53,6 +62,7 @@ impl Binding for DeviceInner {
     }
 }
 
+// TODO: Double check these
 unsafe impl Send for DeviceInner {}
 unsafe impl Sync for DeviceInner {}
 
@@ -69,6 +79,7 @@ impl Binding for Device {
     }
 }
 
+/// Borrowed view of the a `Device`. Typically returned from the `Engine`.
 pub struct DeviceRef<'a> {
     inner: *mut sys::ma_device,
     _keep_alive: PhantomData<&'a ()>,
@@ -89,11 +100,34 @@ impl Binding for DeviceRef<'_> {
     }
 }
 
+/// Device that lives inside the data callback
+///
+/// Provides limited access only to functions safe to call from inside the audio callback
+pub struct CallBackDevice {
+    inner: *mut sys::ma_device,
+}
+
+impl Binding for CallBackDevice {
+    type Raw = *mut sys::ma_device;
+
+    fn from_ptr(raw: Self::Raw) -> Self {
+        Self { inner: raw }
+    }
+
+    fn to_raw(&self) -> Self::Raw {
+        self.inner
+    }
+}
+
+impl AsDevicePtr for CallBackDevice {
+    type __PtrProvider = private_device::CallBackDeviceRefProvider;
+}
+
 mod private_device {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        device::{device_builder::CallBackDevice, AsDevicePtr, Device, DeviceRef},
+        device::{AsDevicePtr, CallBackDevice, Device, DeviceRef},
         Binding,
     };
 
@@ -151,6 +185,7 @@ impl DeviceOps for CallBackDevice {}
 
 /// Methods shared between Device, DeviceRef and CallBackDevice
 pub trait DeviceOps: AsDevicePtr {
+    /// Returns the associated context, if available.
     fn get_context(&self) -> Option<ContextRef<'_>>
     where
         Self: private_device::DeviceControl,
@@ -158,6 +193,7 @@ pub trait DeviceOps: AsDevicePtr {
         device_ffi::ma_device_get_context(self)
     }
 
+    /// Retrieves device information for the given type.
     fn get_info(&self, device_type: DeviceType) -> MaResult<DeviceInfo>
     where
         Self: private_device::DeviceControl,
@@ -165,6 +201,7 @@ pub trait DeviceOps: AsDevicePtr {
         device_ffi::ma_device_get_info(self, device_type)
     }
 
+    /// Retrieves the human-readable name of the device.
     fn get_name(&self, device_type: DeviceType) -> MaResult<String>
     where
         Self: private_device::DeviceControl,
@@ -172,22 +209,29 @@ pub trait DeviceOps: AsDevicePtr {
         device_ffi::ma_device_get_name(self, device_type)
     }
 
+    /// Returns `true` if the device is currently started.
     fn is_started(&self) -> bool {
         device_ffi::ma_device_is_started(self)
     }
 
+    /// Returns the current state of the device. See [`DeviceState`]
     fn get_state(&self) -> MaResult<DeviceState> {
         device_ffi::ma_device_get_state(self)
     }
 
+    /// Sets the master volume.
+    ///
+    /// Volume is linear, where `1.0` is unchanged.
     fn set_master_volume(&self, volume: f32) -> MaResult<()> {
         device_ffi::ma_device_set_master_volume(self, volume)
     }
 
+    /// Returns the current master volume (linear scale).
     fn master_volume(&self) -> MaResult<f32> {
         device_ffi::ma_device_get_master_volume(self)
     }
 
+    /// Returns the current master volume in decibels.
     fn master_volume_db(&self) -> MaResult<f32> {
         device_ffi::ma_device_get_master_volume_db(self)
     }
@@ -195,18 +239,23 @@ pub trait DeviceOps: AsDevicePtr {
 
 // Device only methods
 impl Device {
+    /// Starts the device.
+    ///
+    /// Begins audio processing.
     pub fn device_start(&mut self) -> MaResult<()> {
         device_ffi::ma_device_start(self)
     }
 
+    /// Stops the device.
+    ///
+    /// Halts audio processing.
     pub fn device_stop(&mut self) -> MaResult<()> {
         device_ffi::ma_device_stop(self)
     }
 
-    /// If an error happens inside the user provided function, the callback will be poisoned
-    /// and will not run the provided function
+    /// Returns `true` if the data callback previously panicked.
     ///
-    /// This method can be used to check if the callback is poisoned
+    /// When this happens, the callback is considered poisoned and will no longer run.
     pub fn data_callback_panicked(&self) -> bool {
         self.inner
             .callback_panic

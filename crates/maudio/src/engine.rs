@@ -78,9 +78,9 @@ use maudio_sys::ffi as sys;
 
 pub mod engine_builder;
 
-pub mod engine_cb_notif;
+pub(crate) mod engine_cb_notif;
 pub mod node_graph;
-pub mod process_cb;
+pub(crate) mod process_cb;
 pub mod resource;
 
 /// High-level audio engine.
@@ -513,7 +513,7 @@ impl Engine {
         sound_ffi::ma_sound_init_copy(self, sound, flags, sound_group, mem.as_mut_ptr())?;
 
         let inner: *mut sys::ma_sound = Box::into_raw(mem) as *mut sys::ma_sound;
-        Ok(Sound::from_ptr(inner))
+        Ok(Sound::new_sound(inner, None, None))
     }
 
     pub(crate) fn new_for_tests() -> MaResult<Self> {
@@ -530,14 +530,18 @@ impl Engine {
         &self,
         config: Option<&SoundBuilder>,
     ) -> MaResult<Sound<'_>> {
-        let temp_config = SoundBuilder::init(self);
-        let config = config.unwrap_or(&temp_config);
+        let temp_config = &SoundBuilder::init(self);
+        let config = config.unwrap_or(temp_config);
         let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new(MaybeUninit::uninit());
 
         sound_ffi::ma_sound_init_ex(self, config, mem.as_mut_ptr())?;
 
         let inner: *mut sys::ma_sound = Box::into_raw(mem) as *mut sys::ma_sound;
-        Ok(Sound::from_ptr(inner))
+        Ok(Sound::new_sound(
+            inner,
+            config.fence.clone(),
+            config.end_notifier.clone(),
+        ))
     }
 
     pub(crate) fn new_sound_with_source_internal<'a, D: AsSourcePtr + ?Sized>(
@@ -557,7 +561,7 @@ impl Engine {
         )?;
 
         let inner: *mut sys::ma_sound = Box::into_raw(mem) as *mut sys::ma_sound;
-        Ok(Sound::from_ptr(inner))
+        Ok(Sound::new_sound(inner, None, None))
     }
 
     pub(crate) fn new_sound_with_file_internal<'a>(
@@ -579,7 +583,7 @@ impl Engine {
         )?;
 
         let inner: *mut sys::ma_sound = Box::into_raw(mem) as *mut sys::ma_sound;
-        Ok(Sound::from_ptr(inner))
+        Ok(Sound::new_sound(inner, None, None))
     }
 }
 

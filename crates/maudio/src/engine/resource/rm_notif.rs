@@ -34,7 +34,7 @@ use crate::{util::fence::Fence, AsRawRef, Binding};
 /// let fence = Fence::new();
 ///
 /// let notif = NotificationPipelineBuilder::new()
-///     .done_with_fence(fence.clone())
+///     .done_with_fence(&fence)
 ///     .build();
 ///
 /// let pending = ResourceManagerBufferBuilder::new(&rm)
@@ -116,9 +116,9 @@ impl NotificationPipelineBuilder {
     /// Attach a [`Fence`] to be signaled when the resource is fully ready.
     ///
     /// This is the most commonly used notification point.
-    pub fn done_with_fence(&mut self, fence: Fence) -> &mut Self {
+    pub fn done_with_fence(&mut self, fence: &Fence) -> &mut Self {
         self.inner.done.pFence = fence.to_raw();
-        self.done_fence = Some(fence);
+        self.done_fence = Some(fence.clone());
         self
     }
 

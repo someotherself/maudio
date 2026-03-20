@@ -15,7 +15,7 @@
 //! # fn new_sound(path: &Path) -> maudio::MaResult<()> {
 //! let engine = Engine::new()?;
 //! let fence = Fence::new()?;
-//! let mut sound = engine.new_sound_from_file_with_flags(path, SoundFlags::ASYNC, Some(fence.clone()))?;
+//! let mut sound = engine.new_sound_from_file_with_flags(path, SoundFlags::ASYNC, Some(&fence))?;
 //! // Block until the sound has finished loading
 //! fence.wait()?;
 //! # sound.play_sound()?;

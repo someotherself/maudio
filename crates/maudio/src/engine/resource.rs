@@ -6,9 +6,9 @@
 //!
 //! In `maudio`, the resource manager is exposed in two forms:
 //!
-//! - [`ResourceManager<F>`]: an owned, reference-counted handle (`Arc`) that is
+//! - [`ResourceManager`]: an owned, reference-counted handle (`Arc`) that is
 //!   cheap to clone and can be shared across threads.
-//! - [`ResourceManagerRef<'a, F>`]: a non-owning reference tied to a lifetime,
+//! - [`ResourceManagerRef`]: a non-owning reference tied to a lifetime,
 //!   primarily returned by other objects (e.g. the engine).
 //!
 //! ### PCM format choice
@@ -22,7 +22,7 @@
 //! ## What is the resource manager (in Miniaudio)?
 //!
 //! Miniaudio’s resource manager (`ma_resource_manager`) is a high-level facility for
-//! **loading audio assets** (files or memory blobs) and exposing them as a standard
+//! **loading audio assets** (files or in memory sounds) and exposing them as a standard
 //! `ma_data_source`.
 //!
 //! Conceptually, it sits between “where the bytes come from” and “who plays/consumes
@@ -94,9 +94,6 @@ use crate::{
     },
     data_source::{AsSourcePtr, SharedSource},
     engine::resource::{
-        private_async_src::{
-            AsyncCheckProvider, BufferCheckProvider, SourceCheckProvider, StreamCheckProvider,
-        },
         rm_buffer::{ResourceManagerBuffer, ResourceManagerBufferBuilder},
         rm_builder::ResourceManagerBuilder,
         rm_source::{ResourceManagerSource, ResourceManagerSourceBuilder},
@@ -567,7 +564,7 @@ enum RegisteredDataType {
 /// # let path = todo!();
 /// let fence = Fence::new();
 ///
-/// let notif = NotificationPipelineBuilder::new().done_with_fence(fence.clone()).build();
+/// let notif = NotificationPipelineBuilder::new().done_with_fence(&fence).build();
 ///
 /// let pending = ResourceManagerBufferBuilder::new(&rm)
 ///     .notification(notif.clone())
@@ -706,23 +703,25 @@ mod private_async_src {
     }
 }
 
+/// Unifies async result checks across sources.
 pub trait AsAsyncSource: AsSourcePtr + SharedSource {
-    type __ResultProvider: AsyncCheckProvider<Self>;
+    type __ResultProvider: private_async_src::AsyncCheckProvider<Self>;
 }
 
 impl<'a, R: AsRmPtr> AsAsyncSource for ResourceManagerSource<'a, R> {
-    type __ResultProvider = SourceCheckProvider;
+    type __ResultProvider = private_async_src::SourceCheckProvider;
 }
 impl<'a, R: AsRmPtr> AsAsyncSource for ResourceManagerBuffer<'a, R> {
-    type __ResultProvider = BufferCheckProvider;
+    type __ResultProvider = private_async_src::BufferCheckProvider;
 }
 impl<'a, R: AsRmPtr> AsAsyncSource for ResourceManagerStream<'a, R> {
-    type __ResultProvider = StreamCheckProvider;
+    type __ResultProvider = private_async_src::StreamCheckProvider;
 }
 
 impl<F: PcmFormat> RmOps for ResourceManager<F> {}
 impl<F: PcmFormat> RmOps for ResourceManagerRef<'_, F> {}
 
+/// Methods shared between [`ResourceManager`] and [`ResourceManagerRef`]
 pub trait RmOps: AsRmPtr {
     /// The [`RmSourceFlags`] used are:
     /// - [`RmSourceFlags::WAIT_INIT`] -

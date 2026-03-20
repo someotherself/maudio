@@ -28,10 +28,7 @@
 //! ## End notifications
 //! [`SoundBuilder::with_end_notifier`] builds the sound and returns an [`EndNotifier`]
 //! that becomes `true` once the sound reaches the end callback.
-use std::{
-    path::Path,
-    sync::{atomic::AtomicBool, Arc},
-};
+use std::path::Path;
 
 use maudio_sys::ffi as sys;
 
@@ -108,10 +105,10 @@ pub struct SoundBuilder<'a, 'b> {
     engine: &'a Engine,
     source: SoundSource<'a>,
     owned_path: OwnedPathBuf,
-    fence: Option<Fence>, // a ref
+    pub(crate) fence: Option<Fence>, // Ref count
     flags: SoundFlags,
     group: Option<&'b SoundGroup<'b>>,
-    end_notifier: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+    pub(crate) end_notifier: Option<EndNotifier>,
     sound_state: SoundState,
 }
 
@@ -153,7 +150,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
 
     fn set_end_notifier(&mut self) -> EndNotifier {
         let notifier = EndNotifier::new();
-        self.end_notifier = Some(notifier.clone_flag());
+        self.end_notifier = Some(notifier.clone());
 
         self.inner.pEndCallbackUserData = notifier.as_user_data_ptr();
         self.inner.endCallback = Some(crate::sound::notifier::on_end_callback);
@@ -165,12 +162,12 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         self.set_source()?;
         let notifier = self.set_end_notifier();
 
-        let sound = self.start_sound(Some(notifier.clone_flag()))?;
+        let sound = self.start_sound()?;
 
         Ok((sound, notifier))
     }
 
-    fn start_sound(&mut self, notif: Option<Arc<AtomicBool>>) -> MaResult<Sound<'a>> {
+    fn start_sound(&mut self) -> MaResult<Sound<'a>> {
         if let Some(fence) = self.fence.clone() {
             self.inner.pDoneFence = fence.to_raw()
         };
@@ -201,7 +198,6 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         };
 
         self.configure_sound(&mut sound);
-        sound.end_notifier = notif;
         if self.source.is_valid() && self.sound_state.start_playing {
             sound.play_sound()?;
         }
@@ -210,7 +206,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
 
     pub fn build(&mut self) -> MaResult<Sound<'a>> {
         self.set_source()?;
-        self.start_sound(None)
+        self.start_sound()
     }
 
     /// Explicitly sets the sound to have no playback source.
@@ -275,8 +271,8 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
     ///
     /// A fence is only meaningful when the sound is created from a file.
     /// Using a fence without a file source will result in a runtime error.
-    pub fn fence(&mut self, fence: Fence) -> &mut Self {
-        self.fence = Some(fence);
+    pub fn fence(&mut self, fence: &Fence) -> &mut Self {
+        self.fence = Some(fence.clone());
         self.async_load(true)
     }
 

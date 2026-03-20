@@ -29,7 +29,7 @@ use crate::{
 /// ```ignore
 /// # let rm = todo!();
 /// let buffer = ResourceManagerBufferBuilder::new(&rm)
-///     .file_path("audio.wav".as_ref()) // with `vorbis` feature
+///     .file_path("audio.wav".as_ref())
 ///     .build()?;
 /// ```
 ///
@@ -135,6 +135,7 @@ impl<'a, R: AsRmPtr + ?Sized> Drop for ResourceManagerBuffer<'a, R> {
     }
 }
 
+/// Builder for creating a [`ResourceManagerBuffer`] without registration
 pub struct ResourceManagerBufferBuilder<'a, R: AsRmPtr + ?Sized> {
     rm: &'a R,
     inner: sys::ma_resource_manager_data_source_config,

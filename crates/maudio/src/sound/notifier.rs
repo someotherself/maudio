@@ -28,10 +28,6 @@ impl EndNotifier {
         }
     }
 
-    pub(crate) fn clone_flag(&self) -> Arc<AtomicBool> {
-        self.flag.clone()
-    }
-
     /// Returns `true` if the end notification has been triggered.
     ///
     /// This does **not** clear the notification. Use [`EndNotifier::take()`] if you want “fire once”

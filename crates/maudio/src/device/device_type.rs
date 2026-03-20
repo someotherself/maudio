@@ -1,25 +1,33 @@
+//! Defines playback, capture, and duplex device types.
 use std::fmt::Display;
 
 use maudio_sys::ffi as sys;
 
 use crate::{ErrorKinds, MaudioError};
 
+/// Specifies the role of an audio device.
+///
+/// Maps directly to `ma_device_type` in miniaudio.
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum DeviceType {
-    PlayBack,
+    /// Playback (output) device.
+    Playback,
+    /// Capture (input) device.
     Capture,
+    /// Combined playback and capture device.
     Duplex,
-    LoopBack,
+    /// Loopback device capturing system output. Windows only.
+    Loopback,
 }
 
 impl From<DeviceType> for sys::ma_device_type {
     fn from(v: DeviceType) -> Self {
         match v {
-            DeviceType::PlayBack => sys::ma_device_type_ma_device_type_playback,
+            DeviceType::Playback => sys::ma_device_type_ma_device_type_playback,
             DeviceType::Capture => sys::ma_device_type_ma_device_type_capture,
             DeviceType::Duplex => sys::ma_device_type_ma_device_type_duplex,
-            DeviceType::LoopBack => sys::ma_device_type_ma_device_type_loopback,
+            DeviceType::Loopback => sys::ma_device_type_ma_device_type_loopback,
         }
     }
 }
@@ -29,10 +37,10 @@ impl TryFrom<sys::ma_device_type> for DeviceType {
 
     fn try_from(value: sys::ma_device_type) -> Result<Self, Self::Error> {
         match value {
-            sys::ma_device_type_ma_device_type_playback => Ok(DeviceType::PlayBack),
+            sys::ma_device_type_ma_device_type_playback => Ok(DeviceType::Playback),
             sys::ma_device_type_ma_device_type_capture => Ok(DeviceType::Capture),
             sys::ma_device_type_ma_device_type_duplex => Ok(DeviceType::Duplex),
-            sys::ma_device_type_ma_device_type_loopback => Ok(DeviceType::LoopBack),
+            sys::ma_device_type_ma_device_type_loopback => Ok(DeviceType::Loopback),
             other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
                 DeviceType,
             >(other as i64))),
@@ -43,9 +51,9 @@ impl TryFrom<sys::ma_device_type> for DeviceType {
 impl Display for DeviceType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DeviceType::PlayBack => write!(f, "PlayBack"),
+            DeviceType::Playback => write!(f, "Playback"),
             DeviceType::Capture => write!(f, "Capture"),
-            DeviceType::LoopBack => write!(f, "LoopBack"),
+            DeviceType::Loopback => write!(f, "Loopback"),
             DeviceType::Duplex => write!(f, "Duplex"),
         }
     }

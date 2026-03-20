@@ -207,8 +207,7 @@ impl EngineBuilder {
     }
 
     /// This API installs a callback that is executed from the engine’s **real-time audio thread**
-    /// (Miniaudio’s `onProcess` hook). Misuse will not usually cause immediate UB, but it can
-    /// easily cause audible glitches, deadlocks, or stalls in the audio callback.
+    /// (Miniaudio’s `onProcess` hook).
     ///
     /// ## Real-time callback rules
     ///
@@ -231,7 +230,8 @@ impl EngineBuilder {
     /// - The slice passed to `cb` is borrowed from Miniaudio’s output buffer.
     ///   It is **only valid for the duration of the callback** and must not be stored
     ///   or referenced after the callback returns.
-    /// - The callback should not panic.
+    /// - The callback should not panic. If it does panic, the callback will be poisoned
+    ///   Use [`Engine::data_callback_panicked()`] to check if the callback is poisoned
     pub fn with_realtime_callback<C>(&mut self, cb: C) -> MaResult<Engine>
     where
         C: FnMut(&mut [f32], u32) + Send + 'static,

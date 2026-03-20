@@ -1,3 +1,4 @@
+//! Describes properties and capabilities of audio devices.
 use core::slice;
 use std::ffi::CStr;
 
@@ -144,7 +145,7 @@ impl Devices {
 
     /// Iterates over all playback devices.
     pub fn playback(&self) -> impl Iterator<Item = (DeviceType, &DeviceInfo)> {
-        self.playback.iter().map(|d| (DeviceType::PlayBack, d))
+        self.playback.iter().map(|d| (DeviceType::Playback, d))
     }
 
     /// Iterates over all capture devices.
@@ -194,7 +195,7 @@ mod test {
             println!("Capture device: {}", info.device_name());
         }
         for (_, info) in devices.playback() {
-            println!("PlayBack device: {}", info.device_name());
+            println!("Playback device: {}", info.device_name());
         }
         let total_devices = devices.iter().count();
         assert_eq!(

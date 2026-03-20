@@ -1,7 +1,11 @@
+//! Device state definitions.
 use maudio_sys::ffi as sys;
 
 use crate::{ErrorKinds, MaudioError};
 
+/// Represents the current state of an audio device.
+///
+/// Maps directly to `ma_device_state` in miniaudio.
 #[repr(C)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum DeviceState {

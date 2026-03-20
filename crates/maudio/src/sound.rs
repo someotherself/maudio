@@ -56,19 +56,16 @@ pub struct Sound<'a> {
     _not_sync: PhantomData<Cell<()>>,
     // Miniaudio stores only one ma_sound_end_proc and pUserData per ma_sound.
     // One end_notifier at a time will be ok
-    end_notifier: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+    fence: Option<Fence>, // Ref count
+    end_notifier: Option<EndNotifier>,
 }
 
 impl Binding for Sound<'_> {
     type Raw = *mut sys::ma_sound;
 
-    fn from_ptr(raw: Self::Raw) -> Self {
-        Self {
-            inner: raw,
-            _engine: PhantomData,
-            _not_sync: PhantomData,
-            end_notifier: None,
-        }
+    /// !!! unimplemented !!!
+    fn from_ptr(_raw: Self::Raw) -> Self {
+        unimplemented!()
     }
 
     fn to_raw(&self) -> Self::Raw {
@@ -472,7 +469,7 @@ impl<'a> Sound<'a> {
 
     pub fn set_end_callback(&mut self) -> MaResult<EndNotifier> {
         let notifier = EndNotifier::new();
-        self.end_notifier = Some(notifier.clone_flag());
+        self.end_notifier = Some(notifier.clone());
 
         let user_data = notifier.as_user_data_ptr();
 
@@ -491,6 +488,20 @@ impl<'a> Sound<'a> {
 
 // Private methods
 impl<'a> Sound<'a> {
+    pub(crate) fn new_sound(
+        inner: *mut sys::ma_sound,
+        fence: Option<Fence>,
+        end_notifier: Option<EndNotifier>,
+    ) -> Self {
+        Sound {
+            inner,
+            _engine: PhantomData,
+            _not_sync: PhantomData,
+            fence,
+            end_notifier,
+        }
+    }
+
     pub(crate) fn init_from_file_internal(
         sound: *mut sys::ma_sound,
         engine: &Engine,

@@ -1,3 +1,4 @@
+//! Audio device identifier definitions.
 use maudio_sys::ffi as sys;
 
 use crate::AsRawRef;

@@ -8,19 +8,18 @@ use maudio::{
 
 // Thread-safety in maudio
 //
-// Unless specifically stated otherwise, you should assume that a type is not thread-safe
+// Unless documented otherwise, assume a maudio type is intended to be used from
+// one controlling thread at a time.
 //
-// - Do not share objects like `Engine`, `Sound`, or `SoundGroup` between
-//   threads.
-// - Do not wrap these objects in `Mutex`, `RwLock`, or other locking
-//   primitives.
-// - Avoid performing blocking operations in audio-related code.
+// Putting a type behind `Mutex`/`RwLock` can serialize Rust-side access, but it
+// does not by itself make the underlying audio object safe for arbitrary
+// cross-thread use, nor does it make it safe for real-time audio callbacks.
 //
-// The underlying audio engine runs a real-time audio thread. Introducing
-// locks or cross-thread contention can cause dropouts or undefined behavior.
+// In particular, avoid taking locks from audio callbacks or other real-time
+// paths. Blocking the audio thread can cause glitches or dropouts.
 //
-// If you need to control a type from another thread, prefer using channels,
-// or use one of the thread safe API's offered by maudio (explained later)
+// For cross-thread control, prefer dedicated control threads, channels, atomics, fences,
+// or dedicated thread-safe APIs when available.
 
 fn main() -> MaResult<()> {
     let engine = Engine::new()?;
