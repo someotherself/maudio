@@ -1,3 +1,4 @@
+//! Builder for creating a [`ResourceManager`]
 use maudio_sys::ffi as sys;
 
 use crate::{

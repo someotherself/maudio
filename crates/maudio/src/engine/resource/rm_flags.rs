@@ -1,3 +1,4 @@
+//! Flags for creating a Resource Manager
 use maudio_sys::ffi as sys;
 
 type RmFlagsRaw = sys::ma_resource_manager_flags;

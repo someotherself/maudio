@@ -111,7 +111,7 @@ use crate::{
 pub mod rm_buffer;
 pub mod rm_builder;
 pub mod rm_flags;
-mod rm_notif; // Not implemented
+pub mod rm_notif;
 pub mod rm_source;
 pub mod rm_source_flags;
 pub mod rm_stream;
@@ -326,9 +326,22 @@ impl<F: PcmFormat> AsRmPtr for ResourceManagerRef<'_, F> {
 ///
 /// A `ResourceGuard` is returned by `ResourceManager::register_*()` calls.
 /// While the guard exists, the registered resource remains available to the resource manager,
-/// and you can create one or more data sources from it via `build_buffer/build_stream/build_source`.
+/// and you can create one or more data [`ResourceManagerBuffer`], [`ResourceManagerStream`], or
+/// [`ResourceManagerSource`] values from it via `build_buffer/build_stream/build_source`.
+///
+/// This is the primary workflow for memory-backed resources, including audio
+/// data that already exists in memory before being handed to the resource
+/// manager.
 ///
 /// The guard may also hold ownership of the underlying bytes (for conversions done by maudio).
+///
+/// # Typical workflow
+///
+/// 1. Register data with `register_*()`.
+/// 2. Keep the returned `ResourceGuard` alive.
+/// 3. Build buffers, streams, or sources from the guard.
+///
+/// Dropping the guard unregisters the resource once it is no longer in active use.
 pub struct ResourceGuard<'a, R: AsRmPtr + ?Sized> {
     rm: &'a R,
     data_name: RegisteredDataType,
@@ -338,6 +351,15 @@ pub struct ResourceGuard<'a, R: AsRmPtr + ?Sized> {
 
 // Builders for registered resources
 impl<'a, R: AsRmPtr> ResourceGuard<'a, R> {
+    /// Builds a [`ResourceManagerBuffer`] from a previously registered file path or
+    /// resource.
+    ///
+    /// This builder is intended for direct resource-manager loading from a path,
+    /// or for creating a buffer from a resource that was already registered with
+    /// `ResourceManager::register_*()`.
+    ///
+    /// It does not itself register raw in-memory audio data. For memory-backed
+    /// resources, register them first and then use [`ResourceGuard::build_buffer`].
     /// ## Flags:
     ///
     /// - [`RmSourceFlags::LOOPING`] to enable looping
@@ -361,17 +383,26 @@ impl<'a, R: AsRmPtr> ResourceGuard<'a, R> {
             RegisteredDataType::RegisteredPath { path } => builder.file_path(path),
             RegisteredDataType::RegisteredData { name } => builder.file_path(Path::new(name)),
         };
-        let guard = builder.build_internal()?;
+        let resource = builder.build_internal()?;
         if flags_check.intersects(RmSourceFlags::ASYNC) {
-            return Ok(PendingResource::Pending { inner: Some(guard) });
+            return Ok(PendingResource::Pending {
+                inner: Some(resource),
+            });
         }
-        Ok(PendingResource::Ready { inner: guard })
+        Ok(PendingResource::Ready { inner: resource })
     }
 
-    /// Only works for file-backed registrations.
+    /// Builds a [`ResourceManagerStream`] for streaming a file-backed resource.
     ///
-    /// If the resource was registered from in-memory data (decoded or encoded), streaming is not
-    /// supported and `build_stream()` will fail.
+    /// This builder creates a stream from a file path, or from a resource that was
+    /// previously registered from a file-backed input.
+    ///
+    /// Streaming is intended for resources that can be read on demand by the
+    /// resource manager. It does not register new data with the resource manager.
+    ///
+    /// In-memory registrations are not suitable for streaming. If a resource was
+    /// registered from in-memory data (decoded or encoded), [`ResourceGuard::build_stream`]
+    /// is not supported and will return an error.
     ///
     /// ## Flags:
     ///
@@ -396,13 +427,24 @@ impl<'a, R: AsRmPtr> ResourceGuard<'a, R> {
             RegisteredDataType::RegisteredPath { path } => builder.file_path(path),
             RegisteredDataType::RegisteredData { name } => builder.file_path(Path::new(name)),
         };
-        let guard = builder.build_internal()?;
+        let resource = builder.build_internal()?;
         if flags_check.intersects(RmSourceFlags::ASYNC) {
-            return Ok(PendingResource::Pending { inner: Some(guard) });
+            return Ok(PendingResource::Pending {
+                inner: Some(resource),
+            });
         }
-        Ok(PendingResource::Ready { inner: guard })
+        Ok(PendingResource::Ready { inner: resource })
     }
 
+    /// Builds a [`ResourceManagerSource`] from a previously registered file path or
+    /// resource.
+    ///
+    /// This builder is intended for direct resource-manager loading from a path,
+    /// or for creating a source from a resource that was already registered with
+    /// `ResourceManager::register_*()`.
+    ///
+    /// It does not itself register raw in-memory audio data. For memory-backed
+    /// resources, register them first and then use [`ResourceGuard::build_source`].
     /// ## Flags:
     /// Under the hood, this type is either `ResourceManagerBuffer` or `ResourceManagerStream`.
     ///
@@ -428,11 +470,13 @@ impl<'a, R: AsRmPtr> ResourceGuard<'a, R> {
             RegisteredDataType::RegisteredPath { path } => builder.file_path(path),
             RegisteredDataType::RegisteredData { name } => builder.file_path(Path::new(name)),
         };
-        let guard = builder.build_internal()?;
+        let resource = builder.build_internal()?;
         if flags.intersects(RmSourceFlags::ASYNC) {
-            return Ok(PendingResource::Pending { inner: Some(guard) });
+            return Ok(PendingResource::Pending {
+                inner: Some(resource),
+            });
         }
-        Ok(PendingResource::Ready { inner: guard })
+        Ok(PendingResource::Ready { inner: resource })
     }
 }
 
@@ -474,12 +518,75 @@ impl<R: AsRmPtr + ?Sized> Drop for ResourceGuard<'_, R> {
     }
 }
 
-pub enum RegisteredDataType {
+enum RegisteredDataType {
     RegisteredPath { path: PathBuf },
     RegisteredData { name: String },
 }
 
-#[derive(Debug)]
+/// Result of building a resource-manager data source.
+///
+/// When asynchronous loading is enabled, the resource may not be ready
+/// immediately. In that case, this type represents the current state
+/// of the resource.
+///
+/// # States
+///
+/// - [`PendingResource::Ready`]   — The resource is fully initialized and ready for use.
+/// - [`PendingResource::Pending`] — The resource is still being loaded or initialized (`MA_BUSY`).
+/// - [`PendingResource::Failed`]  — The operation failed with an error.
+///
+/// # Async workflow
+///
+/// When async flags are used, builders return [`PendingResource::Pending`].
+/// The resource can then be handled in one of two ways:
+///
+/// ## 1. Polling (this type)
+///
+/// Call [`PendingResource::poll_ready`] periodically until the resource
+/// becomes ready.
+///
+/// ```no_run
+/// # let mut pending = todo!();
+/// while !pending.poll_ready()? {
+///     // do other work
+/// }
+///
+/// let resource = pending.into_ready().unwrap();
+/// ```
+///
+/// ## 2. Fence-based notification
+///
+/// Instead of polling, you can attach a [`NotificationPipeline`](crate::engine::resource::rm_notif::NotificationPipeline) with a [`Fence`](crate::util::fence::Fence)
+/// to be notified when the resource finishes loading.
+///
+/// This avoids repeated polling and allows integration with your own
+/// synchronization or event systems.
+///
+/// ```no_run
+/// # let rm = todo!();
+/// # let path = todo!();
+/// let fence = Fence::new();
+///
+/// let notif = NotificationPipelineBuilder::new().done_with_fence(fence.clone()).build();
+///
+/// let pending = ResourceManagerBufferBuilder::new(&rm)
+///     .notification(notif.clone())
+///     .build()?;
+///
+/// // Block until the resource is fully ready
+/// fence.wait()?;
+///
+/// // Now safe to extract the resource
+/// let resource = pending.into_ready().unwrap();
+/// ```
+///
+/// # Notes
+///
+/// - [`PendingResource`] is the Rust-side state wrapper for the resource.
+/// - [`NotificationPipeline`](crate::engine::resource::rm_notif::NotificationPipeline) is an optional signaling mechanism.
+/// - These can be used independently or together.
+/// - In most cases, users should use a fence on the `done` stage to detect
+///   when the resource is fully ready.
 pub enum PendingResource<B: AsAsyncSource> {
     /// MA_SUCCESS
     Ready { inner: B },
@@ -487,6 +594,16 @@ pub enum PendingResource<B: AsAsyncSource> {
     Pending { inner: Option<B> },
     /// Other Error
     Failed(MaudioError),
+}
+
+impl<B: AsAsyncSource> std::fmt::Debug for PendingResource<B> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Ready { .. } => f.write_str("PendingResource::Ready(..)"),
+            Self::Pending { .. } => f.write_str("PendingResource::Pending(..)"),
+            Self::Failed(e) => f.debug_tuple("PendingResource::Failed").field(e).finish(),
+        }
+    }
 }
 
 impl<B: AsAsyncSource> PendingResource<B> {
@@ -497,7 +614,7 @@ impl<B: AsAsyncSource> PendingResource<B> {
     /// - **Ok(false)** => resource pending (BUSY)
     /// - **Err(e)** => Failed (and cached)
     ///
-    /// **Do not spin loop. Use fence instead.**
+    /// **Do not spin loop. Use [`NotificationPipeline`](crate::engine::resource::rm_notif::NotificationPipeline) instead.**
     pub fn poll_ready(&mut self) -> MaResult<bool> {
         match self {
             PendingResource::Ready { inner: _ } => Ok(true),

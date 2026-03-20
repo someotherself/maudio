@@ -1,7 +1,9 @@
+//! Resource Manager data source flags
 use maudio_sys::ffi as sys;
 
 type RmSourceFlagsRaw = sys::ma_resource_manager_data_source_flags;
 
+/// For specific behaviour see documentation on functions where these flags are used
 #[repr(transparent)]
 #[derive(Debug, PartialEq, Clone, Copy, Hash, Eq)]
 pub struct RmSourceFlags(RmSourceFlagsRaw);

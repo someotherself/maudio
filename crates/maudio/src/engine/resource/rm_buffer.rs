@@ -1,3 +1,4 @@
+//! Resource-managed decoded audio buffer
 use std::{marker::PhantomData, mem::MaybeUninit, path::Path};
 
 use maudio_sys::ffi as sys;
@@ -5,17 +6,50 @@ use maudio_sys::ffi as sys;
 use crate::{
     data_source::{private_data_source, AsSourcePtr, DataSourceRef, SharedSource},
     engine::resource::{
-        resource_ffi, rm_source::SourceBufSource, rm_source_flags::RmSourceFlags, AsRmPtr,
-        PendingResource,
+        resource_ffi, rm_notif::NotificationPipeline, rm_source::SourceBufSource,
+        rm_source_flags::RmSourceFlags, AsRmPtr, PendingResource,
     },
     sound::sound_builder::OwnedPathBuf,
-    util::fence::Fence,
     AsRawRef, Binding, MaResult,
 };
 
-#[derive(Debug)]
+/// Resource-managed fully loaded audio buffer.
+///
+/// Wraps a miniaudio `ma_resource_manager_data_buffer`.
+///
+/// A buffer represents audio data that is fully decoded and stored
+/// in memory, allowing fast, repeated access without additional I/O
+/// or decoding overhead.
+///
+/// # Usage
+///
+/// Created via [`ResourceManagerBufferBuilder`], typically from a file
+/// or embedded data.
+///
+/// ```no_run
+/// # let rm = todo!();
+/// let buffer = ResourceManagerBufferBuilder::new(&rm)
+///     .file_path("audio.wav".as_ref()) // with `vorbis` feature
+///     .build()?;
+/// ```
+///
+/// # Async loading
+///
+/// Construction always returns a [`PendingResource`].
+/// When async flags are enabled, the source may not be immediately
+/// ready and must be polled before use.
+///
+/// Otherwise, the builder returns once the resource is available and
+/// [`PendingResource`] is `Ready`.
+///
+/// # Notes
+///
+/// - Entire audio data is resident in memory.
+/// - Best suited for short sounds or frequently reused assets.
+/// - Higher memory usage compared to streaming or sources.
 pub struct ResourceManagerBuffer<'a, R: AsRmPtr + ?Sized> {
     inner: *mut sys::ma_resource_manager_data_buffer,
+    pipeline_notif: Option<NotificationPipeline>,
     _format: PhantomData<R::Format>,
     _marker: PhantomData<&'a R>,
 }
@@ -70,6 +104,7 @@ impl<'a, R: AsRmPtr> ResourceManagerBuffer<'a, R> {
 
         Ok(Self {
             inner,
+            pipeline_notif: None, // config.pNotifications do not get carried over. PipeNotif will be lost.
             _format: PhantomData,
             _marker: PhantomData,
         })
@@ -86,6 +121,7 @@ impl<'a, R: AsRmPtr> ResourceManagerBuffer<'a, R> {
 
         Ok(Self {
             inner,
+            pipeline_notif: None,
             _format: PhantomData,
             _marker: PhantomData,
         })
@@ -103,9 +139,9 @@ pub struct ResourceManagerBufferBuilder<'a, R: AsRmPtr + ?Sized> {
     rm: &'a R,
     inner: sys::ma_resource_manager_data_source_config,
     flags: RmSourceFlags,
-    fence: Option<Fence>,
     source: SourceBufSource<'a>,
     owned_path: OwnedPathBuf,
+    pipeline_notif: Option<NotificationPipeline>,
 }
 
 impl<'a, R: AsRmPtr + ?Sized> AsRawRef for ResourceManagerBufferBuilder<'a, R> {
@@ -125,9 +161,9 @@ impl<'a, R: AsRmPtr> ResourceManagerBufferBuilder<'a, R> {
             rm,
             inner,
             flags: RmSourceFlags::NONE,
-            fence: None,
             source: SourceBufSource::None,
             owned_path: OwnedPathBuf::None,
+            pipeline_notif: None,
         }
     }
 
@@ -142,9 +178,6 @@ impl<'a, R: AsRmPtr> ResourceManagerBufferBuilder<'a, R> {
         self
     }
 
-    // TODO: Document - This is not the right path for in memory sounds
-    // Correct way is to register the sound first
-    // This is a convenince method when you don't want to register.
     pub fn file_path(&mut self, path: &'a Path) -> &mut Self {
         self.source = SourceBufSource::None;
         #[cfg(unix)]
@@ -155,6 +188,13 @@ impl<'a, R: AsRmPtr> ResourceManagerBufferBuilder<'a, R> {
         {
             self.source = SourceBufSource::FileWide(path);
         }
+        self
+    }
+
+    /// Add either an `init` or `done` [`NotificationPipeline`]
+    pub fn notification(&mut self, notif: NotificationPipeline) -> &mut Self {
+        self.inner.pNotifications = notif.as_raw_ptr();
+        self.pipeline_notif = Some(notif);
         self
     }
 
@@ -195,25 +235,30 @@ impl<'a, R: AsRmPtr> ResourceManagerBufferBuilder<'a, R> {
         self
     }
 
-    pub fn fence(&mut self, fence: Fence) -> &mut Self {
-        self.fence = Some(fence);
-        self.async_load(true);
-        self
-    }
-
     pub(crate) fn build_internal(&mut self) -> MaResult<ResourceManagerBuffer<'a, R>> {
         self.set_source()?;
         ResourceManagerBuffer::<R>::new_with_config(self)
     }
 
     pub fn build(&mut self) -> MaResult<PendingResource<ResourceManagerBuffer<'a, R>>> {
-        let buf = self.build_internal()?;
+        let mut buf = self.build_internal()?;
         if self.flags.intersects(RmSourceFlags::ASYNC) {
             return Ok(PendingResource::Pending { inner: Some(buf) });
         }
+        // Clone the pipeline notifications to prevent them from getting dropped
+        buf.pipeline_notif = self.pipeline_notif.clone();
         Ok(PendingResource::Ready { inner: buf })
     }
 
+    /// Creates a new [`ResourceManagerBuffer`] from an existing one.
+    ///
+    /// The new buffer reuses the same underlying resource-manager entry as
+    /// `existing` and inherits the [`RmSourceFlags`] that were used to create it.
+    ///
+    /// This creates a distinct buffer object. It does not duplicate the underlying
+    /// audio resource in the resource manager.
+    ///
+    /// The new buffer is already loaded, does not need to be polled.
     pub fn build_copy(
         &mut self,
         existing: &ResourceManagerBuffer<'a, R>,

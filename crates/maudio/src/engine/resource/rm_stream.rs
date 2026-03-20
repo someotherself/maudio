@@ -1,3 +1,4 @@
+//! Resource-managed streaming audio sources
 use std::{marker::PhantomData, mem::MaybeUninit, path::Path};
 
 use maudio_sys::ffi as sys;
@@ -5,17 +6,46 @@ use maudio_sys::ffi as sys;
 use crate::{
     data_source::{private_data_source, AsSourcePtr, DataSourceRef, SharedSource},
     engine::resource::{
-        resource_ffi, rm_source::SourceBufSource, rm_source_flags::RmSourceFlags, AsRmPtr,
-        PendingResource,
+        resource_ffi, rm_notif::NotificationPipeline, rm_source::SourceBufSource,
+        rm_source_flags::RmSourceFlags, AsRmPtr, PendingResource,
     },
     sound::sound_builder::OwnedPathBuf,
-    util::fence::Fence,
     AsRawRef, Binding, MaResult,
 };
 
-#[derive(Debug)]
+/// Resource-managed streaming audio source.
+///
+/// Wraps a miniaudio `ma_resource_manager_data_stream`.
+///
+/// A stream represents audio that is decoded incrementally during
+/// playback, rather than fully loaded into memory.
+///
+/// # Usage
+///
+/// Created via [`ResourceManagerStreamBuilder`], typically for large
+/// files or long-running audio.
+///
+/// ```no_run
+/// # let rm = todo!();
+/// let stream = ResourceManagerStreamBuilder::new(&rm)
+///     .file_path("music.ogg".as_ref()) // with `vorbis` feature
+///     .build()?;
+/// ```
+///
+/// # Async loading
+///
+/// Construction always returns a [`PendingResource`].
+/// When async flags are enabled, the source may not be immediately
+/// ready and must be polled before use.
+///
+/// # Notes
+///
+/// - Data is streamed on demand during playback.
+/// - Lower memory usage compared to buffers.
+/// - Ideal for long audio (music, ambience, etc.).
 pub struct ResourceManagerStream<'a, R: AsRmPtr + ?Sized> {
     inner: *mut sys::ma_resource_manager_data_stream,
+    pipeline_notif: Option<NotificationPipeline>,
     _format: PhantomData<R::Format>,
     _marker: PhantomData<&'a R>,
 }
@@ -50,23 +80,6 @@ impl<'a, R: AsRmPtr> ResourceManagerStream<'a, R> {
     }
 }
 
-pub struct ResourceManagerStreamBuilder<'a, R: AsRmPtr + ?Sized> {
-    rm: &'a R,
-    inner: sys::ma_resource_manager_data_source_config,
-    flags: RmSourceFlags,
-    fence: Option<Fence>,
-    source: SourceBufSource<'a>,
-    owned_path: OwnedPathBuf,
-}
-
-impl<'a, R: AsRmPtr + ?Sized> AsRawRef for ResourceManagerStreamBuilder<'a, R> {
-    type Raw = sys::ma_resource_manager_data_source_config;
-
-    fn as_raw(&self) -> &Self::Raw {
-        &self.inner
-    }
-}
-
 // private methods
 impl<'a, R: AsRmPtr> ResourceManagerStream<'a, R> {
     fn new_with_config(config: &ResourceManagerStreamBuilder<'a, R>) -> MaResult<Self> {
@@ -80,9 +93,27 @@ impl<'a, R: AsRmPtr> ResourceManagerStream<'a, R> {
 
         Ok(Self {
             inner,
+            pipeline_notif: None,
             _format: PhantomData,
             _marker: PhantomData,
         })
+    }
+}
+
+pub struct ResourceManagerStreamBuilder<'a, R: AsRmPtr + ?Sized> {
+    rm: &'a R,
+    inner: sys::ma_resource_manager_data_source_config,
+    flags: RmSourceFlags,
+    source: SourceBufSource<'a>,
+    owned_path: OwnedPathBuf,
+    pipeline_notif: Option<NotificationPipeline>,
+}
+
+impl<'a, R: AsRmPtr + ?Sized> AsRawRef for ResourceManagerStreamBuilder<'a, R> {
+    type Raw = sys::ma_resource_manager_data_source_config;
+
+    fn as_raw(&self) -> &Self::Raw {
+        &self.inner
     }
 }
 
@@ -93,9 +124,9 @@ impl<'a, R: AsRmPtr> ResourceManagerStreamBuilder<'a, R> {
             rm,
             inner,
             flags: RmSourceFlags::NONE,
-            fence: None,
             source: SourceBufSource::None,
             owned_path: OwnedPathBuf::None,
+            pipeline_notif: None,
         }
     }
 
@@ -114,6 +145,12 @@ impl<'a, R: AsRmPtr> ResourceManagerStreamBuilder<'a, R> {
         {
             self.source = SourceBufSource::FileWide(path);
         }
+        self
+    }
+
+    pub fn notification(&mut self, notif: NotificationPipeline) -> &mut Self {
+        self.inner.pNotifications = notif.as_raw_ptr();
+        self.pipeline_notif = Some(notif);
         self
     }
 
@@ -154,22 +191,18 @@ impl<'a, R: AsRmPtr> ResourceManagerStreamBuilder<'a, R> {
         self
     }
 
-    pub fn fence(&mut self, fence: Fence) -> &mut Self {
-        self.fence = Some(fence);
-        self.async_load(true);
-        self
-    }
-
     pub(crate) fn build_internal(&mut self) -> MaResult<ResourceManagerStream<'a, R>> {
         self.set_source()?;
         ResourceManagerStream::<R>::new_with_config(self)
     }
 
     pub fn build(&mut self) -> MaResult<PendingResource<ResourceManagerStream<'a, R>>> {
-        let buf = self.build_internal()?;
+        let mut buf = self.build_internal()?;
         if self.flags.intersects(RmSourceFlags::ASYNC) {
             return Ok(PendingResource::Pending { inner: Some(buf) });
         }
+        // Clone the pipeline notifications to prevent them from getting dropped
+        buf.pipeline_notif = self.pipeline_notif.clone();
         Ok(PendingResource::Ready { inner: buf })
     }
 }
