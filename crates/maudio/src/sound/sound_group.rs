@@ -1,5 +1,5 @@
 //! A collection of sounds that can be controlled as a single Sound instance
-use std::{cell::Cell, marker::PhantomData};
+use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;
 
@@ -9,7 +9,7 @@ use crate::{
         math::vec3::Vec3,
         spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
     },
-    engine::{node_graph::nodes::NodeRef, Engine, EngineRef},
+    engine::{node_graph::nodes::NodeRef, private_engine, Engine, EngineRef},
     AsRawRef, Binding, MaResult,
 };
 
@@ -269,31 +269,6 @@ impl Drop for SoundGroup<'_> {
     }
 }
 
-// TODO
-pub(crate) struct SoundGroupBuilder {
-    inner: sys::ma_sound_group_config,
-}
-
-impl AsRawRef for SoundGroupBuilder {
-    type Raw = sys::ma_sound_group_config;
-
-    fn as_raw(&self) -> &Self::Raw {
-        &self.inner
-    }
-}
-
-pub(crate) mod s_group_cfg_ffi {
-    use maudio_sys::ffi as sys;
-
-    use crate::Binding;
-    use crate::{engine::Engine, sound::sound_group::SoundGroupBuilder};
-
-    pub fn ma_sound_group_config_init_2(engine: &Engine) -> SoundGroupBuilder {
-        let ptr = unsafe { sys::ma_sound_group_config_init_2(engine.to_raw()) };
-        SoundGroupBuilder { inner: ptr }
-    }
-}
-
 pub(crate) mod s_group_ffi {
     use maudio_sys::ffi as sys;
 
@@ -310,7 +285,7 @@ pub(crate) mod s_group_ffi {
 
     pub fn ma_sound_group_init_ex(
         engine: &Engine,
-        config: SoundGroupBuilder,
+        config: &SoundGroupBuilder,
         s_group: *mut sys::ma_sound_group,
     ) -> MaResult<()> {
         let res =
@@ -685,6 +660,40 @@ pub(crate) mod s_group_ffi {
     #[inline]
     pub fn ma_sound_group_get_time_in_pcm_frames(s_group: &SoundGroup) -> u64 {
         unsafe { sys::ma_sound_group_get_time_in_pcm_frames(s_group.to_raw() as *const _) }
+    }
+}
+
+pub struct SoundGroupBuilder<'a> {
+    inner: sys::ma_sound_group_config,
+    engine: &'a Engine,
+}
+
+impl AsRawRef for SoundGroupBuilder<'_> {
+    type Raw = sys::ma_sound_group_config;
+
+    fn as_raw(&self) -> &Self::Raw {
+        &self.inner
+    }
+}
+
+impl<'a> SoundGroupBuilder<'a> {
+    pub fn new(engine: &'a Engine) -> Self {
+        let inner =
+            unsafe { sys::ma_sound_group_config_init_2(private_engine::engine_ptr(engine)) };
+        Self { inner, engine }
+    }
+
+    pub fn build(&self) -> MaResult<SoundGroup<'a>> {
+        self.new_sound_group()
+    }
+
+    fn new_sound_group(&self) -> MaResult<SoundGroup<'a>> {
+        let mut mem: Box<MaybeUninit<sys::ma_sound_group>> = Box::new(MaybeUninit::uninit());
+
+        s_group_ffi::ma_sound_group_init_ex(self.engine, self, mem.as_mut_ptr())?;
+
+        let inner: *mut sys::ma_sound_group = Box::into_raw(mem) as *mut sys::ma_sound_group;
+        Ok(SoundGroup::from_ptr(inner))
     }
 }
 

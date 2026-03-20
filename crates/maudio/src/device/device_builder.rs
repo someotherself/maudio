@@ -151,6 +151,8 @@ pub struct PlaybackDeviceBuilder<'a, F = Unknown> {
     backends: Option<&'a [Backend]>,
     data_callback_info: Option<DeviceBuilderDataCallBack>,
     state_notifier: bool,
+    playback_device_id: Option<DeviceId>,
+    capture_device_id: Option<DeviceId>,
     _format: PhantomData<F>,
 }
 
@@ -169,6 +171,8 @@ pub struct CaptureDeviceBuilder<'a, F = Unknown> {
     backends: Option<&'a [Backend]>,
     data_callback_info: Option<DeviceBuilderDataCallBack>,
     state_notifier: bool,
+    playback_device_id: Option<DeviceId>,
+    capture_device_id: Option<DeviceId>,
     _format: PhantomData<F>,
 }
 
@@ -187,6 +191,8 @@ pub struct DuplexDeviceBuilder<'a, F = Unknown> {
     backends: Option<&'a [Backend]>,
     data_callback_info: Option<DeviceBuilderDataCallBack>,
     state_notifier: bool,
+    playback_device_id: Option<DeviceId>,
+    capture_device_id: Option<DeviceId>,
     _format: PhantomData<F>,
 }
 
@@ -204,6 +210,8 @@ pub struct LoopbackDeviceBuilder<'a, F = Unknown> {
     backends: Option<&'a [Backend]>,
     data_callback_info: Option<DeviceBuilderDataCallBack>,
     state_notifier: bool,
+    playback_device_id: Option<DeviceId>,
+    capture_device_id: Option<DeviceId>,
     _format: PhantomData<F>,
 }
 
@@ -293,6 +301,8 @@ pub(crate) mod private_device_b {
         fn inner(t: &mut T) -> &mut sys::ma_device_config;
         fn as_raw(t: &'a T) -> &'a sys::ma_device_config;
         fn as_raw_ptr(t: &T) -> *const sys::ma_device_config;
+        fn set_playback_id(t: &mut T, id: DeviceId);
+        fn set_capture_id(t: &mut T, id: DeviceId);
     }
 
     pub struct PlaybackDeviceBuilderProvider;
@@ -336,6 +346,14 @@ pub(crate) mod private_device_b {
         fn as_raw_ptr(t: &PlaybackDeviceBuilder<'a, F>) -> *const sys::ma_device_config {
             t.as_raw_ptr()
         }
+
+        fn set_playback_id(t: &mut PlaybackDeviceBuilder<'a, F>, id: DeviceId) {
+            t.playback_device_id = Some(id);
+        }
+
+        fn set_capture_id(t: &mut PlaybackDeviceBuilder<'a, F>, id: DeviceId) {
+            t.capture_device_id = Some(id);
+        }
     }
 
     impl<'a, F: PcmFormat> DeviceBulderProvider<'a, CaptureDeviceBuilder<'a, F>>
@@ -372,6 +390,14 @@ pub(crate) mod private_device_b {
         fn as_raw_ptr(t: &CaptureDeviceBuilder<'a, F>) -> *const sys::ma_device_config {
             t.as_raw_ptr()
         }
+
+        fn set_playback_id(t: &mut CaptureDeviceBuilder<'a, F>, id: DeviceId) {
+            t.playback_device_id = Some(id);
+        }
+
+        fn set_capture_id(t: &mut CaptureDeviceBuilder<'a, F>, id: DeviceId) {
+            t.capture_device_id = Some(id);
+        }
     }
 
     impl<'a, F: PcmFormat> DeviceBulderProvider<'a, DuplexDeviceBuilder<'a, F>>
@@ -407,6 +433,14 @@ pub(crate) mod private_device_b {
 
         fn as_raw_ptr(t: &DuplexDeviceBuilder<'a, F>) -> *const sys::ma_device_config {
             t.as_raw_ptr()
+        }
+
+        fn set_playback_id(t: &mut DuplexDeviceBuilder<'a, F>, id: DeviceId) {
+            t.playback_device_id = Some(id);
+        }
+
+        fn set_capture_id(t: &mut DuplexDeviceBuilder<'a, F>, id: DeviceId) {
+            t.capture_device_id = Some(id);
         }
     }
 
@@ -445,6 +479,14 @@ pub(crate) mod private_device_b {
 
         fn as_raw_ptr(t: &LoopbackDeviceBuilder<'a, F>) -> *const sys::ma_device_config {
             t.as_raw_ptr()
+        }
+
+        fn set_playback_id(t: &mut LoopbackDeviceBuilder<'a, F>, id: DeviceId) {
+            t.playback_device_id = Some(id);
+        }
+
+        fn set_capture_id(t: &mut LoopbackDeviceBuilder<'a, F>, id: DeviceId) {
+            t.capture_device_id = Some(id);
         }
     }
 
@@ -491,6 +533,14 @@ pub(crate) mod private_device_b {
     pub fn as_raw_ptr<'a, T: AsDeviceBuilder<'a> + ?Sized>(t: &T) -> *const sys::ma_device_config {
         <T as AsDeviceBuilder>::_DeviceBuilderProvider::as_raw_ptr(t)
     }
+
+    pub fn set_playback_id<'a, T: AsDeviceBuilder<'a> + ?Sized>(t: &mut T, id: DeviceId) {
+        <T as AsDeviceBuilder>::_DeviceBuilderProvider::set_playback_id(t, id);
+    }
+
+    pub fn set_capture_id<'a, T: AsDeviceBuilder<'a> + ?Sized>(t: &mut T, id: DeviceId) {
+        <T as AsDeviceBuilder>::_DeviceBuilderProvider::set_capture_id(t, id);
+    }
 }
 
 impl<'a> PlaybackDeviceBuilder<'a, Unknown> {
@@ -501,6 +551,8 @@ impl<'a> PlaybackDeviceBuilder<'a, Unknown> {
             backends: self.backends,
             data_callback_info: None,
             state_notifier: false,
+            playback_device_id: None,
+            capture_device_id: None,
             _format: PhantomData,
         }
     }
@@ -539,6 +591,8 @@ impl<'a> CaptureDeviceBuilder<'a, Unknown> {
             backends: self.backends,
             data_callback_info: None,
             state_notifier: false,
+            playback_device_id: None,
+            capture_device_id: None,
             _format: PhantomData,
         }
     }
@@ -577,6 +631,8 @@ impl<'a> DuplexDeviceBuilder<'a, Unknown> {
             backends: self.backends,
             data_callback_info: None,
             state_notifier: false,
+            playback_device_id: None,
+            capture_device_id: None,
             _format: PhantomData,
         }
     }
@@ -620,6 +676,8 @@ impl<'a> LoopbackDeviceBuilder<'a, Unknown> {
             backends: self.backends,
             data_callback_info: None,
             state_notifier: false,
+            playback_device_id: None,
+            capture_device_id: None,
             _format: PhantomData,
         }
     }
@@ -684,6 +742,7 @@ pub trait DeviceBuilderOps<'a>: AsDeviceBuilder<'a> {
         Self: private_device_b::SupportsPlayback,
     {
         private_device_b::inner(self).playback.pDeviceID = device_id.as_raw_ptr();
+        private_device_b::set_playback_id(self, device_id.clone());
         self
     }
 
@@ -735,6 +794,7 @@ pub trait DeviceBuilderOps<'a>: AsDeviceBuilder<'a> {
         Self: private_device_b::SupportsCapture,
     {
         private_device_b::inner(self).capture.pDeviceID = device_id.as_raw_ptr();
+        private_device_b::set_capture_id(self, device_id.clone());
         self
     }
 
@@ -909,6 +969,8 @@ impl<'a> DeviceBuilder {
             backends: None,
             data_callback_info: None,
             state_notifier: false,
+            playback_device_id: None,
+            capture_device_id: None,
             _format: PhantomData,
         }
     }
@@ -921,6 +983,8 @@ impl<'a> DeviceBuilder {
             backends: None,
             data_callback_info: None,
             state_notifier: false,
+            playback_device_id: None,
+            capture_device_id: None,
             _format: PhantomData,
         }
     }
@@ -933,6 +997,8 @@ impl<'a> DeviceBuilder {
             backends: None,
             data_callback_info: None,
             state_notifier: false,
+            playback_device_id: None,
+            capture_device_id: None,
             _format: PhantomData,
         }
     }
@@ -945,6 +1011,8 @@ impl<'a> DeviceBuilder {
             backends: None,
             data_callback_info: None,
             state_notifier: false,
+            playback_device_id: None,
+            capture_device_id: None,
             _format: PhantomData,
         }
     }
@@ -1036,6 +1104,8 @@ impl<'a, F: PcmFormat> PlaybackDeviceBuilder<'a, F> {
             self.context,
             private_device_b::get_backends(self),
             callback_process_notifier,
+            self.playback_device_id.clone(),
+            self.capture_device_id.clone(),
         )
     }
 }
@@ -1127,6 +1197,8 @@ impl<'a, F: PcmFormat> CaptureDeviceBuilder<'a, F> {
             self.context,
             private_device_b::get_backends(self),
             callback_process_notifier,
+            self.playback_device_id.clone(),
+            self.capture_device_id.clone(),
         )
     }
 }
@@ -1220,6 +1292,8 @@ impl<'a, F: PcmFormat> DuplexDeviceBuilder<'a, F> {
             self.context,
             private_device_b::get_backends(self),
             callback_process_notifier,
+            self.playback_device_id.clone(),
+            self.capture_device_id.clone(),
         )
     }
 }
@@ -1310,6 +1384,8 @@ impl<'a, F: PcmFormat> LoopbackDeviceBuilder<'a, F> {
             self.context,
             private_device_b::get_backends(self),
             callback_process_notifier,
+            self.playback_device_id.clone(),
+            self.capture_device_id.clone(),
         )
     }
 }

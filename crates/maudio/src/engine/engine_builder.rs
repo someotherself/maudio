@@ -4,8 +4,8 @@ use std::sync::{atomic::AtomicBool, Arc};
 use maudio_sys::ffi as sys;
 
 use crate::{
-    audio::sample_rate::SampleRate,
-    device::Device,
+    audio::{channels::MonoExpansionMode, sample_rate::SampleRate},
+    device::{device_id::DeviceId, Device},
     engine::{
         engine_cb_notif::engine_notification_callback,
         process_cb::{on_process_callback, EngineProcessCallback, ProcessState},
@@ -18,6 +18,7 @@ use crate::{
 
 pub struct EngineBuilder {
     inner: sys::ma_engine_config,
+    pub(crate) playback_device_id: Option<DeviceId>,
     pub(crate) device: Option<Device>, // a ref count, not ownership
     pub(crate) resource_manager: Option<ResourceManager<f32>>, // a ref count, not ownership
     process_data_ptr: Option<*mut ProcessState>,
@@ -36,34 +37,14 @@ impl AsRawRef for EngineBuilder {
     }
 }
 
-// TODO. To add:
-// ma_mono_expansion_mode
-// volumeSmoothTimeInPCMFrames
-// ma_resampler_config
-// periodSizeInFrames and periodSizeInMilliseconds
-// gainSmoothTimeInFrames and gainSmoothTimeInMilliseconds
-// defaultVolumeSmoothTimeInPCMFrames
-/// Builds a [`ResourceManager`] with a fixed native PCM format.
-///
-/// ### Example
-///
-/// ```rust,no_run
-/// # use maudio::engine::engine_builder::EngineBuilder;
-/// # use maudio::engine::resource::rm_builder::ResourceManagerBuilder;
-/// # fn main() -> maudio::MaResult<()> {
-/// let rm = ResourceManagerBuilder::new().build_f32()?;
-/// let engine = EngineBuilder::new()
-///     .resource_manager(&rm)
-///     .build()?;
-/// # Ok(())
-/// # }
-/// ```
+// TODO. To add: ma_resampler_config
 impl EngineBuilder {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let inner = unsafe { sys::ma_engine_config_init() };
         Self {
             inner,
+            playback_device_id: None,
             device: None,
             resource_manager: None,
             process_data_ptr: None,
@@ -103,6 +84,62 @@ impl EngineBuilder {
         self.inner.channels = channels;
 
         self.inner.noDevice = 1;
+        self
+    }
+
+    pub fn mono_expansion_mode(&mut self, mode: MonoExpansionMode) -> &mut Self {
+        self.inner.monoExpansionMode = mode.into();
+        self
+    }
+
+    /// Controls the default amount of smoothing to apply to volume changes to sounds.
+    ///
+    /// Defaults to 0. High values means more smoothing at the expense of high latency
+    /// (will take longer to reach the new volume).
+    pub fn volume_smooth_frames(&mut self, frames: u32) -> &mut Self {
+        self.inner.defaultVolumeSmoothTimeInPCMFrames = frames;
+        self
+    }
+
+    /// Sets the playback device to use.
+    ///
+    /// If not set, the default system device is used.
+    pub fn device_id(&mut self, playback_id: &DeviceId) -> &mut Self {
+        self.inner.pPlaybackDeviceID = playback_id.as_raw_ptr() as *mut _;
+        self.playback_device_id = Some(playback_id.clone());
+        self
+    }
+
+    /// Sets the gain smoothing time in frames.
+    pub fn gain_smooth_frames(&mut self, frames: u32) -> &mut Self {
+        self.inner.gainSmoothTimeInFrames = frames;
+        self
+    }
+
+    /// Sets the gain smoothing time in milliseconds.
+    pub fn gain_smooth_millis(&mut self, millis: u32) -> &mut Self {
+        self.inner.gainSmoothTimeInMilliseconds = millis;
+        self
+    }
+
+    /// Sets the device period size in frames.
+    pub fn period_time_frames(&mut self, frames: u32) -> &mut Self {
+        self.inner.periodSizeInFrames = frames;
+        self
+    }
+
+    /// Sets the device period size in milliseconds.
+    pub fn period_time_millis(&mut self, millis: u32) -> &mut Self {
+        self.inner.periodSizeInMilliseconds = millis;
+        self
+    }
+
+    /// Sets the internal stack size used during node graph processing.
+    ///
+    /// Smaller values limit the maximum depth of the graph.
+    /// Most applications can use the default.
+    pub fn stack_size(&mut self, bytes: u32) -> &mut Self {
+        self.inner.preMixStackSizeInBytes = bytes;
         self
     }
 

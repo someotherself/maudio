@@ -33,7 +33,7 @@ use std::path::Path;
 use maudio_sys::ffi as sys;
 
 use crate::{
-    audio::math::vec3::Vec3,
+    audio::{channels::MonoExpansionMode, math::vec3::Vec3},
     data_source::{private_data_source, AsSourcePtr, DataSourceRef},
     engine::{
         node_graph::nodes::{private_node, AsNodePtr},
@@ -142,7 +142,6 @@ pub(crate) enum OwnedPathBuf {
     Wide(Vec<u16>),
 }
 
-// TODO: Add ma_mono_expansion_mode
 impl<'a, 'b> SoundBuilder<'a, 'b> {
     pub fn new(engine: &'a Engine) -> Self {
         SoundBuilder::init(engine)
@@ -156,6 +155,11 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         self.inner.endCallback = Some(crate::sound::notifier::on_end_callback);
 
         notifier
+    }
+
+    pub fn mono_expansion_mode(&mut self, mode: MonoExpansionMode) -> &mut Self {
+        self.inner.monoExpansionMode = mode.into();
+        self
     }
 
     pub fn with_end_notifier(&'a mut self) -> MaResult<(Sound<'a>, EndNotifier)> {

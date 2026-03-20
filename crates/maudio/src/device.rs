@@ -14,6 +14,7 @@ use crate::{
     context::{ContextBuilder, ContextRef},
     device::{
         device_builder::{private_device_b, AsDeviceBuilder},
+        device_id::DeviceId,
         device_info::DeviceInfo,
         device_state::DeviceState,
         device_type::DeviceType,
@@ -42,9 +43,11 @@ pub struct Device {
 
 pub(crate) struct DeviceInner {
     inner: *mut sys::ma_device,
+    playback_device_id: Option<DeviceId>, // Ref count. Needs to be kept alive.
+    capture_device_id: Option<DeviceId>,  // Ref count. Needs to be kept alive.
     callback_user_data: *mut core::ffi::c_void, // userdata (self.inner.pUserData)
     callback_user_data_drop: fn(*mut core::ffi::c_void), // destructor for the callback_user_data
-    callback_panic: Arc<AtomicBool>,            // true = callback panicked and is now poisoned
+    callback_panic: Arc<AtomicBool>,      // true = callback panicked and is now poisoned
     callback_process_notifier: ProcFramesNotif,
     state_notifier: Option<DeviceStateNotifier>, // used by ma_device_notification
 }
@@ -284,6 +287,8 @@ impl Device {
         context_cfg: Option<&ContextBuilder>,
         backends: Option<&[Backend]>,
         data_notif: ProcFramesNotif,
+        playback_device_id: Option<DeviceId>,
+        capture_device_id: Option<DeviceId>,
     ) -> MaResult<Self> {
         let mut mem: Box<MaybeUninit<sys::ma_device>> = Box::new(MaybeUninit::uninit());
 
@@ -299,6 +304,8 @@ impl Device {
         Ok(Self {
             inner: Arc::new(DeviceInner {
                 inner,
+                playback_device_id,
+                capture_device_id,
                 callback_user_data: cb_info.data_callback,
                 callback_user_data_drop: cb_info.data_callback_drop,
                 callback_panic: cb_info.data_callback_panic,

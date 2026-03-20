@@ -352,6 +352,59 @@ impl From<ChannelPosition> for sys::ma_channel {
     }
 }
 
+/// Controls how mono channels are expanded to multiple channels.
+///
+/// Maps directly to `ma_mono_expansion_mode` in miniaudio.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(C)]
+pub enum MonoExpansionMode {
+    /// Duplicate the mono signal to all channels. Usually the default.
+    Duplicate,
+
+    /// Average into existing channels.
+    Average,
+
+    /// Expand to stereo only.
+    StereoOnly,
+}
+
+impl From<MonoExpansionMode> for sys::ma_mono_expansion_mode {
+    fn from(value: MonoExpansionMode) -> Self {
+        match value {
+            MonoExpansionMode::Duplicate => {
+                sys::ma_mono_expansion_mode_ma_mono_expansion_mode_duplicate
+            }
+            MonoExpansionMode::Average => {
+                sys::ma_mono_expansion_mode_ma_mono_expansion_mode_average
+            }
+            MonoExpansionMode::StereoOnly => {
+                sys::ma_mono_expansion_mode_ma_mono_expansion_mode_stereo_only
+            }
+        }
+    }
+}
+
+impl TryFrom<sys::ma_mono_expansion_mode> for MonoExpansionMode {
+    type Error = MaudioError;
+
+    fn try_from(value: sys::ma_mono_expansion_mode) -> Result<Self, Self::Error> {
+        match value {
+            sys::ma_mono_expansion_mode_ma_mono_expansion_mode_duplicate => {
+                Ok(MonoExpansionMode::Duplicate)
+            }
+            sys::ma_mono_expansion_mode_ma_mono_expansion_mode_average => {
+                Ok(MonoExpansionMode::Average)
+            }
+            sys::ma_mono_expansion_mode_ma_mono_expansion_mode_stereo_only => {
+                Ok(MonoExpansionMode::StereoOnly)
+            }
+            other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
+                MonoExpansionMode,
+            >(other as i64))),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

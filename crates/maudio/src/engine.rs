@@ -56,7 +56,7 @@ use crate::{
         formats::SampleBuffer, math::vec3::Vec3, sample_rate::SampleRate, spatial::cone::Cone,
     },
     data_source::AsSourcePtr,
-    device::{Device, DeviceRef},
+    device::{device_id::DeviceId, Device, DeviceRef},
     engine::{
         engine_builder::EngineBuilder,
         node_graph::{nodes::NodeRef, NodeGraphRef},
@@ -67,7 +67,7 @@ use crate::{
         sound_builder::SoundBuilder,
         sound_ffi,
         sound_flags::SoundFlags,
-        sound_group::{s_group_cfg_ffi, s_group_ffi, SoundGroup, SoundGroupBuilder},
+        sound_group::{SoundGroup, SoundGroupBuilder},
         Sound,
     },
     util::{device_notif::DeviceStateNotifier, fence::Fence, prof_notif::ProcFramesNotif},
@@ -96,8 +96,9 @@ pub mod resource;
 /// - optionally interact with the engine’s endpoint node / node graph for effects
 pub struct Engine {
     inner: *mut sys::ma_engine,
-    device: Option<Device>, // a ref count, not ownership
-    resource_manager: Option<ResourceManager<f32>>, // a ref count, not ownership
+    playback_device_id: Option<DeviceId>, // a ref count
+    device: Option<Device>,               // a ref count
+    resource_manager: Option<ResourceManager<f32>>, // a ref count
     process_data_ptr: Option<*mut ProcessState>, // userdata (self.inner.pProcessUserData)
     process_data_panic: Option<Arc<AtomicBool>>, // true = callback panicked and is now poisoned
     process_data_notif: Option<ProcFramesNotif>,
@@ -400,15 +401,20 @@ impl Engine {
     }
 
     fn new_with_config(config: Option<&EngineBuilder>) -> MaResult<Self> {
-        let (device, rm) = config.map_or((None, None), |c| {
-            (c.device.clone(), c.resource_manager.clone())
+        let (device, rm, dev_id) = config.map_or((None, None, None), |c| {
+            (
+                c.device.clone(),
+                c.resource_manager.clone(),
+                c.playback_device_id.clone(),
+            )
         });
         let mut mem: Box<MaybeUninit<sys::ma_engine>> = Box::new(MaybeUninit::uninit());
         engine_ffi::engine_init(config, mem.as_mut_ptr())?;
-        // Safety: If mem is not initialized, engine_init will return an error
+
         let inner: *mut sys::ma_engine = Box::into_raw(mem) as *mut sys::ma_engine;
         Ok(Self {
             inner,
+            playback_device_id: dev_id,
             device,
             resource_manager: rm,
             process_data_ptr: None,   // set in builder after returning this
@@ -485,18 +491,7 @@ impl Engine {
     }
 
     pub fn new_sound_group(&self) -> MaResult<SoundGroup<'_>> {
-        let mut mem: Box<MaybeUninit<sys::ma_sound_group>> = Box::new(MaybeUninit::uninit());
-        let config = self.new_sound_group_config();
-
-        s_group_ffi::ma_sound_group_init_ex(self, config, mem.as_mut_ptr())?;
-
-        let inner: *mut sys::ma_sound_group = Box::into_raw(mem) as *mut sys::ma_sound_group;
-        Ok(SoundGroup::from_ptr(inner))
-    }
-
-    // TODO
-    fn new_sound_group_config(&self) -> SoundGroupBuilder {
-        s_group_cfg_ffi::ma_sound_group_config_init_2(self)
+        SoundGroupBuilder::new(self).build()
     }
 }
 
