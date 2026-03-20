@@ -1,7 +1,6 @@
 //! Sound playback primitives.
 //!
 //! This module defines [`Sound`], an engine-managed audio voice.
-#[cfg(unix)]
 use std::{
     cell::Cell,
     marker::PhantomData,
