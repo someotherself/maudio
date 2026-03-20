@@ -252,13 +252,13 @@ impl EngineBuilder {
     pub fn build(&mut self) -> MaResult<Engine> {
         let _ = self.set_process_notifier(None);
 
-        if self.inner.noDevice == 1 && self.state_notif_exists {
+        if self.inner.noDevice == 0 && self.state_notif_exists {
             self.inner.notificationCallback = Some(engine_notification_callback);
         }
 
         let mut engine = Engine::new_with_config(Some(self))?;
         // Check if we set the state notifier callback
-        if self.inner.noDevice == 1 && self.state_notif_exists {
+        if self.inner.noDevice == 0 && self.state_notif_exists {
             engine.state_notifier = self.state_notif.clone();
         }
         Ok(engine)
@@ -328,7 +328,18 @@ mod test {
 
         assert!(!notif.contains(DeviceNotificationType::Started));
         engine.start().unwrap();
-        std::thread::sleep(std::time::Duration::from_micros(50));
+        // std::thread::sleep(std::time::Duration::from_micros(10000));
+        let total = std::time::Duration::from_millis(200);
+        let start = std::time::Instant::now();
+        loop {
+            if notif.contains(DeviceNotificationType::Started) {
+                break;
+            }
+            if start.elapsed() >= total {
+                println!("Timed out");
+                break;
+            }
+        }
         assert!(notif.contains(DeviceNotificationType::Started));
         engine.stop().unwrap();
     }
