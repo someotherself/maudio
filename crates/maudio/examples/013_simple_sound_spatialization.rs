@@ -1,6 +1,14 @@
 use std::path::PathBuf;
 
-use maudio::{audio::math::vec3::Vec3, engine::Engine};
+use maudio::{
+    audio::{
+        math::vec3::Vec3,
+        spatial::{attenuation::AttenuationModel, positioning::Positioning},
+    },
+    engine::Engine,
+    sound::sound_builder::SoundBuilder,
+    MaResult,
+};
 
 // Demonstrates basic sound spatialization.
 // The sound is placed in 3D space and moved around the listener while playing.
@@ -21,7 +29,7 @@ fn main() -> MaResult<()> {
     sound.set_position(Vec3::new(-5.0, 0.0, 0.0));
 
     println!("Starting sound on the left...");
-    sound.start()?;
+    sound.play_sound()?;
     std::thread::sleep(std::time::Duration::from_secs(2));
 
     println!("Moving sound in front...");

@@ -22,6 +22,12 @@ pub struct Vec3 {
     pub z: f32,
 }
 
+impl Vec3 {
+    pub fn new(x: f32, y: f32, z: f32) -> Self {
+        Self { x, y, z }
+    }
+}
+
 impl From<sys::ma_vec3f> for Vec3 {
     fn from(v: sys::ma_vec3f) -> Self {
         Self {

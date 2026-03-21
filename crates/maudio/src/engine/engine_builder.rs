@@ -237,7 +237,7 @@ impl EngineBuilder {
         let notifier = self.set_process_notifier(None);
         self.inner.onProcess = Some(on_process_callback);
 
-        let mut engine = self.build()?;
+        let mut engine = self.build_with_callback()?;
         // Set the process data ptr and panic flag on the engine
         engine.process_data_ptr = self.process_data_ptr;
         engine.process_data_panic = self.process_data_panic.take();
@@ -280,12 +280,25 @@ impl EngineBuilder {
         let notifier = self.set_process_notifier(Some(Box::new(cb)));
         self.inner.onProcess = Some(on_process_callback);
 
-        let mut engine = self.build()?;
+        let mut engine = self.build_with_callback()?;
         // Set the process data ptr and panic flag on the engine
         engine.process_data_ptr = self.process_data_ptr;
         engine.process_data_panic = self.process_data_panic.take();
         engine.process_data_notif = Some(notifier);
 
+        Ok(engine)
+    }
+
+    fn build_with_callback(&mut self) -> MaResult<Engine> {
+        if self.inner.noDevice == 0 && self.state_notif_exists {
+            self.inner.notificationCallback = Some(engine_notification_callback);
+        }
+
+        let mut engine = Engine::new_with_config(Some(self))?;
+        // Check if we set the state notifier callback
+        if self.inner.noDevice == 0 && self.state_notif_exists {
+            engine.state_notifier = self.state_notif.clone();
+        }
         Ok(engine)
     }
 
