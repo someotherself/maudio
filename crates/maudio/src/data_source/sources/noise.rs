@@ -651,8 +651,7 @@ mod tests {
         let mut builder = NoiseBuilder::new(2, NoiseType::White, 0.5);
         let mut noise = builder.build_f32().unwrap();
 
-        let buf = noise
-            .read_pcm_frames(0);
+        let buf = noise.read_pcm_frames(0);
         assert!(buf.is_err());
     }
 
@@ -663,11 +662,9 @@ mod tests {
 
         let mut dst: Vec<i16> = Vec::new();
 
-        let err = noise
-            .read_pcm_frames_into(&mut dst)
-            .expect_err("empty slice should be invalid");
+        let res = noise.read_pcm_frames_into(&mut dst);
 
-        let _ = err; // optional: assert exact error kind
+        assert!(res.is_err());
     }
 
     #[test]
