@@ -490,6 +490,7 @@ impl Engine {
         self.new_sound_with_file_internal(path, flags, None, done_fence)
     }
 
+    /// Convenience method for `SoundGroupBuilder::new(&engine).build()`
     pub fn new_sound_group(&self) -> MaResult<SoundGroup<'_>> {
         SoundGroupBuilder::new(self).build()
     }

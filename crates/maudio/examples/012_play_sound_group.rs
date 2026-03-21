@@ -1,6 +1,17 @@
 use std::path::PathBuf;
 
-use maudio::{engine::Engine, sound::sound_builder::SoundBuilder, MaResult};
+use maudio::{
+    engine::Engine,
+    sound::{sound_builder::SoundBuilder, sound_group::SoundGroupBuilder},
+    MaResult,
+};
+
+// Internally a SoundGroup is simply a Sound, without a data source.
+// It is used to connect other Sounds to its input.
+// In fact this is was happens when we create a Sound with a SoundGroup.
+//
+// The SoundGroup node is added as the initial attachment for
+// the newly created Sound and starts to act like a DSP node.
 
 fn main() -> MaResult<()> {
     let engine = Engine::new()?;
@@ -14,7 +25,9 @@ fn main() -> MaResult<()> {
     // Groups are commonly used to organize sounds into categories such as
     // music, sound effects, or dialogue. Each group has its own volume and
     // effect processing which is applied to every sound attached to it.
-    let mut group = engine.new_sound_group()?;
+    let mut group = SoundGroupBuilder::new(&engine)
+        .volume_smooth_millis(250.0)
+        .build()?;
 
     // Changing the group volume affects all sounds in the group.
     group.set_volume(0.5);

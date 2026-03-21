@@ -1,7 +1,19 @@
 //! Type definition for a 3D vector
 use maudio_sys::ffi as sys;
 
-/// A 3D vector type used for positions and directions in spatial audio.
+/// A 3D vector used for positions, directions, and velocities in spatial audio.
+///
+/// Coordinates follow the OpenGL coordinate system and are expressed in world space using a right-handed system:
+/// - +X: right
+/// - +Y: up
+/// - -Z: forward (towards the listener by default)
+///
+/// The unit scale is arbitrary, but typically represents meters. Larger values
+/// result in greater distances between sounds and the listener, affecting
+/// attenuation and spatial perception.
+///
+/// This type is used with methods such as [`Sound::set_position`](crate::sound::Sound),
+/// [`Sound::set_direction`](crate::sound::Sound), and [`Sound::set_velocity`](crate::sound::Sound).
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Vec3 {

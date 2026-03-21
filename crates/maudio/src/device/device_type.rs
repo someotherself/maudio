@@ -17,7 +17,7 @@ pub enum DeviceType {
     Capture,
     /// Combined playback and capture device.
     Duplex,
-    /// Loopback device capturing system output. Windows only.
+    /// Loopback device capturing system output. WASAPI only.
     Loopback,
 }
 

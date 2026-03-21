@@ -1,3 +1,4 @@
+//! White, Pink or Brown noise generator
 use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
 
 use maudio_sys::ffi as sys;

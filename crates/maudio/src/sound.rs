@@ -156,7 +156,7 @@ impl<'a> Sound<'a> {
         sound_ffi::ma_sound_is_spatialization_enabled(self)
     }
 
-    /// Enables or disables spatialization.
+    /// Enables or disables spatialization. Enabled by default.
     pub fn set_spatialization(&mut self, enabled: bool) {
         sound_ffi::ma_sound_set_spatialization_enabled(self, enabled);
     }
@@ -433,7 +433,7 @@ impl<'a> Sound<'a> {
     }
 
     /// Seeks to an absolute PCM frame index.
-    pub fn seek_to_pcm(&mut self, frame_index: u64) -> MaResult<()> {
+    pub fn seek_to_frame(&mut self, frame_index: u64) -> MaResult<()> {
         sound_ffi::ma_sound_seek_to_pcm_frame(self, frame_index)
     }
 
@@ -1684,7 +1684,7 @@ mod test {
         let engine = Engine::new_for_tests().unwrap();
         let mut sound = engine.new_sound().unwrap();
 
-        let _ = sound.seek_to_pcm(0);
+        let _ = sound.seek_to_frame(0);
         let _ = sound.seek_to_second(0.0);
     }
 

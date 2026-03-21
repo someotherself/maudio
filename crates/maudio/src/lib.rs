@@ -11,11 +11,16 @@
 //! hides much of the complexity exposed by the low-level API. A lower-level,
 //! more flexible interface is planned and under active development.
 //!
-//! Internally, an `Engine` owns a `NodeGraph`, which represents a directed graph
-//! of audio processing units called `Nodes`. Nodes can act as audio sources
-//! (such as sounds or waveforms), processing units (DSP, filters, splitters),
-//! or endpoints. Audio flows through the graph from source nodes, through
-//! optional processing stages, and finally into an output endpoint.
+//! Under the hood, the engine consists of:
+//! - **ResourceManager**: It is responsible for loading sounds into memory or streaming them.
+//!   It is also responsible for refence counting them to avoid loading sounds into memory multiple times.
+//!   It also has a **Decoder** and can decode audio either before or after it is loaded into memory.
+//! - **NodeGraph**: It is a directed graph of audio processing units called Nodes.
+//!   Nodes can be audio sources (such as sounds or waveforms), processing units (DSP, filters, splitters), or endpoints. Audio data flows through the graph from source nodes, through optional processing nodes, and finally into the endpoint.
+//! - **Device**: An abstraction of a physical device. Represents the audio playback device and is
+//!   responsible for driving the engine. Internally, it runs a callback on a dedicated audio thread,
+//!   which continuously requests (pulls) audio frames from the engine.
+//!   The engine, in turn, processes the node graph to produce the requested audio data.
 //!
 //! By default, sounds created from an `Engine` are automatically connected to
 //! the graph’s endpoint and played in a push-based manner. Audio generation,
@@ -29,6 +34,25 @@
 //! Most types in `maudio` are constructed using a builder pattern, enabling
 //! additional configuration at creation time while keeping common use cases
 //! straightforward.
+//!
+//! In addition to the high level `Engine` API, `maudio` exposes a low level interface for working directly with the core audio building blocks.
+//! While the high level API provides a ready-to-use playback system, the low level API gives you the components needed to build your own.
+//! This includes manual control over devices, audio graphs, data sources, decoding, and resource management.
+//!
+//! The two APIs are closely related: the high level engine is built using many of the same concepts exposed by the low level API,
+//! but organizes them into a simpler, playback-focused workflow.
+//!
+//! The low level API includes:
+//!
+//! - **Context** for initializing the audio backend and enumerating devices.
+//! - **Device** for creating playback, capture, loopback, or duplex streams with direct control over the audio callback.
+//! - **Decoder** for reading audio from encoded formats.
+//! - **Data sources** as a unified interface for producing PCM frames.
+//! - **Audio buffers** for working with decoded PCM data in memory.
+//! - **Utility primitives** such as ring buffers, fences, and notification systems for real-time and asynchronous coordination.
+//!
+//! Use the low level API when you need full control over how audio is generated, processed, or delivered, or when building abstractions on top of `maudio`.
+//!
 //! # Feature flags
 //!
 //! This crate builds and links the vendored **miniaudio** C library and exposes raw FFI bindings.

@@ -104,6 +104,9 @@ impl EngineBuilder {
     /// Sets the playback device to use.
     ///
     /// If not set, the default system device is used.
+    ///
+    /// This is ignored if you are also passing in a device via [`EngineBuilder::device`]
+    /// In that scenario, you should pass the `DeviceId` to that custom `Device` instead.
     pub fn device_id(&mut self, playback_id: &DeviceId) -> &mut Self {
         self.inner.pPlaybackDeviceID = playback_id.as_raw_ptr() as *mut _;
         self.playback_device_id = Some(playback_id.clone());
