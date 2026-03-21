@@ -268,6 +268,7 @@ impl DeviceNotificationSet {
 /// Not all backends report all notification types. The availability and timing of
 /// these notifications is platform-dependent.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(C)]
 pub enum DeviceNotificationType {
     /// The device has started.
     Started,

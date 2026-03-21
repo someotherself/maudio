@@ -121,14 +121,14 @@ impl<'a, 'b> AsRawRef for SoundBuilder<'a, 'b> {
 }
 
 #[derive(Default)]
-struct SoundState {
-    min_distance: Option<f32>,
-    max_distance: Option<f32>,
-    rolloff: Option<f32>,
-    position: Option<Vec3>,
-    velocity: Option<Vec3>,
-    direction: Option<Vec3>,
-    start_playing: bool,
+pub(crate) struct SoundState {
+    pub(crate) min_distance: Option<f32>,
+    pub(crate) max_distance: Option<f32>,
+    pub(crate) rolloff: Option<f32>,
+    pub(crate) position: Option<Vec3>,
+    pub(crate) velocity: Option<Vec3>,
+    pub(crate) direction: Option<Vec3>,
+    pub(crate) start_playing: bool,
 }
 
 // Keeps the ptr to the path alive
@@ -391,6 +391,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         self
     }
 
+    // TODO: Is engine time correct?
     /// Sets the volume smoothing time, in PCM frames.
     ///
     /// Alternative to `range_begin_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
@@ -399,6 +400,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         self
     }
 
+    // TODO: Is engine time correct?
     /// Anything before this point is skipped during playback.
     ///
     /// Alternative to `range_begin_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
@@ -407,6 +409,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         self
     }
 
+    // TODO: Is engine time correct?
     /// Playback stops when this frame is reached.
     ///
     /// Alternative to `range_end_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
@@ -415,18 +418,21 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         self
     }
 
+    // TODO: Is engine time correct?
     /// Alternative to `loop_begin_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
     pub fn loop_begin_millis(&mut self, millis: f64) -> &mut Self {
         self.inner.loopPointBegInPCMFrames = self.millis_to_frames(millis);
         self
     }
 
+    // TODO: Is engine time correct?
     /// Alternative to `loop_end_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
     pub fn loop_end_millis(&mut self, millis: f64) -> &mut Self {
         self.inner.loopPointEndInPCMFrames = self.millis_to_frames(millis);
         self
     }
 
+    // TODO: Is engine time correct?
     /// Alternative to `seek_point_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
     pub fn seek_point_millis(&mut self, millis: f64) -> &mut Self {
         self.inner.initialSeekPointInPCMFrames = self.millis_to_frames(millis);
@@ -440,6 +446,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         self
     }
 
+    // TODO: Is engine time correct?
     /// Convenience method for calling [`Self::range_begin_millis`] and [`Self::range_end_millis`] in the same call
     ///
     /// Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
@@ -456,6 +463,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         self
     }
 
+    // TODO: Is engine time correct?
     /// Convenience method for calling [`Self::loop_begin_millis`] and [`Self::loop_end_millis`] in the same call
     ///
     /// Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
@@ -581,7 +589,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
     }
 
     #[inline]
-    fn millis_to_frames(&self, millis: f64) -> u64 {
+    pub(crate) fn millis_to_frames(&self, millis: f64) -> u64 {
         if !millis.is_finite() || millis <= 0.0 {
             return 0;
         }
@@ -590,7 +598,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
     }
 
     #[inline]
-    fn seconds_to_frames(&self, seconds: f64) -> u64 {
+    pub(crate) fn seconds_to_frames(&self, seconds: f64) -> u64 {
         if !seconds.is_finite() || seconds <= 0.0 {
             return 0;
         }

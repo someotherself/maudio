@@ -556,6 +556,7 @@ where
     err: Option<MaudioError>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 /// Controls whether device enumeration should continue.
 pub enum EnumerateControl {
     /// Continue enumerating remaining devices.
@@ -610,6 +611,8 @@ where
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(C)]
 pub enum ThreadPriority {
     Default,
     Idle,

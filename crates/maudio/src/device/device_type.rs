@@ -8,8 +8,8 @@ use crate::{ErrorKinds, MaudioError};
 /// Specifies the role of an audio device.
 ///
 /// Maps directly to `ma_device_type` in miniaudio.
-#[repr(C)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[repr(C)]
 pub enum DeviceType {
     /// Playback (output) device.
     Playback,
@@ -59,8 +59,8 @@ impl Display for DeviceType {
     }
 }
 
-#[repr(C)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[repr(C)]
 pub enum DeviceShareMode {
     Shared,
     Exclusive,

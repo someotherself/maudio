@@ -6,8 +6,8 @@ use crate::{ErrorKinds, MaudioError};
 /// Represents the current state of an audio device.
 ///
 /// Maps directly to `ma_device_state` in miniaudio.
-#[repr(C)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[repr(C)]
 pub enum DeviceState {
     Started,
     Stopped,

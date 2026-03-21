@@ -4,8 +4,8 @@ use maudio_sys::ffi as sys;
 use crate::{ErrorKinds, MaudioError};
 
 /// Defines how a sound is positioned in 3D space relative to the listener.
-#[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(C)]
 pub enum Positioning {
     Absolute,
     Relative,

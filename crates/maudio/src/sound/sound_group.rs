@@ -9,7 +9,11 @@ use crate::{
         math::vec3::Vec3,
         spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
     },
-    engine::{node_graph::nodes::NodeRef, private_engine, Engine, EngineRef},
+    engine::{
+        node_graph::nodes::{private_node, AsNodePtr, NodeRef},
+        private_engine, Engine, EngineOps, EngineRef,
+    },
+    sound::{sound_builder::SoundState, sound_flags::SoundFlags},
     AsRawRef, Binding, MaResult,
 };
 
@@ -666,6 +670,7 @@ pub(crate) mod s_group_ffi {
 pub struct SoundGroupBuilder<'a> {
     inner: sys::ma_sound_group_config,
     engine: &'a Engine,
+    state: SoundState,
 }
 
 impl AsRawRef for SoundGroupBuilder<'_> {
@@ -680,11 +685,159 @@ impl<'a> SoundGroupBuilder<'a> {
     pub fn new(engine: &'a Engine) -> Self {
         let inner =
             unsafe { sys::ma_sound_group_config_init_2(private_engine::engine_ptr(engine)) };
-        Self { inner, engine }
+        Self {
+            inner,
+            engine,
+            state: SoundState::default(),
+        }
     }
 
     pub fn build(&self) -> MaResult<SoundGroup<'a>> {
-        self.new_sound_group()
+        let mut group = self.new_sound_group()?;
+        self.configure_sound_group(&mut group);
+        Ok(group)
+    }
+
+    /// By default, a newly created sound group is attached to the engine's main output graph,
+    /// unless [`SoundGroupBuilder::no_default_attachment()`] has been used.
+    ///
+    /// Calling this method overrides that behavior and immediately attaches the sound group
+    /// to a specific node in the graph instead.
+    ///
+    /// # Parameters
+    /// - `node`: The target node to attach the sound group to.
+    /// - `input_bus`: The input bus on `node` to connect to.
+    ///
+    /// # When you do not need this
+    /// If the sound group should feed into the engine's default output path,
+    /// you do not need to call this method.
+    pub fn initial_attachment<N: AsNodePtr + ?Sized>(
+        &mut self,
+        node: &N,
+        input_bus: u32,
+    ) -> &mut Self {
+        self.inner.pInitialAttachment = private_node::node_ptr(node);
+        self.inner.initialAttachmentInputBusIndex = input_bus;
+        self
+    }
+
+    pub fn no_default_attachment(&mut self) -> &mut Self {
+        self.inner.flags = SoundFlags::NO_DEFAULT_ATTACHMENT.bits();
+        self
+    }
+
+    /// Sets the number of input channels for the node.
+    ///
+    /// Defines how many channels this node expects from its inputs.
+    /// A value of `0` lets miniaudio infer the channel count automatically.
+    ///
+    /// For sound groups, this applies to the mixed input from attached sounds.
+    pub fn channels_in(&mut self, ch: u32) -> &mut Self {
+        self.inner.channelsIn = ch;
+        self
+    }
+
+    /// Sets the number of output channels for the node.
+    ///
+    /// Defines how many channels this node outputs into the graph.
+    /// A value of `0` uses the engine's native channel count.
+    pub fn channels_out(&mut self, ch: u32) -> &mut Self {
+        self.inner.channelsOut = ch;
+        self
+    }
+
+    /// Sets the volume smoothing time, in PCM frames.
+    ///
+    /// Larger values smooth abrupt volume changes over a longer period.
+    pub fn volume_smooth_frames(&mut self, pcm_frames: u32) -> &mut Self {
+        self.inner.volumeSmoothTimeInPCMFrames = pcm_frames;
+        self
+    }
+
+    /// Sets the volume smoothing time, in PCM frames.
+    ///
+    /// Alternative to `range_begin_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
+    pub fn volume_smooth_millis(&mut self, millis: f64) -> &mut Self {
+        self.inner.volumeSmoothTimeInPCMFrames = self.millis_to_frames(millis) as u32;
+        self
+    }
+
+    /// Sets the `min_distance` field on the newly created sound
+    ///
+    /// Equivalent to calling [`SoundGroup::set_min_distance`]
+    pub fn min_distance(&mut self, d: f32) -> &mut Self {
+        self.state.min_distance = Some(d);
+        self
+    }
+
+    /// Sets the `max_distance` field on the newly created sound
+    ///
+    /// Equivalent to calling [`SoundGroup::set_max_distance`]
+    pub fn max_distance(&mut self, d: f32) -> &mut Self {
+        self.state.max_distance = Some(d);
+        self
+    }
+
+    /// Sets the `rolloff` field on the newly created sound
+    ///
+    /// Equivalent to calling [`SoundGroup::set_rolloff`]
+    pub fn rolloff(&mut self, r: f32) -> &mut Self {
+        self.state.rolloff = Some(r);
+        self
+    }
+
+    /// Sets the `position` field on the newly created sound
+    ///
+    /// Equivalent to calling [`SoundGroup::set_position`]
+    pub fn position(&mut self, position: Vec3) -> &mut Self {
+        self.state.position = Some(position);
+        self
+    }
+
+    /// Sets the `velocity` field on the newly created sound
+    ///
+    /// Equivalent to calling [`SoundGroup::set_velocity`]
+    pub fn velocity(&mut self, velocity: Vec3) -> &mut Self {
+        self.state.velocity = Some(velocity);
+        self
+    }
+
+    /// Sets the `direction` field on the newly created sound
+    ///
+    /// Equivalent to calling [`SoundGroup::set_direction`]
+    pub fn direction(&mut self, direction: Vec3) -> &mut Self {
+        self.state.direction = Some(direction);
+        self
+    }
+
+    #[inline]
+    pub(crate) fn millis_to_frames(&self, millis: f64) -> u64 {
+        if !millis.is_finite() || millis <= 0.0 {
+            return 0;
+        }
+        let sr = self.engine.sample_rate() as f64;
+        (millis.max(0.0) * sr / 1000.0).round() as u64
+    }
+
+    fn configure_sound_group(&self, sound: &mut SoundGroup) {
+        if let Some(min_d) = self.state.min_distance {
+            sound.set_min_distance(min_d)
+        };
+        if let Some(max_d) = self.state.max_distance {
+            sound.set_max_distance(max_d)
+        };
+        if let Some(r) = self.state.rolloff {
+            sound.set_rolloff(r);
+        }
+        if let Some(p) = self.state.position {
+            sound.set_position(p);
+        }
+        if let Some(v) = self.state.velocity {
+            sound.set_velocity(v);
+        }
+        if let Some(d) = self.state.direction {
+            sound.set_direction(d);
+        }
     }
 
     fn new_sound_group(&self) -> MaResult<SoundGroup<'a>> {

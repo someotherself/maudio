@@ -9,6 +9,8 @@ use crate::{
     AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(C)]
 pub enum ResampleAlgorithm {
     Linear,
     Custom,

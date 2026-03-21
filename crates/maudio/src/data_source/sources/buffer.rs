@@ -28,8 +28,8 @@ pub struct AudioBuffer<F: PcmFormat> {
     inner: *mut sys::ma_audio_buffer,
     format: Format,
     channels: u32,
+    alloc: Option<Arc<AllocationCallbacks>>,
     _sample_format: PhantomData<F>,
-    _alloc_keepalive: PhantomData<Arc<AllocationCallbacks>>,
 }
 
 impl<F: PcmFormat> Binding for AudioBuffer<F> {
@@ -58,9 +58,9 @@ pub struct AudioBufferRef<'a, F: PcmFormat> {
     inner: *mut sys::ma_audio_buffer,
     format: Format,
     channels: u32,
+    alloc: Option<Arc<AllocationCallbacks>>,
     _data_marker: PhantomData<&'a [u8]>,
     _sample_format: PhantomData<F>,
-    _alloc_keepalive: PhantomData<Arc<AllocationCallbacks>>,
 }
 
 impl<F: PcmFormat> Binding for AudioBufferRef<'_, F> {
@@ -231,9 +231,9 @@ impl<'a, F: PcmFormat> AudioBufferRef<'a, F> {
             inner,
             format: config.inner.format.try_into()?,
             channels: config.inner.channels,
+            alloc: config.alloc_cb.clone(),
             _sample_format: PhantomData,
             _data_marker: PhantomData,
-            _alloc_keepalive: PhantomData,
         })
     }
 }
@@ -251,8 +251,8 @@ impl<F: PcmFormat> AudioBuffer<F> {
             inner,
             format: config.inner.format.try_into()?,
             channels: config.inner.channels,
+            alloc: config.alloc_cb.clone(),
             _sample_format: PhantomData,
-            _alloc_keepalive: PhantomData,
         })
     }
 }

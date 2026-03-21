@@ -3,8 +3,8 @@ use maudio_sys::ffi as sys;
 
 use crate::{ErrorKinds, MaudioError};
 
-#[repr(C)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[repr(C)]
 pub enum WaveFormType {
     Sine,
     Square,
