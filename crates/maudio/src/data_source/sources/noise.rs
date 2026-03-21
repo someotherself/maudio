@@ -625,7 +625,7 @@ mod tests {
         let mut builder = NoiseBuilder::new(2, NoiseType::White, 0.5);
         let mut noise = builder.build_s24_packed().unwrap();
 
-        let mut dst = vec![S24Packed::SILENCE; 64 * 2];
+        let mut dst = vec![S24Packed::SILENCE; 64 * 3 * 2];
         let frames = noise
             .read_pcm_frames_into(&mut dst)
             .expect("read_pcm_frames_into should succeed");
@@ -652,22 +652,22 @@ mod tests {
         let mut noise = builder.build_f32().unwrap();
 
         let buf = noise
-            .read_pcm_frames(0)
-            .expect("zero-frame read should succeed");
-        assert_eq!(buf.frames(), 0);
+            .read_pcm_frames(0);
+        assert!(buf.is_err());
     }
 
     #[test]
-    fn test_noise_read_pcm_frames_into_empty_slice() {
+    fn test_noise_read_pcm_frames_into_empty_slice_returns_error() {
         let mut builder = NoiseBuilder::new(2, NoiseType::White, 0.5);
         let mut noise = builder.build_i16().unwrap();
 
         let mut dst: Vec<i16> = Vec::new();
-        let frames = noise
-            .read_pcm_frames_into(&mut dst)
-            .expect("empty-slice read should succeed");
 
-        assert_eq!(frames, 0);
+        let err = noise
+            .read_pcm_frames_into(&mut dst)
+            .expect_err("empty slice should be invalid");
+
+        let _ = err; // optional: assert exact error kind
     }
 
     #[test]
