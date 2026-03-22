@@ -19,7 +19,7 @@ use crate::{
         device_state::DeviceState,
         device_type::DeviceType,
     },
-    util::{device_notif::DeviceStateNotifier, prof_notif::ProcFramesNotif},
+    util::{device_notif::DeviceStateNotifier, proc_notif::ProcFramesNotif},
     Binding, MaResult,
 };
 

@@ -18,7 +18,7 @@ fn main() -> MaResult<()> {
     let proc_notif = engine.get_data_notifier().unwrap();
 
     for _ in 0..20 {
-        proc_notif.call_if_triggered(|frames| {
+        proc_notif.take_with(|frames| {
             println!("Engine processed {frames} PCM frames.");
         });
 

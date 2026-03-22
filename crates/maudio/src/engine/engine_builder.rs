@@ -12,7 +12,7 @@ use crate::{
         resource::{private_rm, ResourceManager},
         Engine,
     },
-    util::{device_notif::DeviceStateNotifier, prof_notif::ProcFramesNotif},
+    util::{device_notif::DeviceStateNotifier, proc_notif::ProcFramesNotif},
     AsRawRef, Binding, MaResult,
 };
 
@@ -200,6 +200,7 @@ impl EngineBuilder {
     /// processing callback (internally). Unlike a user-supplied realtime callback,
     /// the notifier lets you react to progress *outside* the audio thread by polling
     /// (e.g. from a UI loop, game loop, or control thread).
+    /// It can be retrieved by calling [`Engine::get_data_notifier()`] after building the `Engine`.
     ///
     /// ## Typical uses
     /// - Drive a UI or progress indicator by polling processed frames.
@@ -220,7 +221,7 @@ impl EngineBuilder {
     /// let tick = engine.get_data_notifier().unwrap();
     ///
     /// loop {
-    ///     tick.call_if_triggered(|delta_frames| {
+    ///     tick.take_with(|delta_frames| {
     ///         // Runs on this thread (not the audio thread).
     ///         // Safe place to update state, send messages, etc.
     ///         println!("processed {delta_frames} frames");
@@ -272,6 +273,8 @@ impl EngineBuilder {
     ///   or referenced after the callback returns.
     /// - The callback should not panic. If it does panic, the callback will be poisoned
     ///   Use [`Engine::data_callback_panicked()`] to check if the callback is poisoned
+    /// - This also installs a [`ProcFramesNotifier`](crate::util::proc_notif::ProcFramesNotif).
+    ///   It can be retrieved by calling [`Engine::get_data_notifier()`] after building the `Engine`.
     pub fn with_realtime_callback<C>(&mut self, cb: C) -> MaResult<Engine>
     where
         C: FnMut(&mut [f32], u32) + Send + 'static,
@@ -317,6 +320,9 @@ impl EngineBuilder {
         Ok(engine)
     }
 
+    /// Sets a [`DeviceStateNotifier`] that fires when the real time engine callback runs
+    ///
+    /// It can be retrieved by calling [`Engine::get_state_notifier()`] after building the `Engine`.
     pub fn state_notifier(&mut self) -> &mut Self {
         self.state_notif_exists = true;
         self
@@ -472,14 +478,14 @@ mod test {
         let _buf = engine.read_pcm_frames(256)?;
 
         let mut called = false;
-        tick.call_if_triggered(|delta_frames| {
+        tick.take_with(|delta_frames| {
             called = true;
             let _ = delta_frames;
         });
 
         drop(engine);
 
-        tick.call_if_triggered(|_delta_frames| {
+        tick.take_with(|_delta_frames| {
             // no-op
         });
 

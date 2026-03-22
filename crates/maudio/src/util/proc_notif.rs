@@ -95,7 +95,7 @@ impl ProcFramesNotif {
     /// }
     /// ```
     #[inline]
-    pub fn call_if_triggered<F: FnOnce(u64)>(&self, f: F) {
+    pub fn take_with<F: FnOnce(u64)>(&self, f: F) {
         let delta = self.take_delta();
         if delta != 0 {
             f(delta);

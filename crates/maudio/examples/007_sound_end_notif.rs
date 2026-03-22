@@ -44,10 +44,10 @@ fn main() -> MaResult<()> {
         // In a real program, the main loop might update a UI, process input,
         // or advance game/application state.
 
-        // `call_if_notified()` consumes the notification and runs the closure
+        // `take_with()` consumes the notification and runs the closure
         // exactly once for each playback-end event.
 
-        notif.call_if_notified(|| {
+        notif.take_with(|| {
             println!("Sound ended — queue next track");
         });
 

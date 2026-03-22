@@ -203,9 +203,9 @@ impl<F: PcmFormat> SampleBuffer<F> {
         Ok(len)
     }
 
-    pub(crate) fn new_zeroed(frames: usize, channels: u32) -> MaResult<Vec<F::StorageUnit>> {
+    pub fn new_zeroed(frames: usize, channels: u32) -> MaResult<Vec<F::StorageUnit>> {
         let len = Self::required_len(frames, channels, F::VEC_STORE_UNITS_PER_FRAME)?;
-        Ok(vec![F::StorageUnit::default(); len])
+        Ok(vec![F::SILENCE; len])
     }
 
     /// Takes a `Vec<F::StorageUnit>` and returns a SampleBuffer (with PcmUnit)

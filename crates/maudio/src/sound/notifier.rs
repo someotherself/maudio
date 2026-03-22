@@ -11,7 +11,7 @@ use maudio_sys::ffi as sys;
 /// The audio thread sets the flag when playback ends. You can then:
 /// - check it without clearing via [`peek()`](EndNotifier::peek())
 /// - consume it exactly once via [`take()`](EndNotifier::take()) (recommended)
-/// - run a closure once via [`call_if_notified()`](EndNotifier::call_if_notified())
+/// - run a closure once via [`take_with()`](EndNotifier::take_with())
 ///
 /// The `EndNotifier` is not triggered by scheduled events like [`Sound::set_stop_time_pcm()`](crate::sound::Sound::set_stop_time_pcm())
 ///
@@ -59,7 +59,7 @@ impl EndNotifier {
     ///
     /// Equivalent to:
     /// `if notifier.take() { f(); }`
-    pub fn call_if_notified<F: FnOnce()>(&self, f: F) {
+    pub fn take_with<F: FnOnce()>(&self, f: F) {
         if self.take() {
             f();
         }

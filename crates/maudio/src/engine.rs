@@ -70,7 +70,7 @@ use crate::{
         sound_group::{SoundGroup, SoundGroupBuilder},
         Sound,
     },
-    util::{device_notif::DeviceStateNotifier, fence::Fence, prof_notif::ProcFramesNotif},
+    util::{device_notif::DeviceStateNotifier, fence::Fence, proc_notif::ProcFramesNotif},
     AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
 };
 

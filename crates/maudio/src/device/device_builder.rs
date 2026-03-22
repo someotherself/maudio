@@ -81,7 +81,7 @@ use crate::{
         CallBackDevice, Device,
     },
     pcm_frames::{PcmFormat, S24Packed},
-    util::{device_notif::DeviceStateNotifier, prof_notif::ProcFramesNotif},
+    util::{device_notif::DeviceStateNotifier, proc_notif::ProcFramesNotif},
     AsRawRef, Binding, MaResult,
 };
 

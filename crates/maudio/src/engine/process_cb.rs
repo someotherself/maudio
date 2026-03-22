@@ -10,7 +10,7 @@ use std::{
 
 use maudio_sys::ffi as sys;
 
-use crate::util::{device_notif::DeviceStateNotifier, prof_notif::ProcFramesNotif};
+use crate::util::{device_notif::DeviceStateNotifier, proc_notif::ProcFramesNotif};
 
 #[derive(Default)]
 pub(crate) struct ProcessState {
