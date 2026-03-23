@@ -100,9 +100,12 @@ pub struct Decoder<F: PcmFormat, S> {
     channels: u32,
     sample_rate: SampleRate,
     format: Format,
+    user_data: Option<DecoderUserDataDestructor>,
     _sample_format: PhantomData<F>,
     source_data: S,
 }
+
+type DecoderUserDataDestructor = (*mut core::ffi::c_void, fn(*mut core::ffi::c_void));
 
 /// Borrowed in-memory audio data used as a decoder source.
 pub struct Borrowed<'a>(&'a [u8]);
@@ -140,6 +143,7 @@ impl<F: PcmFormat, S> Decoder<F, S> {
             channels: config.channels,
             sample_rate: config.sample_rate,
             format,
+            user_data: None,
             _sample_format: PhantomData,
             source_data,
         }
@@ -196,17 +200,21 @@ impl<F: PcmFormat, S> Decoder<F, S> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
 
         let user_data = Box::new(DecoderUserData { reader });
+        let user_data_ptr = Box::into_raw(user_data) as *mut _;
 
         decoder_ffi::ma_decoder_init(
             Some(decoder_read_proc::<R>),
             Some(decoder_seek_proc::<R>),
-            Box::into_raw(user_data) as *mut _,
+            user_data_ptr,
             config,
             mem.as_mut_ptr(),
         )?;
 
         let inner: *mut sys::ma_decoder = Box::into_raw(mem) as *mut sys::ma_decoder;
-        Ok(Decoder::new(inner, config, config.format, Cb))
+        let mut decoder = Decoder::new(inner, config, config.format, Cb);
+        decoder.user_data = Some((user_data_ptr, encoder_user_data_drop::<R>));
+
+        Ok(decoder)
     }
 
     fn init_from_file_internal(
@@ -679,9 +687,16 @@ pub(crate) mod decoder_ffi {
     }
 }
 
+fn encoder_user_data_drop<R: SeekRead>(ptr: *mut core::ffi::c_void) {
+    drop(unsafe { Box::from_raw(ptr as *mut DecoderUserData<R>) });
+}
+
 impl<F: PcmFormat, S> Drop for Decoder<F, S> {
     fn drop(&mut self) {
         let _ = decoder_ffi::ma_decoder_uninit(self);
+        if let Some((ptr, destructor)) = self.user_data {
+            destructor(ptr);
+        }
         drop(unsafe { Box::from_raw(self.to_raw()) });
     }
 }

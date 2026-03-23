@@ -62,7 +62,7 @@ use crate::{
 /// let path = PathBuf::from("out.flac");
 ///
 /// let mut encoder = EncoderBuilder::new_f32(2, SampleRate::Sr44100)
-///     .flac()
+///     .wav()
 ///     .build_file(&path)?;
 ///
 /// let pcm = vec![0.0f32; 512 * 2];
@@ -94,10 +94,14 @@ pub struct Encoder<F: PcmFormat, E: CodecFormat, D> {
     channels: u32,
     sample_rate: SampleRate,
     format: Format,
+    #[allow(clippy::type_complexity)]
+    user_data: Option<EncoderUserDataDestructor>,
     _format: PhantomData<F>,
     _encoding: PhantomData<E>,
     _destination: PhantomData<D>,
 }
+
+type EncoderUserDataDestructor = (*mut core::ffi::c_void, fn(*mut core::ffi::c_void));
 
 impl<F: PcmFormat, E: CodecFormat, D> Binding for Encoder<F, E, D> {
     type Raw = *mut sys::ma_encoder;
@@ -132,6 +136,7 @@ impl<F: PcmFormat, E: CodecFormat, D> Encoder<F, E, D> {
             channels,
             sample_rate,
             format,
+            user_data: None,
             _format: PhantomData,
             _encoding: PhantomData,
             _destination: PhantomData,
@@ -159,22 +164,19 @@ impl<F: PcmFormat, E: CodecFormat, D> Encoder<F, E, D> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_encoder>> = Box::new(MaybeUninit::uninit());
 
         let user_data = Box::new(EncoderUserData { writer });
+        let user_data_ptr = Box::into_raw(user_data) as *mut core::ffi::c_void;
         encoder_ffi::ma_encoder_init(
             Some(encoder_write_proc::<W>),
             Some(encoder_seek_proc::<W>),
-            Box::into_raw(user_data) as *mut _,
+            user_data_ptr,
             config,
             mem.as_mut_ptr(),
         )?;
 
         let inner: *mut sys::ma_encoder = Box::into_raw(mem) as *mut sys::ma_encoder;
-
-        Ok(Encoder::new(
-            inner,
-            config.channels,
-            config.sample_rate,
-            config.format,
-        ))
+        let mut encoder = Encoder::new(inner, config.channels, config.sample_rate, config.format);
+        encoder.user_data = Some((user_data_ptr, encoder_user_data_drop::<W>));
+        Ok(encoder)
     }
 
     fn init_from_file_internal(
@@ -372,9 +374,16 @@ mod encoder_ffi {
     }
 }
 
+fn encoder_user_data_drop<W: WriteSeek>(ptr: *mut core::ffi::c_void) {
+    drop(unsafe { Box::from_raw(ptr as *mut EncoderUserData<W>) });
+}
+
 impl<F: PcmFormat, E: CodecFormat, D> Drop for Encoder<F, E, D> {
     fn drop(&mut self) {
         encoder_ffi::ma_encoder_uninit(self);
+        if let Some((ptr, destructor)) = self.user_data {
+            destructor(ptr);
+        }
         drop(unsafe { Box::from_raw(self.inner) });
     }
 }
