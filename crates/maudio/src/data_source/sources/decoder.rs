@@ -480,9 +480,9 @@ pub(crate) mod decoder_ffi {
 
     #[inline]
     #[cfg(windows)]
-    pub fn ma_decoder_init_file_w(
+    pub fn ma_decoder_init_file_w<F: PcmFormat>(
         path: &[u16],
-        config: &DecoderBuilder,
+        config: &DecoderBuilder<F>,
         decoder: *mut sys::ma_decoder,
     ) -> MaResult<()> {
         let res =
