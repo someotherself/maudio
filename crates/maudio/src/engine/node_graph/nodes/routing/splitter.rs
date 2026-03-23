@@ -25,8 +25,8 @@ use crate::{
 /// - create complex routing graphs without re-rendering audio
 ///
 /// `SplitterNode` is a node-graph wrapper around miniaudio’s splitter node
-/// implementation. It performs **no DSP processing** itself—it only handles
-/// routing—and is therefore extremely lightweight.
+/// implementation. It performs **no DSP processing** itself. It only handles
+/// routing, and is therefore extremely lightweight.
 ///
 /// ## Behavior
 /// - The input signal is copied verbatim to each output bus

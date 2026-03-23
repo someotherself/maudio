@@ -41,7 +41,7 @@ fn main() -> MaResult<()> {
     // The decoder is configured with the expected channel count and sample rate.
     //
     // We use f32 format as that is the native format of the Engine
-    let decoder = DecoderBuilder::new(2, SampleRate::Sr44100).f32_memory(MUSIC_FILE)?;
+    let decoder = DecoderBuilder::new_f32(2, SampleRate::Sr44100).from_memory(MUSIC_FILE)?;
 
     // Create a sound using the decoder as its audio source.
     let mut sound = engine.new_sound_from_source(&decoder)?;

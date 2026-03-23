@@ -123,11 +123,6 @@ impl SoundFlags {
     }
 
     #[inline]
-    pub(crate) const fn insert_bits(&mut self, other: &Self) {
-        self.0 |= other.0
-    }
-
-    #[inline]
     pub const fn remove(&mut self, other: Self) {
         self.0 &= !other.0
     }

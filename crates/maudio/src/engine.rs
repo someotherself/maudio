@@ -96,9 +96,9 @@ pub mod resource;
 /// - optionally interact with the engine’s endpoint node / node graph for effects
 pub struct Engine {
     inner: *mut sys::ma_engine,
-    playback_device_id: Option<DeviceId>, // a ref count
-    device: Option<Device>,               // a ref count
-    resource_manager: Option<ResourceManager<f32>>, // a ref count
+    _playback_device_id: Option<DeviceId>, // a ref count
+    _device: Option<Device>,               // a ref count
+    _resource_manager: Option<ResourceManager<f32>>, // a ref count
     process_data_ptr: Option<*mut ProcessState>, // userdata (self.inner.pProcessUserData)
     process_data_panic: Option<Arc<AtomicBool>>, // true = callback panicked and is now poisoned
     process_data_notif: Option<ProcFramesNotif>,
@@ -414,9 +414,9 @@ impl Engine {
         let inner: *mut sys::ma_engine = Box::into_raw(mem) as *mut sys::ma_engine;
         Ok(Self {
             inner,
-            playback_device_id: dev_id,
-            device,
-            resource_manager: rm,
+            _playback_device_id: dev_id,
+            _device: device,
+            _resource_manager: rm,
             process_data_ptr: None,   // set in builder after returning this
             process_data_panic: None, // set in builder after returning this
             process_data_notif: None, // set in builder after returning this
@@ -512,6 +512,7 @@ impl Engine {
         Ok(Sound::new_sound(inner, None, None))
     }
 
+    #[allow(dead_code)]
     pub(crate) fn new_for_tests() -> MaResult<Self> {
         if cfg!(feature = "ci-tests") {
             EngineBuilder::new()
@@ -1029,9 +1030,9 @@ pub(crate) mod engine_ffi {
         }
     }
 
-    // AsEnginePtr
     // TODO: Implement Log(Ref?)
     #[inline]
+    #[allow(dead_code)]
     pub fn ma_engine_get_log(engine: &Engine) -> *mut sys::ma_log {
         unsafe { sys::ma_engine_get_log(engine.to_raw()) }
     }

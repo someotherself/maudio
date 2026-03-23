@@ -328,6 +328,7 @@ impl EngineBuilder {
         self
     }
 
+    #[allow(dead_code)]
     pub(crate) fn build_for_tests(&mut self) -> MaResult<Engine> {
         if cfg!(feature = "ci-tests") {
             self.no_device(2, SampleRate::Sr44100);

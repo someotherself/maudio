@@ -393,12 +393,14 @@ pub(crate) mod context_ffi {
 
     /// Not needed
     #[inline]
+    #[allow(dead_code)]
     pub fn ma_context_sizeof() -> usize {
         unsafe { sys::ma_context_sizeof() }
     }
 
     // TODO: Implement log
     #[inline]
+    #[allow(dead_code)]
     pub fn ma_context_get_log(context: &Context) -> Option<*mut sys::ma_log> {
         let ptr = unsafe { sys::ma_context_get_log(context.to_raw()) };
         if ptr.is_null() {
@@ -486,6 +488,7 @@ impl Drop for ContextInner {
     }
 }
 
+#[allow(dead_code)]
 pub struct ContextBuilder<'a> {
     inner: sys::ma_context_config,
     backends: Option<&'a [Backend]>,
@@ -537,7 +540,7 @@ impl<'a> ContextBuilder<'a> {
     /// Sets the stack size, in bytes, for internal threads created by the context.
     ///
     /// This is an advanced option and usually does not need to be changed.
-    fn stack_size(&mut self, bytes: usize) -> &mut Self {
+    pub fn stack_size(&mut self, bytes: usize) -> &mut Self {
         self.inner.threadStackSize = bytes;
         self
     }

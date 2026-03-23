@@ -2,42 +2,32 @@
 use crate::pcm_frames::private_pcm::PcmInterface;
 use crate::{ErrorKinds, MaResult, MaudioError};
 
-/// The native miniaudio signed 24 bit format represented as 3 bytes packed.
+/// Native miniaudio 24-bit signed PCM format stored as **3-byte packed samples**.
+///
+/// This corresponds directly to `ma_format_s24`.
+///
+/// - Each sample occupies exactly 3 bytes (little-endian).
+/// - This is the format used internally by miniaudio.
+/// - No conversion is performed; data is passed through as-is.
+///
+/// This type is ideal when you want full control over the exact memory layout
+/// or need to interoperate with APIs expecting packed 24-bit audio.
 #[derive(Clone, Copy)]
 pub struct S24Packed {}
 
-/// Signed 24 bit format, represented as i32 with extended sign.
+/// Signed 24-bit PCM format represented as **i32 with sign extension**.
+///
+/// This is a convenience representation of `ma_format_s24`.
+///
+/// - Each sample is stored in a 32-bit integer (`i32`).
+/// - The upper 8 bits are used for sign extension.
+/// - Values are automatically converted to/from 3-byte packed format
+///   when interacting with miniaudio.
+///
+/// This type is easier and safer to work with in Rust, at the cost of
+/// an extra conversion step.
 #[derive(Clone, Copy)]
 pub struct S24 {}
-
-/// Handles interleaved frames only. Not used
-fn get_len(frames: u64, channels: u32, storage_units: usize) -> MaResult<usize> {
-    let len = frames
-        .checked_mul(channels as u64)
-        .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
-            op: "frames * channels",
-            lhs: frames,
-            rhs: channels as u64,
-        }))?;
-
-    let len = len
-        .checked_mul(storage_units as u64)
-        .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
-            op: "samples * storage units per sample",
-            lhs: len,
-            rhs: storage_units as u64,
-        }))?;
-
-    let len: usize = len.try_into().map_err(|_| {
-        MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
-            op: "len u64 -> usize",
-            lhs: len,
-            rhs: usize::MAX as u64,
-        })
-    })?;
-
-    Ok(len)
-}
 
 /// Handles interleaved frames only.
 fn pcm_i32_to_u8(src: &[i32], frames: usize, channels: usize) -> MaResult<Vec<u8>> {
@@ -955,19 +945,25 @@ pub(crate) mod private_pcm {
 
 /// PCM sample format marker used throughout the crate.
 ///
-/// `PcmFormat` ties a Rust-facing sample type (what you read/write) to the
-/// underlying representation expected by miniaudio (what is stored internally).
-/// Most APIs in this crate are generic over `F: PcmFormat` so they can handle
-/// both “direct” formats (`u8`, `i16`, `i32`, `f32`) and special cases such as
-/// 24-bit PCM where the user-facing type and storage layout may differ.
+/// A `PcmFormat` defines **two representations of audio samples**:
 ///
-/// In most cases you don’t implement this trait yourself—just choose an existing
+/// - [`PcmUnit`](Self::PcmUnit): the type you interact with in Rust
+/// - [`StorageUnit`](Self::StorageUnit): the type actually used by miniaudio
+///
+/// In most formats (e.g. `i16`, `f32`), these are the same.
+/// However, for some formats like 24-bit PCM, they differ:
+///
+/// - [`S24Packed`] - stored as 3 raw bytes (`StorageUnit = u8`)
+/// - [`S24`]       - exposed as `i32` samples (`PcmUnit = i32`)
+///
+/// This is not a trait you can implement yourself. You choose an existing
 /// format type (e.g. `i16`, `f32`, [`S24`], [`S24Packed`]) when constructing buffers.
 ///
-/// The associated items on this trait are primarily used internally to:
-/// - define the user-facing sample unit (`PcmUnit`) vs the stored unit (`StorageUnit`);
-/// - describe how many units make up a single interleaved PCM frame;
-/// - select the internal conversion logic when a format requires it.
+/// The associated items are used to:
+///
+/// - map between user-facing samples and internal storage;
+/// - describe how many units make up a single frame;
+/// - select optimized or conversion-based processing paths.
 pub trait PcmFormat {
     type __PcmFramesProvider: private_pcm::PcmInterface<Self>;
 
@@ -985,6 +981,7 @@ pub trait PcmFormat {
     const VEC_PCM_UNITS_PER_FRAME: usize;
     /// Used for simple logic only, when we don't want to call the PcmInterface trait
     const DIRECT_READ: bool;
+    /// Fills the Pcm buffer with silence. This is not always the same as `PcmFormat::PcmUnit::default()`
     const SILENCE: Self::StorageUnit;
 }
 

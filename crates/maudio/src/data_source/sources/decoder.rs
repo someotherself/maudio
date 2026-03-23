@@ -18,11 +18,83 @@ use crate::{
         sample_rate::SampleRate,
     },
     data_source::{private_data_source, AsSourcePtr, DataFormat, DataSourceRef},
+    device::device_builder::Unknown,
     pcm_frames::{PcmFormat, S24Packed, S24},
     AsRawRef, Binding, MaResult,
 };
 
-/// Audio decoder for a given PCM format and data source.
+/// Streaming audio decoder.
+///
+/// A `Decoder` reads encoded audio data from some source `S` and produces
+/// interleaved PCM frames in format `F` on demand.
+///
+/// Instances are created with [`DecoderBuilder`] from one of:
+///
+/// - a filesystem path
+/// - a custom reader
+/// - an in-memory byte slice or owned byte buffer
+///
+/// # What a decoder does
+///
+/// A decoder sits between encoded input data and raw PCM output:
+///
+/// - encoded bytes come from the source chosen when the decoder is created
+/// - PCM frames are produced when the decoder is read from
+///
+/// This makes decoders well suited for:
+///
+/// - large audio files
+/// - streamed or incremental playback
+/// - directly feeding sounds, engines or node graphs
+///
+/// # Examples
+///
+/// Decoding from a custom reader:
+///
+/// ```no_run
+/// # use std::fs::File;
+/// # use maudio::data_source::sources::decoder::DecoderBuilder;
+/// # use maudio::{MaResult, audio::sample_rate::SampleRate};
+/// # fn main() -> MaResult<()> {
+/// let file = File::open("audio.flac").unwrap();
+///
+/// let decoder = DecoderBuilder::new_f32(2, SampleRate::Sr44100)
+///     .from_reader(file)?;
+/// # let _ = decoder;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// Decoding from a file path:
+///
+/// ```no_run
+/// # use std::path::PathBuf;
+/// # use maudio::data_source::sources::decoder::DecoderBuilder;
+/// # use maudio::{MaResult, audio::sample_rate::SampleRate};
+/// # fn main() -> MaResult<()> {
+/// let path = PathBuf::from("audio.wav");
+///
+/// let decoder = DecoderBuilder::new_f32(2, SampleRate::Sr44100)
+///     .from_file(&path)?;
+/// # let _ = decoder;
+/// # Ok(())
+/// # }
+/// ```
+///
+/// Decoding from memory without copying:
+///
+/// ```no_run
+/// # use maudio::data_source::sources::decoder::DecoderBuilder;
+/// # use maudio::{MaResult, audio::sample_rate::SampleRate};
+/// # fn main() -> MaResult<()> {
+/// let bytes: &[u8] = &[];
+///
+/// let decoder = DecoderBuilder::new_f32(2, SampleRate::Sr44100)
+///     .from_memory(bytes)?;
+/// # let _ = decoder;
+/// # Ok(())
+/// # }
+/// ```
 pub struct Decoder<F: PcmFormat, S> {
     inner: *mut sys::ma_decoder,
     channels: u32,
@@ -37,8 +109,10 @@ pub struct Borrowed<'a>(&'a [u8]);
 
 /// Owned in-memory audio data used as a decoder source.
 pub struct Owned(Arc<[u8]>);
-/// External data source (e.g., file path) managed by miniaudio.
-pub struct External; // Used when source is a Path
+/// Data source or destination is in a filesystem (e.g., file path) managed by miniaudio.
+pub struct Fs;
+/// Data source or destination is a callback (reader or writer)
+pub struct Cb;
 
 impl<F: PcmFormat, S> Binding for Decoder<F, S> {
     type Raw = *mut sys::ma_decoder;
@@ -57,7 +131,7 @@ impl<F: PcmFormat, S> Decoder<F, S> {
     #[inline]
     fn new(
         inner: *mut sys::ma_decoder,
-        config: &DecoderBuilder,
+        config: &DecoderBuilder<F>,
         format: Format,
         source_data: S,
     ) -> Self {
@@ -71,7 +145,10 @@ impl<F: PcmFormat, S> Decoder<F, S> {
         }
     }
 
-    fn init_ref_internal(data: &[u8], config: &DecoderBuilder) -> MaResult<*mut sys::ma_decoder> {
+    fn init_from_memory<'a>(
+        data: &'a [u8],
+        config: &DecoderBuilder<F>,
+    ) -> MaResult<Decoder<F, Borrowed<'a>>> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
 
         decoder_ffi::ma_decoder_init_memory(
@@ -82,174 +159,59 @@ impl<F: PcmFormat, S> Decoder<F, S> {
         )?;
 
         let inner: *mut sys::ma_decoder = Box::into_raw(mem) as *mut sys::ma_decoder;
-        Ok(inner)
+        Ok(Decoder::new(inner, config, config.format, Borrowed(data)))
     }
 
-    fn init_copy_internal(
-        data: Arc<[u8]>,
-        config: &DecoderBuilder,
-    ) -> MaResult<*mut sys::ma_decoder> {
+    fn init_copy<D: Into<Arc<[u8]>>>(
+        data: D,
+        config: &DecoderBuilder<F>,
+    ) -> MaResult<Decoder<F, Owned>> {
+        let data_arc = data.into();
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
 
         decoder_ffi::ma_decoder_init_memory(
-            data.as_ptr() as *const _,
-            data.len(),
+            data_arc.as_ptr() as *const _,
+            data_arc.len(),
             config,
             mem.as_mut_ptr(),
         )?;
 
         let inner: *mut sys::ma_decoder = Box::into_raw(mem) as *mut sys::ma_decoder;
-        Ok(inner)
+        Ok(Decoder::new(inner, config, config.format, Owned(data_arc)))
     }
 
-    fn init_file_internal(path: &Path, config: &DecoderBuilder) -> MaResult<*mut sys::ma_decoder> {
+    fn init_file(path: &Path, config: &DecoderBuilder<F>) -> MaResult<Decoder<F, Fs>> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
 
         Decoder::<F, S>::init_from_file_internal(path, config, mem.as_mut_ptr())?;
 
         let inner: *mut sys::ma_decoder = Box::into_raw(mem) as *mut sys::ma_decoder;
-        Ok(inner)
+        Ok(Decoder::new(inner, config, config.format, Fs))
     }
 
-    fn init_u8_file(path: &Path, config: &DecoderBuilder) -> MaResult<Decoder<u8, External>> {
-        let inner = Decoder::<u8, External>::init_file_internal(path, config)?;
-        Ok(Decoder::new(inner, config, Format::U8, External))
-    }
+    fn init_from_reader<R: SeekRead>(
+        reader: R,
+        config: &DecoderBuilder<F>,
+    ) -> MaResult<Decoder<F, Cb>> {
+        let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
 
-    fn init_i16_file(path: &Path, config: &DecoderBuilder) -> MaResult<Decoder<i16, External>> {
-        let inner = Decoder::<i16, External>::init_file_internal(path, config)?;
-        Ok(Decoder::new(inner, config, Format::S16, External))
-    }
+        let user_data = Box::new(DecoderUserData { reader });
 
-    fn init_i32_file(path: &Path, config: &DecoderBuilder) -> MaResult<Decoder<i32, External>> {
-        let inner = Decoder::<i32, External>::init_file_internal(path, config)?;
-        Ok(Decoder::new(inner, config, Format::S32, External))
-    }
-
-    fn init_s24_file(
-        path: &Path,
-        config: &DecoderBuilder,
-    ) -> MaResult<Decoder<S24Packed, External>> {
-        let inner = Decoder::<S24Packed, External>::init_file_internal(path, config)?;
-        Ok(Decoder::new(inner, config, Format::S24Packed, External))
-    }
-
-    fn init_f32_file(path: &Path, config: &DecoderBuilder) -> MaResult<Decoder<f32, External>> {
-        let inner = Decoder::<f32, External>::init_file_internal(path, config)?;
-        Ok(Decoder::new(inner, config, Format::F32, External))
-    }
-
-    fn init_u8_ref_from_memory<'a>(
-        data: &'a [u8],
-        config: &DecoderBuilder,
-    ) -> MaResult<Decoder<u8, Borrowed<'a>>> {
-        let inner = Self::init_ref_internal(data, config)?;
-        Ok(Decoder::new(inner, config, Format::U8, Borrowed(data)))
-    }
-
-    fn init_i16_ref_from_memory<'a>(
-        data: &'a [u8],
-        config: &DecoderBuilder,
-    ) -> MaResult<Decoder<i16, Borrowed<'a>>> {
-        let inner = Self::init_ref_internal(data, config)?;
-        Ok(Decoder::new(inner, config, Format::S16, Borrowed(data)))
-    }
-
-    fn init_s24_ref_from_memory<'a>(
-        data: &'a [u8],
-        config: &DecoderBuilder,
-    ) -> MaResult<Decoder<S24, Borrowed<'a>>> {
-        let inner = Self::init_ref_internal(data, config)?;
-        Ok(Decoder::new(
-            inner,
+        decoder_ffi::ma_decoder_init(
+            Some(decoder_read_proc::<R>),
+            Some(decoder_seek_proc::<R>),
+            Box::into_raw(user_data) as *mut _,
             config,
-            Format::S24Packed,
-            Borrowed(data),
-        ))
-    }
+            mem.as_mut_ptr(),
+        )?;
 
-    fn init_s24_packed_ref_from_memory<'a>(
-        data: &'a [u8],
-        config: &DecoderBuilder,
-    ) -> MaResult<Decoder<S24Packed, Borrowed<'a>>> {
-        let inner = Self::init_ref_internal(data, config)?;
-        Ok(Decoder::new(
-            inner,
-            config,
-            Format::S24Packed,
-            Borrowed(data),
-        ))
-    }
-
-    fn init_i32_ref_from_memory<'a>(
-        data: &'a [u8],
-        config: &DecoderBuilder,
-    ) -> MaResult<Decoder<i32, Borrowed<'a>>> {
-        let inner = Self::init_ref_internal(data, config)?;
-        Ok(Decoder::new(inner, config, Format::S32, Borrowed(data)))
-    }
-
-    fn init_f32_ref_from_memory<'a>(
-        data: &'a [u8],
-        config: &DecoderBuilder,
-    ) -> MaResult<Decoder<f32, Borrowed<'a>>> {
-        let inner = Self::init_ref_internal(data, config)?;
-        Ok(Decoder::new(inner, config, Format::F32, Borrowed(data)))
-    }
-
-    fn init_u8_copy_from_memory<D: Into<Arc<[u8]>>>(
-        data: D,
-        config: &DecoderBuilder,
-    ) -> MaResult<Decoder<u8, Owned>> {
-        let data_arc = data.into();
-        let inner = Self::init_copy_internal(data_arc.clone(), config)?;
-        Ok(Decoder::new(inner, config, Format::U8, Owned(data_arc)))
-    }
-
-    fn init_i16_copy_from_memory<D: Into<Arc<[u8]>>>(
-        data: D,
-        config: &DecoderBuilder,
-    ) -> MaResult<Decoder<i16, Owned>> {
-        let data_arc = data.into();
-        let inner = Self::init_copy_internal(data_arc.clone(), config)?;
-        Ok(Decoder::new(inner, config, Format::S16, Owned(data_arc)))
-    }
-
-    fn init_s24_copy_from_memory<D: Into<Arc<[u8]>>>(
-        data: D,
-        config: &DecoderBuilder,
-    ) -> MaResult<Decoder<S24Packed, Owned>> {
-        let data_arc = data.into();
-        let inner = Self::init_copy_internal(data_arc.clone(), config)?;
-        Ok(Decoder::new(
-            inner,
-            config,
-            Format::S24Packed,
-            Owned(data_arc),
-        ))
-    }
-
-    fn init_i32_copy_from_memory<D: Into<Arc<[u8]>>>(
-        data: D,
-        config: &DecoderBuilder,
-    ) -> MaResult<Decoder<i32, Owned>> {
-        let data_arc = data.into();
-        let inner = Self::init_copy_internal(data_arc.clone(), config)?;
-        Ok(Decoder::new(inner, config, Format::S32, Owned(data_arc)))
-    }
-
-    fn init_f32_copy_from_memory<D: Into<Arc<[u8]>>>(
-        data: D,
-        config: &DecoderBuilder,
-    ) -> MaResult<Decoder<f32, Owned>> {
-        let data_arc = data.into();
-        let inner = Self::init_copy_internal(data_arc.clone(), config)?;
-        Ok(Decoder::new(inner, config, Format::F32, Owned(data_arc)))
+        let inner: *mut sys::ma_decoder = Box::into_raw(mem) as *mut sys::ma_decoder;
+        Ok(Decoder::new(inner, config, config.format, Cb))
     }
 
     fn init_from_file_internal(
         path: &Path,
-        config: &DecoderBuilder,
+        config: &DecoderBuilder<F>,
         decoder: *mut sys::ma_decoder,
     ) -> MaResult<()> {
         #[cfg(unix)]
@@ -276,7 +238,90 @@ impl<F: PcmFormat, S> Decoder<F, S> {
     }
 }
 
-// Keeps the as_decoder_ptr method on AsAudioBufferPtr private
+/// Trait alias for types that implement both [`std::io::Read`] and [`std::io::Seek`].
+///
+/// This is used by [`DecoderBuilder::from_reader`] to accept custom input
+/// sources for decoder audio data.
+pub trait SeekRead: std::io::Read + std::io::Seek {}
+impl<T: std::io::Read + std::io::Seek> SeekRead for T {}
+
+struct DecoderUserData<R> {
+    reader: R,
+}
+
+unsafe extern "C" fn decoder_read_proc<R: SeekRead>(
+    decoder: *mut sys::ma_decoder,
+    buffer_out: *mut core::ffi::c_void,
+    bytes_to_read: usize,
+    bytes_read: *mut usize,
+) -> sys::ma_result {
+    if decoder.is_null() || buffer_out.is_null() || bytes_read.is_null() {
+        return sys::ma_result_MA_INVALID_ARGS;
+    }
+
+    // Make sure we don't leave this uninitialized
+    *bytes_read = 0;
+
+    let user_data = &mut *((&*decoder).pUserData as *mut DecoderUserData<R>);
+
+    let slice = core::slice::from_raw_parts_mut(buffer_out as _, bytes_to_read);
+
+    match user_data.reader.read(slice) {
+        // If the number of bytes actually read is less than the number of bytes
+        // requested (bytes_to_read), miniaudio will treat
+        // it as if the end of the file has been reached
+        Ok(0) => sys::ma_result_MA_AT_END,
+        Ok(n) => {
+            *bytes_read = n;
+            sys::ma_result_MA_SUCCESS
+        }
+        Err(_) => sys::ma_result_MA_ERROR,
+    }
+}
+
+unsafe extern "C" fn decoder_seek_proc<R: SeekRead>(
+    decoder: *mut sys::ma_decoder,
+    byte_offset: i64,
+    origin: sys::ma_seek_origin,
+) -> sys::ma_result {
+    if decoder.is_null() {
+        return sys::ma_result_MA_INVALID_ARGS;
+    }
+
+    let user_data = &mut *((&*decoder).pUserData as *mut DecoderUserData<R>);
+
+    let pos = match origin {
+        sys::ma_seek_origin_ma_seek_origin_start => {
+            if byte_offset < 0 {
+                return sys::ma_result_MA_INVALID_ARGS;
+            }
+            std::io::SeekFrom::Start(byte_offset as _)
+        }
+        sys::ma_seek_origin_ma_seek_origin_current => std::io::SeekFrom::Current(byte_offset as _),
+        sys::ma_seek_origin_ma_seek_origin_end => std::io::SeekFrom::End(byte_offset as _),
+        _ => return sys::ma_result_MA_INVALID_ARGS,
+    };
+
+    match user_data.reader.seek(pos) {
+        Ok(_) => sys::ma_result_MA_SUCCESS,
+        Err(_) => sys::ma_result_MA_ERROR,
+    }
+}
+
+unsafe extern "C" fn decoder_seek_proc_no_op(
+    decoder: *mut sys::ma_decoder,
+    _byte_offset: i64,
+    _origin: sys::ma_seek_origin,
+) -> sys::ma_result {
+    if decoder.is_null() {
+        return sys::ma_result_MA_ERROR;
+    }
+
+    sys::ma_result_MA_SUCCESS
+}
+
+// Keeps the as_decoder_ptr method on AsDecoderPtr private.
+// Could be removed as there is no DecoderRef
 mod private_decoder {
     use super::*;
     use maudio_sys::ffi as sys;
@@ -286,7 +331,6 @@ mod private_decoder {
     }
 
     pub struct DecoderProvider;
-    pub struct DecoderRefProvider;
 
     impl<F: PcmFormat, S> DecoderPtrProvider<Decoder<F, S>> for DecoderProvider {
         fn as_decoder_ptr(t: &Decoder<F, S>) -> *mut sys::ma_decoder {
@@ -392,11 +436,11 @@ pub(crate) mod decoder_ffi {
     use crate::{AsRawRef, MaResult, MaudioError};
 
     #[inline]
-    pub fn ma_decoder_init(
+    pub fn ma_decoder_init<F: PcmFormat>(
         on_read: sys::ma_decoder_read_proc,
         on_seek: sys::ma_decoder_seek_proc,
         user_data: *mut core::ffi::c_void,
-        config: &DecoderBuilder,
+        config: &DecoderBuilder<F>,
         decoder: *mut sys::ma_decoder,
     ) -> MaResult<()> {
         let res = unsafe {
@@ -412,10 +456,10 @@ pub(crate) mod decoder_ffi {
     }
 
     #[inline]
-    pub fn ma_decoder_init_memory(
+    pub fn ma_decoder_init_memory<F: PcmFormat>(
         data: *const core::ffi::c_void,
         data_size: usize,
-        config: &DecoderBuilder,
+        config: &DecoderBuilder<F>,
         decoder: *mut sys::ma_decoder,
     ) -> MaResult<()> {
         let res =
@@ -425,9 +469,9 @@ pub(crate) mod decoder_ffi {
 
     #[inline]
     #[cfg(unix)]
-    pub fn ma_decoder_init_file(
+    pub fn ma_decoder_init_file<F: PcmFormat>(
         path: std::ffi::CString,
-        config: &DecoderBuilder,
+        config: &DecoderBuilder<F>,
         decoder: *mut sys::ma_decoder,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_decoder_init_file(path.as_ptr(), config.as_raw_ptr(), decoder) };
@@ -444,18 +488,6 @@ pub(crate) mod decoder_ffi {
         let res =
             unsafe { sys::ma_decoder_init_file_w(path.as_ptr(), config.as_raw_ptr(), decoder) };
         MaudioError::check(res)
-    }
-
-    // TODO: For later in the roadmap
-    #[inline]
-    fn ma_decoder_init_vfs() -> MaResult<()> {
-        todo!()
-    }
-
-    // TODO: For later in the roadmap
-    #[inline]
-    fn ma_decoder_init_vfs_w() -> MaResult<()> {
-        todo!()
     }
 
     #[inline]
@@ -625,18 +657,6 @@ pub(crate) mod decoder_ffi {
     }
 
     // TODO: Not implemented. Look into usefulness
-    fn ma_decode_from_vfs(
-        vfs: *mut sys::ma_vfs,
-        path: *const core::ffi::c_char,
-        config: *mut sys::ma_decoder_config,
-        frame_count_out: *mut u64,
-        frames_out: *mut *mut core::ffi::c_void,
-    ) {
-        let _res =
-            unsafe { sys::ma_decode_from_vfs(vfs, path, config, frame_count_out, frames_out) };
-    }
-
-    // TODO: Not implemented. Look into usefulness
     fn ma_decode_file(
         path: *const core::ffi::c_char,
         config: *mut sys::ma_decoder_config,
@@ -666,14 +686,15 @@ impl<F: PcmFormat, S> Drop for Decoder<F, S> {
     }
 }
 
-pub struct DecoderBuilder {
+pub struct DecoderBuilder<F = Unknown> {
     inner: sys::ma_decoder_config,
     format: Format,
     channels: u32,
     sample_rate: SampleRate,
+    _format: PhantomData<F>,
 }
 
-impl AsRawRef for DecoderBuilder {
+impl<F: PcmFormat> AsRawRef for DecoderBuilder<F> {
     type Raw = sys::ma_decoder_config;
 
     fn as_raw(&self) -> &Self::Raw {
@@ -681,138 +702,146 @@ impl AsRawRef for DecoderBuilder {
     }
 }
 
-impl DecoderBuilder {
-    pub fn new(out_channels: u32, out_sample_rate: SampleRate) -> Self {
-        decoder_b_ffi::ma_decoder_config_init(out_channels, out_sample_rate)
+impl DecoderBuilder<Unknown> {
+    fn new_inner(out_channels: u32, out_sample_rate: SampleRate) -> sys::ma_decoder_config {
+        unsafe {
+            sys::ma_decoder_config_init(Format::U8.into(), out_channels, out_sample_rate.into())
+        }
     }
 
-    pub fn u8_memory<'a>(&mut self, data: &'a [u8]) -> MaResult<Decoder<u8, Borrowed<'a>>> {
-        self.inner.format = Format::U8.into();
-        Decoder::<u8, Borrowed<'a>>::init_u8_ref_from_memory(data, self)
+    pub fn new_u8(out_channels: u32, out_sample_rate: SampleRate) -> DecoderBuilder<u8> {
+        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate);
+        DecoderBuilder {
+            inner,
+            format: Format::U8,
+            channels: out_channels,
+            sample_rate: out_sample_rate,
+            _format: PhantomData,
+        }
     }
 
-    pub fn i16_memory<'a>(&mut self, data: &'a [u8]) -> MaResult<Decoder<i16, Borrowed<'a>>> {
-        self.inner.format = Format::S16.into();
-        Decoder::<i16, Borrowed<'a>>::init_i16_ref_from_memory(data, self)
+    pub fn new_i16(out_channels: u32, out_sample_rate: SampleRate) -> DecoderBuilder<i16> {
+        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate);
+        DecoderBuilder {
+            inner,
+            format: Format::U8,
+            channels: out_channels,
+            sample_rate: out_sample_rate,
+            _format: PhantomData,
+        }
     }
 
-    pub fn s24_packed_memory<'a>(
-        &mut self,
-        data: &'a [u8],
-    ) -> MaResult<Decoder<S24Packed, Borrowed<'a>>> {
-        self.inner.format = Format::S24Packed.into();
-        Decoder::<S24Packed, Borrowed<'a>>::init_s24_packed_ref_from_memory(data, self)
+    pub fn new_i32(out_channels: u32, out_sample_rate: SampleRate) -> DecoderBuilder<i32> {
+        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate);
+        DecoderBuilder {
+            inner,
+            format: Format::U8,
+            channels: out_channels,
+            sample_rate: out_sample_rate,
+            _format: PhantomData,
+        }
     }
 
-    pub fn s24_memory<'a>(&mut self, data: &'a [u8]) -> MaResult<Decoder<S24, Borrowed<'a>>> {
-        self.inner.format = Format::S24Packed.into();
-        Decoder::<S24, Borrowed<'a>>::init_s24_ref_from_memory(data, self)
+    pub fn new_s24_packed(
+        out_channels: u32,
+        out_sample_rate: SampleRate,
+    ) -> DecoderBuilder<S24Packed> {
+        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate);
+        DecoderBuilder {
+            inner,
+            format: Format::U8,
+            channels: out_channels,
+            sample_rate: out_sample_rate,
+            _format: PhantomData,
+        }
     }
 
-    pub fn i32_memory<'a>(&mut self, data: &'a [u8]) -> MaResult<Decoder<i32, Borrowed<'a>>> {
-        self.inner.format = Format::S32.into();
-        Decoder::<i32, Borrowed<'a>>::init_i32_ref_from_memory(data, self)
+    pub fn new_s24(out_channels: u32, out_sample_rate: SampleRate) -> DecoderBuilder<S24> {
+        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate);
+        DecoderBuilder {
+            inner,
+            format: Format::U8,
+            channels: out_channels,
+            sample_rate: out_sample_rate,
+            _format: PhantomData,
+        }
     }
 
-    pub fn f32_memory<'a>(&mut self, data: &'a [u8]) -> MaResult<Decoder<f32, Borrowed<'a>>> {
-        self.inner.format = Format::F32.into();
-        Decoder::<f32, Borrowed<'a>>::init_f32_ref_from_memory(data, self)
-    }
-
-    pub fn copy_u8_memory<D: Into<Arc<[u8]>>>(&mut self, data: D) -> MaResult<Decoder<u8, Owned>> {
-        self.inner.format = Format::U8.into();
-        Decoder::<u8, Owned>::init_u8_copy_from_memory(data, self)
-    }
-
-    pub fn copy_i16_memory<D: Into<Arc<[u8]>>>(
-        &mut self,
-        data: D,
-    ) -> MaResult<Decoder<i16, Owned>> {
-        self.inner.format = Format::S16.into();
-        Decoder::<i16, Owned>::init_i16_copy_from_memory(data, self)
-    }
-
-    pub fn copy_s24_packed_memory<D: Into<Arc<[u8]>>>(
-        &mut self,
-        data: D,
-    ) -> MaResult<Decoder<S24Packed, Owned>> {
-        self.inner.format = Format::S24Packed.into();
-        Decoder::<S24Packed, Owned>::init_s24_copy_from_memory(data, self)
-    }
-
-    pub fn copy_s24_memory<D: Into<Arc<[u8]>>>(
-        &mut self,
-        _data: D,
-    ) -> MaResult<Decoder<S24, Owned>> {
-        self.inner.format = Format::S24Packed.into();
-        // Decoder::<S24, Owned>::init_s24_copy_from_memory(data, self)
-        todo!()
-    }
-
-    pub fn copy_i32_memory<D: Into<Arc<[u8]>>>(
-        &mut self,
-        data: D,
-    ) -> MaResult<Decoder<i32, Owned>> {
-        self.inner.format = Format::S32.into();
-        Decoder::<i32, Owned>::init_i32_copy_from_memory(data, self)
-    }
-
-    pub fn copy_f32_memory<D: Into<Arc<[u8]>>>(
-        &mut self,
-        data: D,
-    ) -> MaResult<Decoder<f32, Owned>> {
-        self.inner.format = Format::F32.into();
-        Decoder::<f32, Owned>::init_f32_copy_from_memory(data, self)
-    }
-
-    pub fn u8_file(&mut self, path: &Path) -> MaResult<Decoder<u8, External>> {
-        self.inner.format = Format::U8.into();
-        Decoder::<u8, External>::init_u8_file(path, self)
-    }
-
-    pub fn i16_file(&mut self, path: &Path) -> MaResult<Decoder<i16, External>> {
-        self.inner.format = Format::S16.into();
-        Decoder::<i16, External>::init_i16_file(path, self)
-    }
-
-    pub fn s24_file(&mut self, path: &Path) -> MaResult<Decoder<S24Packed, External>> {
-        self.inner.format = Format::S24Packed.into();
-        Decoder::<S24Packed, External>::init_s24_file(path, self)
-    }
-
-    pub fn i32_file(&mut self, path: &Path) -> MaResult<Decoder<i32, External>> {
-        self.inner.format = Format::S32.into();
-        Decoder::<i32, External>::init_i32_file(path, self)
-    }
-
-    pub fn f32_file(&mut self, path: &Path) -> MaResult<Decoder<f32, External>> {
-        self.inner.format = Format::F32.into();
-        Decoder::<f32, External>::init_f32_file(path, self)
+    pub fn new_f32(out_channels: u32, out_sample_rate: SampleRate) -> DecoderBuilder<f32> {
+        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate);
+        DecoderBuilder {
+            inner,
+            format: Format::U8,
+            channels: out_channels,
+            sample_rate: out_sample_rate,
+            _format: PhantomData,
+        }
     }
 }
 
-pub(crate) mod decoder_b_ffi {
-    use crate::{
-        audio::{formats::Format, sample_rate::SampleRate},
-        data_source::sources::decoder::DecoderBuilder,
-    };
-    use maudio_sys::ffi as sys;
+impl<F: PcmFormat> DecoderBuilder<F> {
+    /// Creates a decoder from borrowed in-memory audio data.
+    ///
+    /// This uses `ma_decoder_init_memory`.
+    ///
+    /// The input bytes are borrowed for the lifetime of the returned decoder,
+    /// so the data must remain valid for as long as the decoder exists.
+    ///
+    /// This is the most direct in-memory constructor when you already have the
+    /// full encoded audio data available and can keep it alive externally.
+    pub fn from_memory<'a>(&self, data: &'a [u8]) -> MaResult<Decoder<F, Borrowed<'a>>> {
+        Decoder::<F, Borrowed<'a>>::init_from_memory(data, self)
+    }
 
-    pub fn ma_decoder_config_init(
-        out_channels: u32,
-        out_sample_rate: SampleRate,
-    ) -> DecoderBuilder {
-        // Placeholder. Will be changed when Decoder is built.
-        let out_format = Format::U8;
-        let ptr = unsafe {
-            sys::ma_decoder_config_init(out_format.into(), out_channels, out_sample_rate.into())
-        };
-        DecoderBuilder {
-            inner: ptr,
-            format: out_format,
-            channels: out_channels,
-            sample_rate: out_sample_rate,
-        }
+    /// Creates a decoder from owned in-memory audio data.
+    ///
+    /// This is the same as from_memory, but stores an owned copy of the
+    /// encoded data inside the returned decoder.
+    ///
+    /// Use this when you want the decoder to own backing memory
+    /// instead of borrowing it from the caller.
+    pub fn copy_memory<D: Into<Arc<[u8]>>>(&self, data: D) -> MaResult<Decoder<F, Owned>> {
+        Decoder::<F, Owned>::init_copy(data, self)
+    }
+
+    /// Creates a decoder from a file path.
+    ///
+    /// The file is opened and managed through miniaudio's file-based decoding
+    /// path rather than by storing the file contents in Rust memory first.
+    ///
+    /// This is usually the most convenient option when decoding from a normal
+    /// file on disk.
+    pub fn from_file(&self, path: &Path) -> MaResult<Decoder<F, Fs>> {
+        Decoder::<F, Fs>::init_file(path, self)
+    }
+
+    /// Creates a decoder from a custom Rust reader.
+    ///
+    /// The reader must implement [`SeekRead`], meaning it supports both
+    /// [`std::io::Read`] and [`std::io::Seek`]. This makes it suitable for
+    /// file-like sources such as:
+    ///
+    /// - [`std::fs::File`]
+    /// - [`std::io::Cursor`]
+    /// - buffered wrappers around seekable readers
+    ///
+    /// This constructor is intended for custom, seekable data sources.
+    /// It is best suited to sources that behave like regular files or in-memory
+    /// byte buffers.
+    ///
+    /// # Notes
+    /// The reader is owned by the decoder and accessed through internal
+    /// callbacks required by miniaudio.
+    ///
+    /// This constructor is not ideal for temporary "data not available yet"
+    /// situations. The supplied reader should behave like a normal seekable
+    /// byte source.
+    ///
+    /// If the source behaves like a stream and may temporarily provide fewer
+    /// bytes than requested, this will be treated as EOF,
+    /// and decoding will stop instead of waiting for more data.
+    pub fn from_reader<R: SeekRead>(&self, reader: R) -> MaResult<Decoder<F, Cb>> {
+        Decoder::<F, Cb>::init_from_reader(reader, self)
     }
 }
 
@@ -838,9 +867,9 @@ mod tests {
         let frames_total: usize = 64;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let mut builder = DecoderBuilder::new(1, SampleRate::Sr48000);
+        let builder = DecoderBuilder::new_f32(1, SampleRate::Sr48000);
 
-        let mut dec = builder.copy_f32_memory(wav).unwrap();
+        let mut dec = builder.copy_memory(wav).unwrap();
 
         let len = dec.length_pcm().unwrap();
         assert_eq!(len as usize, frames_total);
@@ -881,9 +910,9 @@ mod tests {
         let frames_total: usize = 32;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let mut builder = DecoderBuilder::new(1, SampleRate::Sr48000);
+        let builder = DecoderBuilder::new_f32(1, SampleRate::Sr48000);
 
-        let mut dec_ref = builder.f32_memory(&wav).unwrap();
+        let mut dec_ref = builder.from_memory(&wav).unwrap();
 
         let buf = dec_ref.read_pcm_frames(12).unwrap();
         let read = buf.frames();
@@ -899,9 +928,9 @@ mod tests {
         let guard = TempFileGuard::new(unique_tmp_path("wav"));
         std::fs::write(guard.path(), &wav).unwrap();
 
-        let mut builder = DecoderBuilder::new(1, SampleRate::Sr48000);
+        let builder = DecoderBuilder::new_f32(1, SampleRate::Sr48000);
 
-        let mut dec = builder.f32_file(guard.path()).unwrap();
+        let mut dec = builder.from_file(guard.path()).unwrap();
 
         assert_eq!(dec.length_pcm().unwrap() as usize, frames_total);
         assert_eq!(dec.cursor_pcm().unwrap(), 0);

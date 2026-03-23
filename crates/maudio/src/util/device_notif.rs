@@ -96,6 +96,7 @@ pub struct DeviceStateNotifier {
 }
 
 impl DeviceStateNotifier {
+    #[allow(dead_code)]
     pub(crate) fn debug_ptr(&self) -> *const AtomicU32 {
         Arc::as_ptr(&self.mask)
     }

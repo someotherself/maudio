@@ -13,11 +13,11 @@ use crate::{
 ///
 /// Each format uses the full dynamic range of its underlying type:
 ///
-/// - **`Format::U8`**  — 8-bit unsigned integer, range `[0, 255]`
-/// - **`Format::S16`** — 16-bit signed integer, range `[-32768, 32767]`
-/// - **`Format::S24`** — 24-bit signed integer (tightly packed), range `[-8_388_608, 8_388_607]`
-/// - **`Format::S32`** — 32-bit signed integer, range `[-2_147_483_648, 2_147_483_647]`
-/// - **`Format::F32`** — 32-bit floating point, typically normalized to `[-1.0, 1.0]`
+/// - **`Format::U8`**  - 8-bit unsigned integer, range `[0, 255]`
+/// - **`Format::S16`** - 16-bit signed integer, range `[-32768, 32767]`
+/// - **`Format::S24`** - 24-bit signed integer (tightly packed), range `[-8_388_608, 8_388_607]`
+/// - **`Format::S32`** - 32-bit signed integer, range `[-2_147_483_648, 2_147_483_647]`
+/// - **`Format::F32`** - 32-bit floating point, typically normalized to `[-1.0, 1.0]`
 ///
 /// Note: `Format::S24` is miniaudio's 24-bit PCM storage format.
 /// In this crate, 24-bit PCM can be represented as either:
@@ -88,7 +88,7 @@ impl TryFrom<sys::ma_format> for Format {
 ///
 /// Dithering is used to reduce quantization distortion when converting
 /// from a higher-precision format to a lower-precision one. The selected
-/// mode is a **hint** — dithering is only applied when it is meaningful
+/// mode is a **hint** - dithering is only applied when it is meaningful
 /// for the conversion.
 ///
 /// ### Modes (ordered by efficiency)
@@ -203,6 +203,14 @@ impl<F: PcmFormat> SampleBuffer<F> {
         Ok(len)
     }
 
+    /// Creates a buffer for interleaved Pcm frames
+    ///
+    /// The format of the buffer is [`PcmFormat::StorageUnit`], meaning the format used by miniaudio
+    /// This is usually the same as [`PcmFormat::PcmUnit`], the only exception being [`S24`](crate::pcm_frames::S24)
+    /// See [`PcmFormat`] for more info
+    ///
+    /// The length is frames * channels and it's initialized with silence for the chosen sample format
+    /// (e.g. 0.0 for f32, 0 for i16, 128 for u8).
     pub fn new_zeroed(frames: usize, channels: u32) -> MaResult<Vec<F::StorageUnit>> {
         let len = Self::required_len(frames, channels, F::VEC_STORE_UNITS_PER_FRAME)?;
         Ok(vec![F::SILENCE; len])

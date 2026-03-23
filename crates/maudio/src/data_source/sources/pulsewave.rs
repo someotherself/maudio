@@ -21,6 +21,7 @@ use crate::{
     AsRawRef, Binding, MaResult,
 };
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct PulseWaveState {
     channels: u32,

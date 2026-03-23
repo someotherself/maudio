@@ -19,8 +19,8 @@ use crate::{util::fence::Fence, AsRawRef, Binding};
 ///
 /// The resource manager exposes two main notification points:
 ///
-/// - `Init` — The resource has been initialized (may still be loading).
-/// - `Done` — The resource is fully ready for use.
+/// - `Init` - The resource has been initialized (may still be loading).
+/// - `Done` - The resource is fully ready for use.
 ///
 /// In most cases, you should attach a notification to the `Done` stage.
 ///
@@ -66,8 +66,8 @@ pub struct NotificationPipeline {
 
 struct NotifPipeInner {
     inner: sys::ma_resource_manager_pipeline_notifications,
-    init: Option<Fence>, // ref count
-    done: Option<Fence>, // ref count
+    _init: Option<Fence>, // ref count. Keep alive
+    _done: Option<Fence>, // ref count. Keep alive
 }
 
 unsafe impl Send for NotifPipeInner {}
@@ -126,8 +126,8 @@ impl NotificationPipelineBuilder {
         NotificationPipeline {
             inner: Arc::new(NotifPipeInner {
                 inner: self.inner,
-                init: self.init_fence,
-                done: self.done_fence,
+                _init: self.init_fence,
+                _done: self.done_fence,
             }),
         }
     }

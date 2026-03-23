@@ -13,7 +13,7 @@ use maudio::{engine::engine_builder::EngineBuilder, MaResult};
 // the buffer already contains audio. The engine has already done all its
 // mixing and processing.
 //
-// So you're not generating sound here — you're getting the final output and
+// So you're not generating sound here, you're getting the final output and
 // can tweak it if you want.
 //
 // Typical things you might do here:

@@ -43,11 +43,11 @@ pub struct Device {
 
 pub(crate) struct DeviceInner {
     inner: *mut sys::ma_device,
-    playback_device_id: Option<DeviceId>, // Ref count. Needs to be kept alive.
-    capture_device_id: Option<DeviceId>,  // Ref count. Needs to be kept alive.
+    _playback_device_id: Option<DeviceId>, // Ref count. Needs to be kept alive.
+    _capture_device_id: Option<DeviceId>,  // Ref count. Needs to be kept alive.
     callback_user_data: *mut core::ffi::c_void, // userdata (self.inner.pUserData)
     callback_user_data_drop: fn(*mut core::ffi::c_void), // destructor for the callback_user_data
-    callback_panic: Arc<AtomicBool>,      // true = callback panicked and is now poisoned
+    callback_panic: Arc<AtomicBool>,       // true = callback panicked and is now poisoned
     callback_process_notifier: ProcFramesNotif,
     state_notifier: Option<DeviceStateNotifier>, // used by ma_device_notification
 }
@@ -304,8 +304,8 @@ impl Device {
         Ok(Self {
             inner: Arc::new(DeviceInner {
                 inner,
-                playback_device_id,
-                capture_device_id,
+                _playback_device_id: playback_device_id,
+                _capture_device_id: capture_device_id,
                 callback_user_data: cb_info.data_callback,
                 callback_user_data_drop: cb_info.data_callback_drop,
                 callback_panic: cb_info.data_callback_panic,
@@ -335,6 +335,7 @@ pub(crate) mod device_ffi {
         AsRawRef, Binding, MaResult, MaudioError,
     };
 
+    #[allow(dead_code)]
     pub fn ma_device_init<'a, B: AsDeviceBuilder<'a>>(
         context: &mut Context,
         config: &B,
@@ -395,6 +396,7 @@ pub(crate) mod device_ffi {
 
     // TODO: Implement log
     #[inline]
+    #[allow(dead_code)]
     pub fn ma_device_get_log<D: AsDevicePtr + ?Sized>(context: &D) -> Option<*mut sys::ma_log> {
         let ptr = unsafe { sys::ma_device_get_log(private_device::device_ptr(context)) };
         if ptr.is_null() {
@@ -486,6 +488,7 @@ pub(crate) mod device_ffi {
     // Theadsafe: not safe
     // Not implemented. Only used for custom backends
     #[inline]
+    #[allow(dead_code)]
     pub fn ma_device_post_init<D: AsDevicePtr + ?Sized>(
         device: &D,
         device_type: DeviceType,
@@ -543,6 +546,7 @@ pub(crate) mod device_ffi {
     // Theadsafe: called by miniaudio
     // Not implemented. Only used for custom backends
     #[inline]
+    #[allow(dead_code)]
     pub fn ma_device_handle_backend_data_callback<D: AsDevicePtr + ?Sized>(
         device: &D,
         output: *mut core::ffi::c_void,
@@ -564,6 +568,7 @@ pub(crate) mod device_ffi {
     // Theadsafe: called by miniaudio
     // Not implemented. Only used for custom backends
     #[inline]
+    #[allow(dead_code)]
     pub fn ma_calculate_buffer_size_in_frames_from_descriptor(
         descriptor: *const sys::ma_device_descriptor,
         native_sample_rate: SampleRate,

@@ -24,6 +24,7 @@ use crate::{
 /// (`frame = channels` samples).
 ///
 /// For 24-bit audio, prefer [`S24Packed`] when you already have packed 3-byte samples.
+#[allow(dead_code)]
 pub struct AudioBuffer<F: PcmFormat> {
     inner: *mut sys::ma_audio_buffer,
     format: Format,

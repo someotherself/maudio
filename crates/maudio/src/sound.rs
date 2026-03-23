@@ -56,7 +56,7 @@ pub struct Sound<'a> {
     _not_sync: PhantomData<Cell<()>>,
     // Miniaudio stores only one ma_sound_end_proc and pUserData per ma_sound.
     // One end_notifier at a time will be ok
-    fence: Option<Fence>, // Ref count
+    _fence: Option<Fence>, // Ref count
     end_notifier: Option<EndNotifier>,
 }
 
@@ -497,7 +497,7 @@ impl<'a> Sound<'a> {
             inner,
             _engine: PhantomData,
             _not_sync: PhantomData,
-            fence,
+            _fence: fence,
             end_notifier,
         }
     }
@@ -1236,6 +1236,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
+    #[allow(dead_code)]
     pub fn ma_sound_set_end_callback(
         sound: &mut Sound,
         callback: sys::ma_sound_end_proc,

@@ -27,6 +27,7 @@ use crate::{
     AsRawRef, Binding, MaResult,
 };
 
+#[allow(dead_code)]
 pub(crate) struct WaveState {
     channels: u32,
     sample_rate: SampleRate,

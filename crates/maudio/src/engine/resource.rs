@@ -128,7 +128,7 @@ pub mod rm_stream;
 ///
 /// ---------------------------------------------------------------------------
 ///
-/// ## 1) Register First — Explicit Ownership Model
+/// ## 1) Register First - Explicit Ownership Model
 ///
 /// Use `register_*()` when:
 /// - You already have audio data in memory (encoded or decoded),
@@ -168,7 +168,7 @@ pub mod rm_stream;
 ///
 /// ---------------------------------------------------------------------------
 ///
-/// ## 2) Build Directly — Resource Manager Managed
+/// ## 2) Build Directly - Resource Manager Managed
 ///
 /// You can also construct buffers/streams/sources directly from a file path
 /// without calling `register_*()` first.
@@ -185,7 +185,7 @@ pub mod rm_stream;
 ///
 /// Limitations:
 /// - Cannot be used for audio already loaded in memory.
-/// - Lifetime is implicit — resources are kept alive internally by reference counting.
+/// - Lifetime is implicit and resources are kept alive internally by reference counting.
 ///
 /// ### Thread safety
 ///
@@ -212,6 +212,7 @@ pub struct ResourceManager<F: PcmFormat> {
     inner: Arc<InnerResourceManager<F>>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct InnerResourceManager<F: PcmFormat> {
     inner: *mut sys::ma_resource_manager,
@@ -339,6 +340,7 @@ impl<F: PcmFormat> AsRmPtr for ResourceManagerRef<'_, F> {
 /// 3. Build buffers, streams, or sources from the guard.
 ///
 /// Dropping the guard unregisters the resource once it is no longer in active use.
+#[allow(dead_code)]
 pub struct ResourceGuard<'a, R: AsRmPtr + ?Sized> {
     rm: &'a R,
     data_name: RegisteredDataType,
@@ -528,9 +530,9 @@ enum RegisteredDataType {
 ///
 /// # States
 ///
-/// - [`PendingResource::Ready`]   — The resource is fully initialized and ready for use.
-/// - [`PendingResource::Pending`] — The resource is still being loaded or initialized (`MA_BUSY`).
-/// - [`PendingResource::Failed`]  — The operation failed with an error.
+/// - [`PendingResource::Ready`]   - The resource is fully initialized and ready for use.
+/// - [`PendingResource::Pending`] - The resource is still being loaded or initialized (`MA_BUSY`).
+/// - [`PendingResource::Failed`]  - The operation failed with an error.
 ///
 /// # Async workflow
 ///
@@ -1044,6 +1046,7 @@ pub(crate) mod resource_ffi {
 
     // TODO: Implement Log
     #[inline]
+    #[allow(dead_code)]
     pub fn ma_resource_manager_get_log<F: PcmFormat>(
         rm: &mut ResourceManager<F>,
     ) -> Option<*mut sys::ma_log> {
@@ -1484,7 +1487,7 @@ pub(crate) mod resource_ffi {
     }
 
     #[inline]
-    fn ma_resource_manager_data_buffer_read_pcm_frames_internal<'a, R: AsRmPtr>(
+    pub fn ma_resource_manager_data_buffer_read_pcm_frames_internal<'a, R: AsRmPtr>(
         data_buffer: &mut ResourceManagerBuffer<'a, R>,
         frame_count: u64,
         buffer: *mut core::ffi::c_void,
@@ -2107,6 +2110,7 @@ impl<F: PcmFormat> Drop for InnerResourceManager<F> {
     }
 }
 
+#[allow(dead_code)]
 fn tiny_test_wav_mono(frames: usize) -> Vec<u8> {
     let mut samples = Vec::with_capacity(frames);
     for i in 0..frames {

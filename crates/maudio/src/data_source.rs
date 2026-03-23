@@ -81,10 +81,8 @@ pub(crate) mod private_data_source {
     pub struct AudioBufferProvider;
     pub struct AudioBufferRefProvider;
     pub struct DecoderProvider;
-    pub struct DecoderRefProvider;
     pub struct PulseWaveProvider;
     pub struct WaveFormProvider;
-    pub struct WaveFormF32Provider;
     pub struct AttachedSourceNodeProvider;
     pub struct ResourceManagerSourceProvider;
     pub struct ResourceManagerBufferProvider;
@@ -334,6 +332,7 @@ pub(crate) mod data_source_ffi {
     };
 
     #[inline]
+    #[allow(dead_code)]
     pub fn ma_data_source_init(
         config: *const sys::ma_data_source_config,
         source: *mut sys::ma_data_source,
@@ -343,6 +342,7 @@ pub(crate) mod data_source_ffi {
     }
 
     #[inline]
+    #[allow(dead_code)]
     pub fn ma_data_source_uninit(source: &mut DataSource) {
         unsafe {
             sys::ma_data_source_uninit(source.to_raw());
@@ -597,7 +597,9 @@ pub(crate) mod data_source_ffi {
         res == 1
     }
 
+    // TODO
     #[inline]
+    #[allow(dead_code)]
     pub fn ma_data_source_set_range_in_pcm_frames<S: AsSourcePtr + ?Sized>(
         source: &S,
         range: core::ops::Range<u64>,
@@ -691,7 +693,9 @@ pub(crate) mod data_source_ffi {
         }
     }
 
+    // TODO
     #[inline]
+    #[allow(dead_code)]
     pub fn ma_data_source_set_next<S: AsSourcePtr + ?Sized, N: AsSourcePtr + ?Sized>(
         source: &mut S,
         next: &mut N,
@@ -706,6 +710,7 @@ pub(crate) mod data_source_ffi {
     }
 
     #[inline]
+    #[allow(dead_code)]
     pub fn ma_data_source_get_next<'a, S: AsSourcePtr + ?Sized>(
         source: &'a S,
     ) -> Option<DataSourceRef<'a>> {
@@ -724,6 +729,7 @@ pub(crate) mod data_source_ffi {
 
     // TODO
     #[inline]
+    #[allow(dead_code)]
     pub fn ma_data_source_set_next_callback<S: AsSourcePtr + ?Sized>(
         source: &mut S,
         get_next_cb: GetNextCallback,
@@ -739,6 +745,7 @@ pub(crate) mod data_source_ffi {
 
     // TODO
     #[inline]
+    #[allow(dead_code)]
     pub fn ma_data_source_get_next_callback<S: AsSourcePtr + ?Sized>(
         source: &S,
     ) -> GetNextCallback {

@@ -98,6 +98,7 @@ pub mod backend;
 pub mod context;
 pub mod data_source;
 pub mod device;
+pub mod encoder;
 pub mod engine;
 pub mod pcm_frames;
 mod resampler; // not implemented
@@ -107,8 +108,6 @@ pub mod util;
 
 #[doc(hidden)]
 pub extern crate maudio_sys;
-
-use std::sync::Arc;
 
 use maudio_sys::ffi as sys;
 
@@ -134,12 +133,6 @@ pub(crate) trait AsRawRef {
     fn as_raw_ptr(&self) -> *const Self::Raw {
         self.as_raw() as *const _
     }
-}
-
-pub(crate) trait AsRoot {
-    type Root;
-
-    fn as_root(&self) -> Arc<Self::Root>;
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]

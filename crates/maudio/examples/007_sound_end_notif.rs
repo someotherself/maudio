@@ -48,7 +48,7 @@ fn main() -> MaResult<()> {
         // exactly once for each playback-end event.
 
         notif.take_with(|| {
-            println!("Sound ended — queue next track");
+            println!("Sound ended. Queue next track");
         });
 
         // Break condition for example purposes

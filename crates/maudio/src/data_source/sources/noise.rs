@@ -73,6 +73,7 @@ mod noise_ffi {
 
     // Only used for custom allocators (when alloc is done by rust)
     #[inline]
+    #[allow(dead_code)]
     pub fn ma_noise_get_heap_size(config: &NoiseBuilder) -> MaResult<usize> {
         let mut heap_size: usize = 0;
         let res = unsafe { sys::ma_noise_get_heap_size(config.as_raw_ptr(), &mut heap_size) };
@@ -82,6 +83,7 @@ mod noise_ffi {
 
     // Only used for custom allocators (when alloc is done by rust)
     #[inline]
+    #[allow(dead_code)]
     pub fn ma_noise_init_preallocated(
         config: &NoiseBuilder,
         heap_alloc: *mut core::ffi::c_void,
@@ -234,9 +236,7 @@ impl<F: PcmFormat> Drop for Noise<F> {
 pub struct NoiseBuilder {
     inner: sys::ma_noise_config,
     channels: u32,
-    noise_type: NoiseType,
     seed: i32,
-    amplitude: f64,
 }
 
 impl AsRawRef for NoiseBuilder {
@@ -278,9 +278,7 @@ impl NoiseBuilder {
         Self {
             inner,
             channels,
-            noise_type,
             seed: 0,
-            amplitude,
         }
     }
 
@@ -479,9 +477,7 @@ mod tests {
         let builder = NoiseBuilder::new(2, NoiseType::White, 0.25);
 
         assert_eq!(builder.channels, 2);
-        assert_eq!(builder.noise_type, NoiseType::White);
         assert_eq!(builder.seed, 0);
-        assert_eq!(builder.amplitude, 0.25);
     }
 
     #[test]

@@ -13,7 +13,7 @@
 012_play_sound_group        - Create and use a SoundGroup
 013_sound_spatialization    - Basic sound spatialization.
 014_sound_group_mixing      - Using groups for a game
-018_sound_pool              - Create a pool and re-use sounds.
+015_decoder_from_file       - Decode audio from a Read + Seek source (std::io::File)
 
 -> Medium to advanced examples for the High Level Api
 101_engine_state_callback   - Use the state notifier callback on an engine.

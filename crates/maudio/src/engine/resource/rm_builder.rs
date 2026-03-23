@@ -71,12 +71,12 @@ impl ResourceManagerBuilder {
     }
 
     /// Sets the [`RmFlags`]. Removes any existing ones.
-    fn flags(&mut self, flags: RmFlags) -> &mut Self {
+    pub fn flags(&mut self, flags: RmFlags) -> &mut Self {
         self.inner.flags = flags.bits();
         self
     }
 
-    fn non_blocking(&mut self, yes: bool) -> &mut Self {
+    pub fn non_blocking(&mut self, yes: bool) -> &mut Self {
         let mut flags = RmFlags::from_bits(self.inner.flags);
         if yes {
             flags.insert(RmFlags::NON_BLOCKING);

@@ -75,6 +75,7 @@ use crate::{
 /// - [`PcmRingBuffer::new_f32`]
 pub struct PcmRingBuffer {}
 
+#[allow(dead_code)]
 pub(crate) struct PcmRbInner {
     inner: *mut sys::ma_pcm_rb,
     alloc_cb: Option<Arc<AllocationCallbacks>>,
