@@ -193,7 +193,7 @@ impl<F: PcmFormat, E: CodecFormat, D> Encoder<F, E, D> {
 
             let path = wide_null_terminated(path);
 
-            encoder_ffi::ma_encoder_init_filew(&path, config, encoder)?;
+            encoder_ffi::ma_encoder_init_file_w(&path, config, encoder)?;
             Ok(())
         }
 
