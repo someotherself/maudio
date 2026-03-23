@@ -589,10 +589,6 @@ mod test {
 
         drop(enc);
 
-        let file = std::fs::File::open(guard.path()).unwrap();
-        file.sync_all().unwrap();
-        drop(file);
-
         assert_eq!(frames_total, written as usize);
 
         let mut dec = DecoderBuilder::new_u8(2, SampleRate::Sr48000)
@@ -619,10 +615,6 @@ mod test {
         let written = enc.write_pcm_frames(&data).unwrap();
 
         drop(enc);
-
-        let file = std::fs::File::open(guard.path()).unwrap();
-        file.sync_all().unwrap();
-        drop(file);
 
         assert_eq!(frames_total, written as usize);
 
@@ -651,10 +643,6 @@ mod test {
 
         drop(enc);
 
-        let file = std::fs::File::open(guard.path()).unwrap();
-        file.sync_all().unwrap();
-        drop(file);
-
         assert_eq!(frames_total, written as usize);
 
         let mut dec = DecoderBuilder::new_i32(2, SampleRate::Sr48000)
@@ -682,10 +670,6 @@ mod test {
 
         drop(enc);
 
-        let file = std::fs::File::open(guard.path()).unwrap();
-        file.sync_all().unwrap();
-        drop(file);
-
         assert_eq!(frames_total, written as usize);
 
         let mut dec = DecoderBuilder::new_s24_packed(2, SampleRate::Sr48000)
@@ -712,10 +696,6 @@ mod test {
         let written = enc.write_pcm_frames(&data).unwrap();
 
         drop(enc);
-
-        let file = std::fs::File::open(guard.path()).unwrap();
-        file.sync_all().unwrap();
-        drop(file);
 
         assert_eq!(frames_total, written as usize);
 
