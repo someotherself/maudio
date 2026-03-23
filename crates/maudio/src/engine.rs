@@ -104,7 +104,7 @@ pub struct Engine {
     process_data_notif: Option<ProcFramesNotif>,
     state_notifier: Option<DeviceStateNotifier>,
     _not_sync: PhantomData<Cell<()>>,
-}   
+}
 
 impl Binding for Engine {
     type Raw = *mut sys::ma_engine;

@@ -17,6 +17,10 @@ use crate::{
 /// An `Encoder` accepts interleaved PCM frames in the format specified by `F`,
 /// encodes them as `E`, and writes the resulting bytes to the destination type `D`.
 ///
+/// # Format support
+///
+/// Currently, miniaudio's streaming encoder only supports **WAV** output.
+///
 /// # What an encoder does
 ///
 /// An encoder sits between raw PCM audio and some encoded output destination:
@@ -413,7 +417,7 @@ impl TryFrom<sys::ma_encoding_format> for EncodingFormat {
 /// `EncoderBuilder` uses a staged type-state API to guide encoder construction:
 ///
 /// 1. choose the PCM sample format with a `new_*` constructor
-/// 2. choose the encoding/container format with methods like [`Self::wav`] or [`Self::flac`]
+/// 2. choose the encoding/container format with methods like [`Self::wav`] (others not supported for now)
 /// 3. build the encoder for a destination with [`Self::build_file`] or [`Self::build_writer`]
 ///
 pub struct EncoderBuilder<F = Unknown, E = Unknown> {
@@ -534,59 +538,14 @@ impl EncoderBuilder<Unknown, Unknown> {
 }
 
 pub struct Wav {}
-pub struct Mp3 {}
-pub struct Flac {}
-pub struct Vorbis {}
 
 /// Trait for the codec formats supporter by the `Encoder`
 pub trait CodecFormat {}
 impl CodecFormat for Wav {}
-impl CodecFormat for Mp3 {}
-impl CodecFormat for Flac {}
-impl CodecFormat for Vorbis {}
 
 impl<F: PcmFormat> EncoderBuilder<F, Unknown> {
     pub fn wav(mut self) -> EncoderBuilder<F, Wav> {
         self.inner.encodingFormat = EncodingFormat::Wav.into();
-        EncoderBuilder {
-            inner: self.inner,
-            alloc_cb: self.alloc_cb,
-            format: self.format,
-            channels: self.channels,
-            sample_rate: self.sample_rate,
-            _format: PhantomData,
-            _encoding: PhantomData,
-        }
-    }
-
-    pub fn mp3(mut self) -> EncoderBuilder<F, Mp3> {
-        self.inner.encodingFormat = EncodingFormat::Mp3.into();
-        EncoderBuilder {
-            inner: self.inner,
-            alloc_cb: self.alloc_cb,
-            format: self.format,
-            channels: self.channels,
-            sample_rate: self.sample_rate,
-            _format: PhantomData,
-            _encoding: PhantomData,
-        }
-    }
-
-    pub fn flac(mut self) -> EncoderBuilder<F, Flac> {
-        self.inner.encodingFormat = EncodingFormat::Flac.into();
-        EncoderBuilder {
-            inner: self.inner,
-            alloc_cb: self.alloc_cb,
-            format: self.format,
-            channels: self.channels,
-            sample_rate: self.sample_rate,
-            _format: PhantomData,
-            _encoding: PhantomData,
-        }
-    }
-
-    pub fn vorbis(mut self) -> EncoderBuilder<F, Vorbis> {
-        self.inner.encodingFormat = EncodingFormat::Vorbis.into();
         EncoderBuilder {
             inner: self.inner,
             alloc_cb: self.alloc_cb,

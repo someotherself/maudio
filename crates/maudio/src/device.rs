@@ -2,7 +2,10 @@
 //!
 //! Provides safe wrappers around `ma_device` for playback and capture.
 use std::{
-    cell::Cell, marker::PhantomData, mem::MaybeUninit, sync::{Arc, atomic::AtomicBool}
+    cell::Cell,
+    marker::PhantomData,
+    mem::MaybeUninit,
+    sync::{atomic::AtomicBool, Arc},
 };
 
 use maudio_sys::ffi as sys;
@@ -38,18 +41,18 @@ pub mod device_type;
 pub struct Device {
     // For now, Device cannot be sync. (TODO)
     inner: Arc<DeviceInner>,
-    _not_sync: PhantomData<Cell<()>>
+    _not_sync: PhantomData<Cell<()>>,
 }
 
 pub(crate) struct DeviceInner {
     inner: *mut sys::ma_device,
-    _playback_device_id: Option<DeviceId>,                  // Ref count. Needs to be kept alive.
-    _capture_device_id: Option<DeviceId>,                   // Ref count. Needs to be kept alive.
-    callback_user_data: *mut core::ffi::c_void,             // userdata (self.inner.pUserData)
-    callback_user_data_drop: fn(*mut core::ffi::c_void),    // destructor for the callback_user_data
-    callback_panic: Arc<AtomicBool>,                        // true = callback panicked and is now poisoned
+    _playback_device_id: Option<DeviceId>, // Ref count. Needs to be kept alive.
+    _capture_device_id: Option<DeviceId>,  // Ref count. Needs to be kept alive.
+    callback_user_data: *mut core::ffi::c_void, // userdata (self.inner.pUserData)
+    callback_user_data_drop: fn(*mut core::ffi::c_void), // destructor for the callback_user_data
+    callback_panic: Arc<AtomicBool>,       // true = callback panicked and is now poisoned
     callback_process_notifier: ProcFramesNotif,
-    state_notifier: Option<DeviceStateNotifier>,            // used by ma_device_notification
+    state_notifier: Option<DeviceStateNotifier>, // used by ma_device_notification
 }
 
 impl Binding for DeviceInner {
@@ -312,7 +315,7 @@ impl Device {
                 callback_process_notifier: data_notif,
                 state_notifier: Some(cb_info.state_notif.clone()),
             }),
-            _not_sync: PhantomData
+            _not_sync: PhantomData,
         })
     }
 }
