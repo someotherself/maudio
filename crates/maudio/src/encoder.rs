@@ -234,9 +234,9 @@ unsafe extern "C" fn encoder_write_proc<W: WriteSeek>(
 
     let slice = core::slice::from_raw_parts(buffer_in as _, bytes_to_write);
 
-    match user_data.writer.write(slice) {
-        Ok(n) => {
-            *bytes_written = n;
+    match user_data.writer.write_all(slice) {
+        Ok(()) => {
+            *bytes_written = bytes_to_write;
             sys::ma_result_MA_SUCCESS
         }
         Err(_) => sys::ma_result_MA_ERROR,
