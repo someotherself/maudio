@@ -703,14 +703,16 @@ impl<F: PcmFormat> AsRawRef for DecoderBuilder<F> {
 }
 
 impl DecoderBuilder<Unknown> {
-    fn new_inner(out_channels: u32, out_sample_rate: SampleRate) -> sys::ma_decoder_config {
-        unsafe {
-            sys::ma_decoder_config_init(Format::U8.into(), out_channels, out_sample_rate.into())
-        }
+    fn new_inner(
+        out_channels: u32,
+        out_sample_rate: SampleRate,
+        format: Format,
+    ) -> sys::ma_decoder_config {
+        unsafe { sys::ma_decoder_config_init(format.into(), out_channels, out_sample_rate.into()) }
     }
 
     pub fn new_u8(out_channels: u32, out_sample_rate: SampleRate) -> DecoderBuilder<u8> {
-        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate);
+        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate, Format::U8);
         DecoderBuilder {
             inner,
             format: Format::U8,
@@ -721,10 +723,10 @@ impl DecoderBuilder<Unknown> {
     }
 
     pub fn new_i16(out_channels: u32, out_sample_rate: SampleRate) -> DecoderBuilder<i16> {
-        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate);
+        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate, Format::S16);
         DecoderBuilder {
             inner,
-            format: Format::U8,
+            format: Format::S16,
             channels: out_channels,
             sample_rate: out_sample_rate,
             _format: PhantomData,
@@ -732,10 +734,10 @@ impl DecoderBuilder<Unknown> {
     }
 
     pub fn new_i32(out_channels: u32, out_sample_rate: SampleRate) -> DecoderBuilder<i32> {
-        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate);
+        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate, Format::S32);
         DecoderBuilder {
             inner,
-            format: Format::U8,
+            format: Format::S32,
             channels: out_channels,
             sample_rate: out_sample_rate,
             _format: PhantomData,
@@ -746,10 +748,10 @@ impl DecoderBuilder<Unknown> {
         out_channels: u32,
         out_sample_rate: SampleRate,
     ) -> DecoderBuilder<S24Packed> {
-        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate);
+        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate, Format::S24Packed);
         DecoderBuilder {
             inner,
-            format: Format::U8,
+            format: Format::S24Packed,
             channels: out_channels,
             sample_rate: out_sample_rate,
             _format: PhantomData,
@@ -757,10 +759,10 @@ impl DecoderBuilder<Unknown> {
     }
 
     pub fn new_s24(out_channels: u32, out_sample_rate: SampleRate) -> DecoderBuilder<S24> {
-        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate);
+        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate, Format::S24Packed);
         DecoderBuilder {
             inner,
-            format: Format::U8,
+            format: Format::S24Packed,
             channels: out_channels,
             sample_rate: out_sample_rate,
             _format: PhantomData,
@@ -768,10 +770,10 @@ impl DecoderBuilder<Unknown> {
     }
 
     pub fn new_f32(out_channels: u32, out_sample_rate: SampleRate) -> DecoderBuilder<f32> {
-        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate);
+        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate, Format::F32);
         DecoderBuilder {
             inner,
-            format: Format::U8,
+            format: Format::F32,
             channels: out_channels,
             sample_rate: out_sample_rate,
             _format: PhantomData,
