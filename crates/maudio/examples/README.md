@@ -21,3 +21,4 @@
 103_engine_proc_cb          - Using the device proc callback on the engine.
 104_VU_meter                - Building a simple VU meter using the proc callback.
 105_engine_read_pcm         - Intro into read_pcm frames on an engine.
+106_engine_record_to_file   - Record the output of the engine to a file using the encoder

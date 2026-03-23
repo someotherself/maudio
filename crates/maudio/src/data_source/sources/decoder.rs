@@ -19,7 +19,7 @@ use crate::{
     },
     data_source::{private_data_source, AsSourcePtr, DataFormat, DataSourceRef},
     device::device_builder::Unknown,
-    pcm_frames::{PcmFormat, S24Packed, S24},
+    pcm_frames::{PcmFormat, S24Packed},
     AsRawRef, Binding, MaResult,
 };
 
@@ -758,17 +758,6 @@ impl DecoderBuilder<Unknown> {
         }
     }
 
-    pub fn new_s24(out_channels: u32, out_sample_rate: SampleRate) -> DecoderBuilder<S24> {
-        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate, Format::S24Packed);
-        DecoderBuilder {
-            inner,
-            format: Format::S24Packed,
-            channels: out_channels,
-            sample_rate: out_sample_rate,
-            _format: PhantomData,
-        }
-    }
-
     pub fn new_f32(out_channels: u32, out_sample_rate: SampleRate) -> DecoderBuilder<f32> {
         let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate, Format::F32);
         DecoderBuilder {
@@ -941,57 +930,323 @@ mod tests {
         assert_eq!(buf.frames() as usize, frames_total);
     }
 
-    // TODO: More tests
-    // #[test]
-    // fn test_decoder_read_variants_return_expected_lengths() {
-    //     let frames_total: usize = 16;
-    //     let wav = tiny_test_wav_mono(frames_total);
-    //     let wav: Arc<[u8]> = wav.into();
+    #[test]
+    fn test_decoder_read_u8_memory() {
+        let frames_total: usize = 16;
+        let wav = tiny_test_wav_mono(frames_total);
 
-    //     let cases = [
-    //         (Format::U8, "u8"),
-    //         (Format::S16, "s16"),
-    //         (Format::S24, "s24"),
-    //         (Format::S32, "s32"),
-    //         (Format::F32, "f32"),
-    //     ];
+        let mut dec = DecoderBuilder::new_u8(1, SampleRate::Sr48000)
+            .from_memory(&wav)
+            .unwrap();
 
-    //     for (fmt, _name) in cases {
-    //         let builder = DecoderBuilder::new( 1, SampleRate::Sr48000);
+        let b = dec.read_pcm_frames(5).unwrap();
 
-    //         let mut dec = builder.copy_from_memory(wav.clone()).unwrap();
+        assert_eq!(b.frames(), 5);
+    }
 
-    //         let (len_units, read) = match fmt {
-    //             Format::U8 => {
-    //                 let (b, r) = dec.read_pcm_frames_u8(5).unwrap();
-    //                 (b.len_samples(), r)
-    //             }
-    //             Format::S16 => {
-    //                 let (b, r) = dec.read_pcm_frames_s16(5).unwrap();
-    //                 (b.len_samples(), r)
-    //             }
-    //             Format::S24 => {
-    //                 let (b, r) = dec.read_pcm_frames_s24(5).unwrap();
-    //                 (b.len_samples(), r)
-    //             }
-    //             Format::S32 => {
-    //                 let (b, r) = dec.read_pcm_frames_s32(5).unwrap();
-    //                 (b.len_samples(), r)
-    //             }
-    //             Format::F32 => {
-    //                 let (b, r) = dec.read_pcm_frames_f32(5).unwrap();
-    //                 (b.len_samples(), r)
-    //             }
-    //         };
+    #[test]
+    fn test_decoder_read_i16_memory() {
+        let frames_total: usize = 16;
+        let wav = tiny_test_wav_mono(frames_total);
 
-    //         assert_eq!(read, 5);
+        let mut dec = DecoderBuilder::new_i16(1, SampleRate::Sr48000)
+            .from_memory(&wav)
+            .unwrap();
 
-    //         let expected_units = match fmt {
-    //             Format::S24 => 15,
-    //             _ => 5,
-    //         };
+        let b = dec.read_pcm_frames(5).unwrap();
 
-    //         assert_eq!(len_units, expected_units);
-    //     }
-    // }
+        assert_eq!(b.frames(), 5);
+    }
+
+    #[test]
+    fn test_decoder_read_i32_memory() {
+        let frames_total: usize = 16;
+        let wav = tiny_test_wav_mono(frames_total);
+
+        let mut dec = DecoderBuilder::new_i32(1, SampleRate::Sr48000)
+            .from_memory(&wav)
+            .unwrap();
+
+        let b = dec.read_pcm_frames(5).unwrap();
+
+        assert_eq!(b.frames(), 5);
+    }
+
+    #[test]
+    fn test_decoder_read_s24_packed_memory() {
+        let frames_total: usize = 16;
+        let wav = tiny_test_wav_mono(frames_total);
+
+        let mut dec = DecoderBuilder::new_s24_packed(1, SampleRate::Sr48000)
+            .from_memory(&wav)
+            .unwrap();
+
+        let b = dec.read_pcm_frames(5).unwrap();
+
+        assert_eq!(b.frames(), 5);
+    }
+
+    #[test]
+    fn test_decoder_read_f32_memory() {
+        let frames_total: usize = 16;
+        let wav = tiny_test_wav_mono(frames_total);
+
+        let mut dec = DecoderBuilder::new_f32(1, SampleRate::Sr48000)
+            .from_memory(&wav)
+            .unwrap();
+
+        let b = dec.read_pcm_frames(5).unwrap();
+
+        assert_eq!(b.frames(), 5);
+    }
+
+    #[test]
+    fn test_decoder_read_u8_copy_memory() {
+        let frames_total: usize = 16;
+        let wav = tiny_test_wav_mono(frames_total);
+        let wav: Arc<[u8]> = wav.into();
+
+        let mut dec = DecoderBuilder::new_u8(1, SampleRate::Sr48000)
+            .copy_memory(wav.clone())
+            .unwrap();
+
+        let b = dec.read_pcm_frames(5).unwrap();
+
+        assert_eq!(b.frames(), 5);
+    }
+
+    #[test]
+    fn test_decoder_read_i16_copy_memory() {
+        let frames_total: usize = 16;
+        let wav = tiny_test_wav_mono(frames_total);
+        let wav: Arc<[u8]> = wav.into();
+
+        let mut dec = DecoderBuilder::new_i16(1, SampleRate::Sr48000)
+            .copy_memory(wav.clone())
+            .unwrap();
+
+        let b = dec.read_pcm_frames(5).unwrap();
+
+        assert_eq!(b.frames(), 5);
+    }
+
+    #[test]
+    fn test_decoder_read_i32_copy_memory() {
+        let frames_total: usize = 16;
+        let wav = tiny_test_wav_mono(frames_total);
+        let wav: Arc<[u8]> = wav.into();
+
+        let mut dec = DecoderBuilder::new_i32(1, SampleRate::Sr48000)
+            .copy_memory(wav.clone())
+            .unwrap();
+
+        let b = dec.read_pcm_frames(5).unwrap();
+
+        assert_eq!(b.frames(), 5);
+    }
+
+    #[test]
+    fn test_decoder_read_s24_packed_copy_memory() {
+        let frames_total: usize = 16;
+        let wav = tiny_test_wav_mono(frames_total);
+        let wav: Arc<[u8]> = wav.into();
+
+        let mut dec = DecoderBuilder::new_s24_packed(1, SampleRate::Sr48000)
+            .copy_memory(wav.clone())
+            .unwrap();
+
+        let b = dec.read_pcm_frames(5).unwrap();
+
+        assert_eq!(b.frames(), 5);
+    }
+
+    #[test]
+    fn test_decoder_read_f32_copy_memory() {
+        let frames_total: usize = 16;
+        let wav = tiny_test_wav_mono(frames_total);
+        let wav: Arc<[u8]> = wav.into();
+
+        let mut dec = DecoderBuilder::new_f32(1, SampleRate::Sr48000)
+            .copy_memory(wav.clone())
+            .unwrap();
+
+        let b = dec.read_pcm_frames(5).unwrap();
+
+        assert_eq!(b.frames(), 5);
+    }
+
+    #[test]
+    fn test_decoder_read_u8_path() {
+        let frames_total: usize = 40;
+        let wav = tiny_test_wav_mono(frames_total);
+
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        std::fs::write(guard.path(), &wav).unwrap();
+
+        let mut dec = DecoderBuilder::new_u8(1, SampleRate::Sr48000)
+            .from_file(guard.path())
+            .unwrap();
+
+        let b = dec.read_pcm_frames(40).unwrap();
+
+        assert_eq!(b.frames(), 40);
+    }
+
+    #[test]
+    fn test_decoder_read_i16_path() {
+        let frames_total: usize = 40;
+        let wav = tiny_test_wav_mono(frames_total);
+
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        std::fs::write(guard.path(), &wav).unwrap();
+
+        let mut dec = DecoderBuilder::new_i16(1, SampleRate::Sr48000)
+            .from_file(guard.path())
+            .unwrap();
+
+        let b = dec.read_pcm_frames(40).unwrap();
+
+        assert_eq!(b.frames(), 40);
+    }
+
+    #[test]
+    fn test_decoder_read_i32_path() {
+        let frames_total: usize = 40;
+        let wav = tiny_test_wav_mono(frames_total);
+
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        std::fs::write(guard.path(), &wav).unwrap();
+
+        let mut dec = DecoderBuilder::new_i32(1, SampleRate::Sr48000)
+            .from_file(guard.path())
+            .unwrap();
+
+        let b = dec.read_pcm_frames(40).unwrap();
+
+        assert_eq!(b.frames(), 40);
+    }
+
+    #[test]
+    fn test_decoder_read_s24_packed_path() {
+        let frames_total: usize = 40;
+        let wav = tiny_test_wav_mono(frames_total);
+
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        std::fs::write(guard.path(), &wav).unwrap();
+
+        let mut dec = DecoderBuilder::new_s24_packed(1, SampleRate::Sr48000)
+            .from_file(guard.path())
+            .unwrap();
+
+        let b = dec.read_pcm_frames(40).unwrap();
+
+        assert_eq!(b.frames(), 40);
+    }
+
+    #[test]
+    fn test_decoder_read_f32_path() {
+        let frames_total: usize = 40;
+        let wav = tiny_test_wav_mono(frames_total);
+
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        std::fs::write(guard.path(), &wav).unwrap();
+
+        let mut dec = DecoderBuilder::new_f32(1, SampleRate::Sr48000)
+            .from_file(guard.path())
+            .unwrap();
+
+        let b = dec.read_pcm_frames(40).unwrap();
+
+        assert_eq!(b.frames(), 40);
+    }
+
+    #[test]
+    fn test_decoder_read_u8_file() {
+        let frames_total: usize = 40;
+        let wav = tiny_test_wav_mono(frames_total);
+
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        std::fs::write(guard.path(), &wav).unwrap();
+        let file = std::fs::File::open(guard.path()).unwrap();
+
+        let mut dec = DecoderBuilder::new_u8(1, SampleRate::Sr48000)
+            .from_reader(file)
+            .unwrap();
+
+        let b = dec.read_pcm_frames(40).unwrap();
+
+        assert_eq!(b.frames(), 40);
+    }
+
+    #[test]
+    fn test_decoder_read_i16_file() {
+        let frames_total: usize = 40;
+        let wav = tiny_test_wav_mono(frames_total);
+
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        std::fs::write(guard.path(), &wav).unwrap();
+        let file = std::fs::File::open(guard.path()).unwrap();
+
+        let mut dec = DecoderBuilder::new_i16(1, SampleRate::Sr48000)
+            .from_reader(file)
+            .unwrap();
+
+        let b = dec.read_pcm_frames(40).unwrap();
+
+        assert_eq!(b.frames(), 40);
+    }
+
+    #[test]
+    fn test_decoder_read_i32_file() {
+        let frames_total: usize = 40;
+        let wav = tiny_test_wav_mono(frames_total);
+
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        std::fs::write(guard.path(), &wav).unwrap();
+        let file = std::fs::File::open(guard.path()).unwrap();
+
+        let mut dec = DecoderBuilder::new_i32(1, SampleRate::Sr48000)
+            .from_reader(file)
+            .unwrap();
+
+        let b = dec.read_pcm_frames(40).unwrap();
+
+        assert_eq!(b.frames(), 40);
+    }
+
+    #[test]
+    fn test_decoder_read_s24_packed_file() {
+        let frames_total: usize = 40;
+        let wav = tiny_test_wav_mono(frames_total);
+
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        std::fs::write(guard.path(), &wav).unwrap();
+        let file = std::fs::File::open(guard.path()).unwrap();
+
+        let mut dec = DecoderBuilder::new_s24_packed(1, SampleRate::Sr48000)
+            .from_reader(file)
+            .unwrap();
+
+        let b = dec.read_pcm_frames(40).unwrap();
+
+        assert_eq!(b.frames(), 40);
+    }
+
+    #[test]
+    fn test_decoder_read_f32_file() {
+        let frames_total: usize = 40;
+        let wav = tiny_test_wav_mono(frames_total);
+
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        std::fs::write(guard.path(), &wav).unwrap();
+        let file = std::fs::File::open(guard.path()).unwrap();
+
+        let mut dec = DecoderBuilder::new_f32(1, SampleRate::Sr48000)
+            .from_reader(file)
+            .unwrap();
+
+        let b = dec.read_pcm_frames(40).unwrap();
+
+        assert_eq!(b.frames(), 40);
+    }
 }

@@ -8,7 +8,7 @@ use crate::{
     data_source::sources::decoder::{Cb, Fs},
     device::device_builder::Unknown,
     engine::AllocationCallbacks,
-    pcm_frames::{PcmFormat, S24Packed, S24},
+    pcm_frames::{PcmFormat, S24Packed},
     AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
 };
 
@@ -340,13 +340,16 @@ mod encoder_ffi {
         encoder: &mut Encoder<F, E, D>,
         source: &[F::StorageUnit],
     ) -> MaResult<u64> {
-        if source.is_empty() {
+        if source.is_empty() || encoder.channels == 0 {
             return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
         };
+        let frames = source.len() / (encoder.channels as usize) / F::VEC_STORE_UNITS_PER_FRAME;
+        println!("writing {frames} frames. total len: {}", source.len());
+
         ma_encoder_write_pcm_frames_internal(
             encoder,
             source.as_ptr() as *const core::ffi::c_void,
-            source.len() as u64,
+            frames as u64,
         )
     }
 
@@ -510,19 +513,6 @@ impl EncoderBuilder<Unknown, Unknown> {
         }
     }
 
-    pub fn new_s24(channels: u32, sample_rate: SampleRate) -> EncoderBuilder<S24, Unknown> {
-        let inner = EncoderBuilder::new_inner(channels, sample_rate, Format::S24Packed);
-        EncoderBuilder {
-            inner,
-            alloc_cb: None,
-            format: Format::S24Packed,
-            channels,
-            sample_rate,
-            _format: PhantomData,
-            _encoding: PhantomData,
-        }
-    }
-
     pub fn new_f32(channels: u32, sample_rate: SampleRate) -> EncoderBuilder<f32, Unknown> {
         let inner = EncoderBuilder::new_inner(channels, sample_rate, Format::F32);
         EncoderBuilder {
@@ -565,5 +555,316 @@ impl<F: PcmFormat, E: CodecFormat> EncoderBuilder<F, E> {
 
     pub fn build_writer<W: WriteSeek>(&self, writer: W) -> MaResult<Encoder<F, E, Cb>> {
         Encoder::<F, E, Cb>::init_from_writer(self, writer)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::{
+        audio::sample_rate::SampleRate,
+        data_source::sources::decoder::{DecoderBuilder, DecoderOps},
+        encoder::EncoderBuilder,
+        test_assets::{
+            decoded_data::{
+                asset_interleaved_f32, asset_interleaved_i16, asset_interleaved_i32,
+                asset_interleaved_s24_packed_le, asset_interleaved_u8,
+            },
+            temp_file::{unique_tmp_path, TempFileGuard},
+        },
+    };
+
+    #[test]
+    fn test_encoder_write_from_path_u8() {
+        let frames_total: usize = 40;
+        let data = asset_interleaved_u8(2, frames_total, 1);
+
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+
+        let mut enc = EncoderBuilder::new_u8(2, SampleRate::Sr48000)
+            .wav()
+            .build_file(guard.path())
+            .unwrap();
+
+        let written = enc.write_pcm_frames(&data).unwrap();
+
+        drop(enc);
+
+        let file = std::fs::File::open(guard.path()).unwrap();
+        file.sync_all().unwrap();
+        drop(file);
+
+        assert_eq!(frames_total, written as usize);
+
+        let mut dec = DecoderBuilder::new_u8(2, SampleRate::Sr48000)
+            .from_file(guard.path())
+            .unwrap();
+
+        let output = dec.read_pcm_frames(frames_total as u64).unwrap();
+
+        assert_eq!(&data, output.as_ref());
+    }
+
+    #[test]
+    fn test_encoder_write_from_path_i16() {
+        let frames_total: usize = 40;
+        let data = asset_interleaved_i16(2, frames_total, 1);
+
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+
+        let mut enc = EncoderBuilder::new_i16(2, SampleRate::Sr48000)
+            .wav()
+            .build_file(guard.path())
+            .unwrap();
+
+        let written = enc.write_pcm_frames(&data).unwrap();
+
+        drop(enc);
+
+        let file = std::fs::File::open(guard.path()).unwrap();
+        file.sync_all().unwrap();
+        drop(file);
+
+        assert_eq!(frames_total, written as usize);
+
+        let mut dec = DecoderBuilder::new_i16(2, SampleRate::Sr48000)
+            .from_file(guard.path())
+            .unwrap();
+
+        let output = dec.read_pcm_frames(frames_total as u64).unwrap();
+
+        assert_eq!(&data, output.as_ref());
+    }
+
+    #[test]
+    fn test_encoder_write_from_path_i32() {
+        let frames_total: usize = 40;
+        let data = asset_interleaved_i32(2, frames_total, 1);
+
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+
+        let mut enc = EncoderBuilder::new_i32(2, SampleRate::Sr48000)
+            .wav()
+            .build_file(guard.path())
+            .unwrap();
+
+        let written = enc.write_pcm_frames(&data).unwrap();
+
+        drop(enc);
+
+        let file = std::fs::File::open(guard.path()).unwrap();
+        file.sync_all().unwrap();
+        drop(file);
+
+        assert_eq!(frames_total, written as usize);
+
+        let mut dec = DecoderBuilder::new_i32(2, SampleRate::Sr48000)
+            .from_file(guard.path())
+            .unwrap();
+
+        let output = dec.read_pcm_frames(frames_total as u64).unwrap();
+
+        assert_eq!(&data, output.as_ref());
+    }
+
+    #[test]
+    fn test_encoder_write_from_path_s24_packed() {
+        let frames_total: usize = 40;
+        let data = asset_interleaved_s24_packed_le(2, frames_total, 1);
+
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+
+        let mut enc = EncoderBuilder::new_s24_packed(2, SampleRate::Sr48000)
+            .wav()
+            .build_file(guard.path())
+            .unwrap();
+
+        let written = enc.write_pcm_frames(&data).unwrap();
+
+        drop(enc);
+
+        let file = std::fs::File::open(guard.path()).unwrap();
+        file.sync_all().unwrap();
+        drop(file);
+
+        assert_eq!(frames_total, written as usize);
+
+        let mut dec = DecoderBuilder::new_s24_packed(2, SampleRate::Sr48000)
+            .from_file(guard.path())
+            .unwrap();
+
+        let output = dec.read_pcm_frames(frames_total as u64).unwrap();
+
+        assert_eq!(&data, output.as_ref());
+    }
+
+    #[test]
+    fn test_encoder_write_from_path_f32() {
+        let frames_total: usize = 40;
+        let data = asset_interleaved_f32(2, frames_total, 1.0);
+
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+
+        let mut enc = EncoderBuilder::new_f32(2, SampleRate::Sr48000)
+            .wav()
+            .build_file(guard.path())
+            .unwrap();
+
+        let written = enc.write_pcm_frames(&data).unwrap();
+
+        drop(enc);
+
+        let file = std::fs::File::open(guard.path()).unwrap();
+        file.sync_all().unwrap();
+        drop(file);
+
+        assert_eq!(frames_total, written as usize);
+
+        let mut dec = DecoderBuilder::new_f32(2, SampleRate::Sr48000)
+            .from_file(guard.path())
+            .unwrap();
+
+        let output = dec.read_pcm_frames(frames_total as u64).unwrap();
+
+        assert_eq!(&data, output.as_ref());
+    }
+
+    #[test]
+    fn test_encoder_write_from_file_u8() {
+        let frames_total: usize = 40;
+        let data = asset_interleaved_u8(2, frames_total, 1);
+
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let file = std::fs::File::create(guard.path()).unwrap();
+
+        let mut enc = EncoderBuilder::new_u8(2, SampleRate::Sr48000)
+            .wav()
+            .build_writer(file)
+            .unwrap();
+
+        let written = enc.write_pcm_frames(&data).unwrap();
+
+        drop(enc);
+
+        assert_eq!(frames_total, written as usize);
+
+        let mut dec = DecoderBuilder::new_u8(2, SampleRate::Sr48000)
+            .from_file(guard.path())
+            .unwrap();
+
+        let output = dec.read_pcm_frames(frames_total as u64).unwrap();
+
+        assert_eq!(&data, output.as_ref());
+    }
+
+    #[test]
+    fn test_encoder_write_from_file_i16() {
+        let frames_total: usize = 40;
+        let data = asset_interleaved_i16(2, frames_total, 1);
+
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let file = std::fs::File::create(guard.path()).unwrap();
+
+        let mut enc = EncoderBuilder::new_i16(2, SampleRate::Sr48000)
+            .wav()
+            .build_writer(file)
+            .unwrap();
+
+        let written = enc.write_pcm_frames(&data).unwrap();
+
+        drop(enc);
+
+        assert_eq!(frames_total, written as usize);
+
+        let mut dec = DecoderBuilder::new_i16(2, SampleRate::Sr48000)
+            .from_file(guard.path())
+            .unwrap();
+
+        let output = dec.read_pcm_frames(frames_total as u64).unwrap();
+
+        assert_eq!(&data, output.as_ref());
+    }
+
+    #[test]
+    fn test_encoder_write_from_file_i32() {
+        let frames_total: usize = 40;
+        let data = asset_interleaved_i32(2, frames_total, 1);
+
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let file = std::fs::File::create(guard.path()).unwrap();
+
+        let mut enc = EncoderBuilder::new_i32(2, SampleRate::Sr48000)
+            .wav()
+            .build_writer(file)
+            .unwrap();
+
+        let written = enc.write_pcm_frames(&data).unwrap();
+
+        drop(enc);
+
+        assert_eq!(frames_total, written as usize);
+
+        let mut dec = DecoderBuilder::new_i32(2, SampleRate::Sr48000)
+            .from_file(guard.path())
+            .unwrap();
+
+        let output = dec.read_pcm_frames(frames_total as u64).unwrap();
+
+        assert_eq!(&data, output.as_ref());
+    }
+
+    #[test]
+    fn test_encoder_write_from_file_s24_packed() {
+        let frames_total: usize = 40;
+        let data = asset_interleaved_s24_packed_le(2, frames_total, 1);
+
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let file = std::fs::File::create(guard.path()).unwrap();
+
+        let mut enc = EncoderBuilder::new_s24_packed(2, SampleRate::Sr48000)
+            .wav()
+            .build_writer(file)
+            .unwrap();
+
+        let written = enc.write_pcm_frames(&data).unwrap();
+
+        drop(enc);
+
+        assert_eq!(frames_total, written as usize);
+
+        let mut dec = DecoderBuilder::new_s24_packed(2, SampleRate::Sr48000)
+            .from_file(guard.path())
+            .unwrap();
+
+        let output = dec.read_pcm_frames(frames_total as u64).unwrap();
+
+        assert_eq!(&data, output.as_ref());
+    }
+
+    #[test]
+    fn test_encoder_write_from_file_f32() {
+        let frames_total: usize = 40;
+        let data = asset_interleaved_f32(2, frames_total, 1.0);
+
+        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let file = std::fs::File::create(guard.path()).unwrap();
+
+        let mut enc = EncoderBuilder::new_f32(2, SampleRate::Sr48000)
+            .wav()
+            .build_writer(file)
+            .unwrap();
+
+        let written = enc.write_pcm_frames(&data).unwrap();
+
+        drop(enc);
+
+        assert_eq!(frames_total, written as usize);
+
+        let mut dec = DecoderBuilder::new_f32(2, SampleRate::Sr48000)
+            .from_file(guard.path())
+            .unwrap();
+
+        let output = dec.read_pcm_frames(frames_total as u64).unwrap();
+
+        assert_eq!(&data, output.as_ref());
     }
 }
