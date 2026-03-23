@@ -344,7 +344,6 @@ mod encoder_ffi {
             return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
         };
         let frames = source.len() / (encoder.channels as usize) / F::VEC_STORE_UNITS_PER_FRAME;
-        println!("writing {frames} frames. total len: {}", source.len());
 
         ma_encoder_write_pcm_frames_internal(
             encoder,
