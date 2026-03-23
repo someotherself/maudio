@@ -435,12 +435,16 @@ impl<F: PcmFormat, E: CodecFormat> AsRawRef for EncoderBuilder<F, E> {
 }
 
 impl EncoderBuilder<Unknown, Unknown> {
-    pub fn new_inner(channels: u32, sample_rate: SampleRate) -> sys::ma_encoder_config {
+    pub fn new_inner(
+        channels: u32,
+        sample_rate: SampleRate,
+        format: Format,
+    ) -> sys::ma_encoder_config {
         // Format::U8 and encoding format unkwown are placeholders
         unsafe {
             sys::ma_encoder_config_init(
                 sys::ma_encoding_format_ma_encoding_format_unknown,
-                Format::U8.into(),
+                format.into(),
                 channels,
                 sample_rate.into(),
             )
@@ -448,7 +452,7 @@ impl EncoderBuilder<Unknown, Unknown> {
     }
 
     pub fn new_u8(channels: u32, sample_rate: SampleRate) -> EncoderBuilder<u8, Unknown> {
-        let inner = EncoderBuilder::new_inner(channels, sample_rate);
+        let inner = EncoderBuilder::new_inner(channels, sample_rate, Format::U8);
         EncoderBuilder {
             inner,
             alloc_cb: None,
@@ -461,7 +465,7 @@ impl EncoderBuilder<Unknown, Unknown> {
     }
 
     pub fn new_i16(channels: u32, sample_rate: SampleRate) -> EncoderBuilder<i16, Unknown> {
-        let inner = EncoderBuilder::new_inner(channels, sample_rate);
+        let inner = EncoderBuilder::new_inner(channels, sample_rate, Format::S16);
         EncoderBuilder {
             inner,
             alloc_cb: None,
@@ -474,7 +478,7 @@ impl EncoderBuilder<Unknown, Unknown> {
     }
 
     pub fn new_i32(channels: u32, sample_rate: SampleRate) -> EncoderBuilder<i32, Unknown> {
-        let inner = EncoderBuilder::new_inner(channels, sample_rate);
+        let inner = EncoderBuilder::new_inner(channels, sample_rate, Format::S32);
         EncoderBuilder {
             inner,
             alloc_cb: None,
@@ -490,7 +494,7 @@ impl EncoderBuilder<Unknown, Unknown> {
         channels: u32,
         sample_rate: SampleRate,
     ) -> EncoderBuilder<S24Packed, Unknown> {
-        let inner = EncoderBuilder::new_inner(channels, sample_rate);
+        let inner = EncoderBuilder::new_inner(channels, sample_rate, Format::S24Packed);
         EncoderBuilder {
             inner,
             alloc_cb: None,
@@ -503,7 +507,7 @@ impl EncoderBuilder<Unknown, Unknown> {
     }
 
     pub fn new_s24(channels: u32, sample_rate: SampleRate) -> EncoderBuilder<S24, Unknown> {
-        let inner = EncoderBuilder::new_inner(channels, sample_rate);
+        let inner = EncoderBuilder::new_inner(channels, sample_rate, Format::S24Packed);
         EncoderBuilder {
             inner,
             alloc_cb: None,
@@ -516,7 +520,7 @@ impl EncoderBuilder<Unknown, Unknown> {
     }
 
     pub fn new_f32(channels: u32, sample_rate: SampleRate) -> EncoderBuilder<f32, Unknown> {
-        let inner = EncoderBuilder::new_inner(channels, sample_rate);
+        let inner = EncoderBuilder::new_inner(channels, sample_rate, Format::F32);
         EncoderBuilder {
             inner,
             alloc_cb: None,
