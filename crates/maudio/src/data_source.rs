@@ -693,7 +693,6 @@ pub(crate) mod data_source_ffi {
         }
     }
 
-    // TODO
     #[inline]
     #[allow(dead_code)]
     pub fn ma_data_source_set_next<S: AsSourcePtr + ?Sized, N: AsSourcePtr + ?Sized>(

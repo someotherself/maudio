@@ -299,6 +299,8 @@ impl EngineBuilder {
 
         let mut engine = Engine::new_with_config(Some(self))?;
         // Check if we set the state notifier callback
+        engine.process_data_ptr = self.process_data_ptr; // TODO: Refactor this build process
+        engine.process_data_panic = self.process_data_panic.take();
         if self.inner.noDevice == 0 && self.state_notif_exists {
             engine.state_notifier = self.state_notif.clone();
         }
@@ -314,6 +316,8 @@ impl EngineBuilder {
 
         let mut engine = Engine::new_with_config(Some(self))?;
         // Check if we set the state notifier callback
+        engine.process_data_ptr = self.process_data_ptr; // TODO: Refactor this build process
+        engine.process_data_panic = self.process_data_panic.take();
         if self.inner.noDevice == 0 && self.state_notif_exists {
             engine.state_notifier = self.state_notif.clone();
         }
