@@ -2,9 +2,7 @@
 //!
 //! Provides safe wrappers around `ma_device` for playback and capture.
 use std::{
-    marker::PhantomData,
-    mem::MaybeUninit,
-    sync::{atomic::AtomicBool, Arc},
+    cell::Cell, marker::PhantomData, mem::MaybeUninit, sync::{Arc, atomic::AtomicBool}
 };
 
 use maudio_sys::ffi as sys;
@@ -38,18 +36,20 @@ pub mod device_type;
 /// Cloning this type creates another handle to the same underlying device.
 #[derive(Clone)]
 pub struct Device {
+    // For now, Device cannot be sync. (TODO)
     inner: Arc<DeviceInner>,
+    _not_sync: PhantomData<Cell<()>>
 }
 
 pub(crate) struct DeviceInner {
     inner: *mut sys::ma_device,
-    _playback_device_id: Option<DeviceId>, // Ref count. Needs to be kept alive.
-    _capture_device_id: Option<DeviceId>,  // Ref count. Needs to be kept alive.
-    callback_user_data: *mut core::ffi::c_void, // userdata (self.inner.pUserData)
-    callback_user_data_drop: fn(*mut core::ffi::c_void), // destructor for the callback_user_data
-    callback_panic: Arc<AtomicBool>,       // true = callback panicked and is now poisoned
+    _playback_device_id: Option<DeviceId>,                  // Ref count. Needs to be kept alive.
+    _capture_device_id: Option<DeviceId>,                   // Ref count. Needs to be kept alive.
+    callback_user_data: *mut core::ffi::c_void,             // userdata (self.inner.pUserData)
+    callback_user_data_drop: fn(*mut core::ffi::c_void),    // destructor for the callback_user_data
+    callback_panic: Arc<AtomicBool>,                        // true = callback panicked and is now poisoned
     callback_process_notifier: ProcFramesNotif,
-    state_notifier: Option<DeviceStateNotifier>, // used by ma_device_notification
+    state_notifier: Option<DeviceStateNotifier>,            // used by ma_device_notification
 }
 
 impl Binding for DeviceInner {
@@ -65,7 +65,7 @@ impl Binding for DeviceInner {
     }
 }
 
-// TODO: Double check these
+// Required for Arc<DeviceInner> to implement Send
 unsafe impl Send for DeviceInner {}
 unsafe impl Sync for DeviceInner {}
 
@@ -312,6 +312,7 @@ impl Device {
                 callback_process_notifier: data_notif,
                 state_notifier: Some(cb_info.state_notif.clone()),
             }),
+            _not_sync: PhantomData
         })
     }
 }
