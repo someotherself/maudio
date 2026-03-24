@@ -21,7 +21,7 @@ use crate::{
 ///
 /// Currently, miniaudio's streaming encoder only supports **WAV** output.
 ///
-/// # What an encoder does
+/// # What the encoder does
 ///
 /// An encoder sits between raw PCM audio and some encoded output destination:
 ///
@@ -33,7 +33,7 @@ use crate::{
 ///
 /// The encoder's **destination** is chosen once at build time:
 ///
-/// - [`EncoderBuilder::build_file`] creates an encoder that writes to a file path
+/// - [`EncoderBuilder::build_path`] creates an encoder that writes to a file path
 /// - [`EncoderBuilder::build_writer`] creates an encoder that writes through custom callbacks
 ///
 /// After construction, audio data can be supplied manually through
@@ -389,7 +389,7 @@ impl<F: PcmFormat, E: CodecFormat, D> Drop for Encoder<F, E, D> {
 }
 
 /// Encoding/container formats supported by [`Encoder`].
-pub enum EncodingFormat {
+enum EncodingFormat {
     Wav,
     Flac,
     Mp3,
@@ -429,7 +429,7 @@ impl TryFrom<sys::ma_encoding_format> for EncodingFormat {
 ///
 /// 1. choose the PCM sample format with a `new_*` constructor
 /// 2. choose the encoding/container format with methods like [`Self::wav`] (others not supported for now)
-/// 3. build the encoder for a destination with [`Self::build_file`] or [`Self::build_writer`]
+/// 3. build the encoder for a destination with [`Self::build_path`] or [`Self::build_writer`]
 ///
 pub struct EncoderBuilder<F = Unknown, E = Unknown> {
     inner: sys::ma_encoder_config,
@@ -557,7 +557,7 @@ impl<F: PcmFormat> EncoderBuilder<F, Unknown> {
 }
 
 impl<F: PcmFormat, E: CodecFormat> EncoderBuilder<F, E> {
-    pub fn build_file(&self, path: &Path) -> MaResult<Encoder<F, E, Fs>> {
+    pub fn build_path(&self, path: &Path) -> MaResult<Encoder<F, E, Fs>> {
         Encoder::<F, E, Fs>::init_from_file(self, path)
     }
 
@@ -590,7 +590,7 @@ mod test {
 
         let mut enc = EncoderBuilder::new_u8(2, SampleRate::Sr48000)
             .wav()
-            .build_file(guard.path())
+            .build_path(guard.path())
             .unwrap();
 
         let written = enc.write_pcm_frames(&data).unwrap();
@@ -617,7 +617,7 @@ mod test {
 
         let mut enc = EncoderBuilder::new_i16(2, SampleRate::Sr48000)
             .wav()
-            .build_file(guard.path())
+            .build_path(guard.path())
             .unwrap();
 
         let written = enc.write_pcm_frames(&data).unwrap();
@@ -644,7 +644,7 @@ mod test {
 
         let mut enc = EncoderBuilder::new_i32(2, SampleRate::Sr48000)
             .wav()
-            .build_file(guard.path())
+            .build_path(guard.path())
             .unwrap();
 
         let written = enc.write_pcm_frames(&data).unwrap();
@@ -671,7 +671,7 @@ mod test {
 
         let mut enc = EncoderBuilder::new_s24_packed(2, SampleRate::Sr48000)
             .wav()
-            .build_file(guard.path())
+            .build_path(guard.path())
             .unwrap();
 
         let written = enc.write_pcm_frames(&data).unwrap();
@@ -698,7 +698,7 @@ mod test {
 
         let mut enc = EncoderBuilder::new_f32(2, SampleRate::Sr48000)
             .wav()
-            .build_file(guard.path())
+            .build_path(guard.path())
             .unwrap();
 
         let written = enc.write_pcm_frames(&data).unwrap();

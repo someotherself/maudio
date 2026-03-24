@@ -233,7 +233,7 @@ impl EngineBuilder {
     /// }
     /// ```
     ///
-    // If you truly need to run a callback on the realtime thread, use [`EngineBuilder::with_realtime_callback()`].
+    /// If you truly need to run a callback on the realtime thread, use [`EngineBuilder::with_realtime_callback()`].
     pub fn with_process_notifier(&mut self) -> MaResult<Engine> {
         let notifier = self.set_process_notifier(None);
         self.inner.onProcess = Some(on_process_callback);

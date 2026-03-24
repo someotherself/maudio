@@ -27,7 +27,7 @@ fn main() -> MaResult<()> {
 
     let mut encoder = EncoderBuilder::new_f32(channels, sample_rate)
         .wav()
-        .build_file(&dst_path)?;
+        .build_path(&dst_path)?;
 
     let mut sound = SoundBuilder::new(&engine).file_path(&path).build()?;
 
