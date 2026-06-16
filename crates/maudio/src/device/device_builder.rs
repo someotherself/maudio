@@ -215,8 +215,9 @@ pub struct LoopbackDeviceBuilder<'a, F = Unknown> {
     _format: PhantomData<F>,
 }
 
+// TODO: Can this be made private?
 #[derive(Clone)]
-pub(crate) struct DeviceBuilderDataCallBack {
+pub struct DeviceBuilderDataCallBack {
     pub(crate) data_callback: *mut core::ffi::c_void, // type erased for each State (ex: LoopbackDeviceState)
     pub(crate) data_callback_drop: fn(*mut core::ffi::c_void),
     pub(crate) data_callback_panic: Arc<AtomicBool>,
