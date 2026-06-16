@@ -88,9 +88,9 @@ fn main() {
     println!("cargo:rerun-if-changed=native/miniaudio/miniaudio.h");
     println!("cargo:rerun-if-changed=native/miniaudio/extras/stb_vorbis.c");
     #[cfg(windows)]
-    println!("cargo:rerun-if-changed=src/src/pregen_bindings/windows.rs");
+    println!("cargo:rerun-if-changed=src/pregen_bindings/windows.rs");
     #[cfg(unix)]
-    println!("cargo:rerun-if-changed=src/src/pregen_bindings/unix.rs");
+    println!("cargo:rerun-if-changed=src/pregen_bindings/unix.rs");
 
     let mut cc_builder = cc::Build::new();
 
