@@ -207,10 +207,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> SplitterNodeBuilder<'a, N> {
 #[cfg(test)]
 mod test {
     use crate::engine::{
-        node_graph::{
-            node_builder::NodeState,
-            nodes::{routing::splitter::SplitterNodeBuilder, NodeOps},
-        },
+        node_graph::nodes::{routing::splitter::SplitterNodeBuilder, NodeOps, NodeState},
         Engine, EngineOps,
     };
 

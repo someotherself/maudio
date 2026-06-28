@@ -54,16 +54,46 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     engine::{
-        node_graph::{node_builder::NodeState, NodeGraph, NodeGraphRef},
+        node_graph::{NodeGraph, NodeGraphRef},
         AllocationCallbacks,
     },
-    AsRawRef, Binding, MaResult,
+    AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
 };
 
 pub mod effects;
 pub mod filters;
 pub mod routing;
 pub mod source;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(C)]
+pub enum NodeState {
+    Started,
+    Stopped,
+}
+
+impl From<NodeState> for sys::ma_node_state {
+    fn from(value: NodeState) -> Self {
+        match value {
+            NodeState::Started => sys::ma_node_state_ma_node_state_started,
+            NodeState::Stopped => sys::ma_node_state_ma_node_state_stopped,
+        }
+    }
+}
+
+impl TryFrom<sys::ma_node_state> for NodeState {
+    type Error = MaudioError;
+
+    fn try_from(value: sys::ma_pan_mode) -> Result<Self, Self::Error> {
+        match value {
+            sys::ma_node_state_ma_node_state_started => Ok(NodeState::Started),
+            sys::ma_node_state_ma_node_state_stopped => Ok(NodeState::Stopped),
+            other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
+                NodeState,
+            >(other as i64))),
+        }
+    }
+}
 
 // Would be used for fully custom nodes. Not used for now
 struct Node<'a> {
@@ -309,13 +339,13 @@ pub trait NodeOps: AsNodePtr {
     }
 
     /// Returns the volume for the given output bus.
-    fn output_bus_volume(&mut self, out_bux_index: u32) -> f32 {
-        node_ffi::ma_node_get_output_bus_volume(self, out_bux_index)
+    fn output_bus_volume(&mut self, out_bus_index: u32) -> f32 {
+        node_ffi::ma_node_get_output_bus_volume(self, out_bus_index)
     }
 
     /// Sets the volume for the given output bus.
-    fn set_output_bus_volume(&mut self, out_bux_index: u32, volume: f32) -> MaResult<()> {
-        node_ffi::ma_node_set_output_bus_volume(self, out_bux_index, volume)
+    fn set_output_bus_volume(&mut self, out_bus_index: u32, volume: f32) -> MaResult<()> {
+        node_ffi::ma_node_set_output_bus_volume(self, out_bus_index, volume)
     }
 
     /// Returns the current node state.
@@ -402,8 +432,7 @@ pub(super) mod node_ffi {
 
     use crate::{
         engine::node_graph::{
-            node_builder::NodeState,
-            nodes::{private_node, AsNodePtr, Node},
+            nodes::{private_node, AsNodePtr, Node, NodeState},
             NodeGraph, NodeGraphRef,
         },
         Binding, MaResult, MaudioError,
