@@ -109,6 +109,8 @@ pub mod util;
 #[doc(hidden)]
 pub extern crate maudio_sys;
 
+use std::num::TryFromIntError;
+
 use maudio_sys::ffi as sys;
 
 /// IMPORTANT: type Raw must be a *mut pointer
@@ -151,6 +153,7 @@ impl MaudioError {
         }
     }
 
+    /// Returns true if error is miniaudio error MA_RESULT_MA_BUSY
     pub fn is_busy(&self) -> bool {
         let a = self.ma_result;
         a.name() == "MA_BUSY"
@@ -178,7 +181,10 @@ impl MaudioError {
         }
     }
 
-    fn new_ma_error(native: ErrorKinds) -> Self {
+    /// Construct a new `MaudioError`
+    /// 
+    /// Use ErrorKinds::Other for a generic error
+    pub fn new_ma_error(native: ErrorKinds) -> Self {
         Self {
             native: Some(native),
             ma_result: MaError(sys::ma_result_MA_ERROR),
@@ -263,7 +269,10 @@ impl std::fmt::Display for ErrorKinds {
             ErrorKinds::InvalidGraphState => write!(f, "invalid graph state"),
             ErrorKinds::InvalidFormat => write!(f, "invalid format"),
             ErrorKinds::InvalidCString => write!(f, "invalid C string"),
+            ErrorKinds::IoError { err } => write!(f, "IO error: {err}"),
+            ErrorKinds::IntegerError { err } => write!(f, "Integer error: {err}"),
             ErrorKinds::InvalidOperation(error) => write!(f, "{error}",),
+            ErrorKinds::Other(error) => write!(f, "{error}",),
         }
     }
 }
@@ -364,7 +373,7 @@ impl MaError {
 
 impl ErrorKinds {
     #[inline]
-    pub fn unknown_enum<T>(raw: i64) -> Self {
+    pub(crate) fn unknown_enum<T>(raw: i64) -> Self {
         Self::UnknownEnumValue {
             type_name: core::any::type_name::<T>(),
             value: raw,
@@ -381,7 +390,7 @@ impl ErrorKinds {
 /// - Detecting arithmetic overflow
 ///
 /// Miniaudio-native errors are represented separately by `MA_RESULT`.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 #[non_exhaustive]
 pub enum ErrorKinds {
     // Error converting a raw value to an enum variant
@@ -421,6 +430,31 @@ pub enum ErrorKinds {
     /// Error coverting Path to CString
     InvalidCString,
     InvalidOperation(&'static str),
+    Other(&'static str),
+    IoError {
+        err: std::io::Error,
+    },
+    IntegerError {
+        err: std::num::TryFromIntError,
+    },
+}
+
+impl From<std::io::Error> for MaudioError {
+    fn from(value: std::io::Error) -> Self {
+        Self {
+            native: Some(ErrorKinds::IoError { err: value }),
+            ma_result: MaError(sys::ma_result_MA_ERROR),
+        }
+    }
+}
+
+impl From<TryFromIntError> for MaudioError {
+    fn from(value: TryFromIntError) -> Self {
+        Self {
+            native: Some(ErrorKinds::IntegerError { err: value }),
+            ma_result: MaError(sys::ma_result_MA_ERROR),
+        }
+    }
 }
 
 /// Error type returned by the maudio crate.
@@ -435,7 +469,7 @@ pub enum ErrorKinds {
 ///
 /// When `Some`, the error was produced by the wrapper and may include an
 /// associated miniaudio result for context. In this case, ma_result will be `MA_ERROR (-1)`.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug)]
 pub struct MaudioError {
     native: Option<ErrorKinds>,
     ma_result: MaError,
