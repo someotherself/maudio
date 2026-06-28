@@ -212,7 +212,6 @@ pub struct ResourceManager<F: PcmFormat> {
     inner: Arc<InnerResourceManager<F>>,
 }
 
-#[allow(dead_code)]
 #[derive(Debug)]
 pub(crate) struct InnerResourceManager<F: PcmFormat> {
     inner: *mut sys::ma_resource_manager,

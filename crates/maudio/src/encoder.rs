@@ -63,7 +63,7 @@ use crate::{
 ///
 /// let mut encoder = EncoderBuilder::new_f32(2, SampleRate::Sr44100)
 ///     .wav()
-///     .build_file(&path)?;
+///     .build_path(&path)?;
 ///
 /// let pcm = vec![0.0f32; 512 * 2];
 /// encoder.write_pcm_frames(&pcm)?;
@@ -89,12 +89,12 @@ use crate::{
 /// # Ok(())
 /// # }
 /// ```
+#[allow(unused)]
 pub struct Encoder<F: PcmFormat, E: CodecFormat, D> {
     inner: *mut sys::ma_encoder,
     channels: u32,
     sample_rate: SampleRate,
     format: Format,
-    #[allow(clippy::type_complexity)]
     user_data: Option<EncoderUserDataDestructor>,
     _format: PhantomData<F>,
     _encoding: PhantomData<E>,
@@ -274,6 +274,7 @@ unsafe extern "C" fn encoder_seek_proc<W: WriteSeek>(
     }
 }
 
+#[allow(unused)]
 unsafe extern "C" fn encoder_seek_proc_no_op(
     encoder: *mut sys::ma_encoder,
     _byte_offset: i64,

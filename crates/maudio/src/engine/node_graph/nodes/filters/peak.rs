@@ -242,10 +242,7 @@ impl PeakNodeParams {
 mod test {
     use crate::{
         audio::sample_rate::SampleRate,
-        engine::{
-            node_graph::nodes::filters::peak::PeakNodeBuilder,
-            Engine, EngineOps,
-        },
+        engine::{node_graph::nodes::filters::peak::PeakNodeBuilder, Engine, EngineOps},
     };
 
     #[test]

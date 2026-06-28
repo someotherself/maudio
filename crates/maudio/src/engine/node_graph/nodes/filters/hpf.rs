@@ -99,7 +99,10 @@ impl<'a> HpfNode<'a> {
             ));
         }
 
-        if !cutoff_freq.is_finite() || cutoff_freq <= 0.0 || cutoff_freq >= i32::from(sample_rate) as f64 / 2.0 {
+        if !cutoff_freq.is_finite()
+            || cutoff_freq <= 0.0
+            || cutoff_freq >= i32::from(sample_rate) as f64 / 2.0
+        {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
             ));
@@ -257,10 +260,7 @@ impl HpfNodeParams {
 mod test {
     use crate::{
         audio::sample_rate::SampleRate,
-        engine::{
-            node_graph::nodes::filters::hpf::HpfNodeBuilder,
-            Engine, EngineOps,
-        },
+        engine::{node_graph::nodes::filters::hpf::HpfNodeBuilder, Engine, EngineOps},
     };
 
     #[test]

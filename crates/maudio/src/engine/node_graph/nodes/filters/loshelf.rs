@@ -102,8 +102,9 @@ impl<'a> LoShelfNode<'a> {
     }
 
     /// See [`LoShelfNodeParams`] for creating a config
-    pub fn reinit(&mut self,
-            sample_rate: SampleRate,
+    pub fn reinit(
+        &mut self,
+        sample_rate: SampleRate,
         gain_db: f64,
         shelf_slope: f64,
         frequency: f64,
@@ -292,10 +293,7 @@ impl LoShelfNodeParams {
 mod test {
     use crate::{
         audio::sample_rate::SampleRate,
-        engine::{
-            node_graph::nodes::filters::loshelf::LoShelfNodeBuilder,
-            Engine, EngineOps,
-        },
+        engine::{node_graph::nodes::filters::loshelf::LoShelfNodeBuilder, Engine, EngineOps},
         Binding,
     };
 
@@ -460,6 +458,8 @@ mod test {
                 .build()
                 .unwrap();
 
-        assert!(node.reinit(SampleRate::Sr48000, 0.0, 0.5, f64::NAN).is_err());
+        assert!(node
+            .reinit(SampleRate::Sr48000, 0.0, 0.5, f64::NAN)
+            .is_err());
     }
 }

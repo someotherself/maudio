@@ -527,6 +527,7 @@ pub(crate) mod private_device_b {
         <T as AsDeviceBuilder<'a>>::_DeviceBuilderProvider::inner(t)
     }
 
+    #[allow(unused)]
     pub fn as_raw<'a, T: AsDeviceBuilder<'a> + ?Sized>(t: &'a T) -> &'a sys::ma_device_config {
         <T as AsDeviceBuilder>::_DeviceBuilderProvider::as_raw(t)
     }
@@ -1689,7 +1690,7 @@ mod test {
         let mut device = DeviceBuilder::capture()
             .f32()
             .capture_channels(2)
-            .with_callback(|_a, _b, _c| return)
+            .with_callback(|_a, _b, _c| {})
             .unwrap();
         device.device_start().unwrap();
         device.device_stop().unwrap();

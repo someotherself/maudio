@@ -27,7 +27,7 @@ use crate::{
     AsRawRef, Binding, MaResult,
 };
 
-#[allow(dead_code)]
+#[allow(unused)]
 pub(crate) struct WaveState {
     channels: u32,
     sample_rate: SampleRate,
@@ -331,6 +331,7 @@ impl<F: PcmFormat> Drop for WaveForm<F> {
 /// Builder for constructing a [`WaveForm`]
 pub struct WaveFormBuilder {
     inner: sys::ma_waveform_config,
+    #[allow(unused)]
     format: Format,
     channels: u32,
     sample_rate: SampleRate,

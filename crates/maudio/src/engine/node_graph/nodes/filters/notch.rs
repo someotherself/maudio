@@ -274,10 +274,7 @@ impl NotchNodeParams {
 mod test {
     use crate::{
         audio::sample_rate::SampleRate,
-        engine::{
-            node_graph::nodes::filters::notch::NotchNodeBuilder,
-            Engine, EngineOps,
-        },
+        engine::{node_graph::nodes::filters::notch::NotchNodeBuilder, Engine, EngineOps},
     };
 
     #[test]

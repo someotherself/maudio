@@ -488,7 +488,6 @@ impl Drop for ContextInner {
     }
 }
 
-#[allow(dead_code)]
 pub struct ContextBuilder<'a> {
     inner: sys::ma_context_config,
     backends: Option<&'a [Backend]>,

@@ -102,8 +102,9 @@ impl<'a> HiShelfNode<'a> {
     }
 
     /// See [`HiShelfNodeParams`] for creating a config
-    pub fn reinit(&mut self,
-            sample_rate: SampleRate,
+    pub fn reinit(
+        &mut self,
+        sample_rate: SampleRate,
         gain_db: f64,
         shelf_slope: f64,
         frequency: f64,
@@ -298,10 +299,7 @@ impl HiShelfNodeParams {
 mod test {
     use crate::{
         audio::sample_rate::SampleRate,
-        engine::{
-            node_graph::nodes::filters::hishelf::HiShelfNodeBuilder,
-            Engine, EngineOps,
-        },
+        engine::{node_graph::nodes::filters::hishelf::HiShelfNodeBuilder, Engine, EngineOps},
     };
 
     #[test]

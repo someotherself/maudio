@@ -175,15 +175,6 @@ impl<F: PcmFormat> AsMut<[F::PcmUnit]> for SampleBuffer<F> {
 }
 
 impl<F: PcmFormat> SampleBuffer<F> {
-    pub(crate) fn new(data: Vec<F::PcmUnit>, channels: u32, frames: usize) -> SampleBuffer<F> {
-        Self {
-            data,
-            channels,
-            frames,
-            _pcm_format: PhantomData,
-        }
-    }
-
     pub(crate) fn required_len(frames: usize, channels: u32, vec_unit: usize) -> MaResult<usize> {
         let ch = channels as usize;
         let samples = frames.checked_mul(ch).ok_or(MaudioError::new_ma_error(
@@ -276,32 +267,6 @@ impl<F: PcmFormat> SampleBuffer<F> {
 
     fn as_mut_slice(&mut self) -> &mut [F::PcmUnit] {
         &mut self.data
-    }
-
-    pub(crate) fn as_mut_ptr(&mut self) -> *mut core::ffi::c_void {
-        self.data.as_mut_ptr() as *mut core::ffi::c_void
-    }
-
-    /// items_per_frame is either F::VEC_STORE_UNITS_PER_FRAME or F::VEC_PCM_UNITS_PER_FRAME
-    pub(crate) fn truncate_to_frames(&mut self, frames: usize) -> MaResult<()> {
-        let len = frames
-            .checked_mul(self.channels as usize)
-            .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
-                op: "truncate: frames * channels",
-                lhs: frames as u64,
-                rhs: self.channels as u64,
-            }))?;
-
-        let vec_el =
-            len.checked_mul(F::VEC_PCM_UNITS_PER_FRAME)
-                .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
-                    op: "truncate: frames * channels",
-                    lhs: len as u64,
-                    rhs: F::VEC_PCM_UNITS_PER_FRAME as u64,
-                }))?;
-
-        self.data.truncate(vec_el);
-        Ok(())
     }
 }
 

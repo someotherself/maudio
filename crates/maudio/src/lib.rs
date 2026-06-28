@@ -182,7 +182,7 @@ impl MaudioError {
     }
 
     /// Construct a new `MaudioError`
-    /// 
+    ///
     /// Use ErrorKinds::Other for a generic error
     pub fn new_ma_error(native: ErrorKinds) -> Self {
         Self {
@@ -390,7 +390,7 @@ impl ErrorKinds {
 /// - Detecting arithmetic overflow
 ///
 /// Miniaudio-native errors are represented separately by `MA_RESULT`.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ErrorKinds {
     // Error converting a raw value to an enum variant
@@ -432,7 +432,7 @@ pub enum ErrorKinds {
     InvalidOperation(&'static str),
     Other(&'static str),
     IoError {
-        err: std::io::Error,
+        err: std::io::ErrorKind,
     },
     IntegerError {
         err: std::num::TryFromIntError,
@@ -442,7 +442,7 @@ pub enum ErrorKinds {
 impl From<std::io::Error> for MaudioError {
     fn from(value: std::io::Error) -> Self {
         Self {
-            native: Some(ErrorKinds::IoError { err: value }),
+            native: Some(ErrorKinds::IoError { err: value.kind() }),
             ma_result: MaError(sys::ma_result_MA_ERROR),
         }
     }
@@ -469,7 +469,7 @@ impl From<TryFromIntError> for MaudioError {
 ///
 /// When `Some`, the error was produced by the wrapper and may include an
 /// associated miniaudio result for context. In this case, ma_result will be `MA_ERROR (-1)`.
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct MaudioError {
     native: Option<ErrorKinds>,
     ma_result: MaError,

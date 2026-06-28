@@ -274,7 +274,7 @@ impl<F: PcmFormat> PcmRbRecv<F> {
         pcm_rb_ffi::ma_pcm_rb_available_read(self)
     }
 
-    /// Returns the number of frames available for writing
+    /// Returns the capacity in frames available for writing
     pub fn available_write(&self) -> u32 {
         pcm_rb_ffi::ma_pcm_rb_available_write(self)
     }

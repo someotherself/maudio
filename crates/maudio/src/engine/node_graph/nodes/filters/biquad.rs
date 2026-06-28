@@ -107,15 +107,7 @@ impl<'a> BiquadNode<'a> {
     }
 
     /// See [`BiquadNodeParams`] for creating a config
-    pub fn reinit(
-        &mut self,
-        b0: f64,
-        b1: f64,
-        b2: f64,
-        a0: f64,
-        a1: f64,
-        a2: f64,
-    ) -> MaResult<()> {
+    pub fn reinit(&mut self, b0: f64, b1: f64, b2: f64, a0: f64, a1: f64, a2: f64) -> MaResult<()> {
         let param = BiquadNodeParams::new(self, b0, b1, b2, a0, a1, a2);
         n_biquad_ffi::ma_biquad_node_reinit(param.as_raw_ptr(), self)
     }
@@ -244,15 +236,7 @@ impl AsRawRef for BiquadNodeParams {
 }
 
 impl BiquadNodeParams {
-    fn new(
-        biquad_node: &BiquadNode,
-        b0: f64,
-        b1: f64,
-        b2: f64,
-        a0: f64,
-        a1: f64,
-        a2: f64,
-    ) -> Self {
+    fn new(biquad_node: &BiquadNode, b0: f64, b1: f64, b2: f64, a0: f64, a1: f64, a2: f64) -> Self {
         let ptr = unsafe {
             sys::ma_biquad_config_init(
                 biquad_node.format.into(),
@@ -271,10 +255,7 @@ impl BiquadNodeParams {
 
 #[cfg(test)]
 mod test {
-    use crate::engine::{
-        node_graph::nodes::filters::biquad::BiquadNodeBuilder,
-        Engine, EngineOps,
-    };
+    use crate::engine::{node_graph::nodes::filters::biquad::BiquadNodeBuilder, Engine, EngineOps};
 
     #[test]
     fn test_biquad_builder_basic_init() {

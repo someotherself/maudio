@@ -95,6 +95,7 @@ use crate::{
 /// # Ok(())
 /// # }
 /// ```
+#[allow(unused)]
 pub struct Decoder<F: PcmFormat, S> {
     inner: *mut sys::ma_decoder,
     channels: u32,
@@ -108,9 +109,11 @@ pub struct Decoder<F: PcmFormat, S> {
 type DecoderUserDataDestructor = (*mut core::ffi::c_void, fn(*mut core::ffi::c_void));
 
 /// Borrowed in-memory audio data used as a decoder source.
+#[allow(unused)]
 pub struct Borrowed<'a>(&'a [u8]);
 
 /// Owned in-memory audio data used as a decoder source.
+#[allow(unused)]
 pub struct Owned(Arc<[u8]>);
 /// Data source or destination is in a filesystem (e.g., file path) managed by miniaudio.
 pub struct Fs;
@@ -227,8 +230,7 @@ impl<F: PcmFormat, S> Decoder<F, S> {
             use crate::engine::cstring_from_path;
 
             let path = cstring_from_path(path)?;
-            decoder_ffi::ma_decoder_init_file(path, config, decoder)?;
-            Ok(())
+            decoder_ffi::ma_decoder_init_file(path, config, decoder)
         }
 
         #[cfg(windows)]
@@ -237,8 +239,7 @@ impl<F: PcmFormat, S> Decoder<F, S> {
 
             let path = wide_null_terminated(path);
 
-            decoder_ffi::ma_decoder_init_file_w(&path, config, decoder)?;
-            Ok(())
+            decoder_ffi::ma_decoder_init_file_w(&path, config, decoder)
         }
 
         #[cfg(not(any(unix, windows)))]
@@ -316,6 +317,7 @@ unsafe extern "C" fn decoder_seek_proc<R: SeekRead>(
     }
 }
 
+#[allow(unused)]
 unsafe extern "C" fn decoder_seek_proc_no_op(
     decoder: *mut sys::ma_decoder,
     _byte_offset: i64,
@@ -665,6 +667,7 @@ pub(crate) mod decoder_ffi {
     }
 
     // TODO: Not implemented. Look into usefulness
+    #[allow(unused)]
     fn ma_decode_file(
         path: *const core::ffi::c_char,
         config: *mut sys::ma_decoder_config,
@@ -675,6 +678,7 @@ pub(crate) mod decoder_ffi {
     }
 
     // TODO: Not implemented. Look into usefulness
+    #[allow(unused)]
     fn ma_decode_memory(
         data: *const core::ffi::c_void,
         data_size: usize,
@@ -942,7 +946,7 @@ mod tests {
         assert_eq!(dec.cursor_pcm().unwrap(), 0);
 
         let buf = dec.read_pcm_frames(1000).unwrap();
-        assert_eq!(buf.frames() as usize, frames_total);
+        assert_eq!(buf.frames(), frames_total);
     }
 
     #[test]

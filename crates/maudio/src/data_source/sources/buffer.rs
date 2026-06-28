@@ -24,11 +24,11 @@ use crate::{
 /// (`frame = channels` samples).
 ///
 /// For 24-bit audio, prefer [`S24Packed`] when you already have packed 3-byte samples.
-#[allow(dead_code)]
 pub struct AudioBuffer<F: PcmFormat> {
     inner: *mut sys::ma_audio_buffer,
     format: Format,
     channels: u32,
+    #[allow(unused)]
     alloc: Option<Arc<AllocationCallbacks>>,
     _sample_format: PhantomData<F>,
 }
@@ -59,6 +59,7 @@ pub struct AudioBufferRef<'a, F: PcmFormat> {
     inner: *mut sys::ma_audio_buffer,
     format: Format,
     channels: u32,
+    #[allow(unused)]
     alloc: Option<Arc<AllocationCallbacks>>,
     _data_marker: PhantomData<&'a [u8]>,
     _sample_format: PhantomData<F>,
@@ -395,6 +396,7 @@ pub(crate) mod buffer_ffi {
 
     // TODO Keep private for now
     #[inline]
+    #[allow(unused)]
     pub fn ma_audio_buffer_map<F: PcmFormat>(
         buffer: &mut AudioBuffer<F>,
         frames_out: *mut *mut core::ffi::c_void,
@@ -406,6 +408,7 @@ pub(crate) mod buffer_ffi {
 
     // TODO Keep private for now
     #[inline]
+    #[allow(unused)]
     pub fn ma_audio_buffer_unmap<F: PcmFormat>(
         buffer: &mut AudioBuffer<F>,
         frame_count: u64,

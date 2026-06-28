@@ -21,8 +21,7 @@ use crate::{
     AsRawRef, Binding, MaResult,
 };
 
-#[allow(dead_code)]
-#[derive(Debug)]
+#[allow(unused)]
 pub(crate) struct PulseWaveState {
     channels: u32,
     sample_rate: SampleRate,
@@ -39,6 +38,7 @@ pub(crate) struct PulseWaveState {
 /// Audio is generated in **PCM frames** using the selected [`PcmFormat`].
 pub struct PulseWave<F: PcmFormat> {
     inner: *mut sys::ma_pulsewave,
+    #[allow(unused)]
     format: Format,
     state: PulseWaveState,
     _sample_format: PhantomData<F>,
@@ -319,6 +319,7 @@ impl<F: PcmFormat> Drop for PulseWave<F> {
 /// Builder for constructing a [`PulseWave`]
 pub struct PulseWaveBuilder {
     inner: sys::ma_pulsewave_config,
+    #[allow(unused)]
     format: Format,
     channels: u32,
     sample_rate: SampleRate,

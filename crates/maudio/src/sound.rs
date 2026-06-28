@@ -201,7 +201,7 @@ impl<'a> Sound<'a> {
         sound_ffi::ma_sound_set_direction(self, vec3);
     }
 
-    /// Sets the facing direction.
+    /// Returns the velocity.
     pub fn velocity(&self) -> Vec3 {
         sound_ffi::ma_sound_get_velocity(self)
     }

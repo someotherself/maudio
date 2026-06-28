@@ -165,6 +165,7 @@ impl Devices {
 /// rate that the device may support natively.
 ///
 /// Support for `exclusive` mode is backend specific and is primarily relevant to WASAPI.
+#[allow(unused)]
 pub struct DeviceFormat {
     format: Format,
     channels: u32,

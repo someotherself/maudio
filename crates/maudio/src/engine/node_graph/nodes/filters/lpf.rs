@@ -99,7 +99,10 @@ impl<'a> LpfNode<'a> {
             ));
         }
 
-        if !cutoff_freq.is_finite() || cutoff_freq <= 0.0 || cutoff_freq >= i32::from(sample_rate) as f64 / 2.0 {
+        if !cutoff_freq.is_finite()
+            || cutoff_freq <= 0.0
+            || cutoff_freq >= i32::from(sample_rate) as f64 / 2.0
+        {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
             ));
@@ -262,10 +265,7 @@ impl LpfNodeParams {
 mod test {
     use crate::{
         audio::sample_rate::SampleRate,
-        engine::{
-            node_graph::nodes::filters::lpf::LpfNodeBuilder,
-            Engine, EngineOps,
-        },
+        engine::{node_graph::nodes::filters::lpf::LpfNodeBuilder, Engine, EngineOps},
         Binding,
     };
 
@@ -321,10 +321,7 @@ mod test {
 
         for &cutoff in &candidates {
             let res = node.reinit(SampleRate::Sr44100, cutoff);
-            // Accept either ok or invalid-args depending on miniaudio validation.
             if let Err(e) = res {
-                // If your Result error type exposes raw ma_result, assert it's invalid args here.
-                // Otherwise just ensure it doesn't panic.
                 let _ = e;
             }
         }
