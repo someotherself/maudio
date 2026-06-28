@@ -107,8 +107,17 @@ impl<'a> BiquadNode<'a> {
     }
 
     /// See [`BiquadNodeParams`] for creating a config
-    pub fn reinit(&mut self, config: &BiquadNodeParams) -> MaResult<()> {
-        n_biquad_ffi::ma_biquad_node_reinit(config.as_raw_ptr(), self)
+    pub fn reinit(
+        &mut self,
+        b0: f64,
+        b1: f64,
+        b2: f64,
+        a0: f64,
+        a1: f64,
+        a2: f64,
+    ) -> MaResult<()> {
+        let param = BiquadNodeParams::new(self, b0, b1, b2, a0, a1, a2);
+        n_biquad_ffi::ma_biquad_node_reinit(param.as_raw_ptr(), self)
     }
 
     /// Returns a **borrowed view** as a node in the engine's node graph.
@@ -222,7 +231,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> BiquadNodeBuilder<'a, N> {
 }
 
 /// Used to build a config file needed by [`BiquadNode::reinit`]
-pub struct BiquadNodeParams {
+struct BiquadNodeParams {
     inner: sys::ma_biquad_config,
 }
 
@@ -235,7 +244,7 @@ impl AsRawRef for BiquadNodeParams {
 }
 
 impl BiquadNodeParams {
-    pub fn new(
+    fn new(
         biquad_node: &BiquadNode,
         b0: f64,
         b1: f64,
@@ -263,7 +272,7 @@ impl BiquadNodeParams {
 #[cfg(test)]
 mod test {
     use crate::engine::{
-        node_graph::nodes::filters::biquad::{BiquadNodeBuilder, BiquadNodeParams},
+        node_graph::nodes::filters::biquad::BiquadNodeBuilder,
         Engine, EngineOps,
     };
 
@@ -275,8 +284,7 @@ mod test {
             .build()
             .unwrap();
 
-        let config = BiquadNodeParams::new(&node, 0.11, 0.11, 0.11, 0.11, 0.11, 0.11);
-        node.reinit(&config).unwrap();
+        node.reinit(0.11, 0.11, 0.11, 0.11, 0.11, 0.11).unwrap();
     }
 
     #[test]
@@ -287,8 +295,7 @@ mod test {
             .build()
             .unwrap();
 
-        let config = BiquadNodeParams::new(&node, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7);
-        node.reinit(&config).unwrap();
+        node.reinit(0.2, 0.3, 0.4, 0.5, 0.6, 0.7).unwrap();
     }
 
     #[test]
@@ -301,8 +308,7 @@ mod test {
 
         for i in 1..10 {
             let v = i as f64 * 0.01;
-            let config = BiquadNodeParams::new(&node, v, v, v, v, v, v);
-            node.reinit(&config).unwrap();
+            node.reinit(v, v, v, v, v, v).unwrap();
         }
     }
 
@@ -324,10 +330,8 @@ mod test {
             .build()
             .unwrap();
 
-        let config = BiquadNodeParams::new(&node, f64::INFINITY, 0.0, 0.0, 0.0, 0.0, 0.0);
-
         // TODO: Should check inputs on Rust side to prevent INFITITY ?
-        let _ = node.reinit(&config);
+        let _ = node.reinit(f64::INFINITY, 0.0, 0.0, 0.0, 0.0, 0.0);
     }
 
     #[test]
@@ -340,9 +344,7 @@ mod test {
                 .build()
                 .unwrap();
 
-        let config = BiquadNodeParams::new(&node, 1e30, 1e30, 1e30, 1e30, 1e30, 1e30);
-
-        let _ = node.reinit(&config);
+        let _ = node.reinit(1e30, 1e30, 1e30, 1e30, 1e30, 1e30);
     }
 
     #[test]
@@ -374,8 +376,7 @@ mod test {
             .build()
             .unwrap();
 
-        let cfg = BiquadNodeParams::new(&node, 0.2, 0.3, 0.4, 0.0, 0.6, 0.7);
-        let _ = node.reinit(&cfg);
+        let _ = node.reinit(0.2, 0.3, 0.4, 0.0, 0.6, 0.7);
     }
 
     #[test]
@@ -410,8 +411,7 @@ mod test {
 
         for i in 0..10_000 {
             let v = (i as f64) * 1e-6;
-            let cfg = BiquadNodeParams::new(&node, 0.2 + v, 0.3, 0.4, 1.0, 0.6, 0.7);
-            node.reinit(&cfg).unwrap();
+            node.reinit(0.2 + v, 0.3, 0.4, 1.0, 0.6, 0.7).unwrap();
         }
     }
 
@@ -437,7 +437,6 @@ mod test {
             .build()
             .unwrap();
 
-        let cfg = BiquadNodeParams::new(&node, 0.21, 0.31, 0.41, 1.0, 0.61, 0.71);
-        node.reinit(&cfg).unwrap();
+        node.reinit(0.21, 0.31, 0.41, 1.0, 0.61, 0.71).unwrap();
     }
 }

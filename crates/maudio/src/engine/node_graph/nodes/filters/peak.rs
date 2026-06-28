@@ -97,8 +97,9 @@ impl<'a> PeakNode<'a> {
     }
 
     /// See [`PeakNodeParams`] for creating a config
-    pub fn reinit(&mut self, config: &PeakNodeParams) -> MaResult<()> {
-        n_peak_ffi::ma_peak_node_reinit(config.as_raw_ptr(), self)
+    pub fn reinit(&mut self, gain_db: f64, quality_factor: f64, frequency: f64) -> MaResult<()> {
+        let params = PeakNodeParams::new(self, gain_db, quality_factor, frequency);
+        n_peak_ffi::ma_peak_node_reinit(params.as_raw_ptr(), self)
     }
 
     /// Returns a **borrowed view** as a node in the engine's node graph.
@@ -209,7 +210,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> PeakNodeBuilder<'a, N> {
     }
 }
 
-pub struct PeakNodeParams {
+struct PeakNodeParams {
     inner: sys::ma_peak_config,
 }
 
@@ -222,7 +223,7 @@ impl AsRawRef for PeakNodeParams {
 }
 
 impl PeakNodeParams {
-    pub fn new(node: &PeakNode, gain_db: f64, quality_factor: f64, frequency: f64) -> Self {
+    fn new(node: &PeakNode, gain_db: f64, quality_factor: f64, frequency: f64) -> Self {
         let ptr = unsafe {
             sys::ma_peak2_config_init(
                 node.format.into(),
@@ -242,7 +243,7 @@ mod test {
     use crate::{
         audio::sample_rate::SampleRate,
         engine::{
-            node_graph::nodes::filters::peak::{PeakNodeBuilder, PeakNodeParams},
+            node_graph::nodes::filters::peak::PeakNodeBuilder,
             Engine, EngineOps,
         },
     };
@@ -255,8 +256,7 @@ mod test {
         let mut node = PeakNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 2.0, 1.1, 2000.0)
             .build()
             .unwrap();
-        let config = PeakNodeParams::new(&node, 2.0, 1.0, 2000.0);
-        node.reinit(&config).unwrap();
+        node.reinit(2.0, 1.0, 2000.0).unwrap();
     }
 
     #[test]
@@ -281,8 +281,7 @@ mod test {
             // freq in [50, 12000]
             let freq = 50.0 + (t / 49.0) * (12_000.0 - 50.0);
 
-            let cfg = PeakNodeParams::new(&node, gain_db, q, freq);
-            node.reinit(&cfg).unwrap();
+            node.reinit(gain_db, q, freq).unwrap();
         }
     }
 
@@ -297,16 +296,13 @@ mod test {
                 .unwrap();
 
         // Very low freq (still > 0)
-        let cfg_low = PeakNodeParams::new(&node, -3.0, 0.5, 10.0);
-        node.reinit(&cfg_low).unwrap();
+        node.reinit(-3.0, 0.5, 10.0).unwrap();
 
         // Near-Nyquist-ish (leave headroom; Nyquist is 24000 at 48k)
-        let cfg_high = PeakNodeParams::new(&node, 3.0, 2.0, 18_000.0);
-        node.reinit(&cfg_high).unwrap();
+        node.reinit(3.0, 2.0, 18_000.0).unwrap();
 
         // Higher Q
-        let cfg_q = PeakNodeParams::new(&node, 0.0, 10.0, 1000.0);
-        node.reinit(&cfg_q).unwrap();
+        node.reinit(0.0, 10.0, 1000.0).unwrap();
     }
 
     #[test]
@@ -319,7 +315,6 @@ mod test {
             .build()
             .unwrap();
 
-        let cfg = PeakNodeParams::new(&node, 1.5, 1.0, 4000.0);
-        node.reinit(&cfg).unwrap();
+        node.reinit(1.5, 1.0, 4000.0).unwrap();
     }
 }

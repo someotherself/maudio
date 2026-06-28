@@ -92,22 +92,21 @@ impl<'a> LpfNode<'a> {
     }
 
     /// See [`LpfNodeParams`] for creating a config
-    pub fn reinit(&mut self, config: &LpfNodeParams) -> MaResult<()> {
-        if config.inner.channels == 0 {
+    pub fn reinit(&mut self, sample_rate: SampleRate, cutoff_freq: f64) -> MaResult<()> {
+        if self.channels == 0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
             ));
         }
 
-        let sample_rate: u32 = config.inner.sampleRate;
-        let cutoff = config.inner.cutoffFrequency;
-        if !cutoff.is_finite() || cutoff <= 0.0 || cutoff >= sample_rate as f64 / 2.0 {
+        if !cutoff_freq.is_finite() || cutoff_freq <= 0.0 || cutoff_freq >= i32::from(sample_rate) as f64 / 2.0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
             ));
         }
 
-        n_lpf_ffi::ma_lpf_node_reinit(config.as_raw_ptr(), self)
+        let params = LpfNodeParams::new(self, sample_rate, cutoff_freq);
+        n_lpf_ffi::ma_lpf_node_reinit(params.as_raw_ptr(), self)
     }
 
     /// Returns a **borrowed view** as a node in the engine's node graph.
@@ -232,7 +231,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> LpfNodeBuilder<'a, N> {
     }
 }
 
-pub struct LpfNodeParams {
+struct LpfNodeParams {
     inner: sys::ma_lpf_config,
 }
 
@@ -245,7 +244,7 @@ impl AsRawRef for LpfNodeParams {
 }
 
 impl LpfNodeParams {
-    pub fn new(node: &LpfNode, sample_rate: SampleRate, cutoff_freq: f64) -> Self {
+    fn new(node: &LpfNode, sample_rate: SampleRate, cutoff_freq: f64) -> Self {
         let ptr = unsafe {
             sys::ma_lpf_config_init(
                 node.format.into(),
@@ -264,7 +263,7 @@ mod test {
     use crate::{
         audio::sample_rate::SampleRate,
         engine::{
-            node_graph::nodes::filters::lpf::{LpfNodeBuilder, LpfNodeParams},
+            node_graph::nodes::filters::lpf::LpfNodeBuilder,
             Engine, EngineOps,
         },
         Binding,
@@ -278,8 +277,7 @@ mod test {
         let mut node = LpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1000.0, 1)
             .build()
             .unwrap();
-        let config = LpfNodeParams::new(&node, SampleRate::Sr44100, 1200.0);
-        node.reinit(&config).unwrap();
+        node.reinit(SampleRate::Sr44100, 1200.0).unwrap();
     }
 
     #[test]
@@ -293,8 +291,7 @@ mod test {
 
         for i in 0..50 {
             let cutoff = 200.0 + (i as f64 * 20.0); // 200..1180 Hz
-            let config = LpfNodeParams::new(&node, SampleRate::Sr44100, cutoff);
-            node.reinit(&config).unwrap();
+            node.reinit(SampleRate::Sr44100, cutoff).unwrap();
         }
     }
     #[test]
@@ -306,11 +303,9 @@ mod test {
             .build()
             .unwrap();
 
-        let cfg1 = LpfNodeParams::new(&node, SampleRate::Sr44100, 800.0);
-        node.reinit(&cfg1).unwrap();
+        node.reinit(SampleRate::Sr44100, 800.0).unwrap();
 
-        let cfg2 = LpfNodeParams::new(&node, SampleRate::Sr48000, 800.0);
-        node.reinit(&cfg2).unwrap();
+        node.reinit(SampleRate::Sr48000, 800.0).unwrap();
     }
 
     #[test]
@@ -325,8 +320,7 @@ mod test {
         let candidates = [0.0, 1.0, 10.0, 20_000.0, 100_000.0];
 
         for &cutoff in &candidates {
-            let cfg = LpfNodeParams::new(&node, SampleRate::Sr44100, cutoff);
-            let res = node.reinit(&cfg);
+            let res = node.reinit(SampleRate::Sr44100, cutoff);
             // Accept either ok or invalid-args depending on miniaudio validation.
             if let Err(e) = res {
                 // If your Result error type exposes raw ma_result, assert it's invalid args here.
@@ -383,8 +377,7 @@ mod test {
         for i in 0..100_000 {
             // keep cutoff within (0, nyquist)
             let cutoff = 10.0 + (i % 20_000) as f64; // 10..20009 Hz
-            let cfg = LpfNodeParams::new(&node, SampleRate::Sr48000, cutoff);
-            node.reinit(&cfg).unwrap();
+            node.reinit(SampleRate::Sr48000, cutoff).unwrap();
         }
     }
 
@@ -399,8 +392,7 @@ mod test {
                 .unwrap();
 
             if i % 3 == 0 {
-                let cfg = LpfNodeParams::new(&node, SampleRate::Sr44100, 1200.0);
-                node.reinit(&cfg).unwrap();
+                node.reinit(SampleRate::Sr44100, 1200.0).unwrap();
             }
         }
     }
@@ -417,14 +409,11 @@ mod test {
         let nyquist = 48_000.0 / 2.0;
         let eps = 1e-9;
 
-        let ok = LpfNodeParams::new(&node, SampleRate::Sr48000, nyquist - eps);
-        assert!(node.reinit(&ok).is_ok());
+        assert!(node.reinit(SampleRate::Sr48000, nyquist - eps).is_ok());
 
-        let eq = LpfNodeParams::new(&node, SampleRate::Sr48000, nyquist);
-        assert!(node.reinit(&eq).is_err());
+        assert!(node.reinit(SampleRate::Sr48000, nyquist).is_err());
 
-        let above = LpfNodeParams::new(&node, SampleRate::Sr48000, nyquist + eps);
-        assert!(node.reinit(&above).is_err());
+        assert!(node.reinit(SampleRate::Sr48000, nyquist + eps).is_err());
     }
 
     #[test]
@@ -437,8 +426,7 @@ mod test {
             .unwrap();
 
         for &cutoff in &[f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
-            let cfg = LpfNodeParams::new(&node, SampleRate::Sr44100, cutoff);
-            assert!(node.reinit(&cfg).is_err());
+            assert!(node.reinit(SampleRate::Sr44100, cutoff).is_err());
         }
     }
 
@@ -451,11 +439,9 @@ mod test {
             .build()
             .unwrap();
 
-        let bad = LpfNodeParams::new(&node, SampleRate::Sr44100, 22_050.0);
-        assert!(node.reinit(&bad).is_err());
+        assert!(node.reinit(SampleRate::Sr44100, 22_050.0).is_err());
 
-        let ok = LpfNodeParams::new(&node, SampleRate::Sr44100, 5000.0);
-        node.reinit(&ok).unwrap();
+        node.reinit(SampleRate::Sr44100, 5000.0).unwrap();
     }
 
     #[test]

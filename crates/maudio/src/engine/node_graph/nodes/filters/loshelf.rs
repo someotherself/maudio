@@ -102,20 +102,26 @@ impl<'a> LoShelfNode<'a> {
     }
 
     /// See [`LoShelfNodeParams`] for creating a config
-    pub fn reinit(&mut self, config: &LoShelfNodeParams) -> MaResult<()> {
-        if !config.inner.frequency.is_finite() || config.inner.frequency <= 0.0 {
+    pub fn reinit(&mut self,
+            sample_rate: SampleRate,
+        gain_db: f64,
+        shelf_slope: f64,
+        frequency: f64,
+    ) -> MaResult<()> {
+        if !frequency.is_finite() || frequency <= 0.0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
             ));
         }
 
-        if !config.inner.shelfSlope.is_finite() || config.inner.shelfSlope <= 0.0 {
+        if !shelf_slope.is_finite() || shelf_slope <= 0.0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
             ));
         }
 
-        n_loshelf_ffi::ma_loshelf_node_reinit(config.as_raw_ptr(), self)
+        let params = LoShelfNodeParams::new(self, sample_rate, gain_db, shelf_slope, frequency);
+        n_loshelf_ffi::ma_loshelf_node_reinit(params.as_raw_ptr(), self)
     }
 
     /// Returns a **borrowed view** as a node in the engine's node graph.
@@ -248,7 +254,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> LoShelfNodeBuilder<'a, N> {
     }
 }
 
-pub struct LoShelfNodeParams {
+struct LoShelfNodeParams {
     inner: sys::ma_loshelf_config,
 }
 
@@ -261,7 +267,7 @@ impl AsRawRef for LoShelfNodeParams {
 }
 
 impl LoShelfNodeParams {
-    pub fn new(
+    fn new(
         node: &LoShelfNode,
         sample_rate: SampleRate,
         gain_db: f64,
@@ -287,7 +293,7 @@ mod test {
     use crate::{
         audio::sample_rate::SampleRate,
         engine::{
-            node_graph::nodes::filters::loshelf::{LoShelfNodeBuilder, LoShelfNodeParams},
+            node_graph::nodes::filters::loshelf::LoShelfNodeBuilder,
             Engine, EngineOps,
         },
         Binding,
@@ -303,8 +309,7 @@ mod test {
                 .build()
                 .unwrap();
 
-        let config = LoShelfNodeParams::new(&node, SampleRate::Sr48000, 0.0, 0.1, 1200.0);
-        node.reinit(&config).unwrap();
+        node.reinit(SampleRate::Sr48000, 0.0, 0.1, 1200.0).unwrap();
     }
 
     #[test]
@@ -318,8 +323,7 @@ mod test {
                 .unwrap();
 
         // Change sample rate: should be OK.
-        let cfg = LoShelfNodeParams::new(&node, SampleRate::Sr44100, 0.0, 0.5, 200.0);
-        node.reinit(&cfg).unwrap();
+        node.reinit(SampleRate::Sr44100, 0.0, 0.5, 200.0).unwrap();
     }
 
     #[test]
@@ -332,8 +336,7 @@ mod test {
                 .build()
                 .unwrap();
 
-        let cfg = LoShelfNodeParams::new(&node, SampleRate::Sr48000, 0.0, 0.5, 0.0);
-        assert!(node.reinit(&cfg).is_err());
+        assert!(node.reinit(SampleRate::Sr48000, 0.0, 0.5, 0.0).is_err());
     }
 
     #[test]
@@ -346,8 +349,7 @@ mod test {
                 .build()
                 .unwrap();
 
-        let cfg = LoShelfNodeParams::new(&node, SampleRate::Sr48000, 0.0, 0.0, 200.0);
-        assert!(node.reinit(&cfg).is_err());
+        assert!(node.reinit(SampleRate::Sr48000, 0.0, 0.0, 200.0).is_err());
     }
 
     #[test]
@@ -360,11 +362,9 @@ mod test {
                 .build()
                 .unwrap();
 
-        let cfg = LoShelfNodeParams::new(&node, SampleRate::Sr48000, 120.0, 0.5, 200.0);
-        assert!(node.reinit(&cfg).is_ok());
+        assert!(node.reinit(SampleRate::Sr48000, 120.0, 0.5, 200.0).is_ok());
 
-        let cfg = LoShelfNodeParams::new(&node, SampleRate::Sr48000, -120.0, 0.5, 200.0);
-        assert!(node.reinit(&cfg).is_ok());
+        assert!(node.reinit(SampleRate::Sr48000, -120.0, 0.5, 200.0).is_ok());
     }
 
     #[test]
@@ -405,8 +405,7 @@ mod test {
             let gain = ((i % 240) as f64) - 120.0; // [-120, 119]
             let slope = 0.1 + ((i % 100) as f64) * 0.01; // (0.1..1.09)
 
-            let cfg = LoShelfNodeParams::new(&node, SampleRate::Sr48000, gain, slope, freq);
-            node.reinit(&cfg).unwrap();
+            node.reinit(SampleRate::Sr48000, gain, slope, freq).unwrap();
         }
     }
 
@@ -420,11 +419,9 @@ mod test {
                 .build()
                 .unwrap();
 
-        let cfg = LoShelfNodeParams::new(&node, SampleRate::Sr48000, 0.0, 0.5, 0.0);
-        assert!(node.reinit(&cfg).is_err());
+        assert!(node.reinit(SampleRate::Sr48000, 0.0, 0.5, 0.0).is_err());
 
-        let cfg2 = LoShelfNodeParams::new(&node, SampleRate::Sr48000, 3.0, 0.8, 250.0);
-        node.reinit(&cfg2).unwrap();
+        node.reinit(SampleRate::Sr48000, 3.0, 0.8, 250.0).unwrap();
     }
 
     #[test]
@@ -450,9 +447,7 @@ mod test {
                 .build()
                 .unwrap();
 
-        let cfg = LoShelfNodeParams::new(&node, SampleRate::Sr48000, 0.0, 0.5, -1.0);
-
-        assert!(node.reinit(&cfg).is_err());
+        assert!(node.reinit(SampleRate::Sr48000, 0.0, 0.5, -1.0).is_err());
     }
 
     #[test]
@@ -465,7 +460,6 @@ mod test {
                 .build()
                 .unwrap();
 
-        let cfg = LoShelfNodeParams::new(&node, SampleRate::Sr48000, 0.0, 0.5, f64::NAN);
-        assert!(node.reinit(&cfg).is_err());
+        assert!(node.reinit(SampleRate::Sr48000, 0.0, 0.5, f64::NAN).is_err());
     }
 }

@@ -92,22 +92,21 @@ impl<'a> HpfNode<'a> {
     }
 
     /// See [`HpfNodeParams`] for creating a config
-    pub fn reinit(&mut self, config: &HpfNodeParams) -> MaResult<()> {
-        if config.inner.channels == 0 {
+    pub fn reinit(&mut self, sample_rate: SampleRate, cutoff_freq: f64) -> MaResult<()> {
+        if self.channels == 0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
             ));
         }
 
-        let sample_rate: u32 = config.inner.sampleRate;
-        let cutoff = config.inner.cutoffFrequency;
-        if !cutoff.is_finite() || cutoff <= 0.0 || cutoff >= sample_rate as f64 / 2.0 {
+        if !cutoff_freq.is_finite() || cutoff_freq <= 0.0 || cutoff_freq >= i32::from(sample_rate) as f64 / 2.0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
             ));
         }
 
-        n_hpf_ffi::ma_hpf_node_reinit(config.as_raw_ptr(), self)
+        let params = HpfNodeParams::new(self, sample_rate, cutoff_freq);
+        n_hpf_ffi::ma_hpf_node_reinit(params.as_raw_ptr(), self)
     }
 
     /// Returns a **borrowed view** as a node in the engine's node graph.
@@ -227,7 +226,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> HpfNodeBuilder<'a, N> {
     }
 }
 
-pub struct HpfNodeParams {
+struct HpfNodeParams {
     inner: sys::ma_hpf_config,
 }
 
@@ -240,7 +239,7 @@ impl AsRawRef for HpfNodeParams {
 }
 
 impl HpfNodeParams {
-    pub fn new(node: &HpfNode, sample_rate: SampleRate, cutoff_freq: f64) -> Self {
+    fn new(node: &HpfNode, sample_rate: SampleRate, cutoff_freq: f64) -> Self {
         let ptr = unsafe {
             sys::ma_hpf_config_init(
                 node.format.into(),
@@ -259,7 +258,7 @@ mod test {
     use crate::{
         audio::sample_rate::SampleRate,
         engine::{
-            node_graph::nodes::filters::hpf::{HpfNodeBuilder, HpfNodeParams},
+            node_graph::nodes::filters::hpf::HpfNodeBuilder,
             Engine, EngineOps,
         },
     };
@@ -272,8 +271,7 @@ mod test {
         let mut node = HpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1000.0, 1)
             .build()
             .unwrap();
-        let config = HpfNodeParams::new(&node, SampleRate::Sr44100, 1200.0);
-        node.reinit(&config).unwrap();
+        node.reinit(SampleRate::Sr44100, 1200.0).unwrap();
     }
 
     #[test]
@@ -285,8 +283,7 @@ mod test {
             .build()
             .unwrap();
 
-        let cfg = HpfNodeParams::new(&node, SampleRate::Sr44100, 200.0);
-        node.reinit(&cfg).unwrap();
+        node.reinit(SampleRate::Sr44100, 200.0).unwrap();
     }
 
     #[test]
@@ -298,9 +295,7 @@ mod test {
             .build()
             .unwrap();
 
-        let cfg = HpfNodeParams::new(&node, SampleRate::Sr48000, 0.0);
-
-        assert!(node.reinit(&cfg).is_err());
+        assert!(node.reinit(SampleRate::Sr48000, 0.0).is_err());
     }
 
     #[test]
@@ -312,8 +307,7 @@ mod test {
             .build()
             .unwrap();
 
-        let cfg = HpfNodeParams::new(&node, SampleRate::Sr48000, -1.0);
-        assert!(node.reinit(&cfg).is_err());
+        assert!(node.reinit(SampleRate::Sr48000, -1.0).is_err());
     }
 
     #[test]
@@ -374,8 +368,7 @@ mod test {
             .build()
             .unwrap();
 
-        let cfg = HpfNodeParams::new(&node, SampleRate::Sr48000, f64::NAN);
-        assert!(node.reinit(&cfg).is_err());
+        assert!(node.reinit(SampleRate::Sr48000, f64::NAN).is_err());
     }
 
     #[test]
@@ -416,8 +409,7 @@ mod test {
 
         for i in 0..10_000 {
             let cutoff = 20.0 + ((i % 10_000) as f64) * 0.1; // 20..1020
-            let cfg = HpfNodeParams::new(&node, SampleRate::Sr48000, cutoff);
-            node.reinit(&cfg).unwrap();
+            node.reinit(SampleRate::Sr48000, cutoff).unwrap();
         }
     }
 }

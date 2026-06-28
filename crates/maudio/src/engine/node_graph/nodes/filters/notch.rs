@@ -99,22 +99,23 @@ impl<'a> NotchNode<'a> {
     }
 
     /// See [`NotchNodeParams`] for creating a config
-    pub fn reinit(&mut self, config: &NotchNodeParams) -> MaResult<()> {
-        if config.inner.channels == 0 {
+    pub fn reinit(&mut self, q: f64, frequency: f64) -> MaResult<()> {
+        let params = NotchNodeParams::new(self, q, frequency);
+        if params.inner.channels == 0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
             ));
         }
 
-        let sample_rate: u32 = config.inner.sampleRate;
-        let cutoff = config.inner.frequency;
+        let sample_rate: u32 = params.inner.sampleRate;
+        let cutoff = params.inner.frequency;
         if !cutoff.is_finite() || cutoff <= 0.0 || cutoff >= sample_rate as f64 / 2.0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
             ));
         }
 
-        n_notch_ffi::ma_notch_node_reinit(config.as_raw_ptr(), self)
+        n_notch_ffi::ma_notch_node_reinit(params.as_raw_ptr(), self)
     }
 
     /// Returns a **borrowed view** as a node in the engine's node graph.
@@ -242,7 +243,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> NotchNodeBuilder<'a, N> {
     }
 }
 
-pub struct NotchNodeParams {
+struct NotchNodeParams {
     inner: sys::ma_notch_config,
 }
 
@@ -255,7 +256,7 @@ impl AsRawRef for NotchNodeParams {
 }
 
 impl NotchNodeParams {
-    pub fn new(node: &NotchNode, q: f64, frequency: f64) -> Self {
+    fn new(node: &NotchNode, q: f64, frequency: f64) -> Self {
         let ptr = unsafe {
             sys::ma_notch2_config_init(
                 node.format.into(),
@@ -274,7 +275,7 @@ mod test {
     use crate::{
         audio::sample_rate::SampleRate,
         engine::{
-            node_graph::nodes::filters::notch::{NotchNodeBuilder, NotchNodeParams},
+            node_graph::nodes::filters::notch::NotchNodeBuilder,
             Engine, EngineOps,
         },
     };
@@ -287,8 +288,7 @@ mod test {
         let mut node = NotchNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1.0, 2000.0)
             .build()
             .unwrap();
-        let config = NotchNodeParams::new(&node, 1.0, 3000.0);
-        node.reinit(&config).unwrap();
+        node.reinit(1.0, 3000.0).unwrap();
     }
 
     #[test]
@@ -315,8 +315,7 @@ mod test {
         for i in 0..50 {
             let f = 200.0 + (i as f64) * 40.0; // 200..2160 Hz
             let q = 0.7 + (i as f64) * 0.05; // 0.7..3.15
-            let cfg = NotchNodeParams::new(&node, q, f);
-            node.reinit(&cfg).unwrap();
+            node.reinit(q, f).unwrap();
         }
     }
 
@@ -329,8 +328,7 @@ mod test {
             .build()
             .unwrap();
 
-        let bad_cfg = NotchNodeParams::new(&node, 1.0, 0.0);
-        assert!(node.reinit(&bad_cfg).is_err());
+        assert!(node.reinit(1.0, 0.0).is_err());
     }
 
     #[test]
@@ -342,9 +340,8 @@ mod test {
             .build()
             .unwrap();
 
-        let bad_cfg = NotchNodeParams::new(&node, -1.0, 1000.0);
         // TODO: Negative quality factor?
-        assert!(node.reinit(&bad_cfg).is_ok());
+        assert!(node.reinit(-1.0, 1000.0).is_ok());
     }
 
     #[test]
@@ -360,8 +357,7 @@ mod test {
         // Prefer error, but allow Ok if miniaudio clamps internally.
         // If it clamps, this assert can be changed to `assert!(res.is_ok())` once confirmed.
         if let Ok(mut node) = res {
-            let cfg = NotchNodeParams::new(&node, 1.0, 10_000.0);
-            node.reinit(&cfg).unwrap();
+            node.reinit(1.0, 10_000.0).unwrap();
         }
     }
 

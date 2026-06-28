@@ -102,20 +102,26 @@ impl<'a> HiShelfNode<'a> {
     }
 
     /// See [`HiShelfNodeParams`] for creating a config
-    pub fn reinit(&mut self, config: &HiShelfNodeParams) -> MaResult<()> {
-        if !config.inner.frequency.is_finite() || config.inner.frequency <= 0.0 {
+    pub fn reinit(&mut self,
+            sample_rate: SampleRate,
+        gain_db: f64,
+        shelf_slope: f64,
+        frequency: f64,
+    ) -> MaResult<()> {
+        if !frequency.is_finite() || frequency <= 0.0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
             ));
         }
 
-        if !config.inner.shelfSlope.is_finite() || config.inner.shelfSlope <= 0.0 {
+        if !shelf_slope.is_finite() || shelf_slope <= 0.0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
             ));
         }
 
-        n_hishelf_ffi::ma_hishelf_node_reinit(config.as_raw_ptr(), self)
+        let params = HiShelfNodeParams::new(self, sample_rate, gain_db, shelf_slope, frequency);
+        n_hishelf_ffi::ma_hishelf_node_reinit(params.as_raw_ptr(), self)
     }
 
     /// Returns a **borrowed view** as a node in the engine's node graph.
@@ -254,7 +260,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> HiShelfNodeBuilder<'a, N> {
     }
 }
 
-pub struct HiShelfNodeParams {
+struct HiShelfNodeParams {
     inner: sys::ma_hishelf_config,
 }
 
@@ -267,7 +273,7 @@ impl AsRawRef for HiShelfNodeParams {
 }
 
 impl HiShelfNodeParams {
-    pub fn new(
+    fn new(
         node: &HiShelfNode,
         sample_rate: SampleRate,
         gain_db: f64,
@@ -293,7 +299,7 @@ mod test {
     use crate::{
         audio::sample_rate::SampleRate,
         engine::{
-            node_graph::nodes::filters::hishelf::{HiShelfNodeBuilder, HiShelfNodeParams},
+            node_graph::nodes::filters::hishelf::HiShelfNodeBuilder,
             Engine, EngineOps,
         },
     };
@@ -308,8 +314,7 @@ mod test {
                 .build()
                 .unwrap();
 
-        let config = HiShelfNodeParams::new(&node, SampleRate::Sr48000, 0.0, 0.1, 1200.0);
-        node.reinit(&config).unwrap();
+        node.reinit(SampleRate::Sr48000, 0.0, 0.1, 1200.0).unwrap();
     }
 
     #[test]
@@ -322,8 +327,7 @@ mod test {
                 .build()
                 .unwrap();
 
-        let cfg = HiShelfNodeParams::new(&node, SampleRate::Sr44100, 0.0, 0.5, 2000.0);
-        node.reinit(&cfg).unwrap();
+        node.reinit(SampleRate::Sr44100, 0.0, 0.5, 2000.0).unwrap();
     }
 
     #[test]
@@ -336,8 +340,7 @@ mod test {
                 .build()
                 .unwrap();
 
-        let cfg = HiShelfNodeParams::new(&node, SampleRate::Sr48000, 0.0, 0.5, 0.0);
-        assert!(node.reinit(&cfg).is_err());
+        assert!(node.reinit(SampleRate::Sr48000, 0.0, 0.5, 0.0).is_err());
     }
 
     #[test]
@@ -351,8 +354,7 @@ mod test {
                 .unwrap();
 
         // Slope 0 or negative should error.
-        let cfg = HiShelfNodeParams::new(&node, SampleRate::Sr48000, 0.0, 0.0, 2000.0);
-        assert!(node.reinit(&cfg).is_err());
+        assert!(node.reinit(SampleRate::Sr48000, 0.0, 0.0, 2000.0).is_err());
     }
 
     #[test]
@@ -408,8 +410,7 @@ mod test {
             let freq = 1000.0 + ((i % 3000) as f64); // 1k..4k
             let slope = 0.1 + ((i % 90) as f64) * 0.01; // 0.1..1.0
 
-            let cfg = HiShelfNodeParams::new(&node, SampleRate::Sr48000, gain, slope, freq);
-            let _ = node.reinit(&cfg);
+            let _ = node.reinit(SampleRate::Sr48000, gain, slope, freq);
         }
     }
 
@@ -456,15 +457,12 @@ mod test {
                 .build()
                 .unwrap();
 
-        let cfg = HiShelfNodeParams::new(&node, SampleRate::Sr48000, f64::NAN, 0.5, 2000.0);
-        let _ = node.reinit(&cfg); // no panic
+        let _ = node.reinit(SampleRate::Sr48000, 0.0, 0.5, 2000.0); // no panic
 
-        let cfg = HiShelfNodeParams::new(&node, SampleRate::Sr48000, 0.0, f64::INFINITY, 2000.0);
-        let res = node.reinit(&cfg);
+        let res = node.reinit(SampleRate::Sr48000, 0.0, f64::INFINITY, 2000.0);
         assert!(res.is_err());
 
-        let cfg = HiShelfNodeParams::new(&node, SampleRate::Sr48000, 0.0, 0.5, f64::NAN);
-        let res = node.reinit(&cfg);
+        let res = node.reinit(SampleRate::Sr48000, 0.0, 0.5, f64::NAN);
         assert!(res.is_err());
     }
 }
