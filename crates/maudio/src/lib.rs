@@ -261,8 +261,6 @@ impl std::fmt::Display for ErrorKinds {
                 )
             }
             ErrorKinds::InvalidGraphState => write!(f, "invalid graph state"),
-            ErrorKinds::ChannelRecieveError => write!(f, "channel receive error"),
-            ErrorKinds::ChannelSendError => write!(f, "channel send error"),
             ErrorKinds::InvalidFormat => write!(f, "invalid format"),
             ErrorKinds::InvalidCString => write!(f, "invalid C string"),
             ErrorKinds::InvalidOperation(error) => write!(f, "{error}",),
@@ -383,7 +381,7 @@ impl ErrorKinds {
 /// - Detecting arithmetic overflow
 ///
 /// Miniaudio-native errors are represented separately by `MA_RESULT`.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ErrorKinds {
     // Error converting a raw value to an enum variant
@@ -419,11 +417,6 @@ pub enum ErrorKinds {
     S24OverFlow,
     S24UnderFlow,
     InvalidGraphState,
-    /// Used by Handle types. Error during a recv
-    ChannelRecieveError,
-    /// Used by Handle types. Error during a send
-    ChannelSendError,
-    /// TryFrom error converting raw miniaudio value to Maudio
     InvalidFormat,
     /// Error coverting Path to CString
     InvalidCString,
