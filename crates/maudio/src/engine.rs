@@ -56,7 +56,7 @@ use crate::{
         formats::SampleBuffer, math::vec3::Vec3, sample_rate::SampleRate, spatial::cone::Cone,
     },
     data_source::AsSourcePtr,
-    device::{device_id::DeviceId, Device, DeviceRef},
+    device::{device_id::DeviceId, DeviceInner, DeviceRef},
     engine::{
         engine_builder::EngineBuilder,
         node_graph::{nodes::NodeRef, NodeGraphRef},
@@ -96,8 +96,8 @@ pub mod resource;
 /// - optionally interact with the engine’s endpoint node / node graph for effects
 pub struct Engine {
     inner: *mut sys::ma_engine,
-    _playback_device_id: Option<DeviceId>, // a ref count
-    _device: Option<Device>,               // a ref count
+    _playback_device_id: Option<DeviceId>,  // a ref count
+    _device: Option<Arc<DeviceInner<f32>>>, // a ref count
     _resource_manager: Option<ResourceManager<f32>>, // a ref count
     process_data_ptr: Option<*mut ProcessState>, // userdata (self.inner.pProcessUserData)
     process_data_panic: Option<Arc<AtomicBool>>, // true = callback panicked and is now poisoned

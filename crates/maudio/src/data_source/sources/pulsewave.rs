@@ -44,6 +44,8 @@ pub struct PulseWave<F: PcmFormat> {
     _sample_format: PhantomData<F>,
 }
 
+unsafe impl<F: PcmFormat> Send for PulseWave<F> {}
+
 impl<F: PcmFormat> Binding for PulseWave<F> {
     type Raw = *mut sys::ma_pulsewave;
 

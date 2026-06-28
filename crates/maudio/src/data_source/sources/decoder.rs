@@ -106,6 +106,8 @@ pub struct Decoder<F: PcmFormat, S> {
     source_data: S,
 }
 
+unsafe impl<F: PcmFormat, S> Send for Decoder<F, S> {}
+
 type DecoderUserDataDestructor = (*mut core::ffi::c_void, fn(*mut core::ffi::c_void));
 
 /// Borrowed in-memory audio data used as a decoder source.

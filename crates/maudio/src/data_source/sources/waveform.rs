@@ -56,6 +56,8 @@ pub struct WaveForm<F: PcmFormat> {
     _sample_format: PhantomData<F>,
 }
 
+unsafe impl<F: PcmFormat> Send for WaveForm<F> {}
+
 impl<F: PcmFormat> Binding for WaveForm<F> {
     type Raw = *mut sys::ma_waveform;
 

@@ -17,6 +17,8 @@ pub struct Noise<F: PcmFormat> {
     _sample_format: PhantomData<F>,
 }
 
+unsafe impl<F: PcmFormat> Send for Noise<F> {}
+
 impl<F: PcmFormat> Binding for Noise<F> {
     type Raw = *mut sys::ma_noise;
 

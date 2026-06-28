@@ -1041,20 +1041,13 @@ impl<'a, F: PcmFormat> PlaybackDeviceBuilder<'a, F> {
     /// 2. **`output`**
     ///    A mutable interleaved buffer that must be filled with playback samples.
     ///
-    /// 3. **`frame_count`**
-    ///    The number of frames available in the buffer.  
-    ///    One frame contains one sample for each channel.
-    ///
     /// The [`CallBackDevice`] a restricted device handle exposing only
     /// operations that are safe to use from inside the audio callback.
-    ///
-    /// The slice length is `frame_count * playback_channels`.
     ///
     /// ## Callback contract
     ///
     /// - Write playback samples into `output`.
     /// - Do not read from uninitialized parts of `output`.
-    /// - Do not write more than `frame_count` frames.
     ///
     /// ## Real-time behavior
     ///
@@ -1066,9 +1059,9 @@ impl<'a, F: PcmFormat> PlaybackDeviceBuilder<'a, F> {
     ///
     /// Panics are trapped to avoid unwinding across the FFI boundary. After a
     /// panic, the callback is poisoned and will no longer run user code.
-    pub fn with_callback<C>(&mut self, f: C) -> MaResult<Device>
+    pub fn with_callback<C>(&mut self, f: C) -> MaResult<Device<F>>
     where
-        C: FnMut(CallBackDevice, &mut [F::StorageUnit], u32) + Send + 'static,
+        C: FnMut(CallBackDevice, &mut [F::StorageUnit]) + Send + 'static,
     {
         let panic_flag = Arc::new(AtomicBool::new(false));
         let state_notif = DeviceStateNotifier::default();
@@ -1133,14 +1126,8 @@ impl<'a, F: PcmFormat> CaptureDeviceBuilder<'a, F> {
     /// 2. **`input`**
     ///    Immutable interleaved capture buffer.
     ///
-    /// 3. **`frame_count`**
-    ///    The number of frames available in the buffer.  
-    ///    One frame contains one sample for each channel.
-    ///
     /// The [`CallBackDevice`] a restricted device handle exposing only
     /// operations that are safe to use from inside the audio callback.
-    ///
-    /// The slice length is `frame_count * capture_channels`.
     ///
     /// ## Callback contract
     ///
@@ -1158,9 +1145,9 @@ impl<'a, F: PcmFormat> CaptureDeviceBuilder<'a, F> {
     ///
     /// Panics are trapped to avoid unwinding across the FFI boundary. After a
     /// panic, the callback is poisoned and will no longer run user code.
-    pub fn with_callback<C>(&mut self, f: C) -> MaResult<Device>
+    pub fn with_callback<C>(&mut self, f: C) -> MaResult<Device<F>>
     where
-        C: FnMut(CallBackDevice, &[F::StorageUnit], u32) + Send + 'static,
+        C: FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
     {
         let panic_flag = Arc::new(AtomicBool::new(false));
         let state_notif = DeviceStateNotifier::default();
@@ -1228,21 +1215,14 @@ impl<'a, F: PcmFormat> DuplexDeviceBuilder<'a, F> {
     /// 3. **`input`**
     ///    Immutable interleaved capture buffer.
     ///
-    /// 4. **`frame_count`**
-    ///    The number of frames available for this callback cycle.
-    ///
     /// The [`CallBackDevice`] a restricted device handle exposing only
     /// operations that are safe to use from inside the audio callback.
-    ///
-    /// The output slice length is `frame_count * playback_channels`.
-    /// The input slice length is `frame_count * capture_channels`.
     ///
     /// ## Callback contract
     ///
     /// - Read captured samples from `input`.
     /// - Write playback samples into `output`.
     /// - Do not read from uninitialized parts of `output`.
-    /// - Do not process more than `frame_count` frames.
     ///
     /// ## Real-time behavior
     ///
@@ -1254,9 +1234,9 @@ impl<'a, F: PcmFormat> DuplexDeviceBuilder<'a, F> {
     ///
     /// Panics are trapped to avoid unwinding across the FFI boundary. After a
     /// panic, the callback is poisoned and will no longer run user code.
-    pub fn with_callback<C>(&mut self, f: C) -> MaResult<Device>
+    pub fn with_callback<C>(&mut self, f: C) -> MaResult<Device<F>>
     where
-        C: FnMut(CallBackDevice, &mut [F::StorageUnit], &[F::StorageUnit], u32) + Send + 'static,
+        C: FnMut(CallBackDevice, &mut [F::StorageUnit], &[F::StorageUnit]) + Send + 'static,
     {
         let panic_flag = Arc::new(AtomicBool::new(false));
         let state_notif = DeviceStateNotifier::default();
@@ -1346,9 +1326,9 @@ impl<'a, F: PcmFormat> LoopbackDeviceBuilder<'a, F> {
     ///
     /// Panics are trapped to avoid unwinding across the FFI boundary. After a
     /// panic, the callback is poisoned and will no longer run user code.
-    pub fn with_callback<C>(&mut self, f: C) -> MaResult<Device>
+    pub fn with_callback<C>(&mut self, f: C) -> MaResult<Device<F>>
     where
-        C: FnMut(CallBackDevice, &[F::StorageUnit], u32) + Send + 'static,
+        C: FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
     {
         let panic_flag = Arc::new(AtomicBool::new(false));
         let state_notif = DeviceStateNotifier::default();
@@ -1430,7 +1410,7 @@ unsafe extern "C" fn device_data_playback_callback<F: PcmFormat, C>(
     _input: *const core::ffi::c_void,
     frame_count: u32,
 ) where
-    C: FnMut(CallBackDevice, &mut [F::StorageUnit], u32) + Send + 'static,
+    C: FnMut(CallBackDevice, &mut [F::StorageUnit]) + Send + 'static,
 {
     if device.is_null() {
         return;
@@ -1470,7 +1450,7 @@ unsafe extern "C" fn device_data_playback_callback<F: PcmFormat, C>(
 
     // Run the callback
     let cb = &mut *state.f.get();
-    let res = catch_unwind(AssertUnwindSafe(|| (cb)(cb_device, slice, frame_count)));
+    let res = catch_unwind(AssertUnwindSafe(|| (cb)(cb_device, slice)));
     if res.is_err() {
         // The callback is now poisoned
         state.panic_flag.store(true, Ordering::Release);
@@ -1484,7 +1464,7 @@ unsafe extern "C" fn device_data_capture_callback<F: PcmFormat, C>(
     input: *const core::ffi::c_void,
     frame_count: u32,
 ) where
-    C: FnMut(CallBackDevice, &[F::StorageUnit], u32) + Send + 'static,
+    C: FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
 {
     if device.is_null() {
         return;
@@ -1523,7 +1503,7 @@ unsafe extern "C" fn device_data_capture_callback<F: PcmFormat, C>(
 
     // Run the callback
     let cb = &mut *state.f.get();
-    let res = catch_unwind(AssertUnwindSafe(|| (cb)(cb_device, slice, frame_count)));
+    let res = catch_unwind(AssertUnwindSafe(|| (cb)(cb_device, slice)));
     if res.is_err() {
         // The callback is now poisoned
         state.panic_flag.store(true, Ordering::Release);
@@ -1536,7 +1516,7 @@ unsafe extern "C" fn device_data_duplex_callback<F: PcmFormat, C>(
     input: *const core::ffi::c_void,
     frame_count: u32,
 ) where
-    C: FnMut(CallBackDevice, &mut [F::StorageUnit], &[F::StorageUnit], u32) + Send + 'static,
+    C: FnMut(CallBackDevice, &mut [F::StorageUnit], &[F::StorageUnit]) + Send + 'static,
 {
     if device.is_null() {
         return;
@@ -1578,9 +1558,7 @@ unsafe extern "C" fn device_data_duplex_callback<F: PcmFormat, C>(
 
     // Run the callback
     let cb = &mut *state.f.get();
-    let res = catch_unwind(AssertUnwindSafe(|| {
-        (cb)(cb_device, out_slice, in_slice, frame_count)
-    }));
+    let res = catch_unwind(AssertUnwindSafe(|| (cb)(cb_device, out_slice, in_slice)));
     if res.is_err() {
         // The callback is now poisoned
         state.panic_flag.store(true, Ordering::Release);
@@ -1594,7 +1572,7 @@ unsafe extern "C" fn device_data_loopback_callback<F: PcmFormat, C>(
     input: *const core::ffi::c_void,
     frame_count: u32,
 ) where
-    C: FnMut(CallBackDevice, &[F::StorageUnit], u32) + Send + 'static,
+    C: FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
 {
     if device.is_null() {
         return;
@@ -1633,7 +1611,7 @@ unsafe extern "C" fn device_data_loopback_callback<F: PcmFormat, C>(
 
     // Run the callback
     let cb = &mut *state.f.get();
-    let res = catch_unwind(AssertUnwindSafe(|| (cb)(cb_device, slice, frame_count)));
+    let res = catch_unwind(AssertUnwindSafe(|| (cb)(cb_device, slice)));
     if res.is_err() {
         // The callback is now poisoned
         state.panic_flag.store(true, Ordering::Release);
@@ -1674,7 +1652,7 @@ mod test {
         let mut device = DeviceBuilder::playback()
             .f32()
             .playback_channels(2)
-            .with_callback(|_a, b, _c| {
+            .with_callback(|_a, b| {
                 b.fill(f32::default());
             })
             .unwrap();
@@ -1690,7 +1668,7 @@ mod test {
         let mut device = DeviceBuilder::capture()
             .f32()
             .capture_channels(2)
-            .with_callback(|_a, _b, _c| {})
+            .with_callback(|_a, _b| {})
             .unwrap();
         device.device_start().unwrap();
         device.device_stop().unwrap();
@@ -1705,7 +1683,7 @@ mod test {
             .f32()
             .playback_channels(2)
             .capture_channels(2)
-            .with_callback(|_a, b, _c, _d| {
+            .with_callback(|_a, b, _c| {
                 b.fill(f32::default());
             })
             .unwrap();
@@ -1740,7 +1718,7 @@ mod test {
             .f32()
             .playback_channels(2)
             .state_notifier()
-            .with_callback(|_a, _b, _c| {})
+            .with_callback(|_a, _b| {})
             .unwrap();
         let notif = device.get_state_notifier().unwrap();
         assert!(!notif.contains(DeviceNotificationType::Started));
@@ -1761,7 +1739,7 @@ mod test {
             .f32()
             .capture_channels(2)
             .state_notifier()
-            .with_callback(|_a, _b, _c| {})
+            .with_callback(|_a, _b| {})
             .unwrap();
         let notif = device.get_state_notifier().unwrap();
         assert!(!notif.contains(DeviceNotificationType::Started));
@@ -1783,7 +1761,7 @@ mod test {
             .playback_channels(2)
             .capture_channels(2)
             .state_notifier()
-            .with_callback(|_a, _b, _c, _d| {})
+            .with_callback(|_a, _b, _c| {})
             .unwrap();
         let notif = device.get_state_notifier().unwrap();
         assert!(!notif.contains(DeviceNotificationType::Started));

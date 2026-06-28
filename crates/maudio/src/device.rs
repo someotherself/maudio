@@ -20,6 +20,7 @@ use crate::{
         device_state::DeviceState,
         device_type::DeviceType,
     },
+    pcm_frames::PcmFormat,
     util::{device_notif::DeviceStateNotifier, proc_notif::ProcFramesNotif},
     Binding, MaResult,
 };
@@ -35,16 +36,13 @@ pub mod device_type;
 ///
 /// Manages the lifetime of a `ma_device` and provides control over
 /// playback, capture, and device state.
-///
-/// Cloning this type creates another handle to the same underlying device.
-#[derive(Clone)]
-pub struct Device {
-    // For now, Device cannot be sync. (TODO)
-    inner: Arc<DeviceInner>,
+pub struct Device<F: PcmFormat> {
+    pub(crate) inner: Arc<DeviceInner<F>>,
+    // Device cannot be sync.
     _not_sync: PhantomData<Cell<()>>,
 }
 
-pub(crate) struct DeviceInner {
+pub(crate) struct DeviceInner<F: PcmFormat> {
     inner: *mut sys::ma_device,
     _playback_device_id: Option<DeviceId>, // Ref count. Needs to be kept alive.
     _capture_device_id: Option<DeviceId>,  // Ref count. Needs to be kept alive.
@@ -53,9 +51,10 @@ pub(crate) struct DeviceInner {
     callback_panic: Arc<AtomicBool>,       // true = callback panicked and is now poisoned
     callback_process_notifier: ProcFramesNotif,
     state_notifier: Option<DeviceStateNotifier>, // used by ma_device_notification
+    _format: PhantomData<F>,
 }
 
-impl Binding for DeviceInner {
+impl<F: PcmFormat> Binding for DeviceInner<F> {
     type Raw = *mut sys::ma_device;
 
     /// !!! unimplemented !!!
@@ -69,10 +68,10 @@ impl Binding for DeviceInner {
 }
 
 // Required for Arc<DeviceInner> to implement Send
-unsafe impl Send for DeviceInner {}
-unsafe impl Sync for DeviceInner {}
+unsafe impl<F: PcmFormat> Send for DeviceInner<F> {}
+unsafe impl<F: PcmFormat> Sync for DeviceInner<F> {}
 
-impl Binding for Device {
+impl<F: PcmFormat> Binding for Device<F> {
     type Raw = *mut sys::ma_device;
 
     /// !!! unimplemented !!!
@@ -85,7 +84,7 @@ impl Binding for Device {
     }
 }
 
-/// Borrowed view of the a `Device`. Typically returned from the `Engine`.
+/// Borrowed view of the a `Device`. Typically returned from the `Engine`. Always in `f32` format.
 pub struct DeviceRef<'a> {
     inner: *mut sys::ma_device,
     _keep_alive: PhantomData<&'a ()>,
@@ -134,12 +133,13 @@ mod private_device {
 
     use crate::{
         device::{AsDevicePtr, CallBackDevice, Device, DeviceRef},
+        pcm_frames::PcmFormat,
         Binding,
     };
 
     // Controls the Device functions that can be called from the data callback
     pub trait DeviceControl {}
-    impl DeviceControl for Device {}
+    impl<F: PcmFormat> DeviceControl for Device<F> {}
     impl DeviceControl for DeviceRef<'_> {}
 
     pub trait DevicePtrProvider<T: ?Sized> {
@@ -150,8 +150,8 @@ mod private_device {
     pub struct DeviceRefProvider;
     pub struct CallBackDeviceRefProvider;
 
-    impl DevicePtrProvider<Device> for DeviceProvider {
-        fn as_device_ptr(t: &Device) -> *mut sys::ma_device {
+    impl<F: PcmFormat> DevicePtrProvider<Device<F>> for DeviceProvider {
+        fn as_device_ptr(t: &Device<F>) -> *mut sys::ma_device {
             t.to_raw()
         }
     }
@@ -177,7 +177,7 @@ pub trait AsDevicePtr {
     type __PtrProvider: private_device::DevicePtrProvider<Self>;
 }
 
-impl AsDevicePtr for Device {
+impl<F: PcmFormat> AsDevicePtr for Device<F> {
     type __PtrProvider = private_device::DeviceProvider;
 }
 
@@ -185,7 +185,7 @@ impl<'a> AsDevicePtr for DeviceRef<'a> {
     type __PtrProvider = private_device::DeviceRefProvider;
 }
 
-impl DeviceOps for Device {}
+impl<F: PcmFormat> DeviceOps for Device<F> {}
 impl DeviceOps for DeviceRef<'_> {}
 impl DeviceOps for CallBackDevice {}
 
@@ -244,7 +244,7 @@ pub trait DeviceOps: AsDevicePtr {
 }
 
 // Device only methods
-impl Device {
+impl<F: PcmFormat> Device<F> {
     /// Starts the device.
     ///
     /// Begins audio processing.
@@ -284,7 +284,7 @@ impl Device {
 }
 
 // Private methods
-impl Device {
+impl<F: PcmFormat> Device<F> {
     pub(crate) fn new_with_config<'a, B: AsDeviceBuilder<'a> + ?Sized>(
         config: &B,
         context_cfg: Option<&ContextBuilder>,
@@ -314,6 +314,7 @@ impl Device {
                 callback_panic: cb_info.data_callback_panic,
                 callback_process_notifier: data_notif,
                 state_notifier: Some(cb_info.state_notif.clone()),
+                _format: PhantomData,
             }),
             _not_sync: PhantomData,
         })
@@ -336,6 +337,7 @@ pub(crate) mod device_ffi {
             device_type::DeviceType,
             private_device, AsDevicePtr, Device, DeviceInner,
         },
+        pcm_frames::PcmFormat,
         AsRawRef, Binding, MaResult, MaudioError,
     };
 
@@ -381,7 +383,7 @@ pub(crate) mod device_ffi {
         MaudioError::check(res)
     }
 
-    pub fn ma_device_uninit(device: &mut DeviceInner) {
+    pub fn ma_device_uninit<F: PcmFormat>(device: &mut DeviceInner<F>) {
         unsafe { sys::ma_device_uninit(device.to_raw()) };
     }
 
@@ -459,7 +461,7 @@ pub(crate) mod device_ffi {
     // Callback: not safe
     // Theadsafe: SAFE
     #[inline]
-    pub fn ma_device_start(device: &mut Device) -> MaResult<()> {
+    pub fn ma_device_start<F: PcmFormat>(device: &mut Device<F>) -> MaResult<()> {
         let res = unsafe { sys::ma_device_start(device.to_raw()) };
         MaudioError::check(res)
     }
@@ -467,7 +469,7 @@ pub(crate) mod device_ffi {
     // Callback: not safe
     // Theadsafe: SAFE
     #[inline]
-    pub fn ma_device_stop(device: &mut Device) -> MaResult<()> {
+    pub fn ma_device_stop<F: PcmFormat>(device: &mut Device<F>) -> MaResult<()> {
         let res = unsafe { sys::ma_device_stop(device.to_raw()) };
         MaudioError::check(res)
     }
@@ -588,7 +590,7 @@ pub(crate) mod device_ffi {
     }
 }
 
-impl Drop for DeviceInner {
+impl<F: PcmFormat> Drop for DeviceInner<F> {
     fn drop(&mut self) {
         device_ffi::ma_device_uninit(self);
         (self.callback_user_data_drop)(self.callback_user_data);

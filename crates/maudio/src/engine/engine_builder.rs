@@ -5,7 +5,7 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     audio::{channels::MonoExpansionMode, sample_rate::SampleRate},
-    device::{device_id::DeviceId, Device},
+    device::{device_id::DeviceId, Device, DeviceInner},
     engine::{
         engine_cb_notif::engine_notification_callback,
         process_cb::{on_process_callback, EngineProcessCallback, ProcessState},
@@ -19,7 +19,7 @@ use crate::{
 pub struct EngineBuilder {
     inner: sys::ma_engine_config,
     pub(crate) playback_device_id: Option<DeviceId>,
-    pub(crate) device: Option<Device>, // a ref count, not ownership
+    pub(crate) device: Option<Arc<DeviceInner<f32>>>, // a ref count, not ownership
     pub(crate) resource_manager: Option<ResourceManager<f32>>, // a ref count, not ownership
     process_data_ptr: Option<*mut ProcessState>,
     process_data_panic: Option<Arc<AtomicBool>>,
@@ -55,9 +55,9 @@ impl EngineBuilder {
     }
 
     // If set, the caller is responsible for calling ma_engine_data_callback() in the device's data callback.
-    pub fn device(&mut self, device: Device) -> &mut Self {
+    pub fn device(&mut self, device: &Device<f32>) -> &mut Self {
         self.inner.pDevice = device.to_raw();
-        self.device = Some(device);
+        self.device = Some(device.inner.clone());
         self
     }
 

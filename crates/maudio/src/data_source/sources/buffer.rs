@@ -33,6 +33,8 @@ pub struct AudioBuffer<F: PcmFormat> {
     _sample_format: PhantomData<F>,
 }
 
+unsafe impl<F: PcmFormat> Send for AudioBuffer<F> {}
+
 impl<F: PcmFormat> Binding for AudioBuffer<F> {
     type Raw = *mut sys::ma_audio_buffer;
 
