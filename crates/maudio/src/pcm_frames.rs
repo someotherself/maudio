@@ -94,16 +94,16 @@ pub(crate) trait PcmFormatInternal: PcmFormat {
     /// len == amount of frames we will copy from src to dst (capacity.min(desired_items))
     ///
     /// Handles interleaved frames only
-    fn write_with_to_storage_internal<C>(
+    fn try_write_with_to_storage_internal<C>(
         dst: &mut [Self::StorageUnit],
         len: usize,
         f: C,
         channels: usize,
     ) -> MaResult<usize>
     where
-        C: FnOnce(&mut [Self::PcmUnit]) -> usize,
+        C: FnOnce(&mut [Self::PcmUnit]) -> MaResult<usize>,
     {
-        <Self as PcmFormat>::__PcmFramesProvider::write_with_to_storage(dst, len, f, channels)
+        <Self as PcmFormat>::__PcmFramesProvider::try_write_with_to_storage(dst, len, f, channels)
     }
 
     // The implementation for each format will have to convert between StorageUnit and PcmUnit types
@@ -120,16 +120,16 @@ pub(crate) trait PcmFormatInternal: PcmFormat {
         <Self as PcmFormat>::__PcmFramesProvider::read_from_storage(src, dst, len, channels)
     }
 
-    fn read_with_from_storage_internal<C>(
+    fn try_read_with_from_storage_internal<C>(
         src: &[Self::StorageUnit],
         len: usize,
         f: C,
         channels: usize,
     ) -> MaResult<usize>
     where
-        C: FnOnce(&[Self::PcmUnit]) -> usize,
+        C: FnOnce(&[Self::PcmUnit]) -> MaResult<usize>,
     {
-        <Self as PcmFormat>::__PcmFramesProvider::read_with_from_storage(src, len, f, channels)
+        <Self as PcmFormat>::__PcmFramesProvider::try_read_with_from_storage(src, len, f, channels)
     }
 }
 
@@ -149,28 +149,28 @@ pub(crate) mod private_pcm {
             avail_capacity: usize,
             channels: usize,
         ) -> MaResult<usize>;
-        fn write_with_to_storage<C>(
+        fn try_write_with_to_storage<C>(
             dst: &mut [T::StorageUnit],
             avail_capacity: usize,
             f: C,
             channels: usize,
         ) -> MaResult<usize>
         where
-            C: FnOnce(&mut [T::PcmUnit]) -> usize;
+            C: FnOnce(&mut [T::PcmUnit]) -> MaResult<usize>;
         fn read_from_storage(
             src: &[T::StorageUnit],
             dst: &mut [T::PcmUnit],
             avail: usize,
             channels: usize,
         ) -> MaResult<usize>;
-        fn read_with_from_storage<C>(
+        fn try_read_with_from_storage<C>(
             src: &[T::StorageUnit],
             avail: usize,
             f: C,
             channels: usize,
         ) -> MaResult<usize>
         where
-            C: FnOnce(&[T::PcmUnit]) -> usize;
+            C: FnOnce(&[T::PcmUnit]) -> MaResult<usize>;
     }
 
     pub struct PcmU8Provider;
@@ -203,14 +203,14 @@ pub(crate) mod private_pcm {
             Ok(avail_capacity)
         }
 
-        fn write_with_to_storage<C>(
+        fn try_write_with_to_storage<C>(
             dst: &mut [u8],
             cap_frames: usize,
             f: C,
             channels: usize,
         ) -> MaResult<usize>
         where
-            C: FnOnce(&mut [u8]) -> usize,
+            C: FnOnce(&mut [u8]) -> MaResult<usize>,
         {
             let len = cap_frames
                 .checked_mul(channels)
@@ -221,7 +221,7 @@ pub(crate) mod private_pcm {
                 }))?;
 
             // written must be the number of frames (documented to the user)
-            let written = f(&mut dst[..len]);
+            let written = f(&mut dst[..len])?;
 
             debug_assert!(written <= cap_frames);
             if written > cap_frames {
@@ -255,14 +255,14 @@ pub(crate) mod private_pcm {
             Ok(avail_capacity)
         }
 
-        fn read_with_from_storage<C>(
+        fn try_read_with_from_storage<C>(
             src: &[u8],
             avail: usize,
             f: C,
             channels: usize,
         ) -> MaResult<usize>
         where
-            C: FnOnce(&[u8]) -> usize,
+            C: FnOnce(&[u8]) -> MaResult<usize>,
         {
             let len = avail
                 .checked_mul(channels)
@@ -272,7 +272,7 @@ pub(crate) mod private_pcm {
                     rhs: channels as u64,
                 }))?;
 
-            let frames_read = f(&src[..len]);
+            let frames_read = f(&src[..len])?;
 
             debug_assert!(frames_read <= avail);
             if frames_read > avail {
@@ -312,14 +312,14 @@ pub(crate) mod private_pcm {
             Ok(avail_capacity)
         }
 
-        fn write_with_to_storage<C>(
+        fn try_write_with_to_storage<C>(
             dst: &mut [i16],
             cap_frames: usize,
             f: C,
             channels: usize,
         ) -> MaResult<usize>
         where
-            C: FnOnce(&mut [i16]) -> usize,
+            C: FnOnce(&mut [i16]) -> MaResult<usize>,
         {
             let len = cap_frames
                 .checked_mul(channels)
@@ -330,7 +330,7 @@ pub(crate) mod private_pcm {
                 }))?;
 
             // written must be the number of frames (documented to the user)
-            let written = f(&mut dst[..len]);
+            let written = f(&mut dst[..len])?;
 
             debug_assert!(written <= cap_frames);
             if written > cap_frames {
@@ -364,14 +364,14 @@ pub(crate) mod private_pcm {
             Ok(avail)
         }
 
-        fn read_with_from_storage<C>(
+        fn try_read_with_from_storage<C>(
             src: &[i16],
             avail: usize,
             f: C,
             channels: usize,
         ) -> MaResult<usize>
         where
-            C: FnOnce(&[i16]) -> usize,
+            C: FnOnce(&[i16]) -> MaResult<usize>,
         {
             let len = avail
                 .checked_mul(channels)
@@ -381,7 +381,7 @@ pub(crate) mod private_pcm {
                     rhs: channels as u64,
                 }))?;
 
-            let frames_read = f(&src[..len]);
+            let frames_read = f(&src[..len])?;
 
             debug_assert!(frames_read <= avail);
             if frames_read > avail {
@@ -435,14 +435,14 @@ pub(crate) mod private_pcm {
             Ok(len)
         }
 
-        fn write_with_to_storage<C>(
+        fn try_write_with_to_storage<C>(
             dst: &mut [u8],
             avail_capacity: usize,
             f: C,
             channels: usize,
         ) -> MaResult<usize>
         where
-            C: FnOnce(&mut [i32]) -> usize,
+            C: FnOnce(&mut [i32]) -> MaResult<usize>,
         {
             // Create a temporary storage and write the i32 into it
             let tmp_len = avail_capacity
@@ -456,7 +456,7 @@ pub(crate) mod private_pcm {
             let mut tmp: Vec<i32> = vec![];
             tmp.resize_with(tmp_len, || 0i32);
 
-            let written = f(&mut tmp[..tmp_len]);
+            let written = f(&mut tmp[..tmp_len])?;
 
             debug_assert!(written <= avail_capacity);
             if written > avail_capacity {
@@ -533,14 +533,14 @@ pub(crate) mod private_pcm {
             Ok(avail)
         }
 
-        fn read_with_from_storage<C>(
+        fn try_read_with_from_storage<C>(
             src: &[u8],
             avail: usize,
             f: C,
             channels: usize,
         ) -> MaResult<usize>
         where
-            C: FnOnce(&[i32]) -> usize,
+            C: FnOnce(&[i32]) -> MaResult<usize>,
         {
             // Create temp storage and read into it first
             // tmp_len is the length of the Vec<i32
@@ -570,7 +570,7 @@ pub(crate) mod private_pcm {
             }
 
             // User should return number of frames
-            let frames_read = f(&tmp[..tmp_len]);
+            let frames_read = f(&tmp[..tmp_len])?;
 
             debug_assert!(frames_read <= avail);
             if frames_read > avail {
@@ -617,15 +617,14 @@ pub(crate) mod private_pcm {
             Ok(cap_frames)
         }
 
-        /// Truncate the ammount of bytes written to the nearest multiple of 3
-        fn write_with_to_storage<C>(
+        fn try_write_with_to_storage<C>(
             dst: &mut [u8],
             cap_frames: usize,
             f: C,
             channels: usize,
         ) -> MaResult<usize>
         where
-            C: FnOnce(&mut [u8]) -> usize,
+            C: FnOnce(&mut [u8]) -> MaResult<usize>,
         {
             let len = cap_frames
                 .checked_mul(channels)
@@ -644,7 +643,7 @@ pub(crate) mod private_pcm {
             ))?;
 
             // written must be the number of frames (documented to the user)
-            let frames_written = f(&mut dst[..max_cap]);
+            let frames_written = f(&mut dst[..max_cap])?;
 
             debug_assert!(frames_written <= cap_frames);
             if frames_written > cap_frames {
@@ -685,14 +684,14 @@ pub(crate) mod private_pcm {
             Ok(avail)
         }
 
-        fn read_with_from_storage<C>(
+        fn try_read_with_from_storage<C>(
             src: &[u8],
             avail: usize,
             f: C,
             channels: usize,
         ) -> MaResult<usize>
         where
-            C: FnOnce(&[u8]) -> usize,
+            C: FnOnce(&[u8]) -> MaResult<usize>,
         {
             let len = avail
                 .checked_mul(channels)
@@ -710,7 +709,7 @@ pub(crate) mod private_pcm {
                 },
             ))?;
 
-            let frames_read = f(&src[..max_cap]);
+            let frames_read = f(&src[..max_cap])?;
 
             debug_assert!(frames_read <= avail);
             if frames_read > avail {
@@ -749,14 +748,14 @@ pub(crate) mod private_pcm {
             Ok(avail_capacity)
         }
 
-        fn write_with_to_storage<C>(
+        fn try_write_with_to_storage<C>(
             dst: &mut [i32],
             cap_frames: usize,
             f: C,
             channels: usize,
         ) -> MaResult<usize>
         where
-            C: FnOnce(&mut [i32]) -> usize,
+            C: FnOnce(&mut [i32]) -> MaResult<usize>,
         {
             let len = cap_frames
                 .checked_mul(channels)
@@ -767,7 +766,7 @@ pub(crate) mod private_pcm {
                 }))?;
 
             // written must be the number of frames (documented to the user)
-            let written = f(&mut dst[..len]);
+            let written = f(&mut dst[..len])?;
 
             debug_assert!(written <= cap_frames);
             if written > cap_frames {
@@ -800,14 +799,14 @@ pub(crate) mod private_pcm {
             Ok(avail)
         }
 
-        fn read_with_from_storage<C>(
+        fn try_read_with_from_storage<C>(
             src: &[i32],
             avail: usize,
             f: C,
             channels: usize,
         ) -> MaResult<usize>
         where
-            C: FnOnce(&[i32]) -> usize,
+            C: FnOnce(&[i32]) -> MaResult<usize>,
         {
             let len = avail
                 .checked_mul(channels)
@@ -817,7 +816,7 @@ pub(crate) mod private_pcm {
                     rhs: channels as u64,
                 }))?;
 
-            let frames_read = f(&src[..len]);
+            let frames_read = f(&src[..len])?;
 
             debug_assert!(frames_read <= avail);
             if frames_read > avail {
@@ -857,14 +856,14 @@ pub(crate) mod private_pcm {
             Ok(avail_capacity)
         }
 
-        fn write_with_to_storage<C>(
+        fn try_write_with_to_storage<C>(
             dst: &mut [f32],
             cap_frames: usize,
             f: C,
             channels: usize,
         ) -> MaResult<usize>
         where
-            C: FnOnce(&mut [f32]) -> usize,
+            C: FnOnce(&mut [f32]) -> MaResult<usize>,
         {
             let len = cap_frames
                 .checked_mul(channels)
@@ -875,7 +874,7 @@ pub(crate) mod private_pcm {
                 }))?;
 
             // written must be the number of frames (documented to the user)
-            let written = f(&mut dst[..len]);
+            let written = f(&mut dst[..len])?;
 
             debug_assert!(written <= cap_frames);
             if written > cap_frames {
@@ -909,14 +908,14 @@ pub(crate) mod private_pcm {
             Ok(avail)
         }
 
-        fn read_with_from_storage<C>(
+        fn try_read_with_from_storage<C>(
             src: &[f32],
             avail: usize,
             f: C,
             channels: usize,
         ) -> MaResult<usize>
         where
-            C: FnOnce(&[f32]) -> usize,
+            C: FnOnce(&[f32]) -> MaResult<usize>,
         {
             let len = avail
                 .checked_mul(channels)
@@ -926,7 +925,7 @@ pub(crate) mod private_pcm {
                     rhs: channels as u64,
                 }))?;
 
-            let frames_read = f(&src[..len]);
+            let frames_read = f(&src[..len])?;
 
             debug_assert!(frames_read <= avail);
             if frames_read > avail {

@@ -75,9 +75,9 @@ use crate::{
 /// - [`PcmRingBuffer::new_f32`]
 pub struct PcmRingBuffer {}
 
-#[allow(dead_code)]
 pub(crate) struct PcmRbInner {
     inner: *mut sys::ma_pcm_rb,
+    #[allow(unused)]
     alloc_cb: Option<Arc<AllocationCallbacks>>,
 }
 
@@ -123,7 +123,10 @@ impl<F: PcmFormat> PcmRbSend<F> {
 
     /// Writes as many of the `desired_frames` as the buffer has capacity for.
     ///
-    /// The closure must return the number of `PCM FRAMES` written
+    /// The slice passed to `f` contains interleaved PCM sample storage for the
+    /// frames that can currently be written, up to `desired_frames`. The closure
+    /// should write samples into that slice and return the number of **PCM frames**
+    /// it wrote, not the number of samples.
     ///
     /// For interleaved audio writes are rounded down to whole frames.
     ///
@@ -132,7 +135,25 @@ impl<F: PcmFormat> PcmRbSend<F> {
     where
         C: FnOnce(&mut [F::PcmUnit]) -> usize,
     {
-        PcmRingBuffer::write_with_internal(self, desired_frames, f)
+        Self::try_write_with(self, desired_frames, |dst| Ok(f(dst)))
+    }
+
+    /// Writes as many of the `desired_frames` as the buffer has capacity for.
+    ///
+    /// This is the fallible version of [`write_with`](Self::write_with). The slice
+    /// passed to `f` contains interleaved PCM sample storage for the frames that can
+    /// currently be written, up to `desired_frames`. The closure should write
+    /// samples into that slice and return the number of **PCM frames** it wrote, not
+    /// the number of samples.
+    ///
+    /// For interleaved audio writes are rounded down to whole frames.
+    ///
+    /// Returns the number of frames written.
+    pub fn try_write_with<C>(&mut self, desired_frames: usize, f: C) -> MaResult<usize>
+    where
+        C: FnOnce(&mut [F::PcmUnit]) -> MaResult<usize>,
+    {
+        PcmRingBuffer::try_write_with_internal(self, desired_frames, f)
     }
 
     fn acquire_write(
@@ -195,16 +216,40 @@ impl<F: PcmFormat> PcmRbRecv<F> {
 
     /// Reads as many of the `desired_frames` as are currently available.
     ///
-    /// The closure must return the number of `PCM FRAMES` consumed.
+    /// The slice passed to `f` contains interleaved PCM samples for the frames that
+    /// are currently available, up to `desired_frames`. The closure must return the
+    /// number of **PCM frames** it consumed from that slice, not the number of
+    /// samples.
     ///
     /// For interleaved audio reads are rounded down to whole frames.
     ///
-    /// Returns the number of frames read.
+    /// Returns the number of frames consumed.
     pub fn read_with<C>(&mut self, desired_frames: usize, f: C) -> MaResult<usize>
     where
         C: FnOnce(&[F::PcmUnit]) -> usize,
     {
-        PcmRingBuffer::read_with_internal(self, desired_frames, f)
+        Self::try_read_with(self, desired_frames, |src| Ok(f(src)))
+    }
+
+    /// Reads as many of the `desired_frames` as are currently available.
+    ///
+    /// This is the fallible version of [`read_with`](Self::read_with). The slice
+    /// passed to `f` contains interleaved PCM samples for the frames that are
+    /// currently available, up to `desired_frames`. The closure must return the
+    /// number of **PCM frames** it consumed from that slice, not the number of
+    /// samples.
+    ///
+    /// If the closure returns an error, the error is propagated and no frames are
+    /// consumed.
+    ///
+    /// For interleaved audio reads are rounded down to whole frames.
+    ///
+    /// Returns the number of frames consumed.
+    pub fn try_read_with<C>(&mut self, desired_frames: usize, f: C) -> MaResult<usize>
+    where
+        C: FnOnce(&[F::PcmUnit]) -> MaResult<usize>,
+    {
+        PcmRingBuffer::try_read_with_internal(self, desired_frames, f)
     }
 
     fn acquire_read(
@@ -356,21 +401,21 @@ impl PcmRingBuffer {
         Ok(n)
     }
 
-    fn read_with_internal<F, C>(
+    fn try_read_with_internal<F, C>(
         rb: &mut PcmRbRecv<F>,
         desired_frames: usize,
         f: C,
     ) -> MaResult<usize>
     where
         F: PcmFormat,
-        C: FnOnce(&[F::PcmUnit]) -> usize,
+        C: FnOnce(&[F::PcmUnit]) -> MaResult<usize>,
     {
         let channels = rb.channels;
         let g = rb.acquire_read(desired_frames as u32)?;
         let available = g.available_frames() as usize;
         let src = g.as_slice();
 
-        let n = F::read_with_from_storage_internal(src, available, f, channels)?;
+        let n = F::try_read_with_from_storage_internal(src, available, f, channels)?;
         g.commit_frames(n as u32)?; // byte capacity of the rb fits inside an i32
         Ok(n)
     }
@@ -412,18 +457,14 @@ impl PcmRingBuffer {
         Ok(n)
     }
 
-    // dst uses StorageUnit -> This is the format type for miniaudio
-    // param for C uses PcmUnit -> We cannot always write to miniaudio directly.
-    //                          -> If StorageUnit != PcmUnit, we write to a tmp Vec<PcmUnit>
-    //                          -> Then convert it to Vec<StorageUnit> and write to miniaudio
-    fn write_with_internal<F, C>(
+    fn try_write_with_internal<F, C>(
         rb: &mut PcmRbSend<F>,
         desired_frames: usize,
         f: C,
     ) -> MaResult<usize>
     where
         F: PcmFormat,
-        C: FnOnce(&mut [F::PcmUnit]) -> usize,
+        C: FnOnce(&mut [F::PcmUnit]) -> MaResult<usize>,
     {
         let channels = rb.channels;
         let mut g = rb.acquire_write(desired_frames as u32)?;
@@ -431,7 +472,7 @@ impl PcmRingBuffer {
         let len = capacity.min(desired_frames);
         // as_slice_mut builds the slice with length of `capacity_frames` (adjusted to vec items and channels)
         let dst = g.as_slice_mut();
-        let written = F::write_with_to_storage_internal(dst, len, f, channels)?;
+        let written = F::try_write_with_to_storage_internal(dst, len, f, channels)?;
         g.commit_frames(written as u32)?; // byte capacity of the rb fits inside an i32
         Ok(written)
     }
@@ -722,6 +763,7 @@ mod pcm_rb_ffi {
     }
 
     #[inline]
+    #[allow(unused)]
     pub fn ma_pcm_rb_init(
         format: sys::ma_format,
         channels: u32,
@@ -751,6 +793,7 @@ mod pcm_rb_ffi {
         }
     }
 
+    #[allow(unused)]
     pub fn ma_pcm_rb_reset<R: AsPcmRbPtr>(rb: &mut R) {
         unsafe {
             sys::ma_pcm_rb_reset(private_pcm_db::pcm_rb_ptr(rb));
@@ -832,18 +875,21 @@ mod pcm_rb_ffi {
 
     // deinterleaved buffers not implemented yet. Create new trait for this method
     #[inline]
+    #[allow(unused)]
     pub fn ma_pcm_rb_get_subbuffer_stride<R: AsPcmRbPtr>(rb: &R) -> u32 {
         unsafe { sys::ma_pcm_rb_get_subbuffer_stride(private_pcm_db::pcm_rb_ptr(rb)) }
     }
 
     // deinterleaved buffers not implemented yet. Create new trait for this method
     #[inline]
+    #[allow(unused)]
     pub fn ma_pcm_rb_get_subbuffer_offset<R: AsPcmRbPtr>(rb: &R, index: u32) -> u32 {
         unsafe { sys::ma_pcm_rb_get_subbuffer_offset(private_pcm_db::pcm_rb_ptr(rb), index) }
     }
 
     // deinterleaved buffers not implemented yet. Create new trait for this method
     #[inline]
+    #[allow(unused)]
     pub fn ma_pcm_rb_get_subbuffer_ptr<R: AsPcmRbPtr>(
         rb: &mut R,
         index: u32,
