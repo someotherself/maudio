@@ -157,6 +157,7 @@ impl<F: PcmFormat, E: CodecFormat, D> Encoder<F, E, D> {
         ))
     }
 
+    // TODO: Add alternative without Seek
     fn init_from_writer<W: WriteSeek>(
         config: &EncoderBuilder<F, E>,
         writer: W,

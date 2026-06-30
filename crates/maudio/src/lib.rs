@@ -273,6 +273,7 @@ impl std::fmt::Display for ErrorKinds {
             ErrorKinds::IntegerError { err } => write!(f, "Integer error: {err}"),
             ErrorKinds::InvalidOperation(error) => write!(f, "{error}",),
             ErrorKinds::Other(error) => write!(f, "{error}",),
+            ErrorKinds::NotImplemented => write!(f, "Not implemented"),
         }
     }
 }
@@ -437,6 +438,7 @@ pub enum ErrorKinds {
     IntegerError {
         err: std::num::TryFromIntError,
     },
+    NotImplemented,
 }
 
 impl From<std::io::Error> for MaudioError {

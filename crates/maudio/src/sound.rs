@@ -37,7 +37,7 @@ pub enum SoundSource<'a> {
     FileUtf8(PathBuf), // Could be better to copy the PathBuf here.
     #[cfg(windows)]
     FileWide(PathBuf), // Could be better to copy the PathBuf here.
-    DataSource(DataSourceRef<'a>),
+    DataSource(DataSourceRef<'a, f32>),
 }
 
 impl SoundSource<'_> {
@@ -87,7 +87,7 @@ impl<'a> Sound<'a> {
     }
 
     /// Returns the underlying data source, if any.
-    pub fn data_source(&mut self) -> Option<DataSourceRef<'_>> {
+    pub fn data_source(&mut self) -> Option<DataSourceRef<'_, f32>> {
         sound_ffi::ma_sound_get_data_source(self)
     }
 
@@ -703,7 +703,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_get_data_source<'a>(sound: &'a mut Sound) -> Option<DataSourceRef<'a>> {
+    pub fn ma_sound_get_data_source<'a>(sound: &'a mut Sound) -> Option<DataSourceRef<'a, f32>> {
         let ptr = unsafe { sys::ma_sound_get_data_source(sound.to_raw() as *const _) };
         if ptr.is_null() {
             None

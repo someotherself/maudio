@@ -10,6 +10,8 @@ categories = ["multimedia::audio", "multimedia"]
 
 [features]
 ci-tests = [] # disable the backend for the github CI
+vorbis = ["maudio-sys/vorbis"]
+generate-bindings = ["maudio-sys/generate-bindings"]
 
 # Disable specific backends
 no-wasapi = ["maudio-sys/no-wasapi"]

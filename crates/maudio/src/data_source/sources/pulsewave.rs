@@ -61,6 +61,7 @@ impl<F: PcmFormat> Binding for PulseWave<F> {
 
 #[doc(hidden)]
 impl<F: PcmFormat> AsSourcePtr for PulseWave<F> {
+    type Format = F;
     type __PtrProvider = private_data_source::PulseWaveProvider;
 }
 
@@ -99,13 +100,9 @@ mod private_pulsew {
     }
 }
 
-impl<F: PcmFormat> PulseWaveOps for PulseWave<F> {
-    type Format = F;
-}
+impl<F: PcmFormat> PulseWaveOps for PulseWave<F> {}
 
 pub trait PulseWaveOps: AsPulseWavePtr + AsSourcePtr {
-    type Format: PcmFormat;
-
     /// Generates PCM frames into `dst`, returning the number of frames written.
     fn read_pcm_frames_into(
         &mut self,
@@ -145,7 +142,7 @@ pub trait PulseWaveOps: AsPulseWavePtr + AsSourcePtr {
     }
 
     /// Returns a [`DataSourceRef`] view of this pulse wave generator.
-    fn as_source<'a>(&'a self) -> DataSourceRef<'a> {
+    fn as_source<'a>(&'a self) -> DataSourceRef<'a, Self::Format> {
         debug_assert!(!private_pulsew::pulsewave_ptr(self).is_null());
         let ptr = private_pulsew::pulsewave_ptr(self).cast::<sys::ma_data_source>();
         DataSourceRef::from_ptr(ptr)

@@ -24,6 +24,10 @@ const MUSIC_FILE: &[u8] = include_bytes!(concat!(
 // memory, but the same pattern also works with a file-backed decoder.
 
 fn main() -> MaResult<()> {
+    if cfg!(not(feature = "vorbis")) {
+        println!("Run using: cargo run --features vorbis --example 201_device_playback.rs.rs.rs");
+        return Ok(());
+    }
     let mut decoder = DecoderBuilder::new_i16(2, SampleRate::Sr44100).from_memory(MUSIC_FILE)?;
 
     // We get the data format info from the encoder to ensure they are the same as the device

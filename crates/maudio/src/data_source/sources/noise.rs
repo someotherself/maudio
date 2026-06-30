@@ -624,7 +624,7 @@ mod tests {
         let mut builder = NoiseBuilder::new(2, NoiseType::White, 0.5);
         let mut noise = builder.build_s24_packed().unwrap();
 
-        let mut dst = vec![S24Packed::SILENCE; 64 * 3 * 2];
+        let mut dst = vec![S24Packed::STORE_SILENCE; 64 * 3 * 2];
         let frames = noise
             .read_pcm_frames_into(&mut dst)
             .expect("read_pcm_frames_into should succeed");

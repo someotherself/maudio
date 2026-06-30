@@ -9,6 +9,10 @@ use maudio::{engine::Engine, sound::sound_builder::SoundBuilder, MaResult};
 // The engine automatically mixes all active sounds together.
 
 fn main() -> MaResult<()> {
+    if cfg!(not(feature = "vorbis")) {
+        println!("Run using: cargo run --features vorbis --example 004_multiple_sounds");
+        return Ok(());
+    }
     let engine = Engine::new()?;
     let path1 = PathBuf::from(concat!(
         env!("CARGO_MANIFEST_DIR"),

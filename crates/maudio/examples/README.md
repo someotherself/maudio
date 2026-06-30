@@ -1,3 +1,9 @@
+Most of the examples use the audio files from the miniaudio repository
+Make sure to clone the repo locally using:
+`git clone --recursive [[URL]()](https://github.com/someotherself/maudio.git)`.
+If you already cloned it without submodules, run:
+`git submodule update --init --recursive`
+
 -> Basic examples using the High Level API
 - 001_play_sound              - Build an Engine and Sound without a Builder.
 - 002_sound_engine_builder    - Using the EngineBuilder. Explaining MaResult.
@@ -22,6 +28,8 @@
 - 104_VU_meter                - Building a simple VU meter using the proc callback.
 - 105_engine_read_pcm         - Intro into read_pcm frames on an engine.
 - 106_engine_record_to_file   - Record the output of the engine to a file using the encoder
+- 107_engine_sound_playlist   - Create a simple playlist using Sounds and the EndNotifier
+- 108_engine_node_playlist    - Create a simple playlist using SourceNodes and manually polling
 
 -> Basic examples using the low level API
 - 201_device_playback         - Use a device and decoder for playback

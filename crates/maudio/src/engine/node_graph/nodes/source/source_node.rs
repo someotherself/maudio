@@ -113,6 +113,7 @@ impl<S: AsSourcePtr> AsNodePtr for AttachedSourceNode<'_, S> {
 
 #[doc(hidden)]
 impl<S: AsSourcePtr> AsSourcePtr for AttachedSourceNode<'_, S> {
+    type Format = S::Format;
     type __PtrProvider = private_data_source::AttachedSourceNodeProvider;
 }
 
@@ -153,7 +154,7 @@ impl<'a, S: AsSourcePtr> AttachedSourceNode<'a, S> {
         NodeRef::from_ptr(ptr)
     }
 
-    pub fn as_source(&'a self) -> DataSourceRef<'a> {
+    pub fn as_source(&'a self) -> DataSourceRef<'a, S::Format> {
         debug_assert!(!private_data_source::source_ptr(self.source.as_ref()).is_null());
         let ptr =
             private_data_source::source_ptr(self.source.as_ref()).cast::<sys::ma_data_source>();

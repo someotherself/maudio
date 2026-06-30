@@ -162,7 +162,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         self
     }
 
-    pub fn with_end_notifier(&'a mut self) -> MaResult<(Sound<'a>, EndNotifier)> {
+    pub fn with_end_notifier(&mut self) -> MaResult<(Sound<'a>, EndNotifier)> {
         self.set_source()?;
         let notifier = self.set_end_notifier();
 

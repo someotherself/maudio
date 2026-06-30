@@ -67,17 +67,16 @@ impl<'a, R: AsRmPtr + ?Sized> Binding for ResourceManagerBuffer<'a, R> {
     }
 }
 
-impl<'a, R: AsRmPtr> SharedSource for ResourceManagerBuffer<'a, R> {
-    type Format = R::Format;
-}
+impl<'a, R: AsRmPtr> SharedSource for ResourceManagerBuffer<'a, R> {}
 
 #[doc(hidden)]
 impl<'a, R: AsRmPtr> AsSourcePtr for ResourceManagerBuffer<'a, R> {
+    type Format = R::Format;
     type __PtrProvider = private_data_source::ResourceManagerBufferProvider;
 }
 
 impl<'a, R: AsRmPtr> ResourceManagerBuffer<'a, R> {
-    pub fn as_source(&'a self) -> DataSourceRef<'a> {
+    pub fn as_source(&'a self) -> DataSourceRef<'a, R::Format> {
         debug_assert!(!self.to_raw().is_null());
         let ptr = self.to_raw().cast::<sys::ma_data_source>();
         DataSourceRef::from_ptr(ptr)

@@ -73,6 +73,7 @@ impl<F: PcmFormat> Binding for WaveForm<F> {
 
 #[doc(hidden)]
 impl<F: PcmFormat> AsSourcePtr for WaveForm<F> {
+    type Format = F;
     type __PtrProvider = private_data_source::WaveFormProvider;
 }
 
@@ -106,13 +107,9 @@ mod private_wave {
     }
 }
 
-impl<F: PcmFormat> WaveFormOps for WaveForm<F> {
-    type Format = F;
-}
+impl<F: PcmFormat> WaveFormOps for WaveForm<F> {}
 
 pub trait WaveFormOps: AsWaveFormPtr + AsSourcePtr {
-    type Format: PcmFormat;
-
     /// Generates PCM frames into `dst`, returning the number of frames written.
     fn read_pcm_frames_into(
         &mut self,
@@ -152,7 +149,7 @@ pub trait WaveFormOps: AsWaveFormPtr + AsSourcePtr {
     }
 
     /// Returns a [`DataSourceRef`] view of this waveform.
-    fn as_source<'a>(&'a self) -> DataSourceRef<'a> {
+    fn as_source<'a>(&'a self) -> DataSourceRef<'a, Self::Format> {
         debug_assert!(!private_wave::waveform_ptr(self).is_null());
         let ptr = private_wave::waveform_ptr(self).cast::<sys::ma_data_source>();
         DataSourceRef::from_ptr(ptr)

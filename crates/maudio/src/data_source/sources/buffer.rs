@@ -112,12 +112,14 @@ mod private_abuffer {
 // Allows AudioBuffer to pass as a DataSource
 #[doc(hidden)]
 impl<F: PcmFormat> AsSourcePtr for AudioBuffer<F> {
+    type Format = F;
     type __PtrProvider = private_data_source::AudioBufferProvider;
 }
 
 // Allows AudioBufferRef to pass as a DataSource
 #[doc(hidden)]
 impl<'a, F: PcmFormat> AsSourcePtr for AudioBufferRef<'a, F> {
+    type Format = F;
     type __PtrProvider = private_data_source::AudioBufferRefProvider;
 }
 
@@ -155,13 +157,9 @@ impl<F: PcmFormat> AsAudioBufferPtr for AudioBufferRef<'_, F> {
     }
 }
 
-impl<F: PcmFormat> AudioBufferOps for AudioBuffer<F> {
-    type Format = F;
-}
+impl<F: PcmFormat> AudioBufferOps for AudioBuffer<F> {}
 
-impl<F: PcmFormat> AudioBufferOps for AudioBufferRef<'_, F> {
-    type Format = F;
-}
+impl<F: PcmFormat> AudioBufferOps for AudioBufferRef<'_, F> {}
 
 /// AudioBufferOps trait contains shared methods for [`AudioBuffer`] and [`AudioBufferRef`]
 ///
@@ -170,8 +168,6 @@ impl<F: PcmFormat> AudioBufferOps for AudioBufferRef<'_, F> {
 ///
 /// When `looping` is `true`, reads wrap back to the start after reaching the end.
 pub trait AudioBufferOps: AsAudioBufferPtr + AsSourcePtr {
-    type Format: PcmFormat;
-
     /// Reads PCM frames into `dst`, returning the number of frames read.
     fn read_pcm_frames_into(
         &mut self,
@@ -216,7 +212,7 @@ pub trait AudioBufferOps: AsAudioBufferPtr + AsSourcePtr {
     }
 
     /// Returns a [`DataSourceRef`] view of this buffer.
-    fn as_source<'a>(&'a self) -> DataSourceRef<'a> {
+    fn as_source<'a>(&'a self) -> DataSourceRef<'a, Self::Format> {
         debug_assert!(!private_abuffer::buffer_ptr(self).is_null());
         let ptr = private_abuffer::buffer_ptr(self).cast::<sys::ma_data_source>();
         DataSourceRef::from_ptr(ptr)

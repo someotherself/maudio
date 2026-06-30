@@ -85,7 +85,9 @@ pub(crate) unsafe extern "C" fn on_process_callback(
 
     let channels = ctx.channels as usize;
     // Engine is alwaus f32, no need to adjust to vec storage units
-    let slice_len = (frame_count as usize).saturating_mul(channels);
+    let Some(slice_len) = (frame_count as usize).checked_mul(channels) else {
+        return;
+    };
 
     // Out is only valid for the duration of the callback
     let out = core::slice::from_raw_parts_mut(frames_out, slice_len);

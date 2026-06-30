@@ -42,7 +42,7 @@
 //!     .f32()
 //!     .playback_channels(2)
 //!     .sample_rate(SampleRate::Sr48000)
-//!     .with_callback(|_device, output, _frame_count| {
+//!     .with_callback(|_device, output| {
 //!         output.fill(0.0);
 //!     })?;
 //!
@@ -1444,7 +1444,7 @@ unsafe extern "C" fn device_data_playback_callback<F: PcmFormat, C>(
 
     if state.panic_flag.load(Ordering::Relaxed) {
         // The callback is now poisoned
-        slice.fill(F::SILENCE);
+        slice.fill(F::STORE_SILENCE);
         return;
     }
 
@@ -1454,7 +1454,7 @@ unsafe extern "C" fn device_data_playback_callback<F: PcmFormat, C>(
     if res.is_err() {
         // The callback is now poisoned
         state.panic_flag.store(true, Ordering::Release);
-        slice.fill(F::SILENCE);
+        slice.fill(F::STORE_SILENCE);
     }
 }
 
@@ -1552,7 +1552,7 @@ unsafe extern "C" fn device_data_duplex_callback<F: PcmFormat, C>(
 
     if state.panic_flag.load(Ordering::Relaxed) {
         // The callback is poisoned
-        out_slice.fill(F::SILENCE);
+        out_slice.fill(F::STORE_SILENCE);
         return;
     }
 
@@ -1562,7 +1562,7 @@ unsafe extern "C" fn device_data_duplex_callback<F: PcmFormat, C>(
     if res.is_err() {
         // The callback is now poisoned
         state.panic_flag.store(true, Ordering::Release);
-        out_slice.fill(F::SILENCE);
+        out_slice.fill(F::STORE_SILENCE);
     }
 }
 

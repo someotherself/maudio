@@ -358,6 +358,7 @@ mod private_decoder {
 // Allows Decoder to pass as a DataSource
 #[doc(hidden)]
 impl<F: PcmFormat, S> AsSourcePtr for Decoder<F, S> {
+    type Format = F;
     type __PtrProvider = private_data_source::DecoderProvider;
 }
 
@@ -382,12 +383,10 @@ impl<F: PcmFormat, S> AsDecoderPtr for Decoder<F, S> {
 }
 
 impl<F: PcmFormat, S> DecoderOps for Decoder<F, S> {
-    type Format = F;
     type Source = S;
 }
 
 pub trait DecoderOps: AsDecoderPtr + AsSourcePtr {
-    type Format: PcmFormat;
     type Source;
 
     /// Reads PCM frames into `dst`, returning the number of frames read.
@@ -429,7 +428,7 @@ pub trait DecoderOps: AsDecoderPtr + AsSourcePtr {
     }
 
     /// Returns a [`DataSourceRef`] view of this decoder.
-    fn as_source<'a>(&'a self) -> DataSourceRef<'a> {
+    fn as_source<'a>(&'a self) -> DataSourceRef<'a, Self::Format> {
         debug_assert!(!private_decoder::decoder_ptr(self).is_null());
         let ptr = private_decoder::decoder_ptr(self).cast::<sys::ma_data_source>();
         DataSourceRef::from_ptr(ptr)

@@ -348,7 +348,11 @@ pub trait NodeOps: AsNodePtr {
         node_ffi::ma_node_set_output_bus_volume(self, out_bus_index, volume)
     }
 
-    /// Returns the current node state.
+    /// Returns the current node state. The state does not update when a sound finishes playing.
+    ///
+    /// The node state only reflects whether the node has been explicitly started or
+    /// stopped. It does not automatically change to [`NodeState::Stopped`] when the
+    /// data source reaches the end of playback.
     fn state(&self) -> MaResult<NodeState> {
         node_ffi::ma_node_get_state(self)
     }

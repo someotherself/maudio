@@ -19,6 +19,10 @@ use maudio::{
 // This example requires the `vorbis` feature to run
 
 fn main() -> MaResult<()> {
+    if cfg!(not(feature = "vorbis")) {
+        println!("Run using: cargo run --features vorbis --example 015_sound_pool.rs.rs");
+        return Ok(());
+    }
     let engine = Engine::new()?;
 
     let path = PathBuf::from(concat!(

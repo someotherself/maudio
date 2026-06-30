@@ -68,17 +68,16 @@ impl<'a, R: AsRmPtr + ?Sized> Binding for ResourceManagerSource<'a, R> {
     }
 }
 
-impl<'a, R: AsRmPtr> SharedSource for ResourceManagerSource<'a, R> {
-    type Format = R::Format;
-}
+impl<'a, R: AsRmPtr> SharedSource for ResourceManagerSource<'a, R> {}
 
 #[doc(hidden)]
 impl<'a, R: AsRmPtr> AsSourcePtr for ResourceManagerSource<'a, R> {
+    type Format = R::Format;
     type __PtrProvider = private_data_source::ResourceManagerSourceProvider;
 }
 
 impl<'a, R: AsRmPtr> ResourceManagerSource<'a, R> {
-    pub fn as_source(&'a self) -> DataSourceRef<'a> {
+    pub fn as_source(&'a self) -> DataSourceRef<'a, R::Format> {
         debug_assert!(!self.to_raw().is_null());
         let ptr = self.to_raw().cast::<sys::ma_data_source>();
         DataSourceRef::from_ptr(ptr)
