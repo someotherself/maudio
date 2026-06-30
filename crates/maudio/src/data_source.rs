@@ -46,8 +46,9 @@ pub struct SourceContext {
 #[repr(C)]
 pub struct DataSource<F: PcmFormat, P: PcmSource<F>> {
     inner: sys::ma_data_source_base,
-    source: P,
     context: SourceContext,
+    source: P,
+    vtable: *const sys::ma_data_source_vtable,
     _format: PhantomData<F>,
 }
 
@@ -366,7 +367,6 @@ pub(crate) mod data_source_ffi {
     };
 
     #[inline]
-    #[allow(dead_code)]
     pub fn ma_data_source_init(
         config: &DataSourceBuilder,
         source: *mut sys::ma_data_source,
@@ -376,8 +376,6 @@ pub(crate) mod data_source_ffi {
     }
 
     #[inline]
-    #[allow(dead_code)]
-    // TODO
     pub fn ma_data_source_uninit<F: PcmFormat, P: PcmSource<F>>(source: &mut DataSource<F, P>) {
         unsafe {
             sys::ma_data_source_uninit(source.as_raw_ptr() as *mut _);
@@ -790,6 +788,13 @@ pub(crate) mod data_source_ffi {
                 private_data_source::source_ptr(source) as *const _
             )
         }
+    }
+}
+
+impl<F: PcmFormat, P: PcmSource<F>> Drop for DataSource<F, P> {
+    fn drop(&mut self) {
+        data_source_ffi::ma_data_source_uninit(self);
+        drop(unsafe { Box::from_raw(self.vtable as *mut sys::ma_data_source_vtable) });
     }
 }
 

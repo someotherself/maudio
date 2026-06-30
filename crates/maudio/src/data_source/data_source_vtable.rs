@@ -9,7 +9,7 @@ use maudio_sys::ffi as sys;
 
 pub(crate) fn data_source_vtable<F: PcmFormat, P: PcmSource<F>>(
     builder: &DataSourceBuilder,
-) -> sys::ma_data_source_vtable {
+) -> *const sys::ma_data_source_vtable {
     let mut vtable = sys::ma_data_source_vtable {
         onRead: Some(data_source_read_proc::<F, P>),
         onSeek: Some(data_source_seek_proc::<F, P>),
@@ -32,7 +32,7 @@ pub(crate) fn data_source_vtable<F: PcmFormat, P: PcmSource<F>>(
     if builder.no_looping {
         vtable.onSetLooping = None;
     }
-    vtable
+    Box::into_raw(Box::new(vtable)) as *const _
 }
 
 unsafe extern "C" fn data_source_read_proc<F: PcmFormat, P: PcmSource<F>>(

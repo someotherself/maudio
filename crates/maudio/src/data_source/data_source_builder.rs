@@ -126,9 +126,9 @@ impl DataSourceBuilder {
         &mut self,
         source: P,
         context: SourceContext,
-        vtable: &sys::ma_data_source_vtable,
+        vtable: *const sys::ma_data_source_vtable,
     ) -> MaResult<DataSource<F, P>> {
-        self.inner.vtable = vtable as *const _;
+        self.inner.vtable = vtable;
         let mut inner: MaybeUninit<sys::ma_data_source_base> = MaybeUninit::uninit();
 
         data_source_ffi::ma_data_source_init(self, inner.as_mut_ptr() as *mut _)?;
@@ -137,6 +137,7 @@ impl DataSourceBuilder {
             inner: unsafe { inner.assume_init() },
             source,
             context,
+            vtable,
             _format: PhantomData,
         })
     }
@@ -150,7 +151,7 @@ impl DataSourceBuilder {
         };
 
         let vtable = data_source_vtable::<u8, P>(self);
-        self.build::<u8, P>(source, context, &vtable)
+        self.build::<u8, P>(source, context, vtable)
     }
 
     pub fn build_i16<P: PcmSource<i16>>(&mut self, source: P) -> MaResult<DataSource<i16, P>> {
@@ -162,7 +163,7 @@ impl DataSourceBuilder {
         };
 
         let vtable = data_source_vtable::<i16, P>(self);
-        self.build::<i16, P>(source, context, &vtable)
+        self.build::<i16, P>(source, context, vtable)
     }
 
     pub fn build_i32<P: PcmSource<i32>>(&mut self, source: P) -> MaResult<DataSource<i32, P>> {
@@ -174,7 +175,7 @@ impl DataSourceBuilder {
         };
 
         let vtable = data_source_vtable::<i32, P>(self);
-        self.build::<i32, P>(source, context, &vtable)
+        self.build::<i32, P>(source, context, vtable)
     }
 
     pub fn build_s24_packed<P: PcmSource<S24Packed>>(
@@ -189,7 +190,7 @@ impl DataSourceBuilder {
         };
 
         let vtable = data_source_vtable::<S24Packed, P>(self);
-        self.build::<S24Packed, P>(source, context, &vtable)
+        self.build::<S24Packed, P>(source, context, vtable)
     }
 
     pub fn build_f32<P: PcmSource<f32>>(&mut self, source: P) -> MaResult<DataSource<f32, P>> {
@@ -201,6 +202,6 @@ impl DataSourceBuilder {
         };
 
         let vtable = data_source_vtable::<f32, P>(self);
-        self.build::<f32, P>(source, context, &vtable)
+        self.build::<f32, P>(source, context, vtable)
     }
 }
