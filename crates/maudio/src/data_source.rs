@@ -798,7 +798,6 @@ impl<F: PcmFormat, P: PcmSource<F>> Drop for DataSource<F, P> {
     }
 }
 
-#[derive(PartialEq, Copy, Clone)]
 pub struct DataSourceRef<'a, F: PcmFormat> {
     inner: *mut sys::ma_data_source,
     _marker: PhantomData<&'a ()>,
