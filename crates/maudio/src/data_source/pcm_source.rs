@@ -92,7 +92,7 @@ impl<F: PcmFormat> PcmSource<F> for Vec<F::PcmUnit> {
     }
 
     fn length_in_pcm_frames(&self, ctx: &SourceContext) -> Option<u64> {
-        Some(self.len() as u64)
+        Some((self.len() as u64) / ctx.data_format.channels as u64)
     }
 
     fn set_looping(&self, looping: bool, ctx: &mut SourceContext) -> MaResult<()> {

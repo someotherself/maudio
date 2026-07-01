@@ -9,7 +9,7 @@ use crate::{
         formats::{Format, SampleBuffer},
         sample_rate::SampleRate,
     },
-    data_source::pcm_source::PcmSource,
+    data_source::{data_source_chain::ChainSource, pcm_source::PcmSource},
     engine::resource::{
         rm_buffer::ResourceManagerBuffer, rm_source::ResourceManagerSource,
         rm_stream::ResourceManagerStream, AsRmPtr,
@@ -19,6 +19,7 @@ use crate::{
 };
 
 pub mod data_source_builder;
+pub mod data_source_chain;
 pub mod data_source_vtable;
 pub mod pcm_source;
 pub mod sources;
@@ -43,8 +44,12 @@ pub struct SourceContext {
     pub looping: bool,
 }
 
-#[repr(C)]
 pub struct DataSource<F: PcmFormat, P: PcmSource<F>> {
+    inner: *mut DataSourceInner<F, P>,
+}
+
+#[repr(C)]
+struct DataSourceInner<F: PcmFormat, P: PcmSource<F>> {
     inner: sys::ma_data_source_base,
     context: SourceContext,
     source: P,
@@ -56,7 +61,14 @@ impl<F: PcmFormat, P: PcmSource<F>> AsRawRef for DataSource<F, P> {
     type Raw = sys::ma_data_source_base;
 
     fn as_raw(&self) -> &Self::Raw {
-        &self.inner
+        unsafe { &(*self.inner).inner }
+    }
+}
+impl<F: PcmFormat, P: PcmSource<F>> DataSource<F, P> {
+    fn as_source<'a>(&'a self) -> DataSourceRef<'a, F> {
+        let ptr =
+            (self.as_raw_ptr() as *mut sys::ma_data_source_base).cast::<sys::ma_data_source>();
+        DataSourceRef::from_ptr(ptr)
     }
 }
 
@@ -65,11 +77,14 @@ pub type GetNextCallback = sys::ma_data_source_get_next_proc;
 // Keeps the methods on AsSourcePtr private
 pub(crate) mod private_data_source {
     use crate::{
-        data_source::sources::{
-            buffer::{AudioBuffer, AudioBufferOps, AudioBufferRef},
-            decoder::{Decoder, DecoderOps},
-            pulsewave::{PulseWave, PulseWaveOps},
-            waveform::{WaveForm, WaveFormOps},
+        data_source::{
+            data_source_chain::ChainSource,
+            sources::{
+                buffer::{AudioBuffer, AudioBufferOps, AudioBufferRef},
+                decoder::{Decoder, DecoderOps},
+                pulsewave::{PulseWave, PulseWaveOps},
+                waveform::{WaveForm, WaveFormOps},
+            },
         },
         engine::{
             node_graph::nodes::source::source_node::AttachedSourceNode,
@@ -98,6 +113,7 @@ pub(crate) mod private_data_source {
     pub struct ResourceManagerSourceProvider;
     pub struct ResourceManagerBufferProvider;
     pub struct ResourceManagerStreamProvider;
+    pub struct ChainSourceProvider;
 
     impl<F: PcmFormat, P: PcmSource<F>> DataSourcePtrProvider<DataSource<F, P>> for DataSourceProvider {
         // TODO
@@ -185,6 +201,13 @@ pub(crate) mod private_data_source {
         }
     }
 
+    impl<F: PcmFormat> DataSourcePtrProvider<ChainSource<'_, F>> for ChainSourceProvider {
+        #[inline]
+        fn as_source_ptr(t: &ChainSource<'_, F>) -> *mut sys::ma_data_source {
+            t.as_source().to_raw()
+        }
+    }
+
     pub fn source_ptr<T: AsSourcePtr + ?Sized>(t: &T) -> *mut sys::ma_data_source {
         <T as AsSourcePtr>::__PtrProvider::as_source_ptr(t)
     }
@@ -210,7 +233,9 @@ impl<'a, F: PcmFormat> AsSourcePtr for DataSourceRef<'a, F> {
 
 mod sealed {
     use crate::{
-        data_source::{pcm_source::PcmSource, DataSource, DataSourceRef},
+        data_source::{
+            data_source_chain::ChainSource, pcm_source::PcmSource, DataSource, DataSourceRef,
+        },
         engine::resource::{
             rm_buffer::ResourceManagerBuffer, rm_source::ResourceManagerSource,
             rm_stream::ResourceManagerStream, AsRmPtr,
@@ -221,6 +246,7 @@ mod sealed {
     pub trait Sealed {}
     impl<F: PcmFormat, P: PcmSource<F>> Sealed for DataSource<F, P> {}
     impl<F: PcmFormat> Sealed for DataSourceRef<'_, F> {}
+    impl<F: PcmFormat> Sealed for ChainSource<'_, F> {}
     impl<R: AsRmPtr> Sealed for ResourceManagerBuffer<'_, R> {}
     impl<R: AsRmPtr> Sealed for ResourceManagerSource<'_, R> {}
     impl<R: AsRmPtr> Sealed for ResourceManagerStream<'_, R> {}
@@ -234,6 +260,7 @@ impl<F: PcmFormat> SharedSource for DataSourceRef<'_, F> {}
 // The types that DataSourceOps is implemented for are listed here.
 impl<F: PcmFormat, P: PcmSource<F>> DataSourceOps for DataSource<F, P> {}
 impl<F: PcmFormat> DataSourceOps for DataSourceRef<'_, F> {}
+impl<F: PcmFormat> DataSourceOps for ChainSource<'_, F> {}
 impl<R: AsRmPtr> DataSourceOps for ResourceManagerSource<'_, R> {}
 impl<R: AsRmPtr> DataSourceOps for ResourceManagerBuffer<'_, R> {}
 impl<R: AsRmPtr> DataSourceOps for ResourceManagerStream<'_, R> {}
@@ -320,34 +347,6 @@ pub trait DataSourceOps: AsSourcePtr + SharedSource {
     fn loop_point_in_pcm_frames(&self) -> core::ops::Range<u64> {
         data_source_ffi::ma_data_source_get_loop_point_in_pcm_frames(self)
     }
-
-    fn set_current<S: AsSourcePtr + ?Sized>(&mut self, current: &mut S) -> MaResult<()> {
-        data_source_ffi::ma_data_source_set_current(self, current)
-    }
-
-    fn current(&self) -> Option<DataSourceRef<'_, Self::Format>> {
-        data_source_ffi::ma_data_source_get_current(self)
-    }
-
-    // TODO:
-    // fn set_next<S: AsSourcePtr + ?Sized>(&mut self, next: &mut S) -> MaResult<()> {
-    //     data_source_ffi::ma_data_source_set_next(self, next)
-    // }
-
-    // TODO:
-    // fn next(&self) -> Option<DataSourceRef<'_>> {
-    //     data_source_ffi::ma_data_source_get_next(self)
-    // }
-
-    // TODO:
-    // fn set_next_callback(&mut self, get_next_cb: GetNextCallback) -> MaResult<()> {
-    //     data_source_ffi::ma_data_source_set_next_callback(self, get_next_cb)
-    // }
-
-    // TODO:
-    // fn next_callback(&self) -> GetNextCallback {
-    //     data_source_ffi::ma_data_source_get_next_callback(self)
-    // }
 }
 
 pub(crate) mod data_source_ffi {
@@ -363,7 +362,7 @@ pub(crate) mod data_source_ffi {
             AsSourcePtr, DataFormat, DataSource, DataSourceRef, GetNextCallback,
         },
         pcm_frames::{PcmFormat, PcmFormatInternal},
-        AsRawRef, MaResult, MaudioError,
+        AsRawRef, Binding, MaResult, MaudioError,
     };
 
     #[inline]
@@ -696,59 +695,45 @@ pub(crate) mod data_source_ffi {
     }
 
     #[inline]
-    pub fn ma_data_source_set_current<S: AsSourcePtr + ?Sized, C: AsSourcePtr + ?Sized>(
-        source: &mut S,
-        current: &mut C,
+    pub fn ma_data_source_set_current<'a, F: PcmFormat>(
+        source: DataSourceRef<'a, F>,
+        current: DataSourceRef<'a, F>,
     ) -> MaResult<()> {
-        let res = unsafe {
-            sys::ma_data_source_set_current(
-                private_data_source::source_ptr(source),
-                private_data_source::source_ptr(current),
-            )
-        };
+        let res = unsafe { sys::ma_data_source_set_current(source.to_raw(), current.to_raw()) };
         MaudioError::check(res)
     }
 
     #[inline]
-    pub fn ma_data_source_get_current<'a, S: AsSourcePtr + ?Sized, F: PcmFormat>(
-        source: &'a S,
-    ) -> Option<DataSourceRef<'a, F>> {
-        let ptr = unsafe {
-            sys::ma_data_source_get_current(private_data_source::source_ptr(source) as *const _)
-        };
-        if ptr.is_null() {
-            None
-        } else {
-            Some(DataSourceRef {
-                inner: ptr,
-                _marker: PhantomData,
-                _format: PhantomData,
-            })
+    pub fn ma_data_source_get_current<'a, F: PcmFormat>(
+        source: DataSourceRef<'a, F>,
+    ) -> DataSourceRef<'a, F> {
+        let ptr = unsafe { sys::ma_data_source_get_current(source.to_raw() as *const _) };
+        DataSourceRef {
+            inner: ptr,
+            _marker: PhantomData,
+            _format: PhantomData,
         }
     }
 
     #[inline]
     #[allow(dead_code)]
-    pub fn ma_data_source_set_next<S: AsSourcePtr + ?Sized, N: AsSourcePtr + ?Sized>(
-        source: &mut S,
-        next: &mut N,
+    pub fn ma_data_source_set_next<'a, F: PcmFormat>(
+        source: DataSourceRef<'a, F>,
+        next: Option<DataSourceRef<'a, F>>,
     ) -> MaResult<()> {
-        let res = unsafe {
-            sys::ma_data_source_set_next(
-                private_data_source::source_ptr(source),
-                private_data_source::source_ptr(next),
-            )
-        };
+        let next = next.map_or(std::ptr::null_mut(), |s| s.to_raw());
+        let res = unsafe { sys::ma_data_source_set_next(source.to_raw(), next) };
         MaudioError::check(res)
     }
 
     #[inline]
     #[allow(dead_code)]
-    pub fn ma_data_source_get_next<'a, S: AsSourcePtr + ?Sized, F: PcmFormat>(
-        source: &'a S,
+    pub fn ma_data_source_get_next<'a, F: PcmFormat>(
+        source: DataSourceRef<'a, F>,
     ) -> Option<DataSourceRef<'a, F>> {
         let ptr = unsafe {
-            sys::ma_data_source_get_next(private_data_source::source_ptr(source) as *const _)
+            // sys::ma_data_source_get_next(private_data_source::source_ptr(source) as *const _)
+            sys::ma_data_source_get_next(source.to_raw() as *const _)
         };
         if ptr.is_null() {
             None
@@ -794,10 +779,12 @@ pub(crate) mod data_source_ffi {
 impl<F: PcmFormat, P: PcmSource<F>> Drop for DataSource<F, P> {
     fn drop(&mut self) {
         data_source_ffi::ma_data_source_uninit(self);
-        drop(unsafe { Box::from_raw(self.vtable as *mut sys::ma_data_source_vtable) });
+        drop(unsafe { Box::from_raw((*self.inner).vtable as *mut sys::ma_data_source_vtable) });
+        drop(unsafe { Box::from_raw(self.inner) });
     }
 }
 
+#[derive(Debug)]
 pub struct DataSourceRef<'a, F: PcmFormat> {
     inner: *mut sys::ma_data_source,
     _marker: PhantomData<&'a ()>,
@@ -819,3 +806,19 @@ impl<'a, F: PcmFormat> Binding for DataSourceRef<'a, F> {
         self.inner
     }
 }
+
+impl<'a, 'b, F: PcmFormat> PartialEq<DataSourceRef<'b, F>> for DataSourceRef<'a, F> {
+    fn eq(&self, other: &DataSourceRef<'b, F>) -> bool {
+        self.inner == other.inner
+    }
+}
+
+impl<'a, F: PcmFormat> Eq for DataSourceRef<'a, F> {}
+
+impl<'a, F: PcmFormat> Clone for DataSourceRef<'a, F> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<'a, F: PcmFormat> Copy for DataSourceRef<'a, F> {}

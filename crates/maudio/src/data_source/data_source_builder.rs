@@ -6,7 +6,7 @@ use crate::{
     audio::{channels::Channel, formats::Format, sample_rate::SampleRate},
     data_source::{
         data_source_ffi, data_source_vtable::data_source_vtable, pcm_source::PcmSource, DataFormat,
-        DataSource, SourceContext,
+        DataSource, DataSourceInner, SourceContext,
     },
     pcm_frames::{PcmFormat, S24Packed},
     AsRawRef, MaResult,
@@ -129,17 +129,19 @@ impl DataSourceBuilder {
         vtable: *const sys::ma_data_source_vtable,
     ) -> MaResult<DataSource<F, P>> {
         self.inner.vtable = vtable;
-        let mut inner: MaybeUninit<sys::ma_data_source_base> = MaybeUninit::uninit();
+        let mut base: MaybeUninit<sys::ma_data_source_base> = MaybeUninit::uninit();
 
-        data_source_ffi::ma_data_source_init(self, inner.as_mut_ptr() as *mut _)?;
+        data_source_ffi::ma_data_source_init(self, base.as_mut_ptr() as *mut _)?;
 
-        Ok(DataSource {
-            inner: unsafe { inner.assume_init() },
-            source,
+        let inner: DataSourceInner<F, P> = DataSourceInner {
+            inner: unsafe { base.assume_init() },
             context,
+            source,
             vtable,
             _format: PhantomData,
-        })
+        };
+        let inner_ptr = Box::into_raw(Box::new(inner));
+        Ok(DataSource { inner: inner_ptr })
     }
 
     pub fn build_u8<P: PcmSource<u8>>(&mut self, source: P) -> MaResult<DataSource<u8, P>> {

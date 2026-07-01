@@ -1,6 +1,6 @@
 #![allow(unused_variables)]
 use crate::{
-    data_source::{data_source_builder::DataSourceBuilder, pcm_source::PcmSource, DataSource},
+    data_source::{data_source_builder::DataSourceBuilder, pcm_source::PcmSource, DataSourceInner},
     pcm_frames::PcmFormat,
     ErrorKinds,
 };
@@ -16,7 +16,7 @@ pub(crate) fn data_source_vtable<F: PcmFormat, P: PcmSource<F>>(
         onGetDataFormat: Some(data_source_get_format_proc::<F, P>),
         onGetCursor: Some(data_source_get_cursor_proc::<F, P>),
         onGetLength: Some(data_source_get_len_proc::<F, P>),
-        onSetLooping: Some(data_source_set_looping_proc),
+        onSetLooping: Some(data_source_set_looping_proc::<F, P>),
         flags: 0,
     };
     if builder.no_seek {
@@ -53,7 +53,7 @@ unsafe extern "C" fn data_source_read_proc<F: PcmFormat, P: PcmSource<F>>(
         return sys::ma_result_MA_SUCCESS;
     }
 
-    let ds = &mut *(data_source).cast::<DataSource<F, P>>();
+    let ds = &mut *(data_source).cast::<DataSourceInner<F, P>>();
     let slice_len =
         match (frame_count as usize).checked_mul(ds.context.data_format.channels as usize) {
             Some(len) => len,
@@ -92,7 +92,7 @@ unsafe extern "C" fn data_source_seek_proc<F: PcmFormat, P: PcmSource<F>>(
         return sys::ma_result_MA_INVALID_ARGS;
     }
 
-    let ds = &mut *(data_source).cast::<DataSource<F, P>>();
+    let ds = &mut *(data_source).cast::<DataSourceInner<F, P>>();
 
     match ds.source.seek_to_pcm_frame(frame_index, &mut ds.context) {
         Ok(_) => sys::ma_result_MA_SUCCESS,
@@ -115,7 +115,7 @@ unsafe extern "C" fn data_source_get_format_proc<F: PcmFormat, P: PcmSource<F>>(
         return sys::ma_result_MA_INVALID_ARGS;
     }
 
-    let ds = &mut *(data_source).cast::<DataSource<F, P>>();
+    let ds = &mut *(data_source).cast::<DataSourceInner<F, P>>();
 
     if !format.is_null() {
         *format = ds.context.data_format.format.into();
@@ -148,7 +148,7 @@ unsafe extern "C" fn data_source_get_cursor_proc<F: PcmFormat, P: PcmSource<F>>(
         return sys::ma_result_MA_INVALID_ARGS;
     }
 
-    let ds = &mut *(data_source).cast::<DataSource<F, P>>();
+    let ds = &mut *(data_source).cast::<DataSourceInner<F, P>>();
 
     *cursor = ds.context.cursor;
     sys::ma_result_MA_SUCCESS
@@ -162,24 +162,30 @@ unsafe extern "C" fn data_source_get_len_proc<F: PcmFormat, P: PcmSource<F>>(
         return sys::ma_result_MA_INVALID_ARGS;
     }
 
-    let _ds = &mut *(data_source).cast::<DataSource<F, P>>();
+    let ds = &mut *(data_source).cast::<DataSourceInner<F, P>>();
 
-    // match ds.length_in_pcm_frames() {
-    //     Ok(l) => {
-    //         *length = l;
-    //         sys::ma_result_MA_SUCCESS
-    //     }
-    //     Err(_) => {
-    //         *length = 0;
-    //         sys::ma_result_MA_INVALID_ARGS
-    //     }
-    // }
+    let len = ds.source.length_in_pcm_frames(&ds.context).unwrap_or(0);
+    *length = len;
     sys::ma_result_MA_SUCCESS
 }
 
-unsafe extern "C" fn data_source_set_looping_proc(
-    _data_source: *mut sys::ma_data_source,
-    _is_looping: u32,
+unsafe extern "C" fn data_source_set_looping_proc<F: PcmFormat, P: PcmSource<F>>(
+    data_source: *mut sys::ma_data_source,
+    is_looping: u32,
 ) -> sys::ma_result {
+    if data_source.is_null() {
+        return sys::ma_result_MA_INVALID_ARGS;
+    }
+
+    let ds = &mut *(data_source).cast::<DataSourceInner<F, P>>();
+
+    if ds
+        .source
+        .set_looping(is_looping == 1, &mut ds.context)
+        .is_err()
+    {
+        return sys::ma_result_MA_NOT_IMPLEMENTED;
+    }
+
     sys::ma_result_MA_SUCCESS
 }
