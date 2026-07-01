@@ -1,4 +1,3 @@
-#![allow(unused_variables)]
 use crate::{
     data_source::{data_source_builder::DataSourceBuilder, pcm_source::PcmSource, DataSourceInner},
     pcm_frames::PcmFormat,

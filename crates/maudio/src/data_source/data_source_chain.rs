@@ -48,6 +48,15 @@
 //!
 //! # Mutation safety
 //!
+//! A `ChainSource` borrows the data sources added to it. Every source added to
+//! the chain must remain alive for at least as long as the `ChainSource`.
+//!
+//! Removing a source from the playback order only unlinks it from the chain.
+//! It does not unregister the source from the `ChainSource`, and it does not
+//! allow the original source value to be dropped before the chain. If a source
+//! should no longer be tied to a chain's lifetime, create a new `ChainSource`
+//! with the remaining sources instead.
+//!
 //! `ChainSource` prevents safe Rust code from reading from the chain and
 //! structurally modifying it through the same `ChainSource` value at the same
 //! time. Both manual reads and structural changes require `&mut ChainSource`.
@@ -60,11 +69,6 @@
 //! otherwise modify that source directly while the chain may also be read or
 //! modified. Do those operations through `ChainSource` instead.
 //!
-//! In particular, do not structurally modify a chain while its head or any
-//! linked source may be read by a device, engine, node graph, sound, or another
-//! thread. Miniaudio follows native `next` pointers while reading, and
-//! `ChainSource` does not synchronize those native reads against structural
-//! changes.
 //!
 //! The same data source may only be added to a chain once. If the same sound
 //! should appear multiple times, create a separate data source instance for
@@ -73,12 +77,13 @@
 use crate::{
     data_source::{data_source_ffi, private_data_source, AsSourcePtr, DataSourceRef, SharedSource},
     pcm_frames::PcmFormat,
-    ErrorKinds, MaResult, MaudioError,
+    Binding, ErrorKinds, MaResult, MaudioError,
 };
 
 pub struct ChainSource<'a, F: PcmFormat> {
     head: DataSourceRef<'a, F>,
     tail: Vec<DataSourceRef<'a, F>>,
+    unlinked: Vec<DataSourceRef<'a, F>>,
     looping: bool,
 }
 
@@ -90,6 +95,7 @@ impl<'a, F: PcmFormat> ChainSource<'a, F> {
         Self {
             head: source,
             tail: Vec::new(),
+            unlinked: Vec::new(),
             looping,
         }
     }
@@ -140,9 +146,22 @@ impl<'a, F: PcmFormat> ChainSource<'a, F> {
     ///
     /// Returns `Ok(false)` if the source is not in the tail. The head cannot be
     /// removed.
-    pub fn remove(&mut self, src: DataSourceRef<'a, F>) -> MaResult<bool> {
+    pub fn unlink(&mut self, src: DataSourceRef<'a, F>) -> MaResult<bool> {
+        if self.get_current() == src {
+            return Err(MaudioError::new_ma_error(ErrorKinds::InvalidOperation(
+                "Cannot unlink the current source",
+            )));
+        }
+        if self.head == src {
+            return Err(MaudioError::new_ma_error(ErrorKinds::InvalidOperation(
+                "Cannot unlink the head source",
+            )));
+        }
+
         if let Some(index) = self.tail.iter().position(|c| c == &src) {
-            self.tail.remove(index);
+            let old = self.tail.remove(index);
+            self.unlinked.push(old);
+
             self.relink()?;
             Ok(true)
         } else {
@@ -211,6 +230,16 @@ impl<'a, F: PcmFormat> ChainSource<'a, F> {
         data_source_ffi::ma_data_source_get_next(curr)
     }
 
+    /// Tries to skip the current source.
+    ///
+    /// Will be a no-op if there is no next source available.
+    pub fn skip_current(&mut self) -> MaResult<()> {
+        if let Some(next) = self.get_next() {
+            self.set_curr(next)?;
+        }
+        Ok(())
+    }
+
     #[allow(unused)]
     pub(crate) fn set_next(&mut self, next: Option<DataSourceRef<'a, F>>) -> MaResult<()> {
         data_source_ffi::ma_data_source_set_next(self.head, next)
@@ -229,6 +258,8 @@ impl<'a, F: PcmFormat> ChainSource<'a, F> {
     }
 
     fn relink(&mut self) -> MaResult<()> {
+        let current_ptr = self.get_current().to_raw();
+
         self.set_next_at(self.head, self.tail.first().copied())?;
 
         let mut prev = self.head;
@@ -245,10 +276,13 @@ impl<'a, F: PcmFormat> ChainSource<'a, F> {
             self.set_next_at(prev, None)?;
         }
 
+        let current = DataSourceRef::from_ptr(current_ptr);
+        self.set_curr(current)?;
+
         Ok(())
     }
 
-    pub(crate) fn as_source(&'a self) -> DataSourceRef<'a, F> {
+    pub(crate) fn as_source(&self) -> DataSourceRef<'a, F> {
         self.head
     }
 }
@@ -371,7 +405,7 @@ mod tests {
 
         chain.insert(src2.as_source()).unwrap();
 
-        let removed = chain.remove(src2.as_source()).unwrap();
+        let removed = chain.unlink(src2.as_source()).unwrap();
 
         assert!(removed);
         assert_eq!(chain.tail_len(), 0);
@@ -388,22 +422,22 @@ mod tests {
 
         let mut chain = ChainSource::new(src1.as_source(), false);
 
-        let removed = chain.remove(src2.as_source()).unwrap();
+        let removed = chain.unlink(src2.as_source()).unwrap();
 
         assert!(!removed);
         assert_eq!(chain.tail_len(), 0);
     }
 
     #[test]
-    fn test_data_chain_remove_head_returns_false_and_keeps_chain() {
+    fn test_data_chain_remove_head_returns_error_and_keeps_chain() {
         let data = vec![0.0f32; 200];
         let src = buffer_source(&data);
 
         let mut chain = ChainSource::new(src.as_source(), false);
 
-        let removed = chain.remove(src.as_source()).unwrap();
+        let res = chain.unlink(src.as_source());
 
-        assert!(!removed);
+        assert!(res.is_err());
         assert_eq!(chain.tail_len(), 0);
     }
 
