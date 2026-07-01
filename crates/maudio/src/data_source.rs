@@ -716,7 +716,6 @@ pub(crate) mod data_source_ffi {
     }
 
     #[inline]
-    #[allow(dead_code)]
     pub fn ma_data_source_set_next<'a, F: PcmFormat>(
         source: DataSourceRef<'a, F>,
         next: Option<DataSourceRef<'a, F>>,
@@ -727,7 +726,6 @@ pub(crate) mod data_source_ffi {
     }
 
     #[inline]
-    #[allow(dead_code)]
     pub fn ma_data_source_get_next<'a, F: PcmFormat>(
         source: DataSourceRef<'a, F>,
     ) -> Option<DataSourceRef<'a, F>> {
@@ -746,9 +744,7 @@ pub(crate) mod data_source_ffi {
         }
     }
 
-    // TODO
     #[inline]
-    #[allow(dead_code)]
     pub fn ma_data_source_set_next_callback<S: AsSourcePtr + ?Sized>(
         source: &mut S,
         get_next_cb: GetNextCallback,
@@ -762,9 +758,7 @@ pub(crate) mod data_source_ffi {
         MaudioError::check(res)
     }
 
-    // TODO
     #[inline]
-    #[allow(dead_code)]
     pub fn ma_data_source_get_next_callback<S: AsSourcePtr + ?Sized>(
         source: &S,
     ) -> GetNextCallback {

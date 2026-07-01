@@ -31,7 +31,7 @@ use crate::{
 ///   while lower values produce a **wider** cut.
 ///
 /// ## Notes
-/// After creating the filter, use [`Self::reinit`] and [`NotchNodeParams`] to change the filter parameters.
+/// After creating the filter, use [`Self::reinit`] to change the filter parameters.
 /// This reinitializes the filter coefficients without clearing the internal state.
 /// This allows filter parameters to be updated in real time without causing
 /// audible artifacts such as clicks or pops.
@@ -98,7 +98,6 @@ impl<'a> NotchNode<'a> {
         })
     }
 
-    /// See [`NotchNodeParams`] for creating a config
     pub fn reinit(&mut self, q: f64, frequency: f64) -> MaResult<()> {
         let params = NotchNodeParams::new(self, q, frequency);
         if params.inner.channels == 0 {

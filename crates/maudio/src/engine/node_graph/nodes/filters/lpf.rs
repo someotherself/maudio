@@ -30,7 +30,7 @@ use crate::{
 ///   at the cost of more processing and potentially more phase shift.
 ///
 /// ## Notes
-/// After creating the filter, use [`Self::reinit`] and [`LpfNodeParams`] to change the filter parameters.
+/// After creating the filter, use [`Self::reinit`] to change the filter parameters.
 /// This reinitializes the filter coefficients without clearing the internal state.
 /// This allows filter parameters to be updated in real time without causing
 /// audible artifacts such as clicks or pops.
@@ -91,7 +91,6 @@ impl<'a> LpfNode<'a> {
         })
     }
 
-    /// See [`LpfNodeParams`] for creating a config
     pub fn reinit(&mut self, sample_rate: SampleRate, cutoff_freq: f64) -> MaResult<()> {
         if self.channels == 0 {
             return Err(crate::MaudioError::from_ma_result(

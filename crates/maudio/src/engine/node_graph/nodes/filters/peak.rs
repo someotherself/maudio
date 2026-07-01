@@ -35,7 +35,7 @@ use crate::{
 ///   Higher Q = narrower band (more surgical). Lower Q = wider band (more gentle).
 ///
 /// ## Notes
-/// After creating the filter, use [`Self::reinit`] and [`PeakNodeParams`] to update parameters.
+/// After creating the filter, use [`Self::reinit`] to update parameters.
 /// This reinitializes the filter coefficients **without clearing internal state**, allowing
 /// real-time parameter changes with minimal risk of audible artifacts (clicks/pops).
 ///
@@ -96,7 +96,6 @@ impl<'a> PeakNode<'a> {
         })
     }
 
-    /// See [`PeakNodeParams`] for creating a config
     pub fn reinit(&mut self, gain_db: f64, quality_factor: f64, frequency: f64) -> MaResult<()> {
         let params = PeakNodeParams::new(self, gain_db, quality_factor, frequency);
         n_peak_ffi::ma_peak_node_reinit(params.as_raw_ptr(), self)

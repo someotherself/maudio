@@ -5,9 +5,11 @@
 //!
 //! # How a `ChainSource` works internally
 //!
-//! Lets image a data source chain like this:
-//! decoder1 -> decoder2 -> decoder3 -> decoder4
-//! In maudio it is structures as:
+//! Lets imagine a data source chain like this:
+//!
+//! *decoder1 -> decoder2 -> decoder3 -> decoder4*
+//!
+//! In maudio it is structured as:
 //! head: decoder1 (always the first data source in the chain)
 //! tail: decoder2, decoder3, decoder4
 //!
@@ -19,8 +21,9 @@
 //! The head also stores a pointer to the current source being read.
 //!
 //! For example, while the chain is playing decoder3, the links look like this:
-//! head.current = decoder3 (called as chain.current)
-//! decoder3.next = decoder4 (called as chain.next)
+//!
+//! - head.current = decoder3 (called as chain.current)
+//! - decoder3.next = decoder4 (called as chain.next)
 //!
 //! Calling chain.get_current() would therefore return a [DataSourceRef] to decoder3.
 //!
@@ -32,13 +35,40 @@
 //!
 //! # How it works in practice
 //!
+//! The chain has one required head source and an ordered tail of [`DataSourceRef`] values:
 //!
+//! head -> tail\[0\] -> tail\[1\] -> ...
 //!
+//! A `ChainSource` is initialized with a head and an empty tail.
+//! Adding new sources via [`ChainSource::insert`] automatically links the chain
+//! and sets the new source as head.next.
 //!
+//! Any data source type in maudio which can be converted into a DataSourceRef can be added to the chain.
+//! See [`AsSourcePtr`] implementations for a list of all the data sources.
 //!
+//! # Mutation safety
 //!
+//! `ChainSource` prevents safe Rust code from reading from the chain and
+//! structurally modifying it through the same `ChainSource` value at the same
+//! time. Both manual reads and structural changes require `&mut ChainSource`.
 //!
+//! This only protects access that goes through `ChainSource`. A source added to
+//! the chain can still be accessed through its original owner or through other
+//! miniaudio APIs.
 //!
+//! After a source has been added to a chain, do not read, seek, relink, or
+//! otherwise modify that source directly while the chain may also be read or
+//! modified. Do those operations through `ChainSource` instead.
+//!
+//! In particular, do not structurally modify a chain while its head or any
+//! linked source may be read by a device, engine, node graph, sound, or another
+//! thread. Miniaudio follows native `next` pointers while reading, and
+//! `ChainSource` does not synchronize those native reads against structural
+//! changes.
+//!
+//! The same data source may only be added to a chain once. If the same sound
+//! should appear multiple times, create a separate data source instance for
+//! each entry.
 
 use crate::{
     data_source::{data_source_ffi, private_data_source, AsSourcePtr, DataSourceRef, SharedSource},
@@ -161,22 +191,27 @@ impl<'a, F: PcmFormat> ChainSource<'a, F> {
         self.relink()
     }
 
+    #[allow(unused)]
     pub(crate) fn set_curr(&mut self, curr: DataSourceRef<'a, F>) -> MaResult<()> {
         data_source_ffi::ma_data_source_set_current(self.head, curr)
     }
 
-    pub(crate) fn get_curr(&self) -> DataSourceRef<'_, F> {
+    /// Returns the current source stored on the chain head.
+    pub fn get_current(&self) -> DataSourceRef<'_, F> {
         data_source_ffi::ma_data_source_get_current(self.head)
     }
 
-    pub(crate) fn get_next(&self) -> Option<DataSourceRef<'a, F>> {
+    /// Returns the source linked directly after the head.
+    pub fn get_next(&self) -> Option<DataSourceRef<'a, F>> {
         data_source_ffi::ma_data_source_get_next(self.head)
     }
 
-    pub(crate) fn get_next_at(&self, curr: DataSourceRef<'a, F>) -> Option<DataSourceRef<'a, F>> {
+    /// Returns the source linked directly after `curr`.
+    pub fn get_next_at(&self, curr: DataSourceRef<'a, F>) -> Option<DataSourceRef<'a, F>> {
         data_source_ffi::ma_data_source_get_next(curr)
     }
 
+    #[allow(unused)]
     pub(crate) fn set_next(&mut self, next: Option<DataSourceRef<'a, F>>) -> MaResult<()> {
         data_source_ffi::ma_data_source_set_next(self.head, next)
     }

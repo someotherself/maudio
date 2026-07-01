@@ -39,7 +39,7 @@ use crate::{
 /// Violating these constraints may result in an error or undefined DSP behavior.
 ///
 /// ## Notes
-/// - After creating the filter, use [`Self::reinit`] and [`BiquadNodeParams`] to change the values of the coefficients.
+/// - After creating the filter, use [`Self::reinit`] to change the values of the coefficients.
 ///   This reinitializes the filter coefficients without clearing the internal state.
 ///   This allows filter parameters to be updated in real time without causing
 ///   audible artifacts such as clicks or pops.
@@ -106,7 +106,6 @@ impl<'a> BiquadNode<'a> {
         })
     }
 
-    /// See [`BiquadNodeParams`] for creating a config
     pub fn reinit(&mut self, b0: f64, b1: f64, b2: f64, a0: f64, a1: f64, a2: f64) -> MaResult<()> {
         let param = BiquadNodeParams::new(self, b0, b1, b2, a0, a1, a2);
         n_biquad_ffi::ma_biquad_node_reinit(param.as_raw_ptr(), self)
