@@ -5,8 +5,8 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     audio::{
-        dsp::pan::PanMode,
         math::vec3::Vec3,
+        pan::PanMode,
         spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
     },
     engine::{
@@ -278,8 +278,8 @@ pub(crate) mod s_group_ffi {
 
     use crate::{
         audio::{
-            dsp::pan::PanMode,
             math::vec3::Vec3,
+            pan::PanMode,
             spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
         },
         engine::{Engine, EngineRef},
@@ -854,8 +854,8 @@ impl<'a> SoundGroupBuilder<'a> {
 mod test {
     use crate::{
         audio::{
-            dsp::pan::PanMode,
             math::vec3::Vec3,
+            pan::PanMode,
             spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
         },
         engine::{engine_builder::EngineBuilder, Engine},

@@ -11,8 +11,8 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     audio::{
-        dsp::pan::PanMode,
         math::vec3::Vec3,
+        pan::PanMode,
         spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
     },
     data_source::{DataFormat, DataSourceRef},
@@ -564,6 +564,7 @@ pub(crate) mod sound_ffi {
 
     use crate::audio::channels::Channel;
     use crate::audio::math::vec3::Vec3;
+    use crate::audio::pan::PanMode;
     use crate::audio::spatial::{
         attenuation::AttenuationModel, cone::Cone, positioning::Positioning,
     };
@@ -571,7 +572,6 @@ pub(crate) mod sound_ffi {
     use crate::data_source::{private_data_source, DataFormat, DataSourceRef};
     use crate::util::fence::Fence;
     use crate::{
-        audio::dsp::pan::PanMode,
         engine::{Engine, EngineRef},
         sound::{
             sound_builder::SoundBuilder, sound_flags::SoundFlags, sound_group::SoundGroup, Sound,
@@ -1251,8 +1251,8 @@ pub(crate) mod sound_ffi {
 mod test {
     use crate::{
         audio::{
-            dsp::pan::PanMode,
             math::vec3::Vec3,
+            pan::PanMode,
             spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
         },
         data_source::sources::buffer::{AudioBufferBuilder, AudioBufferOps},
