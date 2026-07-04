@@ -1,3 +1,5 @@
+use std::panic::{catch_unwind, AssertUnwindSafe};
+
 use crate::{
     data_source::{data_source_builder::DataSourceBuilder, pcm_source::PcmSource, DataSourceInner},
     pcm_frames::PcmFormat,
@@ -65,8 +67,11 @@ unsafe extern "C" fn data_source_read_proc<F: PcmFormat, P: PcmSource<F>>(
     // PcmUnit and StorageUnit always the same layout, size, and alignment
     let out = core::slice::from_raw_parts_mut::<F::PcmUnit>(frames_out.cast(), slice_len);
 
-    match ds.source.fill_pcm_frames(out, &mut ds.context) {
-        Ok(frames) => {
+    let res = catch_unwind(AssertUnwindSafe(|| {
+        ds.source.fill_pcm_frames(out, &mut ds.context)
+    }));
+    match res {
+        Ok(Ok(frames)) => {
             if !frames_read.is_null() {
                 *frames_read = frames as u64;
             }
@@ -79,7 +84,10 @@ unsafe extern "C" fn data_source_read_proc<F: PcmFormat, P: PcmSource<F>>(
                 sys::ma_result_MA_SUCCESS
             }
         }
-        Err(_) => sys::ma_result_MA_ERROR,
+        Ok(Err(_)) | Err(_) => {
+            out.fill(F::PCM_UNIT_SILENCE);
+            sys::ma_result_MA_ERROR
+        }
     }
 }
 
@@ -93,12 +101,15 @@ unsafe extern "C" fn data_source_seek_proc<F: PcmFormat, P: PcmSource<F>>(
 
     let ds = &mut *(data_source).cast::<DataSourceInner<F, P>>();
 
-    match ds.source.seek_to_pcm_frame(frame_index, &mut ds.context) {
-        Ok(_) => sys::ma_result_MA_SUCCESS,
-        Err(e) if e.kind() == Some(&ErrorKinds::NotImplemented) => {
+    let res = catch_unwind(AssertUnwindSafe(|| {
+        ds.source.seek_to_pcm_frame(frame_index, &mut ds.context)
+    }));
+    match res {
+        Ok(Ok(_)) => sys::ma_result_MA_SUCCESS,
+        Ok(Err(e)) if e.kind() == Some(&ErrorKinds::NotImplemented) => {
             sys::ma_result_MA_NOT_IMPLEMENTED
         }
-        Err(_) => sys::ma_result_MA_ERROR,
+        Ok(Err(_)) | Err(_) => sys::ma_result_MA_ERROR,
     }
 }
 
@@ -163,7 +174,13 @@ unsafe extern "C" fn data_source_get_len_proc<F: PcmFormat, P: PcmSource<F>>(
 
     let ds = &mut *(data_source).cast::<DataSourceInner<F, P>>();
 
-    let len = ds.source.length_in_pcm_frames(&ds.context).unwrap_or(0);
+    let res = catch_unwind(AssertUnwindSafe(|| {
+        ds.source.length_in_pcm_frames(&ds.context)
+    }));
+    let len = match res {
+        Ok(Some(l)) => l,
+        _ => 0,
+    };
     *length = len;
     sys::ma_result_MA_SUCCESS
 }
@@ -178,13 +195,11 @@ unsafe extern "C" fn data_source_set_looping_proc<F: PcmFormat, P: PcmSource<F>>
 
     let ds = &mut *(data_source).cast::<DataSourceInner<F, P>>();
 
-    if ds
-        .source
-        .set_looping(is_looping == 1, &mut ds.context)
-        .is_err()
-    {
-        return sys::ma_result_MA_NOT_IMPLEMENTED;
+    let res = catch_unwind(AssertUnwindSafe(|| {
+        ds.source.set_looping(is_looping == 1, &mut ds.context)
+    }));
+    match res {
+        Ok(Ok(_)) => sys::ma_result_MA_SUCCESS,
+        _ => sys::ma_result_MA_NOT_IMPLEMENTED,
     }
-
-    sys::ma_result_MA_SUCCESS
 }
