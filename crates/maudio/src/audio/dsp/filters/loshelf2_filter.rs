@@ -116,11 +116,12 @@ mod loshelf2_ffi {
     use std::sync::Arc;
 
     use crate::{
-        audio::dsp::loshelf2_filter::LoShelf2, engine::AllocationCallbacks, pcm_frames::PcmFormat,
-        AsRawRef, Binding, MaResult, MaudioError,
+        audio::dsp::filters::loshelf2_filter::LoShelf2, engine::AllocationCallbacks,
+        pcm_frames::PcmFormat, AsRawRef, Binding, MaResult, MaudioError,
     };
     use maudio_sys::ffi as sys;
 
+    #[inline]
     pub fn ma_loshelf2_init(
         config: &sys::ma_loshelf2_config,
         alloc: Option<Arc<AllocationCallbacks>>,
@@ -132,12 +133,14 @@ mod loshelf2_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_loshelf2_uninit<F: PcmFormat>(loshelf2: &mut LoShelf2<F>) {
         unsafe {
             sys::ma_loshelf2_uninit(loshelf2.to_raw(), std::ptr::null_mut());
         };
     }
 
+    #[inline]
     pub fn ma_loshelf2_reinit<F: PcmFormat>(
         config: &sys::ma_loshelf2_config,
         loshelf2: &mut LoShelf2<F>,
@@ -146,6 +149,7 @@ mod loshelf2_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_loshelf2_process_pcm_frames<F: PcmFormat>(
         loshelf2: &mut LoShelf2<F>,
         frames_out: &mut [F::StorageUnit],
@@ -167,6 +171,7 @@ mod loshelf2_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_loshelf2_get_latency<F: PcmFormat>(loshelf2: &LoShelf2<F>) -> u32 {
         unsafe { sys::ma_loshelf2_get_latency(loshelf2.to_raw()) }
     }

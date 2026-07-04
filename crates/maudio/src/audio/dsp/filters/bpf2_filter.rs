@@ -113,10 +113,11 @@ pub(crate) mod bpf2_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        audio::dsp::bpf2_filter::Bpf2, engine::AllocationCallbacks, pcm_frames::PcmFormat,
+        audio::dsp::filters::bpf2_filter::Bpf2, engine::AllocationCallbacks, pcm_frames::PcmFormat,
         AsRawRef, Binding, MaResult, MaudioError,
     };
 
+    #[inline]
     pub fn ma_bpf2_init(
         config: &sys::ma_bpf2_config,
         alloc: Option<Arc<AllocationCallbacks>>,
@@ -129,12 +130,14 @@ pub(crate) mod bpf2_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_bpf2_uninit<F: PcmFormat>(bpf2: &mut Bpf2<F>) {
         unsafe {
             sys::ma_bpf2_uninit(bpf2.to_raw(), std::ptr::null_mut());
         }
     }
 
+    #[inline]
     pub fn ma_bpf2_reinit<F: PcmFormat>(
         config: &sys::ma_bpf2_config,
         bpf2: &mut Bpf2<F>,
@@ -143,6 +146,7 @@ pub(crate) mod bpf2_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_bpf2_process_pcm_frames<F: PcmFormat>(
         bpf2: &mut Bpf2<F>,
         frames_out: &mut [F::StorageUnit],
@@ -164,6 +168,7 @@ pub(crate) mod bpf2_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_bpf2_get_latency<F: PcmFormat>(bpf2: &Bpf2<F>) -> u32 {
         unsafe { sys::ma_bpf2_get_latency(bpf2.to_raw()) }
     }
@@ -177,7 +182,7 @@ impl<F: PcmFormat> Drop for Bpf2<F> {
 }
 #[cfg(test)]
 mod tests {
-    use crate::audio::dsp::bpf2_filter::Bpf2Builder;
+    use crate::audio::dsp::filters::bpf2_filter::Bpf2Builder;
 
     use super::*;
 

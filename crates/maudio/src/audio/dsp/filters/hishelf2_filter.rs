@@ -130,10 +130,11 @@ pub(crate) mod hishelf2_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        audio::dsp::hishelf2_filter::HiShelf2, engine::AllocationCallbacks, pcm_frames::PcmFormat,
-        AsRawRef, Binding, MaResult, MaudioError,
+        audio::dsp::filters::hishelf2_filter::HiShelf2, engine::AllocationCallbacks,
+        pcm_frames::PcmFormat, AsRawRef, Binding, MaResult, MaudioError,
     };
 
+    #[inline]
     pub fn ma_hishelf2_init(
         config: &sys::ma_hishelf2_config,
         alloc: Option<Arc<AllocationCallbacks>>,
@@ -145,12 +146,14 @@ pub(crate) mod hishelf2_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_hishelf2_uninit<F: PcmFormat>(hishelf2: &mut HiShelf2<F>) {
         unsafe {
             sys::ma_hishelf2_uninit(hishelf2.to_raw(), std::ptr::null_mut());
         };
     }
 
+    #[inline]
     pub fn ma_hishelf2_reinit<F: PcmFormat>(
         config: &sys::ma_hishelf2_config,
         hishelf2: &mut HiShelf2<F>,
@@ -159,6 +162,7 @@ pub(crate) mod hishelf2_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_hishelf2_process_pcm_frames<F: PcmFormat>(
         hishelf2: &mut HiShelf2<F>,
         frames_out: &mut [F::StorageUnit],
@@ -180,6 +184,7 @@ pub(crate) mod hishelf2_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_hishelf2_get_latency<F: PcmFormat>(hishelf2: &HiShelf2<F>) -> u32 {
         unsafe { sys::ma_hishelf2_get_latency(hishelf2.to_raw()) }
     }
@@ -203,8 +208,8 @@ mod tests {
 
     #[test]
     fn hishelf2_filter_test_build_i16() -> MaResult<()> {
-        let hishelf2 = HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY)
-            .build_i16()?;
+        let hishelf2 =
+            HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY).build_i16()?;
 
         assert!(!hishelf2.to_raw().is_null());
         assert_eq!(hishelf2.format, Format::S16);
@@ -218,8 +223,8 @@ mod tests {
 
     #[test]
     fn hishelf2_filter_test_build_f32() -> MaResult<()> {
-        let hishelf2 = HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY)
-            .build_f32()?;
+        let hishelf2 =
+            HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY).build_f32()?;
 
         assert!(!hishelf2.to_raw().is_null());
         assert_eq!(hishelf2.format, Format::F32);
@@ -233,8 +238,8 @@ mod tests {
 
     #[test]
     fn hishelf2_filter_test_get_latency_i16() -> MaResult<()> {
-        let hishelf2 = HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY)
-            .build_i16()?;
+        let hishelf2 =
+            HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY).build_i16()?;
 
         let latency = hishelf2.get_latency();
 
@@ -245,8 +250,8 @@ mod tests {
 
     #[test]
     fn hishelf2_filter_test_get_latency_f32() -> MaResult<()> {
-        let hishelf2 = HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY)
-            .build_f32()?;
+        let hishelf2 =
+            HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY).build_f32()?;
 
         let latency = hishelf2.get_latency();
 
@@ -257,14 +262,11 @@ mod tests {
 
     #[test]
     fn hishelf2_filter_test_process_pcm_frames_i16() -> MaResult<()> {
-        let mut hishelf2 = HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY)
-            .build_i16()?;
+        let mut hishelf2 =
+            HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY).build_i16()?;
 
         let frames_in = [
-            0_i16, 0_i16,
-            1000_i16, -1000_i16,
-            2000_i16, -2000_i16,
-            3000_i16, -3000_i16,
+            0_i16, 0_i16, 1000_i16, -1000_i16, 2000_i16, -2000_i16, 3000_i16, -3000_i16,
         ];
         let mut frames_out = [0_i16; 8];
 
@@ -277,14 +279,11 @@ mod tests {
 
     #[test]
     fn hishelf2_filter_test_process_pcm_frames_f32() -> MaResult<()> {
-        let mut hishelf2 = HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY)
-            .build_f32()?;
+        let mut hishelf2 =
+            HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY).build_f32()?;
 
         let frames_in = [
-            0.0_f32, 0.0_f32,
-            0.25_f32, -0.25_f32,
-            0.5_f32, -0.5_f32,
-            0.75_f32, -0.75_f32,
+            0.0_f32, 0.0_f32, 0.25_f32, -0.25_f32, 0.5_f32, -0.5_f32, 0.75_f32, -0.75_f32,
         ];
         let mut frames_out = [0.0_f32; 8];
 
@@ -298,8 +297,8 @@ mod tests {
 
     #[test]
     fn hishelf2_filter_test_process_pcm_frames_silence_i16_stays_silent() -> MaResult<()> {
-        let mut hishelf2 = HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY)
-            .build_i16()?;
+        let mut hishelf2 =
+            HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY).build_i16()?;
 
         let frames_in = [0_i16; 16];
         let mut frames_out = [123_i16; 16];
@@ -313,8 +312,8 @@ mod tests {
 
     #[test]
     fn hishelf2_filter_test_process_pcm_frames_silence_f32_stays_silent() -> MaResult<()> {
-        let mut hishelf2 = HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY)
-            .build_f32()?;
+        let mut hishelf2 =
+            HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY).build_f32()?;
 
         let frames_in = [0.0_f32; 16];
         let mut frames_out = [1.0_f32; 16];
@@ -328,8 +327,8 @@ mod tests {
 
     #[test]
     fn hishelf2_filter_test_reinit_i16_updates_cached_values() -> MaResult<()> {
-        let mut hishelf2 = HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY)
-            .build_i16()?;
+        let mut hishelf2 =
+            HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY).build_i16()?;
 
         hishelf2.reinit(SampleRate::Sr48000, -3.0, 2.0, 2_000.0)?;
 
@@ -345,8 +344,8 @@ mod tests {
 
     #[test]
     fn hishelf2_filter_test_reinit_f32_updates_cached_values() -> MaResult<()> {
-        let mut hishelf2 = HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY)
-            .build_f32()?;
+        let mut hishelf2 =
+            HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY).build_f32()?;
 
         hishelf2.reinit(SampleRate::Sr48000, -3.0, 2.0, 2_000.0)?;
 
@@ -362,16 +361,13 @@ mod tests {
 
     #[test]
     fn hishelf2_filter_test_reinit_i16_can_process_afterwards() -> MaResult<()> {
-        let mut hishelf2 = HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY)
-            .build_i16()?;
+        let mut hishelf2 =
+            HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY).build_i16()?;
 
         hishelf2.reinit(SampleRate::Sr48000, -3.0, 2.0, 2_000.0)?;
 
         let frames_in = [
-            0_i16, 0_i16,
-            1000_i16, -1000_i16,
-            2000_i16, -2000_i16,
-            3000_i16, -3000_i16,
+            0_i16, 0_i16, 1000_i16, -1000_i16, 2000_i16, -2000_i16, 3000_i16, -3000_i16,
         ];
         let mut frames_out = [0_i16; 8];
 
@@ -384,16 +380,13 @@ mod tests {
 
     #[test]
     fn hishelf2_filter_test_reinit_f32_can_process_afterwards() -> MaResult<()> {
-        let mut hishelf2 = HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY)
-            .build_f32()?;
+        let mut hishelf2 =
+            HiShelf2Builder::new(CHANNELS, SAMPLE_RATE, GAIN_DB, SLOPE, FREQUENCY).build_f32()?;
 
         hishelf2.reinit(SampleRate::Sr48000, -3.0, 2.0, 2_000.0)?;
 
         let frames_in = [
-            0.0_f32, 0.0_f32,
-            0.25_f32, -0.25_f32,
-            0.5_f32, -0.5_f32,
-            0.75_f32, -0.75_f32,
+            0.0_f32, 0.0_f32, 0.25_f32, -0.25_f32, 0.5_f32, -0.5_f32, 0.75_f32, -0.75_f32,
         ];
         let mut frames_out = [0.0_f32; 8];
 

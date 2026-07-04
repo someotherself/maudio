@@ -94,11 +94,12 @@ pub(crate) mod biquad_ffi {
     use std::sync::Arc;
 
     use crate::{
-        audio::dsp::biquad_filter::Biquad, engine::AllocationCallbacks, pcm_frames::PcmFormat,
-        AsRawRef, Binding, MaResult, MaudioError,
+        audio::dsp::filters::biquad_filter::Biquad, engine::AllocationCallbacks,
+        pcm_frames::PcmFormat, AsRawRef, Binding, MaResult, MaudioError,
     };
     use maudio_sys::ffi as sys;
 
+    #[inline]
     pub fn ma_biquad_init(
         config: &sys::ma_biquad_config,
         alloc: Option<Arc<AllocationCallbacks>>,
@@ -110,6 +111,7 @@ pub(crate) mod biquad_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_biquad_reinit<F: PcmFormat>(
         config: &sys::ma_biquad_config,
         biquad: &mut Biquad<F>,
@@ -118,12 +120,14 @@ pub(crate) mod biquad_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_biquad_uninit<F: PcmFormat>(biquad: &mut Biquad<F>) {
         unsafe {
             sys::ma_biquad_uninit(biquad.to_raw(), std::ptr::null_mut());
         };
     }
 
+    #[inline]
     pub fn ma_biquad_process_pcm_frames<F: PcmFormat>(
         biquad: &mut Biquad<F>,
         frames_out: &mut [F::StorageUnit],
@@ -145,6 +149,7 @@ pub(crate) mod biquad_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_biquad_get_latency<F: PcmFormat>(biquad: &Biquad<F>) -> u32 {
         unsafe { sys::ma_biquad_get_latency(biquad.to_raw()) }
     }

@@ -107,10 +107,11 @@ pub(crate) mod hpf_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        audio::dsp::hpf_filter::Hpf, engine::AllocationCallbacks, pcm_frames::PcmFormat, AsRawRef,
-        Binding, MaResult, MaudioError,
+        audio::dsp::filters::hpf_filter::Hpf, engine::AllocationCallbacks, pcm_frames::PcmFormat,
+        AsRawRef, Binding, MaResult, MaudioError,
     };
 
+    #[inline]
     pub fn ma_hpf_init(
         config: &sys::ma_hpf_config,
         alloc: Option<Arc<AllocationCallbacks>>,
@@ -122,6 +123,7 @@ pub(crate) mod hpf_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_hpf_reinit<F: PcmFormat>(
         config: &sys::ma_hpf_config,
         hpf: &mut Hpf<F>,
@@ -130,12 +132,14 @@ pub(crate) mod hpf_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_hpf_uninit<F: PcmFormat>(hpf: &mut Hpf<F>) {
         unsafe {
             sys::ma_hpf_uninit(hpf.to_raw(), std::ptr::null_mut());
         };
     }
 
+    #[inline]
     pub fn ma_hpf_process_pcm_frames<F: PcmFormat>(
         hpf: &mut Hpf<F>,
         frames_out: &mut [F::StorageUnit],
@@ -157,6 +161,7 @@ pub(crate) mod hpf_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_hpf_get_latency<F: PcmFormat>(hpf: &Hpf<F>) -> u32 {
         unsafe { sys::ma_hpf_get_latency(hpf.to_raw()) }
     }

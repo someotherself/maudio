@@ -98,10 +98,11 @@ pub(crate) mod delay_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        audio::dsp::delay_filter::Delay, engine::AllocationCallbacks, pcm_frames::PcmFormat,
+        audio::dsp::delay_effect::Delay, engine::AllocationCallbacks, pcm_frames::PcmFormat,
         AsRawRef, Binding, MaResult, MaudioError,
     };
 
+    #[inline]
     pub fn ma_delay_init(
         config: &sys::ma_delay_config,
         alloc: Option<Arc<AllocationCallbacks>>,
@@ -113,12 +114,14 @@ pub(crate) mod delay_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_delay_uninit<F: PcmFormat>(delay: &mut Delay<F>) {
         unsafe {
             sys::ma_delay_uninit(delay.to_raw(), std::ptr::null_mut());
         };
     }
 
+    #[inline]
     pub fn ma_delay_process_pcm_frames<F: PcmFormat>(
         delay: &mut Delay<F>,
         frames_out: &mut [F::StorageUnit],
@@ -140,26 +143,32 @@ pub(crate) mod delay_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_delay_set_wet<F: PcmFormat>(delay: &mut Delay<F>, wet: f32) {
         unsafe { sys::ma_delay_set_wet(delay.to_raw(), wet) }
     }
 
+    #[inline]
     pub fn ma_delay_get_wet<F: PcmFormat>(delay: &Delay<F>) -> f32 {
         unsafe { sys::ma_delay_get_wet(delay.to_raw()) }
     }
 
+    #[inline]
     pub fn ma_delay_set_dry<F: PcmFormat>(delay: &mut Delay<F>, dry: f32) {
         unsafe { sys::ma_delay_set_dry(delay.to_raw(), dry) }
     }
 
+    #[inline]
     pub fn ma_delay_get_dry<F: PcmFormat>(delay: &Delay<F>) -> f32 {
         unsafe { sys::ma_delay_get_dry(delay.to_raw()) }
     }
 
+    #[inline]
     pub fn ma_delay_set_decay<F: PcmFormat>(delay: &mut Delay<F>, decay: f32) {
         unsafe { sys::ma_delay_set_decay(delay.to_raw(), decay) }
     }
 
+    #[inline]
     pub fn ma_delay_get_decay<F: PcmFormat>(delay: &Delay<F>) -> f32 {
         unsafe { sys::ma_delay_get_decay(delay.to_raw()) }
     }
@@ -330,10 +339,7 @@ mod tests {
         assert_eq!(delay.get_dry(), 1.0);
 
         let frames_in = [
-            0.0_f32, 0.0_f32,
-            0.25_f32, -0.25_f32,
-            0.5_f32, -0.5_f32,
-            0.75_f32, -0.75_f32,
+            0.0_f32, 0.0_f32, 0.25_f32, -0.25_f32, 0.5_f32, -0.5_f32, 0.75_f32, -0.75_f32,
         ];
         let mut frames_out = [0.0_f32; 8];
 

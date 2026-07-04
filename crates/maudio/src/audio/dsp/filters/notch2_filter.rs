@@ -113,10 +113,11 @@ pub(crate) mod notch2_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        audio::dsp::notch2_filter::Notch2, engine::AllocationCallbacks, pcm_frames::PcmFormat,
-        AsRawRef, Binding, MaResult, MaudioError,
+        audio::dsp::filters::notch2_filter::Notch2, engine::AllocationCallbacks,
+        pcm_frames::PcmFormat, AsRawRef, Binding, MaResult, MaudioError,
     };
 
+    #[inline]
     pub fn ma_notch2_init(
         config: &sys::ma_notch2_config,
         alloc: Option<Arc<AllocationCallbacks>>,
@@ -129,12 +130,14 @@ pub(crate) mod notch2_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_notch2_uninit<F: PcmFormat>(notch2: &mut Notch2<F>) {
         unsafe {
             sys::ma_notch2_uninit(notch2.to_raw(), std::ptr::null_mut());
         }
     }
 
+    #[inline]
     pub fn ma_notch2_reinit<F: PcmFormat>(
         config: &sys::ma_notch2_config,
         notch2: &mut Notch2<F>,
@@ -143,6 +146,7 @@ pub(crate) mod notch2_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_notch2_process_pcm_frames<F: PcmFormat>(
         notch2: &mut Notch2<F>,
         frames_out: &mut [F::StorageUnit],
@@ -164,6 +168,7 @@ pub(crate) mod notch2_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_notch2_get_latency<F: PcmFormat>(notch2: &Notch2<F>) -> u32 {
         unsafe { sys::ma_notch2_get_latency(notch2.to_raw()) }
     }

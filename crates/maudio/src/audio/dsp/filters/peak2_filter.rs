@@ -131,10 +131,11 @@ pub(crate) mod peak2_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        audio::dsp::peak2_filter::Peak2, engine::AllocationCallbacks, pcm_frames::PcmFormat,
-        AsRawRef, Binding, MaResult, MaudioError,
+        audio::dsp::filters::peak2_filter::Peak2, engine::AllocationCallbacks,
+        pcm_frames::PcmFormat, AsRawRef, Binding, MaResult, MaudioError,
     };
 
+    #[inline]
     pub fn ma_peak2_init(
         config: &sys::ma_peak2_config,
         alloc: Option<Arc<AllocationCallbacks>>,
@@ -147,12 +148,14 @@ pub(crate) mod peak2_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_peak2_uninit<F: PcmFormat>(peak2: &mut Peak2<F>) {
         unsafe {
             sys::ma_peak2_uninit(peak2.to_raw(), std::ptr::null_mut());
         }
     }
 
+    #[inline]
     pub fn ma_peak2_reinit<F: PcmFormat>(
         config: &sys::ma_peak2_config,
         peak2: &mut Peak2<F>,
@@ -161,6 +164,7 @@ pub(crate) mod peak2_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_peak2_process_pcm_frames<F: PcmFormat>(
         peak2: &mut Peak2<F>,
         frames_out: &mut [F::StorageUnit],
@@ -182,6 +186,7 @@ pub(crate) mod peak2_ffi {
         MaudioError::check(res)
     }
 
+    #[inline]
     pub fn ma_peak2_get_latency<F: PcmFormat>(peak2: &Peak2<F>) -> u32 {
         unsafe { sys::ma_peak2_get_latency(peak2.to_raw()) }
     }
