@@ -64,6 +64,7 @@ impl<F: PcmFormat, P: PcmSource<F>> AsRawRef for DataSource<F, P> {
         unsafe { &(*self.inner).inner }
     }
 }
+
 impl<F: PcmFormat, P: PcmSource<F>> DataSource<F, P> {
     fn as_source<'a>(&'a self) -> DataSourceRef<'a, F> {
         let ptr =
