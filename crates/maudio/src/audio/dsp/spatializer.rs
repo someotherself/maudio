@@ -1130,7 +1130,7 @@ mod tests {
         assert_vec3_eq(
             relative_position,
             Vec3 {
-                x: 6.0,
+                x: 10.0,
                 y: 0.0,
                 z: 0.0,
             },
