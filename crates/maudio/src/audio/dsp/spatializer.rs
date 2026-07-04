@@ -1109,6 +1109,7 @@ mod tests {
     #[test]
     fn spatializer_test_relative_position_and_direction_changes_with_listener() -> MaResult<()> {
         let mut spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
+        spatializer.set_positioning(Positioning::Relative);
         let mut listener = ListenerBuilder::new(2).build_f32()?;
 
         spatializer.set_position(Vec3 {
