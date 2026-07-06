@@ -11,6 +11,8 @@ pub struct Biquad<F: PcmFormat> {
     _format: PhantomData<F>,
 }
 
+unsafe impl<F: PcmFormat> Send for Biquad<F> {}
+
 impl<F: PcmFormat> Binding for Biquad<F> {
     type Raw = *mut sys::ma_biquad;
 

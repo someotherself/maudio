@@ -19,6 +19,8 @@ pub struct Spatializer<F: PcmFormat> {
     _format: PhantomData<F>,
 }
 
+unsafe impl<F: PcmFormat> Send for Spatializer<F> {}
+
 impl<F: PcmFormat> Binding for Spatializer<F> {
     type Raw = *mut sys::ma_spatializer;
 
@@ -547,6 +549,8 @@ pub struct Listener<F: PcmFormat> {
     channels_out: u32,
     _format: PhantomData<F>,
 }
+
+unsafe impl<F: PcmFormat> Send for Listener<F> {}
 
 impl<F: PcmFormat> Binding for Listener<F> {
     type Raw = *mut sys::ma_spatializer_listener;

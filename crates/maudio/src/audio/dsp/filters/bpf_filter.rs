@@ -16,6 +16,8 @@ pub struct Bpf<F: PcmFormat> {
     _format: PhantomData<F>,
 }
 
+unsafe impl<F: PcmFormat> Send for Bpf<F> {}
+
 impl<F: PcmFormat> Bpf<F> {
     fn build(config: &sys::ma_bpf_config, format: Format) -> MaResult<Bpf<F>> {
         let channels = config.channels;

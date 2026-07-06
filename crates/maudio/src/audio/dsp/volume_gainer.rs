@@ -10,6 +10,8 @@ pub struct Gainer<F: PcmFormat> {
     _format: PhantomData<F>,
 }
 
+unsafe impl<F: PcmFormat> Send for Gainer<F> {}
+
 impl<F: PcmFormat> Binding for Gainer<F> {
     type Raw = *mut sys::ma_gainer;
 

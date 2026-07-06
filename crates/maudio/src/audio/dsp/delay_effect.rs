@@ -15,6 +15,8 @@ pub struct Delay<F: PcmFormat> {
     _format: PhantomData<F>,
 }
 
+unsafe impl<F: PcmFormat> Send for Delay<F> {}
+
 impl<F: PcmFormat> Binding for Delay<F> {
     type Raw = *mut sys::ma_delay;
 

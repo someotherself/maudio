@@ -15,6 +15,8 @@ pub struct LoShelf2<F: PcmFormat> {
     _format: PhantomData<F>,
 }
 
+unsafe impl<F: PcmFormat> Send for LoShelf2<F> {}
+
 impl<F: PcmFormat> Binding for LoShelf2<F> {
     type Raw = *mut sys::ma_loshelf2;
 

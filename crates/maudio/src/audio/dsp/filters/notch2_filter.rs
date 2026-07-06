@@ -16,6 +16,8 @@ pub struct Notch2<F: PcmFormat> {
     _format: PhantomData<F>,
 }
 
+unsafe impl<F: PcmFormat> Send for Notch2<F> {}
+
 impl<F: PcmFormat> Binding for Notch2<F> {
     type Raw = *mut sys::ma_notch2;
 

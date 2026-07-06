@@ -18,6 +18,8 @@ pub struct HiShelf2<F: PcmFormat> {
     _format: PhantomData<F>,
 }
 
+unsafe impl<F: PcmFormat> Send for HiShelf2<F> {}
+
 impl<F: PcmFormat> Binding for HiShelf2<F> {
     type Raw = *mut sys::ma_hishelf2;
 

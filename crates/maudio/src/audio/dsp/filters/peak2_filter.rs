@@ -18,6 +18,8 @@ pub struct Peak2<F: PcmFormat> {
     _format: PhantomData<F>,
 }
 
+unsafe impl<F: PcmFormat> Send for Peak2<F> {}
+
 impl<F: PcmFormat> Binding for Peak2<F> {
     type Raw = *mut sys::ma_peak2;
 

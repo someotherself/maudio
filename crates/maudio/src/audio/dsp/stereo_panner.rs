@@ -15,6 +15,8 @@ pub struct Panner<F: PcmFormat> {
     _format: PhantomData<F>,
 }
 
+unsafe impl<F: PcmFormat> Send for Panner<F> {}
+
 impl<F: PcmFormat> Binding for Panner<F> {
     type Raw = *mut sys::ma_panner;
 

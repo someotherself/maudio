@@ -17,6 +17,8 @@ pub struct Fader<F: PcmFormat> {
     _format: PhantomData<F>,
 }
 
+unsafe impl<F: PcmFormat> Send for Fader<F> {}
+
 impl<F: PcmFormat> Binding for Fader<F> {
     type Raw = *mut sys::ma_fader;
 

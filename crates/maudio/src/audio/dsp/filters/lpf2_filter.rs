@@ -16,6 +16,8 @@ pub struct Lpf2<F: PcmFormat> {
     _format: PhantomData<F>,
 }
 
+unsafe impl<F: PcmFormat> Send for Lpf2<F> {}
+
 impl<F: PcmFormat> Binding for Lpf2<F> {
     type Raw = *mut sys::ma_lpf2;
 
