@@ -615,12 +615,12 @@ impl<'a> CaptureDeviceBuilder<'a, Unknown> {
     }
 
     pub fn s24_packed(&mut self) -> CaptureDeviceBuilder<'a, S24Packed> {
-        self.inner.capture.format = sys::ma_format_ma_format_s32;
+        self.inner.capture.format = sys::ma_format_ma_format_s24;
         self.new_inner::<S24Packed>()
     }
 
     pub fn f32(&mut self) -> CaptureDeviceBuilder<'a, f32> {
-        self.inner.capture.format = sys::ma_format_ma_format_s32;
+        self.inner.capture.format = sys::ma_format_ma_format_f32;
         self.new_inner::<f32>()
     }
 }
@@ -658,14 +658,14 @@ impl<'a> DuplexDeviceBuilder<'a, Unknown> {
     }
 
     pub fn s24_packed(&mut self) -> DuplexDeviceBuilder<'a, S24Packed> {
-        self.inner.playback.format = sys::ma_format_ma_format_s32;
-        self.inner.capture.format = sys::ma_format_ma_format_s32;
+        self.inner.playback.format = sys::ma_format_ma_format_s24;
+        self.inner.capture.format = sys::ma_format_ma_format_s24;
         self.new_inner::<S24Packed>()
     }
 
     pub fn f32(&mut self) -> DuplexDeviceBuilder<'a, f32> {
-        self.inner.playback.format = sys::ma_format_ma_format_s32;
-        self.inner.capture.format = sys::ma_format_ma_format_s32;
+        self.inner.playback.format = sys::ma_format_ma_format_f32;
+        self.inner.capture.format = sys::ma_format_ma_format_f32;
         self.new_inner::<f32>()
     }
 }
@@ -700,12 +700,12 @@ impl<'a> LoopbackDeviceBuilder<'a, Unknown> {
     }
 
     pub fn s24_packed(&mut self) -> LoopbackDeviceBuilder<'a, S24Packed> {
-        self.inner.capture.format = sys::ma_format_ma_format_s32;
+        self.inner.capture.format = sys::ma_format_ma_format_s24;
         self.new_inner::<S24Packed>()
     }
 
     pub fn f32(&mut self) -> LoopbackDeviceBuilder<'a, f32> {
-        self.inner.capture.format = sys::ma_format_ma_format_s32;
+        self.inner.capture.format = sys::ma_format_ma_format_f32;
         self.new_inner::<f32>()
     }
 }
