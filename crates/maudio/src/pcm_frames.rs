@@ -36,8 +36,6 @@ fn pcm_i32_to_u8(src: &[i32], frames: usize, channels: usize) -> MaResult<Vec<u8
         .checked_mul(channels)
         .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
             op: "PcmSamples * channels",
-            lhs: frames as u64,
-            rhs: channels as u64,
         }))?;
 
     // length of out buffer is frames * channels * 3
@@ -45,8 +43,6 @@ fn pcm_i32_to_u8(src: &[i32], frames: usize, channels: usize) -> MaResult<Vec<u8
         len.checked_mul(3)
             .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                 op: "PcmSamples * channels to S24Packed",
-                lhs: len as u64,
-                rhs: 3,
             }))?;
 
     let mut data: Vec<u8> = Vec::with_capacity(out_len);
@@ -195,8 +191,6 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: avail_capacity as u64,
-                    rhs: channels as u64,
                 }))?;
             dst[..len].copy_from_slice(&src[..len]);
             // We return the number of frames we read
@@ -216,8 +210,6 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: cap_frames as u64,
-                    rhs: channels as u64,
                 }))?;
 
             // written must be the number of frames (documented to the user)
@@ -246,8 +238,6 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: avail_capacity as u64,
-                    rhs: channels as u64,
                 }))?;
             dst[..len].copy_from_slice(&src[..len]);
 
@@ -268,8 +258,6 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: avail as u64,
-                    rhs: channels as u64,
                 }))?;
 
             let frames_read = f(&src[..len])?;
@@ -303,8 +291,6 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: avail_capacity as u64,
-                    rhs: channels as u64,
                 }))?;
 
             dst[..len].copy_from_slice(&src[..len]);
@@ -325,8 +311,6 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: cap_frames as u64,
-                    rhs: channels as u64,
                 }))?;
 
             // written must be the number of frames (documented to the user)
@@ -355,8 +339,6 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: avail as u64,
-                    rhs: channels as u64,
                 }))?;
 
             dst[..len].copy_from_slice(&src[..len]);
@@ -377,8 +359,6 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: avail as u64,
-                    rhs: channels as u64,
                 }))?;
 
             let frames_read = f(&src[..len])?;
@@ -449,8 +429,6 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: avail_capacity as u64,
-                    rhs: channels as u64,
                 }))?;
 
             let mut tmp: Vec<i32> = vec![];
@@ -473,8 +451,6 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: written as u64,
-                    rhs: channels as u64,
                 }))?;
 
             tmp.truncate(written_len);
@@ -491,8 +467,6 @@ pub(crate) mod private_pcm {
                 let o = i.checked_mul(3).ok_or(MaudioError::new_ma_error(
                     ErrorKinds::IntegerOverflow {
                         op: "S24Packed byte offset (sample_index * 3)",
-                        lhs: i as u64,
-                        rhs: 3,
                     },
                 ))?;
                 dst[o] = sample as u8;
@@ -513,15 +487,11 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "read: frames * channels",
-                    lhs: avail as u64,
-                    rhs: channels as u64,
                 }))?;
 
             let total_bytes = len.checked_mul(3).ok_or(MaudioError::new_ma_error(
                 ErrorKinds::IntegerOverflow {
                     op: "Frames available adjusted to bytes (S24Packed)",
-                    lhs: len as u64,
-                    rhs: 3,
                 },
             ))?;
 
@@ -548,16 +518,12 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "read: frames * channels",
-                    lhs: avail as u64,
-                    rhs: channels as u64,
                 }))?;
 
             // total_bytes is the len of the [u8] slice we read from
             let total_bytes = tmp_len.checked_mul(3).ok_or(MaudioError::new_ma_error(
                 ErrorKinds::IntegerOverflow {
                     op: "read: frames to S24Packed",
-                    lhs: tmp_len as u64,
-                    rhs: 3,
                 },
             ))?;
 
@@ -601,15 +567,11 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: cap_frames as u64,
-                    rhs: channels as u64,
                 }))?;
 
             let max_cap = len.checked_mul(3).ok_or(MaudioError::new_ma_error(
                 ErrorKinds::IntegerOverflow {
                     op: "write: frames to S24Packed",
-                    lhs: len as u64,
-                    rhs: 3,
                 },
             ))?;
 
@@ -630,15 +592,11 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: cap_frames as u64,
-                    rhs: channels as u64,
                 }))?;
 
             let max_cap = len.checked_mul(3).ok_or(MaudioError::new_ma_error(
                 ErrorKinds::IntegerOverflow {
                     op: "write: frames to S24Packed",
-                    lhs: len as u64,
-                    rhs: 3,
                 },
             ))?;
 
@@ -668,15 +626,11 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: avail as u64,
-                    rhs: channels as u64,
                 }))?;
 
             let max_cap = len.checked_mul(3).ok_or(MaudioError::new_ma_error(
                 ErrorKinds::IntegerOverflow {
                     op: "write: frames to S24Packed",
-                    lhs: len as u64,
-                    rhs: 3,
                 },
             ))?;
 
@@ -697,15 +651,11 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: avail as u64,
-                    rhs: channels as u64,
                 }))?;
 
             let max_cap = len.checked_mul(3).ok_or(MaudioError::new_ma_error(
                 ErrorKinds::IntegerOverflow {
                     op: "write: frames to S24Packed",
-                    lhs: len as u64,
-                    rhs: 3,
                 },
             ))?;
 
@@ -740,8 +690,6 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: avail_capacity as u64,
-                    rhs: channels as u64,
                 }))?;
 
             dst[..len].copy_from_slice(&src[..len]);
@@ -761,8 +709,6 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: cap_frames as u64,
-                    rhs: channels as u64,
                 }))?;
 
             // written must be the number of frames (documented to the user)
@@ -791,8 +737,6 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: avail as u64,
-                    rhs: channels as u64,
                 }))?;
 
             dst[..len].copy_from_slice(&src[..len]);
@@ -812,8 +756,6 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: avail as u64,
-                    rhs: channels as u64,
                 }))?;
 
             let frames_read = f(&src[..len])?;
@@ -847,8 +789,6 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: avail_capacity as u64,
-                    rhs: channels as u64,
                 }))?;
 
             dst[..len].copy_from_slice(&src[..len]);
@@ -869,8 +809,6 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: cap_frames as u64,
-                    rhs: channels as u64,
                 }))?;
 
             // written must be the number of frames (documented to the user)
@@ -899,8 +837,6 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: avail as u64,
-                    rhs: channels as u64,
                 }))?;
 
             dst[..len].copy_from_slice(&src[..len]);
@@ -921,8 +857,6 @@ pub(crate) mod private_pcm {
                 .checked_mul(channels)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "write: frames * channels",
-                    lhs: avail as u64,
-                    rhs: channels as u64,
                 }))?;
 
             let frames_read = f(&src[..len])?;

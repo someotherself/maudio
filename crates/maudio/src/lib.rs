@@ -236,8 +236,8 @@ impl std::fmt::Display for ErrorKinds {
                     )
                 }
             }
-            ErrorKinds::IntegerOverflow { op, lhs, rhs } => {
-                write!(f, "integer overflow while computing {op} ({lhs} * {rhs})")
+            ErrorKinds::IntegerOverflow { op } => {
+                write!(f, "integer overflow while computing {op})")
             }
             ErrorKinds::InvalidDecodedDataLength => {
                 write!(f, "Decoded data does not contain a whole number of frames")
@@ -408,8 +408,6 @@ pub enum ErrorKinds {
     // checked_mul error
     IntegerOverflow {
         op: &'static str, // "frames * channels"
-        lhs: u64,
-        rhs: u64,
     },
     InvalidPackedSampleSize {
         bytes_per_sample: usize, // 3

@@ -180,7 +180,7 @@ impl<'a, C> Node<'a, C> {
         // We must cast and access fields of this struct later.
         // Ensure base has a stable address before passing it to ma_node_init
         let mut inner = Box::new(NodeInner {
-            base: unsafe { std::mem::MaybeUninit::zeroed().assume_init() },
+            base: unsafe { MaybeUninit::zeroed().assume_init() },
             vtable,
             busses,
             custom,

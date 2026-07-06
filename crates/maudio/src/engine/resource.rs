@@ -1115,8 +1115,6 @@ pub(crate) mod resource_ffi {
             .checked_mul(F::VEC_PCM_UNITS_PER_FRAME)
             .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                 op: "Units per frames",
-                lhs: channels as u64,
-                rhs: F::VEC_PCM_UNITS_PER_FRAME as u64,
             }))?;
 
         if data_len % units_per_frame != 0 {

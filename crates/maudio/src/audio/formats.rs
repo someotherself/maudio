@@ -180,16 +180,12 @@ impl<F: PcmFormat> SampleBuffer<F> {
         let samples = frames.checked_mul(ch).ok_or(MaudioError::new_ma_error(
             ErrorKinds::IntegerOverflow {
                 op: "frames * channels",
-                lhs: frames as u64,
-                rhs: channels as u64,
             },
         ))?;
         let len = samples
             .checked_mul(vec_unit)
             .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                 op: "frames to storage",
-                lhs: samples as u64,
-                rhs: channels as u64,
             }))?;
         Ok(len)
     }
@@ -219,16 +215,12 @@ impl<F: PcmFormat> SampleBuffer<F> {
             .checked_mul(channels as usize)
             .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                 op: "truncate: frames * channels",
-                lhs: frames_read as u64,
-                rhs: channels as u64,
             }))?;
 
         let vec_el =
             len.checked_mul(F::VEC_STORE_UNITS_PER_FRAME)
                 .ok_or(MaudioError::new_ma_error(ErrorKinds::IntegerOverflow {
                     op: "truncate: frames to buf units",
-                    lhs: len as u64,
-                    rhs: F::VEC_STORE_UNITS_PER_FRAME as u64,
                 }))?;
 
         // Convert from Storage to Pcm
