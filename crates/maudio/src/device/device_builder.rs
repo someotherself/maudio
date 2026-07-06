@@ -575,7 +575,7 @@ impl<'a> PlaybackDeviceBuilder<'a, Unknown> {
     }
 
     pub fn s24_packed(&mut self) -> PlaybackDeviceBuilder<'a, S24Packed> {
-        self.inner.playback.format = sys::ma_format_ma_format_s32;
+        self.inner.playback.format = sys::ma_format_ma_format_s24;
         self.new_inner::<S24Packed>()
     }
 
