@@ -169,6 +169,13 @@ impl<'a> InputBusses<'a> {
 
         Some(unsafe { std::slice::from_raw_parts(ptr, samples) })
     }
+
+    /// Returns the frame count for a specific bus index
+    pub fn frame_count(&self, bus_index: usize) -> Option<u32> {
+        let bus = self.get_bus(bus_index)?;
+        let channels = self.channels_per_bus.get(bus_index)?;
+        Some(bus.len() as u32 / channels)
+    }
 }
 
 pub struct OutputBusses<'a> {
@@ -229,6 +236,13 @@ impl<'a> OutputBusses<'a> {
         let samples = self.frames_per_bus * channels as usize;
 
         Some(unsafe { std::slice::from_raw_parts_mut(ptr, samples) })
+    }
+
+    /// Returns the frame count for a specific bus index
+    pub fn frame_count(&mut self, bus_index: usize) -> Option<u32> {
+        let bus_len = self.get_mut_bus(bus_index)?.len();
+        let channels = self.channels_per_bus.get(bus_index)?;
+        Some(bus_len as u32 / channels)
     }
 }
 
