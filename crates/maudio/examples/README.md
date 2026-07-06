@@ -19,7 +19,8 @@ If you already cloned it without submodules, run:
 - 012_play_sound_group        - Create and use a SoundGroup
 - 013_sound_spatialization    - Basic sound spatialization.
 - 014_sound_group_mixing      - Using groups for a game
-- 015_decoder_from_file       - Decode audio from a Read + Seek source (std::io::File)
+- 016_sound_pool              - Creating and re-using sounds
+- 016_decoder_from_file       - Decode audio from a Read + Seek source (std::io::File)
 
 -> Medium to advanced examples for the High Level Api
 - 101_engine_state_callback   - Use the state notifier callback on an engine.
@@ -33,3 +34,4 @@ If you already cloned it without submodules, run:
 
 -> Basic examples using the low level API
 - 201_device_playback         - Use a device and decoder for playback
+- 202_device_dsp              - Using a dsp primitive (lpf) inside the device callback

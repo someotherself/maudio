@@ -66,7 +66,7 @@ fn main() -> MaResult<()> {
             }
         })?;
 
-    device.set_master_volume(0.02)?; // adjust this as needed
+    device.set_master_volume(0.2)?; // adjust this as needed
 
     device.device_start()?;
 
