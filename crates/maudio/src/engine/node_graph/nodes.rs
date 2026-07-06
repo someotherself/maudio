@@ -215,31 +215,42 @@ impl<'a, C> Node<'a, C> {
         C: CustomNode + ReqFramesNode,
         N: AsNodeGraphPtr,
     {
-        let mut base: MaybeUninit<sys::ma_node_base> = MaybeUninit::uninit();
         let busses = busses.build_nodes(node_graph);
         let vtable = node_vtable_req_frames::<C>(
             busses.inputs.len() as u8,
             busses.outputs.len() as u8,
             flags,
         );
+
         config.vtable = vtable;
         config.inputBusCount = busses.inputs.len() as u32;
         config.outputBusCount = busses.outputs.len() as u32;
         config.pInputChannels = busses.inputs.as_ptr();
         config.pOutputChannels = busses.outputs.as_ptr();
 
-        node_ffi::ma_node_init(node_graph, config, None, base.as_mut_ptr() as *mut _)?;
-
-        let inner = NodeInner {
-            base: unsafe { base.assume_init() },
+        // We must cast and access fields of this struct later.
+        // Ensure base has a stable address before passing it to ma_node_init
+        let mut inner = Box::new(NodeInner {
+            base: unsafe { std::mem::MaybeUninit::zeroed().assume_init() },
             vtable,
             busses,
             custom,
             op,
             _marker: PhantomData,
             _not_sync: PhantomData,
-        };
-        let inner_ptr = Box::into_raw(Box::new(inner));
+        });
+
+        let base_ptr = core::ptr::addr_of_mut!(inner.base);
+
+        node_ffi::ma_node_init(node_graph, config, None, base_ptr.cast())?;
+
+        let inner_ptr = Box::into_raw(inner);
+
+        debug_assert_eq!(
+            unsafe { core::ptr::addr_of_mut!((*inner_ptr).base) }.cast::<u8>(),
+            inner_ptr.cast::<u8>(),
+        );
+
         Ok(Node { inner: inner_ptr })
     }
 }
