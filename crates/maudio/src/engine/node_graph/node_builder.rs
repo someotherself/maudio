@@ -497,7 +497,7 @@ impl TransformerNodeBuilder {
 impl NodeBuilder {
     /// Creates a sink node builder.
     ///
-    /// The node is initialized with one input bus, no output busses. This is useful 
+    /// The node is initialized with one input bus, no output busses. This is useful
     /// for nodes that inspect or consume input without producing output.
     ///
     /// The input or outpus bus count cannot be changed.
