@@ -129,18 +129,28 @@ impl DataSourceBuilder {
         vtable: *const sys::ma_data_source_vtable,
     ) -> MaResult<DataSource<F, P>> {
         self.inner.vtable = vtable;
-        let mut base: MaybeUninit<sys::ma_data_source_base> = MaybeUninit::uninit();
 
-        data_source_ffi::ma_data_source_init(self, base.as_mut_ptr() as *mut _)?;
-
-        let inner: DataSourceInner<F, P> = DataSourceInner {
-            inner: unsafe { base.assume_init() },
+        let mut inner = Box::new(DataSourceInner {
+            // We must cast and access fields of this struct later.
+            // Ensure base has a stable address before passing it to ma_data_source_init
+            inner: unsafe { MaybeUninit::zeroed().assume_init() },
             context,
             source,
             vtable,
             _format: PhantomData,
-        };
-        let inner_ptr = Box::into_raw(Box::new(inner));
+        });
+
+        let base_ptr = core::ptr::addr_of_mut!(inner.inner);
+
+        data_source_ffi::ma_data_source_init(self, base_ptr.cast())?;
+
+        let inner_ptr = Box::into_raw(inner);
+
+        debug_assert_eq!(
+            unsafe { core::ptr::addr_of_mut!((*inner_ptr).inner) }.cast::<u8>(),
+            inner_ptr.cast::<u8>(),
+        );
+
         Ok(DataSource { inner: inner_ptr })
     }
 
