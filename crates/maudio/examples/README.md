@@ -31,6 +31,7 @@ If you already cloned it without submodules, run:
 - 106_engine_record_to_file   - Record the output of the engine to a file using the encoder
 - 107_engine_sound_playlist   - Create a simple playlist using Sounds and the EndNotifier
 - 108_engine_node_playlist    - Create a simple playlist using SourceNodes and manually polling
+- 109_splitter_node           - Create a very basic splitter node using custom node interface
 
 -> Basic examples using the low level API
 - 201_device_playback         - Use a device and decoder for playback
