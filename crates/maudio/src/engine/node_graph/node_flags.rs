@@ -1,6 +1,6 @@
 use maudio_sys::ffi as sys;
 
-pub type NodeFlagsRaw = sys::ma_node_flags;
+type NodeFlagsRaw = sys::ma_node_flags;
 
 /// Flags that control how a node behaves inside the node graph.
 ///
@@ -8,7 +8,7 @@ pub type NodeFlagsRaw = sys::ma_node_flags;
 /// how missing input is handled, and how the node contributes to the final mix.
 #[repr(transparent)]
 #[derive(Debug, PartialEq, Clone, Copy, Hash, Eq)]
-struct NodeFlags(NodeFlagsRaw);
+pub struct NodeFlags(NodeFlagsRaw);
 
 impl NodeFlags {
     pub const NONE: Self = Self(0);

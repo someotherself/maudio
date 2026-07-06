@@ -1,9 +1,11 @@
 //! A pull-based audio processing graph.
 use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit, sync::Arc};
 
-mod node_builder; // Creating nodes is not implemented yet.
-mod node_flags; // Creating nodes is not implemented yet.
+pub mod node_builder;
+pub(crate) mod node_flags;
 pub mod node_graph_builder;
+pub mod node_on_process;
+pub mod node_vtable;
 pub mod nodes;
 mod voice; // experiment
 

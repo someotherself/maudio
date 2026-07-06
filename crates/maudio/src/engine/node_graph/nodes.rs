@@ -48,14 +48,22 @@
 //! let state = node.state().unwrap();
 //! println!("node state: {:?}", state);
 //! ```
-use std::{cell::Cell, marker::PhantomData, sync::Arc};
+use std::{
+    cell::Cell,
+    marker::PhantomData,
+    mem::MaybeUninit,
+    ops::{Deref, DerefMut},
+};
 
 use maudio_sys::ffi as sys;
 
 use crate::{
-    engine::{
-        node_graph::{NodeGraph, NodeGraphRef},
-        AllocationCallbacks,
+    engine::node_graph::{
+        node_builder::NodeFunction,
+        node_flags::NodeFlags,
+        node_on_process::{CustomNode, ReqFramesNode},
+        node_vtable::{node_vtable, node_vtable_req_frames},
+        AsNodeGraphPtr, NodeGraph, NodeGraphOps, NodeGraphRef,
     },
     AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
 };
@@ -95,24 +103,221 @@ impl TryFrom<sys::ma_node_state> for NodeState {
     }
 }
 
-// Would be used for fully custom nodes. Not used for now
-struct Node<'a> {
-    inner: *mut sys::ma_node,
-    alloc_cb: Option<Arc<AllocationCallbacks>>,
-    _marker: PhantomData<&'a NodeGraph>,
-    _not_sync: PhantomData<Cell<()>>,
+/// Custom node implementation
+///
+/// See [`NodeBuilder`](crate::engine::node_graph::node_builder)
+pub struct Node<'a, C> {
+    pub(crate) inner: *mut NodeInner<'a, C>,
 }
 
-impl Binding for Node<'_> {
-    type Raw = *mut sys::ma_node;
+#[repr(C)]
+pub(crate) struct NodeInner<'a, C> {
+    pub(crate) base: sys::ma_node_base,
+    pub(crate) vtable: *const sys::ma_node_vtable,
+    pub(crate) busses: NodeBusChannels,
+    pub(crate) custom: C,
+    pub(crate) op: NodeFunction,
+    pub(crate) _marker: PhantomData<&'a NodeGraph>,
+    pub(crate) _not_sync: PhantomData<Cell<()>>,
+}
 
-    /// !! unimplemented !!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
+impl<'a, C> AsRawRef for Node<'a, C> {
+    type Raw = sys::ma_node_base;
+
+    fn as_raw(&self) -> &Self::Raw {
+        unsafe { &(*self.inner).base }
+    }
+}
+
+impl<C> Deref for Node<'_, C>
+where
+    C: CustomNode,
+{
+    type Target = C::Inner;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { &(*self.inner).custom }.inner()
+    }
+}
+
+impl<C> DerefMut for Node<'_, C>
+where
+    C: CustomNode,
+{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { &mut (*self.inner).custom }.inner_mut()
+    }
+}
+
+impl<'a, C> Node<'a, C> {
+    pub fn as_node(&self) -> NodeRef<'a> {
+        let ptr = self.as_raw_ptr().cast::<sys::ma_node>();
+        NodeRef::from_ptr(ptr as *mut _)
     }
 
-    fn to_raw(&self) -> Self::Raw {
-        self.inner
+    pub(crate) fn build<N>(
+        config: &mut sys::ma_node_config,
+        flags: NodeFlags,
+        custom: C,
+        node_graph: &'a N,
+        op: NodeFunction,
+        busses: &NodeBusChannelsConfig,
+    ) -> MaResult<Node<'a, C>>
+    where
+        C: CustomNode,
+        N: AsNodeGraphPtr,
+    {
+        let mut base: MaybeUninit<sys::ma_node_base> = MaybeUninit::uninit();
+        let busses = busses.build_nodes(node_graph);
+        let vtable = node_vtable::<C>(busses.inputs.len() as u8, busses.outputs.len() as u8, flags);
+        config.vtable = vtable;
+        config.inputBusCount = busses.inputs.len() as u32;
+        config.outputBusCount = busses.outputs.len() as u32;
+        config.pInputChannels = busses.inputs.as_ptr();
+        config.pOutputChannels = busses.outputs.as_ptr();
+
+        node_ffi::ma_node_init(node_graph, config, None, base.as_mut_ptr() as *mut _)?;
+
+        let inner = NodeInner {
+            base: unsafe { base.assume_init() },
+            vtable,
+            busses,
+            custom,
+            op,
+            _marker: PhantomData,
+            _not_sync: PhantomData,
+        };
+        let inner_ptr = Box::into_raw(Box::new(inner));
+        Ok(Node { inner: inner_ptr })
+    }
+
+    pub(crate) fn build_required_frames<N>(
+        config: &mut sys::ma_node_config,
+        flags: NodeFlags,
+        custom: C,
+        node_graph: &'a N,
+        op: NodeFunction,
+        busses: &NodeBusChannelsConfig,
+    ) -> MaResult<Node<'a, C>>
+    where
+        C: CustomNode + ReqFramesNode,
+        N: AsNodeGraphPtr,
+    {
+        let mut base: MaybeUninit<sys::ma_node_base> = MaybeUninit::uninit();
+        let busses = busses.build_nodes(node_graph);
+        let vtable = node_vtable_req_frames::<C>(
+            busses.inputs.len() as u8,
+            busses.outputs.len() as u8,
+            flags,
+        );
+        config.vtable = vtable;
+        config.inputBusCount = busses.inputs.len() as u32;
+        config.outputBusCount = busses.outputs.len() as u32;
+        config.pInputChannels = busses.inputs.as_ptr();
+        config.pOutputChannels = busses.outputs.as_ptr();
+
+        node_ffi::ma_node_init(node_graph, config, None, base.as_mut_ptr() as *mut _)?;
+
+        let inner = NodeInner {
+            base: unsafe { base.assume_init() },
+            vtable,
+            busses,
+            custom,
+            op,
+            _marker: PhantomData,
+            _not_sync: PhantomData,
+        };
+        let inner_ptr = Box::into_raw(Box::new(inner));
+        Ok(Node { inner: inner_ptr })
+    }
+}
+
+pub(crate) struct NodeBusChannels {
+    pub(crate) inputs: Vec<u32>,
+    pub(crate) outputs: Vec<u32>,
+}
+
+pub(crate) struct NodeBusChannelsConfig {
+    pub(crate) inputs: Vec<Option<u32>>,
+    pub(crate) outputs: Vec<Option<u32>>,
+}
+
+impl NodeBusChannelsConfig {
+    pub(crate) fn build_nodes<N: AsNodeGraphPtr>(&self, node_graph: &N) -> NodeBusChannels {
+        let graph_channels = node_graph.channels();
+
+        let inputs: Vec<u32> = self
+            .inputs
+            .iter()
+            .map(|b| b.unwrap_or(graph_channels))
+            .collect();
+        let outputs: Vec<u32> = self
+            .outputs
+            .iter()
+            .map(|b| b.unwrap_or(graph_channels))
+            .collect();
+
+        NodeBusChannels { inputs, outputs }
+    }
+
+    /// Initialized 1 input and 1 output bus
+    pub(crate) fn new(inputs: usize, outputs: usize, channels: Option<u32>) -> Self {
+        Self {
+            inputs: vec![channels; inputs],
+            outputs: vec![channels; outputs],
+        }
+    }
+
+    pub(crate) fn set_inputs(&mut self, busses: &[u32]) {
+        if busses.is_empty() || busses.contains(&0) {
+            return;
+        }
+        self.inputs.clear();
+        for bus in busses {
+            self.inputs.push(Some(*bus));
+        }
+    }
+
+    pub(crate) fn set_outputs(&mut self, busses: &[u32]) {
+        if busses.is_empty() || busses.contains(&0) {
+            return;
+        }
+        self.outputs.clear();
+        for bus in busses {
+            self.outputs.push(Some(*bus));
+        }
+    }
+
+    pub(crate) fn change_chanels_in(&mut self, index: usize, channels: u32) {
+        if index >= self.inputs.len() {
+            return;
+        };
+        self.inputs[index] = Some(channels);
+    }
+
+    pub(crate) fn change_chanels_out(&mut self, index: usize, channels: u32) {
+        if index >= self.outputs.len() {
+            return;
+        };
+        self.outputs[index] = Some(channels);
+    }
+
+    pub(crate) fn add_input_bus(&mut self, channels: Option<u32>) {
+        if let Some(channels) = channels {
+            if channels == 0 {
+                return;
+            }
+        }
+        self.inputs.push(channels);
+    }
+
+    pub(crate) fn add_output_bus(&mut self, channels: Option<u32>) {
+        if let Some(channels) = channels {
+            if channels == 0 {
+                return;
+            }
+        }
+        self.outputs.push(channels);
     }
 }
 
@@ -178,10 +383,10 @@ pub(crate) mod private_node {
     pub struct SourceNodeProvider;
     pub struct AttachedSourceNodeProvider;
 
-    impl<'a> NodePtrProvider<Node<'a>> for NodeProvider {
+    impl<C: CustomNode> NodePtrProvider<Node<'_, C>> for NodeProvider {
         #[inline]
-        fn as_node_ptr(t: &Node) -> *mut sys::ma_node {
-            t.to_raw()
+        fn as_node_ptr(t: &Node<'_, C>) -> *mut sys::ma_node {
+            t.as_raw_ptr() as *mut _
         }
     }
 
@@ -280,7 +485,7 @@ pub trait AsNodePtr {
 }
 
 #[doc(hidden)]
-impl<'a> AsNodePtr for Node<'a> {
+impl<C: CustomNode> AsNodePtr for Node<'_, C> {
     type __PtrProvider = private_node::NodeProvider;
 }
 
@@ -397,27 +602,27 @@ pub trait NodeOps: AsNodePtr {
 }
 
 // These should be not available to NodeRef
-impl<'a> Node<'a> {
-    pub(crate) fn new(
-        inner: *mut sys::ma_node,
-        alloc_cb: Option<Arc<AllocationCallbacks>>,
-    ) -> Self {
-        Self {
-            inner,
-            alloc_cb,
-            _marker: PhantomData,
-            _not_sync: PhantomData,
-        }
-    }
+// impl<'a> Node<'a> {
+//     pub(crate) fn new(
+//         inner: *mut sys::ma_node,
+//         alloc_cb: Option<Arc<AllocationCallbacks>>,
+//     ) -> Self {
+//         Self {
+//             inner,
+//             alloc_cb,
+//             _marker: PhantomData,
+//             _not_sync: PhantomData,
+//         }
+//     }
 
-    #[inline]
-    fn alloc_cb_ptr(&self) -> *const sys::ma_allocation_callbacks {
-        match &self.alloc_cb {
-            Some(cb) => cb.as_raw_ptr(),
-            None => core::ptr::null(),
-        }
-    }
-}
+//     #[inline]
+//     fn alloc_cb_ptr(&self) -> *const sys::ma_allocation_callbacks {
+//         match &self.alloc_cb {
+//             Some(cb) => cb.as_raw_ptr(),
+//             None => core::ptr::null(),
+//         }
+//     }
+// }
 
 pub(crate) unsafe extern "C" fn on_get_required_input_frame_count(
     _node: *mut sys::ma_node,
@@ -432,14 +637,20 @@ pub(crate) unsafe extern "C" fn on_get_required_input_frame_count(
 }
 
 pub(super) mod node_ffi {
+    use std::sync::Arc;
+
     use maudio_sys::ffi as sys;
 
     use crate::{
-        engine::node_graph::{
-            nodes::{private_node, AsNodePtr, Node, NodeState},
-            NodeGraph, NodeGraphRef,
+        engine::{
+            node_graph::{
+                node_on_process::CustomNode,
+                nodes::{private_node, AsNodePtr, Node, NodeState},
+                private_node_graph, AsNodeGraphPtr, NodeGraph, NodeGraphRef,
+            },
+            AllocationCallbacks,
         },
-        Binding, MaResult, MaudioError,
+        AsRawRef, Binding, MaResult, MaudioError,
     };
 
     // Do not expose to public API. Used internally by ma_node_init
@@ -466,21 +677,33 @@ pub(super) mod node_ffi {
 
     // Not exposed to public API yet. Used for creating custom nodes only.
     #[inline]
-    pub(crate) fn ma_node_init(
-        node_graph: &NodeGraph,
-        config: *const sys::ma_node_config,
-        allocation_callbacks: *const sys::ma_allocation_callbacks,
+    pub(crate) fn ma_node_init<N: AsNodeGraphPtr>(
+        node_graph: &N,
+        config: &sys::ma_node_config,
+        alloc: Option<Arc<AllocationCallbacks>>,
         node: *mut sys::ma_node,
     ) -> MaResult<()> {
-        let res =
-            unsafe { sys::ma_node_init(node_graph.to_raw(), config, allocation_callbacks, node) };
+        let alloc_cb: *const sys::ma_allocation_callbacks =
+            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
+
+        let res = unsafe {
+            sys::ma_node_init(
+                private_node_graph::node_graph_ptr(node_graph),
+                config,
+                alloc_cb,
+                node,
+            )
+        };
         MaudioError::check(res)
     }
 
     // Creating nodes is currently not supported. Any nodes that used are not owned and should not be dropped.
     #[inline]
-    fn ma_node_uninit(node: &mut Node, allocation_callbacks: *const sys::ma_allocation_callbacks) {
-        unsafe { sys::ma_node_uninit(node.to_raw(), allocation_callbacks) }
+    fn ma_node_uninit<C: CustomNode>(
+        node: &mut Node<'_, C>,
+        allocation_callbacks: *const sys::ma_allocation_callbacks,
+    ) {
+        unsafe { sys::ma_node_uninit(node.as_raw_ptr() as *mut _, allocation_callbacks) }
     }
 
     #[inline]
