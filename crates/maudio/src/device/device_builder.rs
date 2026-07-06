@@ -580,7 +580,7 @@ impl<'a> PlaybackDeviceBuilder<'a, Unknown> {
     }
 
     pub fn f32(&mut self) -> PlaybackDeviceBuilder<'a, f32> {
-        self.inner.playback.format = sys::ma_format_ma_format_s32;
+        self.inner.playback.format = sys::ma_format_ma_format_f32;
         self.new_inner::<f32>()
     }
 }
