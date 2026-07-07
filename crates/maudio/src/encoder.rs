@@ -89,7 +89,6 @@ use crate::{
 /// # Ok(())
 /// # }
 /// ```
-#[allow(unused)]
 pub struct Encoder<F: PcmFormat, E: CodecFormat, D> {
     inner: *mut sys::ma_encoder,
     channels: u32,
@@ -100,6 +99,8 @@ pub struct Encoder<F: PcmFormat, E: CodecFormat, D> {
     _encoding: PhantomData<E>,
     _destination: PhantomData<D>,
 }
+
+unsafe impl<F: PcmFormat, E: CodecFormat, D> Send for Encoder<F, E, D> {}
 
 type EncoderUserDataDestructor = (*mut core::ffi::c_void, fn(*mut core::ffi::c_void));
 
