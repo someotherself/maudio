@@ -196,6 +196,13 @@ mod fader_ffi {
         unsafe { sys::ma_fader_get_current_volume(fader.to_raw()) }
     }
 }
+
+impl<F: PcmFormat> Drop for Fader<F> {
+    fn drop(&mut self) {
+        drop(unsafe { Box::from_raw(self.inner) });
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

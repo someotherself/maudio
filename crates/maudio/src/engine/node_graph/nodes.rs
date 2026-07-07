@@ -667,7 +667,6 @@ pub(super) mod node_ffi {
     use crate::{
         engine::{
             node_graph::{
-                node_on_process::CustomNode,
                 nodes::{private_node, AsNodePtr, Node, NodeState},
                 private_node_graph, AsNodeGraphPtr, NodeGraph, NodeGraphRef,
             },
@@ -698,7 +697,6 @@ pub(super) mod node_ffi {
         unsafe { sys::ma_node_init_preallocated(node_graph.to_raw(), config, heap, node) }
     }
 
-    // Not exposed to public API yet. Used for creating custom nodes only.
     #[inline]
     pub(crate) fn ma_node_init<N: AsNodeGraphPtr>(
         node_graph: &N,
@@ -720,13 +718,15 @@ pub(super) mod node_ffi {
         MaudioError::check(res)
     }
 
-    // Creating nodes is currently not supported. Any nodes that used are not owned and should not be dropped.
     #[inline]
-    fn ma_node_uninit<C: CustomNode>(
+    pub(crate) fn ma_node_uninit<C>(
         node: &mut Node<'_, C>,
-        allocation_callbacks: *const sys::ma_allocation_callbacks,
+        alloc: Option<Arc<AllocationCallbacks>>,
     ) {
-        unsafe { sys::ma_node_uninit(node.as_raw_ptr() as *mut _, allocation_callbacks) }
+        let alloc_cb: *const sys::ma_allocation_callbacks =
+            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
+
+        unsafe { sys::ma_node_uninit(node.as_raw_ptr() as *mut _, alloc_cb) }
     }
 
     #[inline]
@@ -916,10 +916,10 @@ pub(super) mod node_ffi {
     }
 }
 
-// Creating nodes is currently not supported. Any nodes that used are not owned and should not be dropped.
-// impl<'a> Drop for Node<'a> {
-//     fn drop(&mut self) {
-//         node_ffi::ma_node_uninit(self, self.alloc_cb_ptr());
-//         drop(unsafe { Box::<sys::ma_node>::from_raw(self.to_raw()) });
-//     }
-// }
+impl<'a, C> Drop for Node<'a, C> {
+    fn drop(&mut self) {
+        node_ffi::ma_node_uninit(self, None);
+        drop(unsafe { Box::from_raw((*self.inner).vtable as *mut sys::ma_node_vtable) });
+        drop(unsafe { Box::from_raw(self.inner) });
+    }
+}
