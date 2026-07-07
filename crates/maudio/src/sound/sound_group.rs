@@ -11,7 +11,7 @@ use crate::{
     },
     engine::{
         node_graph::nodes::{private_node, AsNodePtr, NodeRef},
-        private_engine, Engine, EngineOps, EngineRef,
+        private_engine, Engine, EngineRef,
     },
     sound::{sound_builder::SoundState, sound_flags::SoundFlags},
     AsRawRef, Binding, MaResult,

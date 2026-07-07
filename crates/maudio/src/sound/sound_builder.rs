@@ -37,7 +37,7 @@ use crate::{
     data_source::{private_data_source, AsSourcePtr, DataSourceRef},
     engine::{
         node_graph::nodes::{private_node, AsNodePtr},
-        Engine, EngineOps,
+        Engine,
     },
     sound::{
         notifier::EndNotifier, sound_flags::SoundFlags, sound_group::SoundGroup, Sound, SoundSource,
