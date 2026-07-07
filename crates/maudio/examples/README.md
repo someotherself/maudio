@@ -34,6 +34,7 @@ If you already cloned it without submodules, run:
 - 109_splitter_node           - Create a very basic splitter node using custom node interface
 - 110_gain_node               - Create a custom gain node and connect it to an Engine
 
--> Basic examples using the low level API
+-> Examples using the low level API
 - 201_device_playback         - Use a device and decoder for playback
 - 202_device_dsp              - Using a dsp primitive (lpf) inside the device callback
+- 203_device_record           - Record a 3 second sound and then play it back

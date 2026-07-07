@@ -593,7 +593,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         if !millis.is_finite() || millis <= 0.0 {
             return 0;
         }
-        let sr = self.engine.sample_rate() as f64;
+        let sr = self.engine.sample_rate_u32() as f64;
         (millis.max(0.0) * sr / 1000.0).round() as u64
     }
 
@@ -602,7 +602,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         if !seconds.is_finite() || seconds <= 0.0 {
             return 0;
         }
-        let sr = self.engine.sample_rate() as f64;
+        let sr = self.engine.sample_rate_u32() as f64;
         (seconds.max(0.0) * sr).round() as u64
     }
 

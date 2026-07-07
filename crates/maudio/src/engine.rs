@@ -361,8 +361,9 @@ pub trait EngineOps: AsEnginePtr {
     }
 
     /// Returns the engine’s **sample rate**, in Hz.
-    fn sample_rate(&self) -> u32 {
-        engine_ffi::ma_engine_get_sample_rate(self)
+    fn sample_rate(&self) -> MaResult<SampleRate> {
+        let res = engine_ffi::ma_engine_get_sample_rate(self);
+        res.try_into()
     }
 }
 
@@ -510,6 +511,10 @@ impl Engine {
 
         let inner: *mut sys::ma_sound = Box::into_raw(mem) as *mut sys::ma_sound;
         Ok(Sound::new_sound(inner, None, None))
+    }
+
+    pub(crate) fn sample_rate_u32(&self) -> u32 {
+        engine_ffi::ma_engine_get_sample_rate(self)
     }
 
     #[allow(dead_code)]
@@ -888,7 +893,8 @@ mod test {
         let engine = Engine::new_for_tests().unwrap();
 
         let ch = engine.channels();
-        let sr = engine.sample_rate();
+        let sr = engine.sample_rate().unwrap();
+        let sr = u32::from(sr);
 
         assert!(ch >= 1, "channels must be >= 1");
         assert!(sr >= 8000, "sample rate looks wrong: {sr}");
