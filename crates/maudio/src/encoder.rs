@@ -92,8 +92,11 @@ use crate::{
 pub struct Encoder<F: PcmFormat, E: CodecFormat, D> {
     inner: *mut sys::ma_encoder,
     channels: u32,
+    #[allow(unused)]
     sample_rate: SampleRate,
+    #[allow(unused)]
     format: Format,
+    #[allow(unused)]
     user_data: Option<EncoderUserDataDestructor>,
     _format: PhantomData<F>,
     _encoding: PhantomData<E>,

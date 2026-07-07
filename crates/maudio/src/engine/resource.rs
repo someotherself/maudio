@@ -215,6 +215,7 @@ pub struct ResourceManager<F: PcmFormat> {
 #[derive(Debug)]
 pub(crate) struct InnerResourceManager<F: PcmFormat> {
     inner: *mut sys::ma_resource_manager,
+    #[allow(unused)]
     channels: Option<u32>,
     _format: PhantomData<F>,
 }
@@ -1395,6 +1396,7 @@ pub(crate) mod resource_ffi {
 
     #[inline]
     #[cfg(unix)]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_buffer_init<R: AsRmPtr + ?Sized>(
         rm: &R,
         path: std::ffi::CString,
@@ -1417,6 +1419,7 @@ pub(crate) mod resource_ffi {
 
     #[inline]
     #[cfg(windows)]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_buffer_init_w<R: AsRmPtr + ?Sized>(
         rm: &R,
         path: &[u16],
@@ -1464,6 +1467,7 @@ pub(crate) mod resource_ffi {
     }
 
     // Not used. Already available on DataSourceOps
+    #[allow(unused)]
     pub fn ma_resource_manager_data_buffer_read_pcm_frames<'a, R: AsRmPtr>(
         data_buffer: &mut ResourceManagerBuffer<'a, R>,
         frame_count: u64,
@@ -1484,6 +1488,7 @@ pub(crate) mod resource_ffi {
     }
 
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_buffer_read_pcm_frames_internal<'a, R: AsRmPtr>(
         data_buffer: &mut ResourceManagerBuffer<'a, R>,
         frame_count: u64,
@@ -1503,6 +1508,7 @@ pub(crate) mod resource_ffi {
     }
 
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_buffer_seek_to_pcm_frame<R: AsRmPtr>(
         data_buffer: &ResourceManagerBuffer<'_, R>,
         frame_index: u64,
@@ -1518,6 +1524,7 @@ pub(crate) mod resource_ffi {
     }
 
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_buffer_get_data_format<R: AsRmPtr>(
         data_buffer: &ResourceManagerBuffer<'_, R>,
         format: *mut sys::ma_format,
@@ -1541,6 +1548,7 @@ pub(crate) mod resource_ffi {
     }
 
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_buffer_get_cursor_in_pcm_frames<R: AsRmPtr>(
         data_buffer: &ResourceManagerBuffer<'_, R>,
     ) -> MaResult<u64> {
@@ -1556,6 +1564,7 @@ pub(crate) mod resource_ffi {
     }
 
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_buffer_get_length_in_pcm_frames<R: AsRmPtr>(
         data_buffer: &ResourceManagerBuffer<'_, R>,
     ) -> MaResult<u64> {
@@ -1580,6 +1589,7 @@ pub(crate) mod resource_ffi {
 
     // Not used. Already available on DataSourceOps
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_buffer_set_looping<R: AsRmPtr>(
         data_buffer: &ResourceManagerBuffer<'_, R>,
         is_looping: bool,
@@ -1593,6 +1603,7 @@ pub(crate) mod resource_ffi {
 
     // Not used. Already available on DataSourceOps
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_buffer_is_looping<R: AsRmPtr>(
         data_buffer: &ResourceManagerBuffer<'_, R>,
     ) -> bool {
@@ -1601,6 +1612,7 @@ pub(crate) mod resource_ffi {
     }
 
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_buffer_get_available_frames<R: AsRmPtr>(
         data_buffer: &ResourceManagerBuffer<'_, R>,
     ) -> MaResult<u64> {
@@ -1634,6 +1646,7 @@ pub(crate) mod resource_ffi {
     }
 
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_source_init<R: AsRmPtr + ?Sized>(
         rm: &R,
         name: *const core::ffi::c_char,
@@ -1681,6 +1694,7 @@ pub(crate) mod resource_ffi {
     }
 
     // Not used. Already available on DataSourceOps
+    #[allow(unused)]
     pub fn ma_resource_manager_data_source_read_pcm_frames<R: AsRmPtr>(
         data_source: &mut ResourceManagerSource<'_, R>,
         frame_count: u64,
@@ -1702,6 +1716,7 @@ pub(crate) mod resource_ffi {
 
     // Not used. Already available on DataSourceOps
     #[inline]
+    #[allow(unused)]
     fn ma_resource_manager_data_source_read_pcm_frames_internal<R: AsRmPtr>(
         data_source: &mut ResourceManagerSource<'_, R>,
         frame_count: u64,
@@ -1722,6 +1737,7 @@ pub(crate) mod resource_ffi {
 
     // Not used. Already available on DataSourceOps
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_source_seek_to_pcm_frame<R: AsRmPtr>(
         data_source: &mut ResourceManagerSource<'_, R>,
         frame: u64,
@@ -1734,6 +1750,7 @@ pub(crate) mod resource_ffi {
 
     // Not used. Already available on DataSourceOps
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_source_get_data_format<R: AsRmPtr>(
         data_source: &ResourceManagerSource<'_, R>,
     ) -> MaResult<DataFormat> {
@@ -1767,6 +1784,7 @@ pub(crate) mod resource_ffi {
 
     // Not used. Already available on DataSourceOps
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_source_get_cursor_in_pcm_frames<R: AsRmPtr>(
         data_source: &ResourceManagerSource<'_, R>,
     ) -> MaResult<u64> {
@@ -1783,6 +1801,7 @@ pub(crate) mod resource_ffi {
 
     // Not used. Already available on DataSourceOps
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_source_get_length_in_pcm_frames<R: AsRmPtr>(
         data_source: &ResourceManagerSource<'_, R>,
     ) -> MaResult<u64> {
@@ -1807,6 +1826,7 @@ pub(crate) mod resource_ffi {
 
     // Not used. Already available on DataSourceOps
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_source_set_looping<R: AsRmPtr>(
         data_source: &ResourceManagerSource<'_, R>,
         is_looping: bool,
@@ -1820,6 +1840,7 @@ pub(crate) mod resource_ffi {
 
     // Not used. Already available on DataSourceOps
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_source_is_looping<R: AsRmPtr>(
         data_source: &ResourceManagerSource<'_, R>,
     ) -> bool {
@@ -1828,6 +1849,7 @@ pub(crate) mod resource_ffi {
     }
 
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_source_get_available_frames<R: AsRmPtr>(
         data_source: &ResourceManagerSource<'_, R>,
     ) -> MaResult<u64> {
@@ -1862,6 +1884,7 @@ pub(crate) mod resource_ffi {
 
     #[cfg(unix)]
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_stream_init<R: AsRmPtr>(
         rm: &R,
         path: std::ffi::CString,
@@ -1883,6 +1906,7 @@ pub(crate) mod resource_ffi {
 
     #[cfg(windows)]
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_stream_init_w<R: AsRmPtr>(
         rm: &R,
         path: &[u16],
@@ -1911,6 +1935,7 @@ pub(crate) mod resource_ffi {
     }
 
     // Not used. Already available on DataSourceOps
+    #[allow(unused)]
     pub fn ma_resource_manager_data_stream_read_pcm_frames<R: AsRmPtr>(
         data_stream: &mut ResourceManagerStream<'_, R>,
         frame_count: u64,
@@ -1932,6 +1957,7 @@ pub(crate) mod resource_ffi {
 
     // Not used. Already available on DataSourceOps
     #[inline]
+    #[allow(unused)]
     fn ma_resource_manager_data_stream_read_pcm_frames_internal<R: AsRmPtr>(
         data_stream: &mut ResourceManagerStream<'_, R>,
         frame_count: u64,
@@ -1952,6 +1978,7 @@ pub(crate) mod resource_ffi {
 
     // Not used. Already available on DataSourceOps
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_stream_seek_to_pcm_frame<R: AsRmPtr>(
         data_stream: &mut ResourceManagerStream<'_, R>,
         frame: u64,
@@ -1964,6 +1991,7 @@ pub(crate) mod resource_ffi {
 
     // Not used. Already available on DataSourceOps
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_stream_get_data_format<R: AsRmPtr>(
         data_stream: &ResourceManagerStream<'_, R>,
     ) -> MaResult<DataFormat> {
@@ -1997,6 +2025,7 @@ pub(crate) mod resource_ffi {
 
     // Not used. Already available on DataSourceOps
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_stream_get_cursor_in_pcm_frames<R: AsRmPtr>(
         data_stream: &ResourceManagerStream<'_, R>,
     ) -> MaResult<u64> {
@@ -2013,6 +2042,7 @@ pub(crate) mod resource_ffi {
 
     // Not used. Already available on DataSourceOps
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_stream_get_length_in_pcm_frames<R: AsRmPtr>(
         data_stream: &ResourceManagerStream<'_, R>,
     ) -> MaResult<u64> {
@@ -2037,6 +2067,7 @@ pub(crate) mod resource_ffi {
 
     // Not used. Already available on DataSourceOps
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_stream_set_looping<R: AsRmPtr>(
         data_stream: &ResourceManagerStream<'_, R>,
         is_looping: bool,
@@ -2050,6 +2081,7 @@ pub(crate) mod resource_ffi {
 
     // Not used. Already available on DataSourceOps
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_stream_is_looping<R: AsRmPtr>(
         data_stream: &ResourceManagerStream<'_, R>,
     ) -> bool {
@@ -2058,6 +2090,7 @@ pub(crate) mod resource_ffi {
     }
 
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_data_stream_get_available_frames<R: AsRmPtr>(
         data_stream: &ResourceManagerStream<'_, R>,
     ) -> MaResult<u64> {
@@ -2073,6 +2106,7 @@ pub(crate) mod resource_ffi {
     }
 
     // JOB MANAGEMENT
+    #[allow(unused)]
     pub fn ma_resource_manager_post_job<R: AsRmPtr>(
         rm: &R,
         job: *const sys::ma_job,
@@ -2082,18 +2116,21 @@ pub(crate) mod resource_ffi {
     }
 
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_post_job_quit<R: AsRmPtr>(rm: &R) -> MaResult<()> {
         let res = unsafe { sys::ma_resource_manager_post_job_quit(private_rm::rm_ptr(rm)) };
         MaudioError::check(res)
     }
 
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_next_job<R: AsRmPtr>(rm: &R, job: *mut sys::ma_job) -> MaResult<()> {
         let res = unsafe { sys::ma_resource_manager_next_job(private_rm::rm_ptr(rm), job) };
         MaudioError::check(res)
     }
 
     #[inline]
+    #[allow(unused)]
     pub fn ma_resource_manager_process_next_job<R: AsRmPtr>(rm: &R) -> MaResult<()> {
         let res = unsafe { sys::ma_resource_manager_process_next_job(private_rm::rm_ptr(rm)) };
         MaudioError::check(res)

@@ -38,6 +38,7 @@ impl ProcessState {
         self.frames_processed.clone()
     }
 
+    #[allow(unused)]
     pub(crate) fn data_callback_panicked(&self) -> bool {
         self.panic_flag.load(Ordering::Relaxed)
     }

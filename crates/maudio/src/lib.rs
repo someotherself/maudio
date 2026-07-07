@@ -91,7 +91,6 @@
 //! - Intended for maintainers when updating the vendored miniaudio version.
 //! - Regular users should prefer the pre-generated bindings shipped with the crate.
 //! - Adds a build dependency on via `bindgen`.
-#![allow(dead_code)]
 
 pub mod audio;
 pub mod backend;

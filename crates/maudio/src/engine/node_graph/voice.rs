@@ -2,6 +2,7 @@
 //!
 //! `VoiceStack` wires together waveform and pulse wave source nodes with a mixer
 //! and exposes the underlying nodes for further customization.
+#![allow(dead_code)]
 use crate::{
     audio::sample_rate::SampleRate,
     data_source::sources::{

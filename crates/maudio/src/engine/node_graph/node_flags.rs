@@ -129,6 +129,7 @@ impl NodeFlags {
     }
 
     #[inline]
+    #[allow(unused)]
     pub(crate) const fn insert_bits(&mut self, other: &Self) {
         self.0 |= other.0
     }

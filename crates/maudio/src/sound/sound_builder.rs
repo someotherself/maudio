@@ -133,6 +133,7 @@ pub(crate) struct SoundState {
 
 // Keeps the ptr to the path alive
 #[derive(Default)]
+#[allow(dead_code)]
 pub(crate) enum OwnedPathBuf {
     #[default]
     None,
@@ -598,6 +599,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
     }
 
     #[inline]
+    #[allow(unused)]
     pub(crate) fn seconds_to_frames(&self, seconds: f64) -> u64 {
         if !seconds.is_finite() || seconds <= 0.0 {
             return 0;

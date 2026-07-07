@@ -51,6 +51,7 @@ pub trait AsWaveFormPtr {
 /// Audio is generated in **PCM frames** using the selected [`PcmFormat`].
 pub struct WaveForm<F: PcmFormat> {
     inner: *mut sys::ma_waveform,
+    #[allow(unused)]
     format: Format,
     state: WaveState,
     _sample_format: PhantomData<F>,

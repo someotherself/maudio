@@ -240,6 +240,7 @@ where
 {
     inner: sys::ma_data_source_node_config,
     node_graph: &'a N,
+    #[allow(unused)]
     source: &'a S,
 }
 

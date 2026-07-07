@@ -11,6 +11,7 @@ use crate::{
 pub struct Panner<F: PcmFormat> {
     inner: *mut sys::ma_panner,
     channels: u32,
+    #[allow(unused)]
     format: Format,
     _format: PhantomData<F>,
 }

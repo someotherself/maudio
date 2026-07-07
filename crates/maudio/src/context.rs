@@ -491,6 +491,7 @@ impl Drop for ContextInner {
 pub struct ContextBuilder<'a> {
     inner: sys::ma_context_config,
     backends: Option<&'a [Backend]>,
+    #[allow(unused)]
     alloc_cb: Option<Arc<AllocationCallbacks>>,
 }
 

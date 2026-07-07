@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::audio::sample_rate::SampleRate;
 
 pub mod decoded_data {

@@ -66,6 +66,7 @@ impl<F: PcmFormat, P: PcmSource<F>> AsRawRef for DataSource<F, P> {
 }
 
 impl<F: PcmFormat, P: PcmSource<F>> DataSource<F, P> {
+    #[allow(unused)]
     fn as_source<'a>(&'a self) -> DataSourceRef<'a, F> {
         let ptr =
             (self.as_raw_ptr() as *mut sys::ma_data_source_base).cast::<sys::ma_data_source>();
@@ -745,7 +746,9 @@ pub(crate) mod data_source_ffi {
         }
     }
 
+    // TODO
     #[inline]
+    #[allow(unused)]
     pub fn ma_data_source_set_next_callback<S: AsSourcePtr + ?Sized>(
         source: &mut S,
         get_next_cb: GetNextCallback,
@@ -759,7 +762,9 @@ pub(crate) mod data_source_ffi {
         MaudioError::check(res)
     }
 
+    // TODO
     #[inline]
+    #[allow(unused)]
     pub fn ma_data_source_get_next_callback<S: AsSourcePtr + ?Sized>(
         source: &S,
     ) -> GetNextCallback {

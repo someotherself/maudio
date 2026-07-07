@@ -2,15 +2,10 @@ use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;
 
-use crate::{
-    audio::{formats::Format, sample_rate::SampleRate},
-    pcm_frames::PcmFormat,
-    Binding, MaResult,
-};
+use crate::{audio::sample_rate::SampleRate, pcm_frames::PcmFormat, Binding, MaResult};
 
 pub struct Delay<F: PcmFormat> {
     inner: *mut sys::ma_delay,
-    format: Format,
     channels: u32,
     _format: PhantomData<F>,
 }
@@ -31,7 +26,7 @@ impl<F: PcmFormat> Binding for Delay<F> {
 }
 
 impl<F: PcmFormat> Delay<F> {
-    fn build(config: &sys::ma_delay_config, format: Format) -> MaResult<Delay<F>> {
+    fn build(config: &sys::ma_delay_config) -> MaResult<Delay<F>> {
         let channels = config.channels;
         let mut inner: MaybeUninit<sys::ma_delay> = MaybeUninit::uninit();
         delay_ffi::ma_delay_init(config, None, inner.as_mut_ptr())?;
@@ -39,7 +34,6 @@ impl<F: PcmFormat> Delay<F> {
         let inner_ptr = Box::into_raw(Box::new(unsafe { inner.assume_init() }));
         Ok(Delay {
             inner: inner_ptr,
-            format,
             channels,
             _format: PhantomData,
         })
@@ -90,7 +84,7 @@ impl DelayBuilder {
     }
 
     pub fn build_f32(&mut self) -> MaResult<Delay<f32>> {
-        Delay::<f32>::build(&self.config, Format::F32)
+        Delay::<f32>::build(&self.config)
     }
 }
 
@@ -196,7 +190,6 @@ mod tests {
         let delay = DelayBuilder::new(CHANNELS, SAMPLE_RATE, DELAY_FRAMES, DECAY).build_f32()?;
 
         assert!(!delay.to_raw().is_null());
-        assert_eq!(delay.format, Format::F32);
         assert_eq!(delay.channels, CHANNELS);
 
         Ok(())

@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
 
 use maudio_sys::ffi as sys;

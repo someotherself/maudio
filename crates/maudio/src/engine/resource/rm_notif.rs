@@ -135,12 +135,14 @@ impl NotificationPipelineBuilder {
 
 // Not implemented
 #[repr(C)]
+#[allow(dead_code)]
 struct CustomNotif {
     cb: sys::ma_async_notification,
     state: *mut core::ffi::c_void,
 }
 
 // Not implemented
+#[allow(dead_code)]
 struct State {
     cb: Mutex<Option<Box<dyn FnOnce() + Send + 'static>>>,
 }

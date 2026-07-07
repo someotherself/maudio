@@ -15,6 +15,7 @@ use maudio_sys::ffi as sys;
 pub struct Spatializer<F: PcmFormat> {
     inner: *mut sys::ma_spatializer,
     channels_in: u32,
+    #[allow(unused)]
     channels_out: u32,
     _format: PhantomData<F>,
 }
@@ -75,6 +76,10 @@ impl<F: PcmFormat> Spatializer<F> {
 
     pub fn attenuation_model(&self) -> MaResult<AttenuationModel> {
         spatializer_ffi::ma_spatializer_get_attenuation_model(self)
+    }
+
+    pub fn set_attenuation_model(&mut self, model: AttenuationModel) {
+        spatializer_ffi::ma_spatializer_set_attenuation_model(self, model);
     }
 
     pub fn set_positioning(&mut self, positioning: Positioning) {
@@ -178,7 +183,7 @@ impl<F: PcmFormat> Spatializer<F> {
     }
 }
 
-struct SpatializerBuilder {
+pub struct SpatializerBuilder {
     config: sys::ma_spatializer_config,
 }
 

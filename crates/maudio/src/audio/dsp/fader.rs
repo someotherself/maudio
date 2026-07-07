@@ -138,7 +138,9 @@ mod fader_ffi {
         MaudioError::check(res)
     }
 
+    // Data is stored on the Fader struct instead.
     #[inline]
+    #[allow(unused)]
     pub fn ma_fader_get_data_format<F: PcmFormat>(fader: &Fader<F>) -> MaResult<DataFormat> {
         let mut format_raw: sys::ma_format = sys::ma_format_ma_format_unknown;
         let mut channels: u32 = 0;

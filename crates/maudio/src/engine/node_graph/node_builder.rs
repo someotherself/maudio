@@ -182,7 +182,7 @@ impl SourceNodeBuilder {
     /// This allows the node graph to treat the node as passthrough where that
     /// behavior is useful, even though the node still uses the source callback
     /// shape.
-    fn passthrough(&mut self) -> &mut Self {
+    fn _passthrough(&mut self) -> &mut Self {
         self.flags.insert(NodeFlags::PASSTHROUGH);
         self
     }
@@ -575,12 +575,6 @@ mod tests {
         node_graph::{node_on_process::ProcessResult, nodes::NodeInner, NodeGraphOps},
         Engine, EngineOps,
     };
-
-    fn test_node_graph_channels() -> u32 {
-        let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
-        node_graph.channels()
-    }
 
     #[test]
     fn node_bus_test_channels_config_new_allows_graph_channel_fallback() {

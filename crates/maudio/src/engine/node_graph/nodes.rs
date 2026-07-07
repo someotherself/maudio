@@ -624,41 +624,6 @@ pub trait NodeOps: AsNodePtr {
     }
 }
 
-// These should be not available to NodeRef
-// impl<'a> Node<'a> {
-//     pub(crate) fn new(
-//         inner: *mut sys::ma_node,
-//         alloc_cb: Option<Arc<AllocationCallbacks>>,
-//     ) -> Self {
-//         Self {
-//             inner,
-//             alloc_cb,
-//             _marker: PhantomData,
-//             _not_sync: PhantomData,
-//         }
-//     }
-
-//     #[inline]
-//     fn alloc_cb_ptr(&self) -> *const sys::ma_allocation_callbacks {
-//         match &self.alloc_cb {
-//             Some(cb) => cb.as_raw_ptr(),
-//             None => core::ptr::null(),
-//         }
-//     }
-// }
-
-pub(crate) unsafe extern "C" fn on_get_required_input_frame_count(
-    _node: *mut sys::ma_node,
-    out_frames_count: u32,
-    in_frame_count: *mut u32,
-) -> sys::ma_result {
-    // no resampling
-    if !in_frame_count.is_null() {
-        *in_frame_count = out_frames_count;
-    }
-    sys::ma_result_MA_SUCCESS
-}
-
 pub(super) mod node_ffi {
     use std::sync::Arc;
 
@@ -677,7 +642,7 @@ pub(super) mod node_ffi {
 
     // Do not expose to public API. Used internally by ma_node_init
     #[inline]
-    pub(crate) fn ma_node_get_heap_size(
+    pub(crate) fn _ma_node_get_heap_size(
         node_graph: &mut NodeGraph,
         config: *const sys::ma_node_config,
     ) -> usize {
@@ -688,7 +653,7 @@ pub(super) mod node_ffi {
 
     // Do not expose to public API. Used internally by ma_node_init
     #[inline]
-    pub(crate) fn ma_node_init_preallocated(
+    pub(crate) fn _ma_node_init_preallocated(
         node_graph: &mut NodeGraph,
         config: *const sys::ma_node_config,
         heap: *mut core::ffi::c_void,
