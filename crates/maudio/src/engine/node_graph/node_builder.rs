@@ -107,13 +107,13 @@ pub(crate) enum NodeFunction {
 /// marked as passthrough when that is useful for node graph behavior.
 pub struct NodeBuilder {}
 
-pub struct SinkNodeBuilder {
+pub struct CustomSinkNodeBuilder {
     config: sys::ma_node_config,
     busses: NodeBusChannelsConfig,
     flags: NodeFlags,
 }
 
-impl SinkNodeBuilder {
+impl CustomSinkNodeBuilder {
     pub fn build<'a, C: SinkCallback, N: AsNodeGraphPtr>(
         &mut self,
         node_graph: &'a N,
@@ -142,13 +142,13 @@ impl SinkNodeBuilder {
     }
 }
 
-pub struct SourceNodeBuilder {
+pub struct CustomSourceNodeBuilder {
     config: sys::ma_node_config,
     busses: NodeBusChannelsConfig,
     flags: NodeFlags,
 }
 
-impl SourceNodeBuilder {
+impl CustomSourceNodeBuilder {
     pub fn build<'a, C: SourceCallback, N: AsNodeGraphPtr>(
         &mut self,
         node_graph: &'a N,
@@ -188,13 +188,13 @@ impl SourceNodeBuilder {
     }
 }
 
-pub struct EffectNodeBuilder {
+pub struct CustomEffectNodeBuilder {
     config: sys::ma_node_config,
     busses: NodeBusChannelsConfig,
     flags: NodeFlags,
 }
 
-impl EffectNodeBuilder {
+impl CustomEffectNodeBuilder {
     pub fn build<'a, C: EffectCallback, N: AsNodeGraphPtr>(
         &mut self,
         node_graph: &'a N,
@@ -325,13 +325,13 @@ impl EffectNodeBuilder {
     }
 }
 
-pub struct TransformerNodeBuilder {
+pub struct CustomTransformerNodeBuilder {
     config: sys::ma_node_config,
     busses: NodeBusChannelsConfig,
     flags: NodeFlags,
 }
 
-impl TransformerNodeBuilder {
+impl CustomTransformerNodeBuilder {
     pub fn build<'a, C: TransformCallback, N: AsNodeGraphPtr>(
         &mut self,
         node_graph: &'a N,
@@ -501,11 +501,11 @@ impl NodeBuilder {
     /// for nodes that inspect or consume input without producing output.
     ///
     /// The input or outpus bus count cannot be changed.
-    pub fn sink() -> SinkNodeBuilder {
+    pub fn sink() -> CustomSinkNodeBuilder {
         let config = unsafe { sys::ma_node_config_init() };
         let busses = NodeBusChannelsConfig::new(1, 0, None);
 
-        SinkNodeBuilder {
+        CustomSinkNodeBuilder {
             config,
             busses,
             flags: NodeFlags::NONE,
@@ -519,11 +519,11 @@ impl NodeBuilder {
     /// another node.
     ///
     /// The input or outpus bus count cannot be changed.
-    pub fn source() -> SourceNodeBuilder {
+    pub fn source() -> CustomSourceNodeBuilder {
         let config = unsafe { sys::ma_node_config_init() };
         let busses = NodeBusChannelsConfig::new(0, 1, None);
 
-        SourceNodeBuilder {
+        CustomSourceNodeBuilder {
             config,
             busses,
             flags: NodeFlags::NONE,
@@ -537,11 +537,11 @@ impl NodeBuilder {
     /// processed output audio at the same frame rate.
     ///
     /// The input and output bus counts can be changed.
-    pub fn effect() -> EffectNodeBuilder {
+    pub fn effect() -> CustomEffectNodeBuilder {
         let config = unsafe { sys::ma_node_config_init() };
         let busses = NodeBusChannelsConfig::new(1, 1, None);
 
-        EffectNodeBuilder {
+        CustomEffectNodeBuilder {
             config,
             busses,
             flags: NodeFlags::NONE,
@@ -554,13 +554,13 @@ impl NodeBuilder {
     /// configured for different input and output processing rates. This is useful
     /// for nodes that may consume a different number of input frames than the
     /// number of output frames they produce.
-    pub fn transformer() -> TransformerNodeBuilder {
+    pub fn transformer() -> CustomTransformerNodeBuilder {
         let mut config = unsafe { sys::ma_node_config_init() };
         config.inputBusCount = 1;
         config.outputBusCount = 1;
         let busses = NodeBusChannelsConfig::new(1, 1, None);
 
-        TransformerNodeBuilder {
+        CustomTransformerNodeBuilder {
             config,
             busses,
             flags: NodeFlags::DIFFERENT_PROCESSING_RATES,
