@@ -483,9 +483,9 @@ pub(crate) mod private_node {
         }
     }
 
-    impl<'a> NodePtrProvider<SourceNode<'a>> for SourceNodeProvider {
+    impl<'a, S: AsSourcePtr> NodePtrProvider<SourceNode<'a, S>> for SourceNodeProvider {
         #[inline]
-        fn as_node_ptr(t: &SourceNode<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &SourceNode<'a, S>) -> *mut sys::ma_node {
             t.as_node().to_raw()
         }
     }

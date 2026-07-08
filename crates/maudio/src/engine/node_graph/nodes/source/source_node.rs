@@ -17,13 +17,14 @@ use crate::{
     AsRawRef, Binding, MaResult,
 };
 
-pub struct SourceNode<'a> {
+pub struct SourceNode<'a, S: AsSourcePtr> {
     inner: *mut sys::ma_data_source_node,
     alloc_cb: Option<Arc<AllocationCallbacks>>,
+    _source: &'a S,
     _src_graph: PhantomData<&'a ()>, // borrow to the graph and source
 }
 
-impl Binding for SourceNode<'_> {
+impl<S: AsSourcePtr> Binding for SourceNode<'_, S> {
     type Raw = *mut sys::ma_data_source_node;
 
     // !!! unimplemented !!!
@@ -37,15 +38,16 @@ impl Binding for SourceNode<'_> {
 }
 
 #[doc(hidden)]
-impl AsNodePtr for SourceNode<'_> {
+impl<S: AsSourcePtr> AsNodePtr for SourceNode<'_, S> {
     type __PtrProvider = SourceNodeProvider;
 }
 
-impl<'a> SourceNode<'a> {
-    fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr, S: AsSourcePtr>(
+impl<'a, S: AsSourcePtr> SourceNode<'a, S> {
+    fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr>(
         node_graph: &N,
         config: &SourceNodeBuilder<'a, N, S>,
         alloc: Option<Arc<AllocationCallbacks>>,
+        source: &'a S,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
@@ -66,6 +68,7 @@ impl<'a> SourceNode<'a> {
         Ok(Self {
             inner,
             alloc_cb: alloc,
+            _source: source,
             _src_graph: PhantomData,
         })
     }
@@ -201,7 +204,7 @@ pub(crate) mod n_datasource_ffi {
     }
 
     #[inline]
-    pub fn ma_data_source_node_uninit(node: &mut SourceNode) {
+    pub fn ma_data_source_node_uninit<S: AsSourcePtr>(node: &mut SourceNode<S>) {
         unsafe {
             sys::ma_data_source_node_uninit(node.to_raw(), node.alloc_cb_ptr());
         }
@@ -218,7 +221,7 @@ pub(crate) mod n_datasource_ffi {
     }
 }
 
-impl<'a> Drop for SourceNode<'a> {
+impl<'a, S: AsSourcePtr> Drop for SourceNode<'a, S> {
     fn drop(&mut self) {
         n_datasource_ffi::ma_data_source_node_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -240,7 +243,6 @@ where
 {
     inner: sys::ma_data_source_node_config,
     node_graph: &'a N,
-    #[allow(unused)]
     source: &'a S,
 }
 
@@ -272,8 +274,8 @@ where
         }
     }
 
-    pub fn build(&self) -> MaResult<SourceNode<'a>> {
-        SourceNode::new_with_cfg_alloc_internal(self.node_graph, self, None)
+    pub fn build(&self) -> MaResult<SourceNode<'a, S>> {
+        SourceNode::new_with_cfg_alloc_internal(self.node_graph, self, None, self.source)
     }
 }
 
