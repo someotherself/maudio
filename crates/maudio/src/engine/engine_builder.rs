@@ -125,13 +125,13 @@ impl EngineBuilder {
         self
     }
 
-    /// Sets the device period size in frames.
+    /// Sets the device period size (buffer size) in frames.
     pub fn period_time_frames(&mut self, frames: u32) -> &mut Self {
         self.inner.periodSizeInFrames = frames;
         self
     }
 
-    /// Sets the device period size in milliseconds.
+    /// Sets the device period size (buffer size) in milliseconds.
     pub fn period_time_millis(&mut self, millis: u32) -> &mut Self {
         self.inner.periodSizeInMilliseconds = millis;
         self
