@@ -191,6 +191,20 @@ impl DeviceOps for CallBackDevice {}
 
 /// Methods shared between Device, DeviceRef and CallBackDevice
 pub trait DeviceOps: AsDevicePtr {
+    /// Retrieve the playback channels count
+    ///
+    /// Returns 0 if device is not setup for playback
+    fn channels_playback(&self) -> u32 {
+        unsafe { (*private_device::device_ptr(self)).playback.channels }
+    }
+
+    /// Retrieve the playback channels count
+    ///
+    /// Returns 0 if device is not setup for playback
+    fn channels_capture(&self) -> u32 {
+        unsafe { (*private_device::device_ptr(self)).capture.channels }
+    }
+
     /// Returns the associated context, if available.
     fn get_context(&self) -> Option<ContextRef<'_>>
     where
