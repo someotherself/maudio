@@ -387,7 +387,6 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         self
     }
 
-    // TODO: Is engine time correct?
     /// Sets the volume smoothing time, in PCM frames.
     ///
     /// Alternative to `range_begin_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
@@ -396,7 +395,6 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         self
     }
 
-    // TODO: Is engine time correct?
     /// Anything before this point is skipped during playback.
     ///
     /// Alternative to `range_begin_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
@@ -405,7 +403,6 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         self
     }
 
-    // TODO: Is engine time correct?
     /// Playback stops when this frame is reached.
     ///
     /// Alternative to `range_end_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
@@ -414,21 +411,18 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         self
     }
 
-    // TODO: Is engine time correct?
     /// Alternative to `loop_begin_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
     pub fn loop_begin_millis(&mut self, millis: f64) -> &mut Self {
         self.inner.loopPointBegInPCMFrames = self.millis_to_frames(millis);
         self
     }
 
-    // TODO: Is engine time correct?
     /// Alternative to `loop_end_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
     pub fn loop_end_millis(&mut self, millis: f64) -> &mut Self {
         self.inner.loopPointEndInPCMFrames = self.millis_to_frames(millis);
         self
     }
 
-    // TODO: Is engine time correct?
     /// Alternative to `seek_point_frames`. Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
     pub fn seek_point_millis(&mut self, millis: f64) -> &mut Self {
         self.inner.initialSeekPointInPCMFrames = self.millis_to_frames(millis);
@@ -442,7 +436,6 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         self
     }
 
-    // TODO: Is engine time correct?
     /// Convenience method for calling [`Self::range_begin_millis`] and [`Self::range_end_millis`] in the same call
     ///
     /// Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
@@ -459,7 +452,6 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         self
     }
 
-    // TODO: Is engine time correct?
     /// Convenience method for calling [`Self::loop_begin_millis`] and [`Self::loop_end_millis`] in the same call
     ///
     /// Interprets `millis` in engine time and converts it to PCM frames using the engine sample rate.
