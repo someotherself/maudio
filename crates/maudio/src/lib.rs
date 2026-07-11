@@ -438,6 +438,8 @@ pub enum ErrorKinds {
     NotImplemented,
 }
 
+impl std::error::Error for MaudioError {}
+
 impl From<std::io::Error> for MaudioError {
     fn from(value: std::io::Error) -> Self {
         Self {
