@@ -216,6 +216,15 @@ impl NodeGraph {
             None => core::ptr::null(),
         }
     }
+
+    /// Create a NodeGraphRef borrowing the NodeGraph
+    pub fn as_ref<'a>(&'a self) -> NodeGraphRef<'a> {
+        NodeGraphRef {
+            ptr: self.inner,
+            _engine: PhantomData,
+            _not_sync: PhantomData,
+        }
+    }
 }
 
 mod graph_ffi {
