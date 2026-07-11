@@ -62,6 +62,8 @@ pub struct NodeGraph {
     _not_sync: PhantomData<Cell<()>>,
 }
 
+unsafe impl Send for NodeGraph {}
+
 impl Binding for NodeGraph {
     type Raw = *mut sys::ma_node_graph;
 
