@@ -95,11 +95,6 @@ use crate::{
 /// # Ok(())
 /// # }
 /// ```
-///
-/// # Notes
-/// - `SoundBuilder` is consumed by `build()` and should be used once, matching
-///   miniaudio's "fill config → init" workflow.
-/// - If you only need a simple sound, prefer the convenience constructors on [`Engine`] / [`Sound`].
 pub struct SoundBuilder<'a, 'b> {
     inner: sys::ma_sound_config,
     engine: &'a Engine,
