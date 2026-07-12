@@ -5,9 +5,13 @@ use std::sync::{Arc, Mutex};
 use crate::{data_source::SourceContext, pcm_frames::PcmFormat, ErrorKinds, MaResult, MaudioError};
 
 pub trait PcmSource<F: PcmFormat> {
-    fn fill_pcm_frames(&self, out: &mut [F::PcmUnit], ctx: &mut SourceContext) -> MaResult<usize>;
+    fn fill_pcm_frames(
+        &mut self,
+        out: &mut [F::PcmUnit],
+        ctx: &mut SourceContext,
+    ) -> MaResult<usize>;
 
-    fn seek_to_pcm_frame(&self, frame_index: u64, ctx: &mut SourceContext) -> MaResult<()>;
+    fn seek_to_pcm_frame(&mut self, frame_index: u64, ctx: &mut SourceContext) -> MaResult<()>;
 
     fn cursor_in_pcm_frames(&self, ctx: &SourceContext) -> Option<u64>;
 
@@ -17,7 +21,11 @@ pub trait PcmSource<F: PcmFormat> {
 }
 
 impl<F: PcmFormat> PcmSource<F> for Vec<F::PcmUnit> {
-    fn fill_pcm_frames(&self, out: &mut [F::PcmUnit], ctx: &mut SourceContext) -> MaResult<usize> {
+    fn fill_pcm_frames(
+        &mut self,
+        out: &mut [F::PcmUnit],
+        ctx: &mut SourceContext,
+    ) -> MaResult<usize> {
         let channels = ctx.data_format.channels as usize;
 
         let cursor_samples = ctx.cursor as usize * channels;
@@ -76,7 +84,7 @@ impl<F: PcmFormat> PcmSource<F> for Vec<F::PcmUnit> {
         Ok(samples_written / channels)
     }
 
-    fn seek_to_pcm_frame(&self, frame_index: u64, ctx: &mut SourceContext) -> MaResult<()> {
+    fn seek_to_pcm_frame(&mut self, frame_index: u64, ctx: &mut SourceContext) -> MaResult<()> {
         let cursor_samples = frame_index * ctx.data_format.channels as u64;
         if cursor_samples > self.len() as u64 {
             return Err(MaudioError::new_ma_error(ErrorKinds::InvalidOperation(
@@ -101,44 +109,22 @@ impl<F: PcmFormat> PcmSource<F> for Vec<F::PcmUnit> {
     }
 }
 
-impl<F, S> PcmSource<F> for Arc<S>
-where
-    F: PcmFormat,
-    S: PcmSource<F> + ?Sized,
-{
-    fn fill_pcm_frames(&self, out: &mut [F::PcmUnit], ctx: &mut SourceContext) -> MaResult<usize> {
-        (**self).fill_pcm_frames(out, ctx)
-    }
-
-    fn seek_to_pcm_frame(&self, frame_index: u64, ctx: &mut SourceContext) -> MaResult<()> {
-        (**self).seek_to_pcm_frame(frame_index, ctx)
-    }
-
-    fn cursor_in_pcm_frames(&self, ctx: &SourceContext) -> Option<u64> {
-        (**self).cursor_in_pcm_frames(ctx)
-    }
-
-    fn length_in_pcm_frames(&self, ctx: &SourceContext) -> Option<u64> {
-        (**self).length_in_pcm_frames(ctx)
-    }
-
-    fn set_looping(&self, looping: bool, ctx: &mut SourceContext) -> MaResult<()> {
-        (**self).set_looping(looping, ctx)
-    }
-}
-
-impl<F, S> PcmSource<F> for Mutex<S>
+impl<F, S> PcmSource<F> for Arc<Mutex<S>>
 where
     F: PcmFormat,
     S: PcmSource<F>,
 {
-    fn fill_pcm_frames(&self, out: &mut [F::PcmUnit], ctx: &mut SourceContext) -> MaResult<usize> {
-        let src = self.lock().unwrap();
+    fn fill_pcm_frames(
+        &mut self,
+        out: &mut [F::PcmUnit],
+        ctx: &mut SourceContext,
+    ) -> MaResult<usize> {
+        let mut src = self.lock().unwrap();
         (*src).fill_pcm_frames(out, ctx)
     }
 
-    fn seek_to_pcm_frame(&self, frame_index: u64, ctx: &mut SourceContext) -> MaResult<()> {
-        let src = self.lock().unwrap();
+    fn seek_to_pcm_frame(&mut self, frame_index: u64, ctx: &mut SourceContext) -> MaResult<()> {
+        let mut src = self.lock().unwrap();
         (*src).seek_to_pcm_frame(frame_index, ctx)
     }
 
