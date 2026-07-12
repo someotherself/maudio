@@ -1,5 +1,5 @@
 //! Audio device identifier definitions.
-use std::rc::Rc;
+use std::sync::Arc;
 
 use maudio_sys::ffi as sys;
 
@@ -15,12 +15,15 @@ use crate::AsRawRef;
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct DeviceId {
-    inner: Rc<DeviceIdInner>,
+    inner: Arc<DeviceIdInner>,
 }
 
 struct DeviceIdInner {
     inner: sys::ma_device_id,
 }
+
+unsafe impl Send for DeviceIdInner {}
+unsafe impl Sync for DeviceIdInner {}
 
 impl AsRawRef for DeviceId {
     type Raw = sys::ma_device_id;
@@ -31,9 +34,9 @@ impl AsRawRef for DeviceId {
 }
 
 impl DeviceId {
-    pub(crate) fn new(id: sys::ma_device_id) -> Self {
+    pub(crate) fn from_raw(id: &sys::ma_device_id) -> Self {
         Self {
-            inner: Rc::new(DeviceIdInner { inner: id }),
+            inner: Arc::new(DeviceIdInner { inner: *id }),
         }
     }
 }

@@ -43,7 +43,7 @@ impl DeviceInfo {
     /// The returned ID can be stored and later supplied to device configuration to request
     /// this specific device instead of the system default.
     pub fn device_id(&self) -> DeviceId {
-        DeviceId::new(self.inner.id)
+        DeviceId::from_raw(&self.inner.id)
     }
 
     /// Returns the backend-provided display name for this device.
@@ -112,8 +112,8 @@ impl<'a> DeviceBasicInfo<'a> {
     }
 
     /// Returns the ID of this device.
-    pub fn id(&self) -> &'a DeviceId {
-        unsafe { &*(self.id as *const sys::ma_device_id as *const DeviceId) }
+    pub fn id(&self) -> DeviceId {
+        DeviceId::from_raw(self.id)
     }
 
     /// Returns the backend-provided display name of this device.
