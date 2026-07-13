@@ -157,6 +157,11 @@ impl<'a, S: AsSourcePtr> AttachedSourceNode<'a, S> {
         NodeRef::from_ptr(ptr)
     }
 
+    /// Retrieve a reference to the underlying source
+    pub fn source(&'a self) -> &'a S {
+        &self.source
+    }
+
     pub fn as_source(&'a self) -> DataSourceRef<'a, S::Format> {
         debug_assert!(!private_data_source::source_ptr(self.source.as_ref()).is_null());
         let ptr =
