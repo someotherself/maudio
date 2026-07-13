@@ -1,5 +1,8 @@
 //! Interface for reading from a data source
-use std::marker::PhantomData;
+use std::{
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 use maudio_sys::ffi as sys;
 
@@ -62,6 +65,20 @@ impl<F: PcmFormat, P: PcmSource<F>> AsRawRef for DataSource<F, P> {
 
     fn as_raw(&self) -> &Self::Raw {
         unsafe { &(*self.inner).inner }
+    }
+}
+
+impl<F: PcmFormat, P: PcmSource<F>> Deref for DataSource<F, P> {
+    type Target = P;
+
+    fn deref(&self) -> &Self::Target {
+        unsafe { &(*self.inner).source }
+    }
+}
+
+impl<F: PcmFormat, P: PcmSource<F>> DerefMut for DataSource<F, P> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { &mut (*self.inner).source }
     }
 }
 
