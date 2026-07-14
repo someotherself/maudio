@@ -98,14 +98,6 @@ impl<F: PcmFormat> AsSourcePtr for AudioBufferBase<F> {
     type __PtrProvider = private_data_source::AudioBufferBaseProvider;
 }
 
-// TODO: Fix docs
-/// AudioBufferOps trait contains shared methods for [`AudioBuffer`] and [`AudioBufferRef`]
-///
-/// All methods operate on **PCM frames**. A frame contains one sample per channel, and the
-/// underlying sample layout is **interleaved**.
-///
-/// When `looping` is `true`, reads wrap back to the start after reaching the end.
-// pub trait AudioBufferOps: AsAudioBufferPtr + AsSourcePtr {
 impl<F: PcmFormat> AudioBuffer<F> {
     /// Reads PCM frames into `dst`, returning the number of frames read.
     pub fn read_pcm_frames_into(
