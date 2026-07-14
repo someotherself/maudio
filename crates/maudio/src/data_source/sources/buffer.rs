@@ -93,7 +93,7 @@ impl<F: PcmFormat> AsSourcePtr for AudioBuffer<F> {
 
 // Allows AudioBufferBase to pass as a DataSource
 #[doc(hidden)]
-impl<'a, F: PcmFormat> AsSourcePtr for AudioBufferBase<F> {
+impl<F: PcmFormat> AsSourcePtr for AudioBufferBase<F> {
     type Format = F;
     type __PtrProvider = private_data_source::AudioBufferBaseProvider;
 }
