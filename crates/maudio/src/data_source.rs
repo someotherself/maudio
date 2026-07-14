@@ -1,8 +1,5 @@
 //! Interface for reading from a data source
-use std::{
-    marker::PhantomData,
-    ops::Deref,
-};
+use std::{marker::PhantomData, ops::Deref};
 
 use maudio_sys::ffi as sys;
 
