@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, time::Instant};
 
 use maudio::{
     audio::sample_rate::SampleRate,
@@ -36,7 +36,16 @@ fn main() -> MaResult<()> {
     let total_frames = 48_000 * seconds * channels;
     let mut frames_remaining = total_frames;
 
+    let now = Instant::now();
+    let seconds = 4;
+
     while frames_remaining > 0 {
+        // We need to stop the app in a way that runs the drop implementation on the encoder
+        // Otherwise, the resulting file will be malformed
+        if now.elapsed().as_secs() >= seconds {
+            break;
+        }
+
         let frames_to_read = frames_remaining.min(chunk_frames) as u64;
 
         let buffer = engine.read_pcm_frames(frames_to_read)?;
