@@ -47,7 +47,6 @@ impl<F: PcmFormat> Binding for AudioBuffer<F> {
     }
 }
 
-// TODO: There is an ownership problem when adding this to a source node.
 pub struct AudioBufferBase<F: PcmFormat> {
     inner: *mut sys::ma_audio_buffer_ref,
     channels: u32,
