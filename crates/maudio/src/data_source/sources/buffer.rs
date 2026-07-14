@@ -26,7 +26,6 @@ use crate::{
 /// For 24-bit audio, prefer [`S24Packed`] when you already have packed 3-byte samples.
 pub struct AudioBuffer<F: PcmFormat> {
     inner: *mut sys::ma_audio_buffer,
-    format: Format,
     channels: u32,
     #[allow(unused)]
     alloc: Option<Arc<AllocationCallbacks>>,
@@ -48,27 +47,19 @@ impl<F: PcmFormat> Binding for AudioBuffer<F> {
     }
 }
 
-/// Borrowed (zero-copy) PCM audio buffer.
-///
-/// `AudioBufferRef` does not own the underlying samples. It references an
-/// existing buffer, so the original backing data (and any associated allocation
-/// state) must outlive `'a`.
-///
-/// Use this when you want to work with an existing buffer without copying.
-///
-/// Note that `S24` format is is not available for this type.
-pub struct AudioBufferRef<'a, F: PcmFormat> {
-    inner: *mut sys::ma_audio_buffer,
-    format: Format,
+// TODO: There is an ownership problem when adding this to a source node.
+pub struct AudioBufferBase<F: PcmFormat> {
+    inner: *mut sys::ma_audio_buffer_ref,
     channels: u32,
     #[allow(unused)]
     alloc: Option<Arc<AllocationCallbacks>>,
-    _data_marker: PhantomData<&'a [u8]>,
     _sample_format: PhantomData<F>,
 }
 
-impl<F: PcmFormat> Binding for AudioBufferRef<'_, F> {
-    type Raw = *mut sys::ma_audio_buffer;
+unsafe impl<F: PcmFormat> Send for AudioBufferBase<F> {}
+
+impl<F: PcmFormat> Binding for AudioBufferBase<F> {
+    type Raw = *mut sys::ma_audio_buffer_ref;
 
     /// !!! unimplemented !!!
     fn from_ptr(_raw: Self::Raw) -> Self {
@@ -80,33 +71,18 @@ impl<F: PcmFormat> Binding for AudioBufferRef<'_, F> {
     }
 }
 
-// Keeps the as_buffer_ptr method on AsAudioBufferPtr private
-mod private_abuffer {
-    use super::*;
-    use maudio_sys::ffi as sys;
-
-    pub trait AudioBufferProvider<T: ?Sized> {
-        fn as_buffer_ptr(t: &T) -> *mut sys::ma_audio_buffer;
-    }
-
-    pub struct AudioBufferPtrPrivider;
-    pub struct AudioBufferRefPtrPrivider;
-
-    impl<F: PcmFormat> AudioBufferProvider<AudioBuffer<F>> for AudioBufferPtrPrivider {
-        fn as_buffer_ptr(t: &AudioBuffer<F>) -> *mut sys::ma_audio_buffer {
-            t.to_raw()
-        }
-    }
-
-    impl<F: PcmFormat> AudioBufferProvider<AudioBufferRef<'_, F>> for AudioBufferRefPtrPrivider {
-        fn as_buffer_ptr(t: &AudioBufferRef<F>) -> *mut sys::ma_audio_buffer {
-            t.to_raw()
-        }
-    }
-
-    pub fn buffer_ptr<T: AsAudioBufferPtr + ?Sized>(t: &T) -> *mut sys::ma_audio_buffer {
-        <T as AsAudioBufferPtr>::__PtrProvider::as_buffer_ptr(t)
-    }
+/// Borrowed (zero-copy) PCM audio buffer.
+///
+/// `AudioBufferRef` does not own the underlying samples. It references an
+/// existing buffer, so the original backing data (and any associated allocation
+/// state) must outlive `'a`.
+///
+/// Use this when you want to work with an existing buffer without copying.
+///
+/// Note that `S24` format is is not available for this type.
+pub struct AudioBufferRef<'a, F: PcmFormat> {
+    base: &'a AudioBufferBase<F>,
+    _data: &'a [F::StorageUnit],
 }
 
 // Allows AudioBuffer to pass as a DataSource
@@ -116,125 +92,128 @@ impl<F: PcmFormat> AsSourcePtr for AudioBuffer<F> {
     type __PtrProvider = private_data_source::AudioBufferProvider;
 }
 
-// Allows AudioBufferRef to pass as a DataSource
+// Allows AudioBufferBase to pass as a DataSource
 #[doc(hidden)]
-impl<'a, F: PcmFormat> AsSourcePtr for AudioBufferRef<'a, F> {
+impl<'a, F: PcmFormat> AsSourcePtr for AudioBufferBase<F> {
     type Format = F;
-    type __PtrProvider = private_data_source::AudioBufferRefProvider;
+    type __PtrProvider = private_data_source::AudioBufferBaseProvider;
 }
 
-/// Allows both AudioBuffer and AudioBufferRef to access the same methods
-pub trait AsAudioBufferPtr {
-    #[doc(hidden)]
-    type __PtrProvider: private_abuffer::AudioBufferProvider<Self>;
-    fn format(&self) -> Format;
-    fn channels(&self) -> u32;
-}
-
-impl<F: PcmFormat> AsAudioBufferPtr for AudioBuffer<F> {
-    #[doc(hidden)]
-    type __PtrProvider = private_abuffer::AudioBufferPtrPrivider;
-
-    fn format(&self) -> Format {
-        self.format
-    }
-
-    fn channels(&self) -> u32 {
-        self.channels
-    }
-}
-
-impl<F: PcmFormat> AsAudioBufferPtr for AudioBufferRef<'_, F> {
-    #[doc(hidden)]
-    type __PtrProvider = private_abuffer::AudioBufferRefPtrPrivider;
-
-    fn format(&self) -> Format {
-        self.format
-    }
-
-    fn channels(&self) -> u32 {
-        self.channels
-    }
-}
-
-impl<F: PcmFormat> AudioBufferOps for AudioBuffer<F> {}
-
-impl<F: PcmFormat> AudioBufferOps for AudioBufferRef<'_, F> {}
-
+// TODO: Fix docs
 /// AudioBufferOps trait contains shared methods for [`AudioBuffer`] and [`AudioBufferRef`]
 ///
 /// All methods operate on **PCM frames**. A frame contains one sample per channel, and the
 /// underlying sample layout is **interleaved**.
 ///
 /// When `looping` is `true`, reads wrap back to the start after reaching the end.
-pub trait AudioBufferOps: AsAudioBufferPtr + AsSourcePtr {
+// pub trait AudioBufferOps: AsAudioBufferPtr + AsSourcePtr {
+impl<F: PcmFormat> AudioBuffer<F> {
     /// Reads PCM frames into `dst`, returning the number of frames read.
-    fn read_pcm_frames_into(
+    pub fn read_pcm_frames_into(
         &mut self,
         looping: bool,
-        dst: &mut [<Self::Format as PcmFormat>::PcmUnit],
+        dst: &mut [F::PcmUnit],
     ) -> MaResult<usize> {
-        buffer_ffi::ma_audio_buffer_read_pcm_frames_into::<Self::Format, Self>(self, dst, looping)
+        buffer_ffi::ma_audio_buffer_read_pcm_frames_into(self, dst, looping)
     }
 
     /// Allocates and reads `frame_count` PCM frames, returning a typed sample buffer.
-    fn read_pcm_frames(
+    pub fn read_pcm_frames(
         &mut self,
         frame_count: u64,
         looping: bool,
-    ) -> MaResult<SampleBuffer<Self::Format>> {
+    ) -> MaResult<SampleBuffer<F>> {
         buffer_ffi::ma_audio_buffer_read_pcm_frames(self, frame_count, looping)
     }
 
     /// Seeks to an absolute PCM frame index.
-    fn seek_to_pcm(&mut self, frame_index: u64) -> MaResult<()> {
+    pub fn seek_to_pcm(&mut self, frame_index: u64) -> MaResult<()> {
         buffer_ffi::ma_audio_buffer_seek_to_pcm_frame(self, frame_index)
     }
 
     /// Returns `true` if the cursor is at the end of the buffer.
-    fn ended(&self) -> bool {
+    pub fn ended(&self) -> bool {
         buffer_ffi::ma_audio_buffer_at_end(self)
     }
 
     /// Returns the current cursor position in PCM frames.
-    fn cursor_pcm(&self) -> MaResult<u64> {
+    pub fn cursor_pcm(&self) -> MaResult<u64> {
         buffer_ffi::ma_audio_buffer_get_cursor_in_pcm_frames(self)
     }
 
     /// Returns the total length in PCM frames.
-    fn length_pcm(&self) -> MaResult<u64> {
+    pub fn length_pcm(&self) -> MaResult<u64> {
         buffer_ffi::ma_audio_buffer_get_length_in_pcm_frames(self)
     }
 
     /// Returns the number of frames available from the current cursor to the end.
-    fn available_frames(&self) -> MaResult<u64> {
+    pub fn available_frames(&self) -> MaResult<u64> {
         buffer_ffi::ma_audio_buffer_get_available_frames(self)
     }
 
     /// Returns a [`DataSourceRef`] view of this buffer.
-    fn as_source<'a>(&'a self) -> DataSourceRef<'a, Self::Format> {
-        debug_assert!(!private_abuffer::buffer_ptr(self).is_null());
-        let ptr = private_abuffer::buffer_ptr(self).cast::<sys::ma_data_source>();
+    pub fn as_source<'a>(&'a self) -> DataSourceRef<'a, F> {
+        debug_assert!(!self.to_raw().is_null());
+        let ptr = self.to_raw().cast::<sys::ma_data_source>();
+        DataSourceRef::from_ptr(ptr)
+    }
+}
+
+impl<F: PcmFormat> AudioBufferBase<F> {
+    pub fn bind<'a>(&'a mut self, data: &'a [F::StorageUnit]) -> MaResult<AudioBufferRef<'a, F>> {
+        buffer_ffi::ma_audio_buffer_ref_set_data(self, data)
+    }
+
+    /// Returns a [`DataSourceRef`] view of this buffer.
+    pub fn as_source<'a>(&'a self) -> DataSourceRef<'a, F> {
+        debug_assert!(!self.to_raw().is_null());
+        let ptr = self.to_raw().cast::<sys::ma_data_source>();
         DataSourceRef::from_ptr(ptr)
     }
 }
 
 impl<'a, F: PcmFormat> AudioBufferRef<'a, F> {
-    fn new_with_cfg_internal(config: &AudioBufferBuilder<'a>) -> MaResult<Self> {
-        let mut mem: Box<std::mem::MaybeUninit<sys::ma_audio_buffer>> =
-            Box::new(MaybeUninit::uninit());
-        buffer_ffi::ma_audio_buffer_init(config, mem.as_mut_ptr())?;
+    /// Reads PCM frames into `dst`, returning the number of frames read.
+    pub fn read_pcm_frames_into(
+        &mut self,
+        looping: bool,
+        dst: &mut [F::PcmUnit],
+    ) -> MaResult<usize> {
+        buffer_ffi::ma_audio_buffer_ref_read_pcm_frames_into(self, dst, looping)
+    }
 
-        let inner: *mut sys::ma_audio_buffer = Box::into_raw(mem) as *mut sys::ma_audio_buffer;
+    /// Allocates and reads `frame_count` PCM frames, returning a typed sample buffer.
+    pub fn read_pcm_frames(
+        &mut self,
+        frame_count: u64,
+        looping: bool,
+    ) -> MaResult<SampleBuffer<F>> {
+        buffer_ffi::ma_audio_buffer_ref_read_pcm_frames(self, frame_count, looping)
+    }
 
-        Ok(Self {
-            inner,
-            format: config.inner.format.try_into()?,
-            channels: config.inner.channels,
-            alloc: config.alloc_cb.clone(),
-            _sample_format: PhantomData,
-            _data_marker: PhantomData,
-        })
+    /// Seeks to an absolute PCM frame index.
+    pub fn seek_to_pcm(&mut self, frame_index: u64) -> MaResult<()> {
+        buffer_ffi::ma_audio_buffer_ref_seek_to_pcm_frame(self, frame_index)
+    }
+
+    /// Returns `true` if the cursor is at the end of the buffer.
+    pub fn ended(&self) -> bool {
+        buffer_ffi::ma_audio_buffer_ref_at_end(self)
+    }
+
+    /// Returns the current cursor position in PCM frames.
+    pub fn cursor_pcm(&self) -> MaResult<u64> {
+        buffer_ffi::ma_audio_buffer_ref_get_cursor_in_pcm_frames(self)
+    }
+
+    /// Returns the total length in PCM frames.
+    pub fn length_pcm(&self) -> MaResult<u64> {
+        buffer_ffi::ma_audio_buffer_ref_get_length_in_pcm_frames(self)
+    }
+
+    /// Returns the number of frames available from the current cursor to the end.
+    pub fn available_frames(&self) -> MaResult<u64> {
+        buffer_ffi::ma_audio_buffer_ref_get_available_frames(self)
     }
 }
 
@@ -249,7 +228,6 @@ impl<F: PcmFormat> AudioBuffer<F> {
 
         Ok(Self {
             inner,
-            format: config.inner.format.try_into()?,
             channels: config.inner.channels,
             alloc: config.alloc_cb.clone(),
             _sample_format: PhantomData,
@@ -259,17 +237,19 @@ impl<F: PcmFormat> AudioBuffer<F> {
 
 pub(crate) mod buffer_ffi {
     use crate::{
-        audio::formats::SampleBuffer,
-        data_source::{
-            sources::buffer::{private_abuffer, AsAudioBufferPtr, AudioBuffer, AudioBufferBuilder},
-            AsSourcePtr,
+        audio::formats::{Format, SampleBuffer},
+        data_source::sources::buffer::{
+            AudioBuffer, AudioBufferBase, AudioBufferBuilder, AudioBufferRef,
         },
         pcm_frames::{PcmFormat, PcmFormatInternal},
         AsRawRef, Binding, MaResult, MaudioError,
     };
     use maudio_sys::ffi as sys;
 
+    // Using this function calls set_data instead of taking ownership of the data
+    // We use audio_buffer_ref_init -> set_data as 2 separate steps instead.
     #[inline]
+    #[allow(unused)]
     pub fn ma_audio_buffer_init(
         config: &AudioBufferBuilder,
         buffer: *mut sys::ma_audio_buffer,
@@ -288,18 +268,18 @@ pub(crate) mod buffer_ffi {
     }
 
     #[inline]
-    pub fn ma_audio_buffer_uninit<A: AsAudioBufferPtr + AsSourcePtr + ?Sized>(buffer: &mut A) {
+    pub fn ma_audio_buffer_uninit<F: PcmFormat>(buffer: &mut AudioBuffer<F>) {
         unsafe {
-            sys::ma_audio_buffer_uninit(private_abuffer::buffer_ptr(buffer));
+            sys::ma_audio_buffer_uninit(buffer.to_raw());
         }
     }
 
-    pub fn ma_audio_buffer_read_pcm_frames_into<F: PcmFormat, A: AsAudioBufferPtr + ?Sized>(
-        audio_buffer: &mut A,
+    pub fn ma_audio_buffer_read_pcm_frames_into<F: PcmFormat>(
+        audio_buffer: &mut AudioBuffer<F>,
         dst: &mut [F::PcmUnit],
         looping: bool,
     ) -> MaResult<usize> {
-        let channels = audio_buffer.channels();
+        let channels = audio_buffer.channels;
         if channels == 0 {
             return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
         }
@@ -344,13 +324,13 @@ pub(crate) mod buffer_ffi {
         }
     }
 
-    pub fn ma_audio_buffer_read_pcm_frames<F: PcmFormat, A: AsAudioBufferPtr + ?Sized>(
-        audio_buffer: &mut A,
+    pub fn ma_audio_buffer_read_pcm_frames<F: PcmFormat>(
+        audio_buffer: &mut AudioBuffer<F>,
         frame_count: u64,
         looping: bool,
     ) -> MaResult<SampleBuffer<F>> {
         let mut buffer =
-            SampleBuffer::<F>::new_zeroed(frame_count as usize, audio_buffer.channels())?;
+            SampleBuffer::<F>::new_zeroed(frame_count as usize, audio_buffer.channels)?;
 
         let frames_read = ma_audio_buffer_read_pcm_frames_internal(
             audio_buffer,
@@ -359,12 +339,12 @@ pub(crate) mod buffer_ffi {
             looping,
         )?;
 
-        SampleBuffer::<F>::from_storage(buffer, frames_read as usize, audio_buffer.channels())
+        SampleBuffer::<F>::from_storage(buffer, frames_read as usize, audio_buffer.channels)
     }
 
     #[inline]
-    fn ma_audio_buffer_read_pcm_frames_internal<A: AsAudioBufferPtr + ?Sized>(
-        audio_buffer: &mut A,
+    fn ma_audio_buffer_read_pcm_frames_internal<F: PcmFormat>(
+        audio_buffer: &mut AudioBuffer<F>,
         frame_count: u64,
         buffer: *mut core::ffi::c_void,
         looping: bool,
@@ -372,7 +352,7 @@ pub(crate) mod buffer_ffi {
         let looping = looping as u32;
         let frames_read = unsafe {
             sys::ma_audio_buffer_read_pcm_frames(
-                private_abuffer::buffer_ptr(audio_buffer),
+                audio_buffer.to_raw(),
                 buffer,
                 frame_count,
                 looping,
@@ -382,13 +362,12 @@ pub(crate) mod buffer_ffi {
     }
 
     #[inline]
-    pub fn ma_audio_buffer_seek_to_pcm_frame<A: AsAudioBufferPtr + ?Sized>(
-        buffer: &mut A,
+    pub fn ma_audio_buffer_seek_to_pcm_frame<F: PcmFormat>(
+        audio_buffer: &mut AudioBuffer<F>,
         frame_index: u64,
     ) -> MaResult<()> {
-        let res = unsafe {
-            sys::ma_audio_buffer_seek_to_pcm_frame(private_abuffer::buffer_ptr(buffer), frame_index)
-        };
+        let res =
+            unsafe { sys::ma_audio_buffer_seek_to_pcm_frame(audio_buffer.to_raw(), frame_index) };
         MaudioError::check(res)
     }
 
@@ -416,20 +395,19 @@ pub(crate) mod buffer_ffi {
     }
 
     #[inline]
-    pub fn ma_audio_buffer_at_end<A: AsAudioBufferPtr + ?Sized>(buffer: &A) -> bool {
-        let res =
-            unsafe { sys::ma_audio_buffer_at_end(private_abuffer::buffer_ptr(buffer) as *const _) };
+    pub fn ma_audio_buffer_at_end<F: PcmFormat>(audio_buffer: &AudioBuffer<F>) -> bool {
+        let res = unsafe { sys::ma_audio_buffer_at_end(audio_buffer.to_raw() as *const _) };
         res == 1
     }
 
     #[inline]
-    pub fn ma_audio_buffer_get_cursor_in_pcm_frames<A: AsAudioBufferPtr + ?Sized>(
-        buffer: &A,
+    pub fn ma_audio_buffer_get_cursor_in_pcm_frames<F: PcmFormat>(
+        audio_buffer: &AudioBuffer<F>,
     ) -> MaResult<u64> {
         let mut cursor = 0;
         let res = unsafe {
             sys::ma_audio_buffer_get_cursor_in_pcm_frames(
-                private_abuffer::buffer_ptr(buffer) as *const _,
+                audio_buffer.to_raw() as *const _,
                 &mut cursor,
             )
         };
@@ -438,13 +416,13 @@ pub(crate) mod buffer_ffi {
     }
 
     #[inline]
-    pub fn ma_audio_buffer_get_length_in_pcm_frames<A: AsAudioBufferPtr + ?Sized>(
-        buffer: &A,
+    pub fn ma_audio_buffer_get_length_in_pcm_frames<F: PcmFormat>(
+        audio_buffer: &AudioBuffer<F>,
     ) -> MaResult<u64> {
         let mut length = 0;
         let res = unsafe {
             sys::ma_audio_buffer_get_length_in_pcm_frames(
-                private_abuffer::buffer_ptr(buffer) as *const _,
+                audio_buffer.to_raw() as *const _,
                 &mut length,
             )
         };
@@ -453,13 +431,229 @@ pub(crate) mod buffer_ffi {
     }
 
     #[inline]
-    pub fn ma_audio_buffer_get_available_frames<A: AsAudioBufferPtr + ?Sized>(
-        buffer: &A,
+    pub fn ma_audio_buffer_get_available_frames<F: PcmFormat>(
+        audio_buffer: &AudioBuffer<F>,
     ) -> MaResult<u64> {
         let mut frames = 0;
         let res = unsafe {
             sys::ma_audio_buffer_get_available_frames(
-                private_abuffer::buffer_ptr(buffer) as *const _,
+                audio_buffer.to_raw() as *const _,
+                &mut frames,
+            )
+        };
+        MaudioError::check(res)?;
+        Ok(frames)
+    }
+
+    pub fn ma_audio_buffer_ref_init(
+        format: Format,
+        size_frames: u64,
+        channels: u32,
+        buffer: *mut sys::ma_audio_buffer_ref,
+    ) -> MaResult<()> {
+        let res = unsafe {
+            sys::ma_audio_buffer_ref_init(
+                format.into(),
+                channels,
+                std::ptr::null(),
+                size_frames,
+                buffer,
+            )
+        };
+        MaudioError::check(res)
+    }
+
+    pub fn ma_audio_buffer_ref_uninit<F: PcmFormat>(buffer: &mut AudioBufferBase<F>) {
+        unsafe {
+            sys::ma_audio_buffer_ref_uninit(buffer.to_raw());
+        }
+    }
+
+    pub fn ma_audio_buffer_ref_set_data<'a, F: PcmFormat>(
+        audio_buffer: &'a mut AudioBufferBase<F>,
+        data: &'a [F::StorageUnit],
+    ) -> MaResult<AudioBufferRef<'a, F>> {
+        let frames = data.len() / audio_buffer.channels as usize;
+        let res = unsafe {
+            sys::ma_audio_buffer_ref_set_data(
+                audio_buffer.to_raw(),
+                data.as_ptr() as *mut _,
+                frames as u64,
+            )
+        };
+        MaudioError::check(res)?;
+        Ok(AudioBufferRef {
+            base: audio_buffer,
+            _data: data,
+        })
+    }
+
+    pub fn ma_audio_buffer_ref_read_pcm_frames_into<F: PcmFormat>(
+        audio_buffer: &mut AudioBufferRef<'_, F>,
+        dst: &mut [F::PcmUnit],
+        looping: bool,
+    ) -> MaResult<usize> {
+        let channels = audio_buffer.base.channels;
+        if channels == 0 {
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
+        }
+
+        let frame_count = (dst.len() / channels as usize / F::VEC_PCM_UNITS_PER_FRAME) as u64;
+
+        match F::DIRECT_READ {
+            true => {
+                // Read directly into destination
+                let frames_read = ma_audio_buffer_ref_read_pcm_frames_internal(
+                    audio_buffer,
+                    frame_count,
+                    dst.as_mut_ptr() as *mut core::ffi::c_void,
+                    looping,
+                )?;
+                Ok(frames_read as usize)
+            }
+            false => {
+                let tmp_len = SampleBuffer::<F>::required_len(
+                    frame_count as usize,
+                    channels,
+                    F::VEC_STORE_UNITS_PER_FRAME,
+                )?;
+
+                let mut tmp = vec![F::StorageUnit::default(); tmp_len];
+                let frames_read = ma_audio_buffer_ref_read_pcm_frames_internal(
+                    audio_buffer,
+                    frame_count,
+                    tmp.as_mut_ptr() as *mut core::ffi::c_void,
+                    looping,
+                )?;
+
+                let _ = <F as PcmFormatInternal>::read_from_storage_internal(
+                    &tmp,
+                    dst,
+                    frames_read as usize,
+                    channels as usize,
+                )?;
+
+                Ok(frames_read as usize)
+            }
+        }
+    }
+
+    pub fn ma_audio_buffer_ref_read_pcm_frames<'a, F: PcmFormat>(
+        audio_buffer: &mut AudioBufferRef<'a, F>,
+        frame_count: u64,
+        looping: bool,
+    ) -> MaResult<SampleBuffer<F>> {
+        let mut buffer =
+            SampleBuffer::<F>::new_zeroed(frame_count as usize, audio_buffer.base.channels)?;
+
+        let frames_read = ma_audio_buffer_ref_read_pcm_frames_internal(
+            audio_buffer,
+            frame_count,
+            buffer.as_mut_ptr() as *mut core::ffi::c_void,
+            looping,
+        )?;
+
+        SampleBuffer::<F>::from_storage(buffer, frames_read as usize, audio_buffer.base.channels)
+    }
+
+    #[inline]
+    fn ma_audio_buffer_ref_read_pcm_frames_internal<'a, F: PcmFormat>(
+        audio_buffer: &mut AudioBufferRef<'a, F>,
+        frame_count: u64,
+        buffer: *mut core::ffi::c_void,
+        looping: bool,
+    ) -> MaResult<u64> {
+        let looping = looping as u32;
+        let frames_read = unsafe {
+            sys::ma_audio_buffer_ref_read_pcm_frames(
+                audio_buffer.base.to_raw(),
+                buffer,
+                frame_count,
+                looping,
+            )
+        };
+        Ok(frames_read)
+    }
+
+    #[inline]
+    pub fn ma_audio_buffer_ref_seek_to_pcm_frame<'a, F: PcmFormat>(
+        buffer: &mut AudioBufferRef<'a, F>,
+        frame_index: u64,
+    ) -> MaResult<()> {
+        let res = unsafe {
+            sys::ma_audio_buffer_ref_seek_to_pcm_frame(buffer.base.to_raw(), frame_index)
+        };
+        MaudioError::check(res)
+    }
+
+    // TODO Keep private for now
+    #[inline]
+    #[allow(unused)]
+    pub fn ma_audio_buffer_ref_map<'a, F: PcmFormat>(
+        buffer: &mut AudioBufferRef<'a, F>,
+        frames_out: *mut *mut core::ffi::c_void,
+        frame_count: *mut u64,
+    ) -> MaResult<()> {
+        let res =
+            unsafe { sys::ma_audio_buffer_ref_map(buffer.base.to_raw(), frames_out, frame_count) };
+        MaudioError::check(res)
+    }
+
+    // TODO Keep private for now
+    #[inline]
+    #[allow(unused)]
+    pub fn ma_audio_buffer_ref_unmap<'a, F: PcmFormat>(
+        buffer: &mut AudioBufferRef<'a, F>,
+        frame_count: u64,
+    ) -> MaResult<()> {
+        let res = unsafe { sys::ma_audio_buffer_ref_unmap(buffer.base.to_raw(), frame_count) };
+        MaudioError::check(res)
+    }
+
+    #[inline]
+    pub fn ma_audio_buffer_ref_at_end<'a, F: PcmFormat>(buffer: &AudioBufferRef<'a, F>) -> bool {
+        let res = unsafe { sys::ma_audio_buffer_ref_at_end(buffer.base.to_raw() as *const _) };
+        res == 1
+    }
+
+    #[inline]
+    pub fn ma_audio_buffer_ref_get_cursor_in_pcm_frames<'a, F: PcmFormat>(
+        buffer: &AudioBufferRef<'a, F>,
+    ) -> MaResult<u64> {
+        let mut cursor = 0;
+        let res = unsafe {
+            sys::ma_audio_buffer_ref_get_cursor_in_pcm_frames(
+                buffer.base.to_raw() as *const _,
+                &mut cursor,
+            )
+        };
+        MaudioError::check(res)?;
+        Ok(cursor)
+    }
+
+    #[inline]
+    pub fn ma_audio_buffer_ref_get_length_in_pcm_frames<'a, F: PcmFormat>(
+        buffer: &AudioBufferRef<'a, F>,
+    ) -> MaResult<u64> {
+        let mut length = 0;
+        let res = unsafe {
+            sys::ma_audio_buffer_ref_get_length_in_pcm_frames(
+                buffer.base.to_raw() as *const _,
+                &mut length,
+            )
+        };
+        MaudioError::check(res)?;
+        Ok(length)
+    }
+
+    #[inline]
+    pub fn ma_audio_buffer_ref_get_available_frames<'a, F: PcmFormat>(
+        buffer: &AudioBufferRef<'a, F>,
+    ) -> MaResult<u64> {
+        let mut frames = 0;
+        let res = unsafe {
+            sys::ma_audio_buffer_ref_get_available_frames(
+                buffer.base.to_raw() as *const _,
                 &mut frames,
             )
         };
@@ -475,9 +669,9 @@ impl<F: PcmFormat> Drop for AudioBuffer<F> {
     }
 }
 
-impl<'a, F: PcmFormat> Drop for AudioBufferRef<'a, F> {
+impl<F: PcmFormat> Drop for AudioBufferBase<F> {
     fn drop(&mut self) {
-        buffer_ffi::ma_audio_buffer_uninit(self);
+        buffer_ffi::ma_audio_buffer_ref_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
     }
 }
@@ -491,10 +685,8 @@ impl<'a, F: PcmFormat> Drop for AudioBufferRef<'a, F> {
 pub struct AudioBufferBuilder<'a> {
     inner: sys::ma_audio_buffer_config,
     alloc_cb: Option<Arc<AllocationCallbacks>>,
-    // This type and AudioBufferRef must keep a lifetime to the data provided to AudioBufferBuilder
-    // Otherwise, the data can be dropped and result in a dangling pointer
+    // Data only needs to live until the `AudioBuffer` is initialized
     _marker: PhantomData<&'a [u8]>,
-    // _data_keepalive: Option<Vec<>>
 }
 
 impl AsRawRef for AudioBufferBuilder<'_> {
@@ -506,69 +698,33 @@ impl AsRawRef for AudioBufferBuilder<'_> {
 }
 
 impl<'a> AudioBufferBuilder<'a> {
-    // TODO: Figure out a better way to keep data alive for S24
-    // fn new_copy<F: PcmFormat>(
-    //     format: Format,
-    //     channels: u32,
-    //     data: &[F::PcmUnit],
-    // ) -> MaResult<(Self, Option<Vec<F::StorageUnit>>)> {
-    //     let frames = data.len() / channels as usize / F::VEC_PCM_UNITS_PER_FRAME;
-
-    //     match F::DIRECT_READ {
-    //         true => {
-    //             let builder = Self::init(
-    //                 format,
-    //                 channels,
-    //                 frames as u64,
-    //                 data.as_ptr() as *const _,
-    //                 None,
-    //             );
-    //             Ok((builder, None))
-    //         }
-    //         false => {
-    //             let dst_len = SampleBuffer::<F>::required_len(
-    //                 frames,
-    //                 channels,
-    //                 F::VEC_STORE_UNITS_PER_FRAME,
-    //             )?;
-    //             let mut dst = vec![F::StorageUnit::default(); dst_len];
-
-    //             <F as PcmFormatInternal>::write_to_storage_internal(
-    //                 &mut dst,
-    //                 data,
-    //                 frames,
-    //                 channels as usize,
-    //             )?;
-    //             let builder = Self::init(
-    //                 format,
-    //                 channels,
-    //                 frames as u64,
-    //                 dst.as_ptr() as *const _,
-    //                 None,
-    //             );
-    //             Ok((builder, Some(dst)))
-    //         }
-    //     }
-    // }
-
     /// Should never be called for `S24`.
     ///
     /// S24 needs format conversion and AudioBufferRef reads directly from user provided data.
-    fn new_ref<F: PcmFormat>(format: Format, channels: u32, data: &[F::PcmUnit]) -> MaResult<Self> {
+    fn new_base<F: PcmFormat>(
+        format: Format,
+        channels: u32,
+        size_frames: u64,
+    ) -> MaResult<AudioBufferBase<F>> {
         if channels == 0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
             ));
         }
-        let frames = data.len() / channels as usize / F::VEC_PCM_UNITS_PER_FRAME;
 
-        Ok(Self::init(
-            format,
+        let mut mem: MaybeUninit<sys::ma_audio_buffer_ref> = MaybeUninit::uninit();
+
+        buffer_ffi::ma_audio_buffer_ref_init(format, size_frames, channels, mem.as_mut_ptr())?;
+
+        let base = unsafe { mem.assume_init() };
+        let inner = Box::into_raw(Box::new(base));
+
+        Ok(AudioBufferBase {
+            inner,
             channels,
-            frames as u64,
-            data.as_ptr() as *const _,
-            None,
-        ))
+            alloc: None,
+            _sample_format: PhantomData,
+        })
     }
 
     pub fn build_u8(channels: u32, data: &[u8]) -> MaResult<AudioBuffer<u8>> {
@@ -692,29 +848,27 @@ impl<'a> AudioBufferBuilder<'a> {
         AudioBuffer::copy_with_cfg_internal(&builder)
     }
 
-    pub fn build_u8_ref(channels: u32, data: &'a [u8]) -> MaResult<AudioBufferRef<'a, u8>> {
-        let builder = Self::new_ref::<u8>(Format::U8, channels, data)?;
-        AudioBufferRef::new_with_cfg_internal(&builder)
-    }
-    pub fn build_i16_ref(channels: u32, data: &'a [i16]) -> MaResult<AudioBufferRef<'a, i16>> {
-        let builder = Self::new_ref::<i16>(Format::S16, channels, data)?;
-        AudioBufferRef::new_with_cfg_internal(&builder)
-    }
-    pub fn build_i32_ref(channels: u32, data: &'a [i32]) -> MaResult<AudioBufferRef<'a, i32>> {
-        let builder = Self::new_ref::<i32>(Format::S32, channels, data)?;
-        AudioBufferRef::new_with_cfg_internal(&builder)
-    }
-    pub fn build_f32_ref(channels: u32, data: &'a [f32]) -> MaResult<AudioBufferRef<'a, f32>> {
-        let builder = Self::new_ref::<f32>(Format::F32, channels, data)?;
-        AudioBufferRef::new_with_cfg_internal(&builder)
+    pub fn base_ref_u8(channels: u32, size_frames: u64) -> MaResult<AudioBufferBase<u8>> {
+        Self::new_base(Format::U8, channels, size_frames)
     }
 
-    pub fn build_s24_packed_ref(
+    pub fn base_ref_i16(channels: u32, size_frames: u64) -> MaResult<AudioBufferBase<i16>> {
+        Self::new_base(Format::S16, channels, size_frames)
+    }
+
+    pub fn base_ref_s24_packed(
         channels: u32,
-        data: &'a [u8],
-    ) -> MaResult<AudioBufferRef<'a, S24Packed>> {
-        let builder = Self::new_ref::<S24Packed>(Format::S24Packed, channels, data)?;
-        AudioBufferRef::new_with_cfg_internal(&builder)
+        size_frames: u64,
+    ) -> MaResult<AudioBufferBase<S24Packed>> {
+        Self::new_base(Format::S24Packed, channels, size_frames)
+    }
+
+    pub fn base_ref_i32(channels: u32, size_frames: u64) -> MaResult<AudioBufferBase<i32>> {
+        Self::new_base(Format::S32, channels, size_frames)
+    }
+
+    pub fn base_ref_f32(channels: u32, size_frames: u64) -> MaResult<AudioBufferBase<f32>> {
+        Self::new_base(Format::F32, channels, size_frames)
     }
 
     pub(crate) fn init(
@@ -765,8 +919,7 @@ pub(crate) mod buffer_config_ffi {
 #[cfg(test)]
 mod test {
     use crate::{
-        audio::formats::SampleBuffer,
-        data_source::sources::buffer::{AudioBufferBuilder, AudioBufferOps},
+        audio::formats::SampleBuffer, data_source::sources::buffer::AudioBufferBuilder,
         pcm_frames::PcmFormat,
     };
 
@@ -998,5 +1151,21 @@ mod test {
         let buffer = buf.read_pcm_frames(4, false).unwrap();
         assert_eq!(buffer.frames(), 3);
         assert_eq!(buffer.len(), 3 * 3 * 2);
+    }
+
+    #[test]
+    fn audio_buffer_ref_test_base_ref_basic() {
+        let mut base = AudioBufferBuilder::base_ref_f32(2, 1000).unwrap();
+        let data = vec![0.1; 3];
+        let _ref_buffer = base.bind(&data).unwrap();
+    }
+
+    #[test]
+    fn audio_buffer_ref_test_base_ref_loop() {
+        let mut base = AudioBufferBuilder::base_ref_f32(2, 1000).unwrap();
+        for _ in 0..10 {
+            let data = vec![0.1; 3];
+            let _ref_buffer = base.bind(&data).unwrap();
+        }
     }
 }

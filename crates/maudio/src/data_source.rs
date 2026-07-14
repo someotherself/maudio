@@ -1,7 +1,7 @@
 //! Interface for reading from a data source
 use std::{
     marker::PhantomData,
-    ops::{Deref, DerefMut},
+    ops::Deref,
 };
 
 use maudio_sys::ffi as sys;
@@ -93,7 +93,7 @@ pub(crate) mod private_data_source {
         data_source::{
             data_source_chain::ChainSource,
             sources::{
-                buffer::{AudioBuffer, AudioBufferOps, AudioBufferRef},
+                buffer::{AudioBuffer, AudioBufferBase},
                 decoder::{Decoder, DecoderOps},
                 pulsewave::{PulseWave, PulseWaveOps},
                 waveform::{WaveForm, WaveFormOps},
@@ -118,7 +118,7 @@ pub(crate) mod private_data_source {
     pub struct DataSourceProvider;
     pub struct DataSourceRefProvider;
     pub struct AudioBufferProvider;
-    pub struct AudioBufferRefProvider;
+    pub struct AudioBufferBaseProvider;
     pub struct DecoderProvider;
     pub struct PulseWaveProvider;
     pub struct WaveFormProvider;
@@ -150,9 +150,9 @@ pub(crate) mod private_data_source {
         }
     }
 
-    impl<F: PcmFormat> DataSourcePtrProvider<AudioBufferRef<'_, F>> for AudioBufferRefProvider {
+    impl<F: PcmFormat> DataSourcePtrProvider<AudioBufferBase<F>> for AudioBufferBaseProvider {
         #[inline]
-        fn as_source_ptr(t: &AudioBufferRef<F>) -> *mut sys::ma_data_source {
+        fn as_source_ptr(t: &AudioBufferBase<F>) -> *mut sys::ma_data_source {
             t.as_source().to_raw()
         }
     }

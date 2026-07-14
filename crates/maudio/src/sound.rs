@@ -1255,7 +1255,7 @@ mod test {
             pan::PanMode,
             spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
         },
-        data_source::sources::buffer::{AudioBufferBuilder, AudioBufferOps},
+        data_source::sources::buffer::AudioBufferBuilder,
         engine::{node_graph::nodes::NodeOps, Engine, EngineOps},
         sound::sound_builder::SoundBuilder,
     };
