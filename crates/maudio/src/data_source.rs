@@ -76,12 +76,6 @@ impl<F: PcmFormat, P: PcmSource<F>> Deref for DataSource<F, P> {
     }
 }
 
-impl<F: PcmFormat, P: PcmSource<F>> DerefMut for DataSource<F, P> {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { &mut (*self.inner).source }
-    }
-}
-
 impl<F: PcmFormat, P: PcmSource<F>> DataSource<F, P> {
     #[allow(unused)]
     fn as_source<'a>(&'a self) -> DataSourceRef<'a, F> {
