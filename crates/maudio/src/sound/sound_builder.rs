@@ -82,7 +82,6 @@ use crate::{
 ///
 /// ```no_run
 /// # use maudio::engine::Engine;
-/// # use maudio::engine::EngineOps;
 /// # use maudio::sound::sound_builder::SoundBuilder;
 /// # fn demo(engine: &Engine) -> maudio::MaResult<()> {
 /// // Attach to the engine's endpoint input bus 0 at creation time.
@@ -102,7 +101,7 @@ pub struct SoundBuilder<'a, 'b> {
     owned_path: OwnedPathBuf,
     pub(crate) fence: Option<Fence>, // Ref count
     flags: SoundFlags,
-    group: Option<&'b SoundGroup<'b>>,
+    group: Option<&'b SoundGroup>,
     pub(crate) end_notifier: Option<EndNotifier>,
     sound_state: SoundState,
 }
@@ -158,7 +157,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         self
     }
 
-    pub fn with_end_notifier(&mut self) -> MaResult<(Sound<'a>, EndNotifier)> {
+    pub fn with_end_notifier(&mut self) -> MaResult<(Sound, EndNotifier)> {
         self.set_source()?;
         let notifier = self.set_end_notifier();
 
@@ -167,7 +166,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         Ok((sound, notifier))
     }
 
-    fn start_sound(&mut self) -> MaResult<Sound<'a>> {
+    fn start_sound(&mut self) -> MaResult<Sound> {
         if let Some(fence) = self.fence.clone() {
             self.inner.pDoneFence = fence.to_raw()
         };
@@ -204,7 +203,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         Ok(sound)
     }
 
-    pub fn build(&mut self) -> MaResult<Sound<'a>> {
+    pub fn build(&mut self) -> MaResult<Sound> {
         self.set_source()?;
         self.start_sound()
     }

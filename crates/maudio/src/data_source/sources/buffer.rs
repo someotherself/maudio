@@ -37,11 +37,6 @@ unsafe impl<F: PcmFormat> Send for AudioBuffer<F> {}
 impl<F: PcmFormat> Binding for AudioBuffer<F> {
     type Raw = *mut sys::ma_audio_buffer;
 
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner
     }
@@ -59,11 +54,6 @@ unsafe impl<F: PcmFormat> Send for AudioBufferBase<F> {}
 
 impl<F: PcmFormat> Binding for AudioBufferBase<F> {
     type Raw = *mut sys::ma_audio_buffer_ref;
-
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
 
     fn to_raw(&self) -> Self::Raw {
         self.inner

@@ -1,11 +1,8 @@
 use std::{path::PathBuf, time::Instant};
 
 use maudio::{
-    audio::sample_rate::SampleRate,
-    encoder::EncoderBuilder,
-    engine::{engine_builder::EngineBuilder, EngineOps},
-    sound::sound_builder::SoundBuilder,
-    MaResult,
+    audio::sample_rate::SampleRate, encoder::EncoderBuilder, engine::engine_builder::EngineBuilder,
+    sound::sound_builder::SoundBuilder, MaResult,
 };
 
 fn main() -> MaResult<()> {

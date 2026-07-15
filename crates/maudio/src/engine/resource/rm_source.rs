@@ -58,11 +58,6 @@ pub struct ResourceManagerSource<'a, R: AsRmPtr + ?Sized> {
 impl<'a, R: AsRmPtr + ?Sized> Binding for ResourceManagerSource<'a, R> {
     type Raw = *mut sys::ma_resource_manager_data_source;
 
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner
     }

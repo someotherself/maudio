@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
+use std::{mem::MaybeUninit, sync::Arc};
 
 use maudio_sys::ffi as sys;
 
@@ -6,10 +6,10 @@ use crate::{
     audio::{formats::Format, sample_rate::SampleRate},
     engine::{
         node_graph::{
-            nodes::{private_node::PeakNodeProvider, AsNodePtr, NodeRef},
-            AsNodeGraphPtr, NodeGraph,
+            nodes::{node_ffi, private_node::PeakNodeProvider, AsNodePtr, NodeRef},
+            private_node_graph, AsNodeGraphPtr, GraphOwner, NodeGraph, NodeGraphRef,
         },
-        AllocationCallbacks,
+        AllocationCallbacks, Engine,
     },
     AsRawRef, Binding, MaResult,
 };
@@ -40,10 +40,10 @@ use crate::{
 /// real-time parameter changes with minimal risk of audible artifacts (clicks/pops).
 ///
 /// Use [`PeakNodeBuilder`] to initialize.
-pub struct PeakNode<'a> {
+pub struct PeakNode {
     inner: *mut sys::ma_peak_node,
     alloc_cb: Option<Arc<AllocationCallbacks>>,
-    _marker: PhantomData<&'a NodeGraph>,
+    pub(crate) owner: GraphOwner,
     // Below is needed during a reinit
     channels: u32,
     // format is hard coded as ma_format_f32 in miniaudio `sys::ma_peak_node_config_init()`
@@ -52,13 +52,10 @@ pub struct PeakNode<'a> {
     sample_rate: SampleRate,
 }
 
-impl Binding for PeakNode<'_> {
-    type Raw = *mut sys::ma_peak_node;
+unsafe impl Send for PeakNode {}
 
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
+impl Binding for PeakNode {
+    type Raw = *mut sys::ma_peak_node;
 
     fn to_raw(&self) -> Self::Raw {
         self.inner
@@ -66,11 +63,11 @@ impl Binding for PeakNode<'_> {
 }
 
 #[doc(hidden)]
-impl AsNodePtr for PeakNode<'_> {
+impl AsNodePtr for PeakNode {
     type __PtrProvider = PeakNodeProvider;
 }
 
-impl<'a> PeakNode<'a> {
+impl PeakNode {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &PeakNodeBuilder<'_, N>,
@@ -89,11 +86,30 @@ impl<'a> PeakNode<'a> {
         Ok(Self {
             inner,
             alloc_cb: alloc,
-            _marker: PhantomData,
+            owner: private_node_graph::clone_owner(node_graph),
             format: config.inner.peak.format.try_into().unwrap_or(Format::F32),
             channels: config.inner.peak.channels,
             sample_rate: config.inner.peak.sampleRate.try_into()?,
         })
+    }
+
+    /// Returns the owning engine, if any.
+    pub fn engine(&self) -> Option<Engine> {
+        self.owner.engine().map(Engine)
+    }
+
+    /// Returns the owning node graph, if any.
+    pub fn node_graph(&self) -> Option<NodeGraph> {
+        self.owner.graph().map(NodeGraph)
+    }
+
+    /// Returns a reference to the node graph.
+    pub fn node_graph_ref(&self) -> NodeGraphRef {
+        let ptr = node_ffi::ma_node_get_node_graph(self);
+        NodeGraphRef {
+            inner: ptr,
+            owner: self.owner.clone(),
+        }
     }
 
     pub fn reinit(&mut self, gain_db: f64, quality_factor: f64, frequency: f64) -> MaResult<()> {
@@ -109,7 +125,7 @@ impl<'a> PeakNode<'a> {
     /// - connect this to other nodes (effects, mixers, splitters, etc.)
     /// - insert into a custom routing graph
     /// - query node-level state exposed by the graph
-    pub fn as_node(&self) -> NodeRef<'a> {
+    pub fn as_node<'a>(&'a self) -> NodeRef<'a> {
         assert!(!self.to_raw().is_null());
         let ptr = self.to_raw().cast::<sys::ma_node>();
         NodeRef::from_ptr(ptr)
@@ -166,7 +182,7 @@ pub(crate) mod n_peak_ffi {
     }
 }
 
-impl<'a> Drop for PeakNode<'a> {
+impl Drop for PeakNode {
     fn drop(&mut self) {
         n_peak_ffi::ma_peak_node_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -204,7 +220,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> PeakNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(&self) -> MaResult<PeakNode<'a>> {
+    pub fn build(&self) -> MaResult<PeakNode> {
         PeakNode::new_with_cfg_alloc_internal(self.node_graph, self, None)
     }
 }
@@ -241,13 +257,13 @@ impl PeakNodeParams {
 mod test {
     use crate::{
         audio::sample_rate::SampleRate,
-        engine::{node_graph::nodes::filters::peak::PeakNodeBuilder, Engine, EngineOps},
+        engine::{node_graph::nodes::filters::peak::PeakNodeBuilder, Engine},
     };
 
     #[test]
     fn test_peak_builder_basic_init() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node = PeakNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 2.0, 1.1, 2000.0)
             .build()
@@ -258,7 +274,7 @@ mod test {
     #[test]
     fn test_peak_multiple_reinit_updates() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node = PeakNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 0.0, 1.0, 1000.0)
             .build()
@@ -284,7 +300,7 @@ mod test {
     #[test]
     fn test_peak_reinit_extreme_but_plausible_values() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node =
             PeakNodeBuilder::new(&node_graph, 2, SampleRate::Sr48000, -6.0, 0.707, 120.0)
@@ -304,7 +320,7 @@ mod test {
     #[test]
     fn test_peak_builder_multi_channel_init() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         // Just validate that multi-channel init + reinit works.
         let mut node = PeakNodeBuilder::new(&node_graph, 8, SampleRate::Sr44100, 1.5, 1.0, 4000.0)

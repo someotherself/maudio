@@ -71,11 +71,6 @@ pub(crate) struct ContextInner {
 impl Binding for ContextInner {
     type Raw = *mut sys::ma_context;
 
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner
     }
@@ -86,11 +81,6 @@ unsafe impl Sync for ContextInner {}
 
 impl Binding for Context {
     type Raw = *mut sys::ma_context;
-
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
 
     fn to_raw(&self) -> Self::Raw {
         self.inner.inner
@@ -111,15 +101,17 @@ pub struct ContextRef<'a> {
 impl Binding for ContextRef<'_> {
     type Raw = *mut sys::ma_context;
 
-    fn from_ptr(raw: Self::Raw) -> Self {
-        Self {
-            inner: raw,
-            _keep_alive: PhantomData,
-        }
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner
+    }
+}
+
+impl<'a> ContextRef<'a> {
+    pub(crate) fn from_ptr(ptr: *mut sys::ma_context) -> Self {
+        Self {
+            inner: ptr,
+            _keep_alive: PhantomData,
+        }
     }
 }
 

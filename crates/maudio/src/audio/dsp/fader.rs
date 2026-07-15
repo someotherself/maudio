@@ -22,11 +22,6 @@ unsafe impl<F: PcmFormat> Send for Fader<F> {}
 impl<F: PcmFormat> Binding for Fader<F> {
     type Raw = *mut sys::ma_fader;
 
-    /// !!! unimplemented !!!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner
     }

@@ -23,11 +23,6 @@ unsafe impl<F: PcmFormat> Send for HiShelf2<F> {}
 impl<F: PcmFormat> Binding for HiShelf2<F> {
     type Raw = *mut sys::ma_hishelf2;
 
-    /// !!! unimplemented !!!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner
     }

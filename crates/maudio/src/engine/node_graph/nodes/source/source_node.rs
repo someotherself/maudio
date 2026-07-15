@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
+use std::{mem::MaybeUninit, sync::Arc};
 
 use maudio_sys::ffi as sys;
 
@@ -7,12 +7,13 @@ use crate::{
     engine::{
         node_graph::{
             nodes::{
+                node_ffi,
                 private_node::{AttachedSourceNodeProvider, SourceNodeProvider},
                 AsNodePtr, NodeRef,
             },
-            AsNodeGraphPtr,
+            private_node_graph, AsNodeGraphPtr, GraphOwner, NodeGraph, NodeGraphRef,
         },
-        AllocationCallbacks,
+        AllocationCallbacks, Engine,
     },
     AsRawRef, Binding, MaResult,
 };
@@ -21,16 +22,11 @@ pub struct SourceNode<'a, S: AsSourcePtr> {
     inner: *mut sys::ma_data_source_node,
     alloc_cb: Option<Arc<AllocationCallbacks>>,
     _source: &'a S,
-    _src_graph: PhantomData<&'a ()>, // borrow to the graph and source
+    pub(crate) owner: GraphOwner,
 }
 
 impl<S: AsSourcePtr> Binding for SourceNode<'_, S> {
     type Raw = *mut sys::ma_data_source_node;
-
-    // !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
 
     fn to_raw(&self) -> Self::Raw {
         self.inner
@@ -69,8 +65,27 @@ impl<'a, S: AsSourcePtr> SourceNode<'a, S> {
             inner,
             alloc_cb: alloc,
             _source: source,
-            _src_graph: PhantomData,
+            owner: private_node_graph::clone_owner(node_graph),
         })
+    }
+
+    /// Returns the owning engine, if any.
+    pub fn engine(&self) -> Option<Engine> {
+        self.owner.engine().map(Engine)
+    }
+
+    /// Returns the owning node graph, if any.
+    pub fn node_graph(&self) -> Option<NodeGraph> {
+        self.owner.graph().map(NodeGraph)
+    }
+
+    /// Returns a reference to the node graph.
+    pub fn node_graph_ref(&self) -> NodeGraphRef {
+        let ptr = node_ffi::ma_node_get_node_graph(self);
+        NodeGraphRef {
+            inner: ptr,
+            owner: self.owner.clone(),
+        }
     }
 
     /// Returns a **borrowed view** as a node in the engine's node graph.
@@ -89,20 +104,17 @@ impl<'a, S: AsSourcePtr> SourceNode<'a, S> {
     }
 }
 
-pub struct AttachedSourceNode<'a, S: AsSourcePtr> {
+pub struct AttachedSourceNode<S: AsSourcePtr> {
     inner: *mut sys::ma_data_source_node,
     alloc_cb: Option<Arc<AllocationCallbacks>>,
     source: Arc<S>,
-    _graph: PhantomData<&'a ()>,
+    pub(crate) owner: GraphOwner,
 }
 
-impl<S: AsSourcePtr> Binding for AttachedSourceNode<'_, S> {
-    type Raw = *mut sys::ma_data_source_node;
+unsafe impl<S: AsSourcePtr> Send for AttachedSourceNode<S> {}
 
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
+impl<S: AsSourcePtr> Binding for AttachedSourceNode<S> {
+    type Raw = *mut sys::ma_data_source_node;
 
     fn to_raw(&self) -> Self::Raw {
         self.inner
@@ -110,18 +122,18 @@ impl<S: AsSourcePtr> Binding for AttachedSourceNode<'_, S> {
 }
 
 #[doc(hidden)]
-impl<S: AsSourcePtr> AsNodePtr for AttachedSourceNode<'_, S> {
+impl<S: AsSourcePtr> AsNodePtr for AttachedSourceNode<S> {
     type __PtrProvider = AttachedSourceNodeProvider;
 }
 
 #[doc(hidden)]
-impl<S: AsSourcePtr> AsSourcePtr for AttachedSourceNode<'_, S> {
+impl<S: AsSourcePtr> AsSourcePtr for AttachedSourceNode<S> {
     type Format = S::Format;
     type __PtrProvider = private_data_source::AttachedSourceNodeProvider;
 }
 
-impl<'a, S: AsSourcePtr> AttachedSourceNode<'a, S> {
-    fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr>(
+impl<S: AsSourcePtr> AttachedSourceNode<S> {
+    fn new_with_cfg_alloc_internal<'a, N: AsNodeGraphPtr>(
         node_graph: &N,
         config: &AttachedSourceNodeBuilder<'a, N, S>,
         alloc: Option<Arc<AllocationCallbacks>>,
@@ -146,23 +158,42 @@ impl<'a, S: AsSourcePtr> AttachedSourceNode<'a, S> {
             inner,
             alloc_cb: alloc,
             source: config.source.clone(),
-            _graph: PhantomData,
+            owner: private_node_graph::clone_owner(node_graph),
         })
     }
 
+    /// Returns the owning engine, if any.
+    pub fn engine(&self) -> Option<Engine> {
+        self.owner.engine().map(Engine)
+    }
+
+    /// Returns the owning node graph, if any.
+    pub fn node_graph(&self) -> Option<NodeGraph> {
+        self.owner.graph().map(NodeGraph)
+    }
+
+    /// Returns a reference to the node graph.
+    pub fn node_graph_ref(&self) -> NodeGraphRef {
+        let ptr = node_ffi::ma_node_get_node_graph(self);
+        NodeGraphRef {
+            inner: ptr,
+            owner: self.owner.clone(),
+        }
+    }
+
     /// Returns a **borrowed view** as a node in the engine's node graph.
-    pub fn as_node(&self) -> NodeRef<'a> {
+    pub fn as_node<'a>(&'a self) -> NodeRef<'a> {
         assert!(!self.to_raw().is_null());
         let ptr = self.to_raw().cast::<sys::ma_node>();
         NodeRef::from_ptr(ptr)
     }
 
     /// Retrieve a reference to the underlying source
-    pub fn source(&'a self) -> &'a S {
+    pub fn source(&self) -> &S {
         &self.source
     }
 
-    pub fn as_source(&'a self) -> DataSourceRef<'a, S::Format> {
+    pub fn as_source<'a>(&'a self) -> DataSourceRef<'a, S::Format> {
         debug_assert!(!private_data_source::source_ptr(self.source.as_ref()).is_null());
         let ptr =
             private_data_source::source_ptr(self.source.as_ref()).cast::<sys::ma_data_source>();
@@ -217,9 +248,7 @@ pub(crate) mod n_datasource_ffi {
 
     // If more functions for AttachedSourceNode get added, create the common trait
     #[inline]
-    pub fn ma_attached_data_source_node_uninit<S: AsSourcePtr>(
-        node: &mut AttachedSourceNode<'_, S>,
-    ) {
+    pub fn ma_attached_data_source_node_uninit<S: AsSourcePtr>(node: &mut AttachedSourceNode<S>) {
         unsafe {
             sys::ma_data_source_node_uninit(node.to_raw(), node.alloc_cb_ptr());
         }
@@ -233,7 +262,7 @@ impl<'a, S: AsSourcePtr> Drop for SourceNode<'a, S> {
     }
 }
 
-impl<'a, S: AsSourcePtr> Drop for AttachedSourceNode<'a, S> {
+impl<S: AsSourcePtr> Drop for AttachedSourceNode<S> {
     fn drop(&mut self) {
         n_datasource_ffi::ma_attached_data_source_node_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -319,7 +348,7 @@ impl<'a, N: AsNodeGraphPtr, S: AsSourcePtr> AttachedSourceNodeBuilder<'a, N, S> 
         }
     }
 
-    pub fn build(&self) -> MaResult<AttachedSourceNode<'a, S>> {
+    pub fn build(&self) -> MaResult<AttachedSourceNode<S>> {
         AttachedSourceNode::new_with_cfg_alloc_internal(self.node_graph, self, None)
     }
 }
@@ -328,7 +357,7 @@ impl<'a, N: AsNodeGraphPtr, S: AsSourcePtr> AttachedSourceNodeBuilder<'a, N, S> 
 mod test {
     use crate::{
         data_source::sources::buffer::AudioBufferBuilder,
-        engine::{node_graph::nodes::source::source_node::SourceNodeBuilder, Engine, EngineOps},
+        engine::{node_graph::nodes::source::source_node::SourceNodeBuilder, Engine},
         Binding,
     };
 
@@ -346,7 +375,7 @@ mod test {
     #[test]
     fn source_node_test_basic_init() {
         let engine = Engine::new_for_tests().unwrap();
-        let graph = engine.as_node_graph().unwrap();
+        let graph = engine.as_node_graph();
 
         let data = ramp_f32_interleaved(2, 32);
 
@@ -359,7 +388,7 @@ mod test {
     #[test]
     fn source_node_test_as_node_non_null_and_stable() {
         let engine = Engine::new_for_tests().unwrap();
-        let graph = engine.as_node_graph().unwrap();
+        let graph = engine.as_node_graph();
 
         let data = ramp_f32_interleaved(2, 32);
         let buf = AudioBufferBuilder::build_f32(2, &data).unwrap();
@@ -376,7 +405,7 @@ mod test {
     #[test]
     fn source_node_test_multiple_nodes_same_source() {
         let engine = Engine::new_for_tests().unwrap();
-        let graph = engine.as_node_graph().unwrap();
+        let graph = engine.as_node_graph();
 
         let data = ramp_f32_interleaved(2, 64);
         let buf = AudioBufferBuilder::build_f32(2, &data).unwrap();
@@ -396,7 +425,7 @@ mod test {
     #[test]
     fn source_node_test_multiple_sources() {
         let engine = Engine::new_for_tests().unwrap();
-        let graph = engine.as_node_graph().unwrap();
+        let graph = engine.as_node_graph();
 
         let d1 = ramp_f32_interleaved(2, 32);
         let b1 = AudioBufferBuilder::build_f32(2, &d1).unwrap();

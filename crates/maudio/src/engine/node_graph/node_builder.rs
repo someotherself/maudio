@@ -35,7 +35,6 @@
 //!             node_on_process::SinkCallback,
 //!         },
 //!         Engine,
-//!         EngineOps,
 //!     },
 //!     MaResult,
 //! };
@@ -58,7 +57,7 @@
 //!
 //! fn main() -> MaResult<()> {
 //!     let engine = Engine::new()?;
-//!     let node_graph = engine.as_node_graph().unwrap();
+//!     let node_graph = engine.as_node_graph();
 //!
 //!     let meter = MeterNode { peak: 0.0 };
 //!
@@ -114,11 +113,11 @@ pub struct CustomSinkNodeBuilder {
 }
 
 impl CustomSinkNodeBuilder {
-    pub fn build<'a, C: SinkCallback, N: AsNodeGraphPtr>(
+    pub fn build<C: SinkCallback, N: AsNodeGraphPtr>(
         &mut self,
-        node_graph: &'a N,
+        node_graph: &N,
         custom: C,
-    ) -> MaResult<Node<'a, Sink<C>>> {
+    ) -> MaResult<Node<Sink<C>>> {
         let custom = Sink(custom);
         Node::build(
             &mut self.config,
@@ -149,11 +148,11 @@ pub struct CustomSourceNodeBuilder {
 }
 
 impl CustomSourceNodeBuilder {
-    pub fn build<'a, C: SourceCallback, N: AsNodeGraphPtr>(
+    pub fn build<C: SourceCallback, N: AsNodeGraphPtr>(
         &mut self,
-        node_graph: &'a N,
+        node_graph: &N,
         custom: C,
-    ) -> MaResult<Node<'a, Source<C>>> {
+    ) -> MaResult<Node<Source<C>>> {
         Node::build(
             &mut self.config,
             self.flags,
@@ -195,11 +194,11 @@ pub struct CustomEffectNodeBuilder {
 }
 
 impl CustomEffectNodeBuilder {
-    pub fn build<'a, C: EffectCallback, N: AsNodeGraphPtr>(
+    pub fn build<C: EffectCallback, N: AsNodeGraphPtr>(
         &mut self,
-        node_graph: &'a N,
+        node_graph: &N,
         custom: C,
-    ) -> MaResult<Node<'a, Effect<C>>> {
+    ) -> MaResult<Node<Effect<C>>> {
         Node::build(
             &mut self.config,
             self.flags,
@@ -332,11 +331,11 @@ pub struct CustomTransformerNodeBuilder {
 }
 
 impl CustomTransformerNodeBuilder {
-    pub fn build<'a, C: TransformCallback, N: AsNodeGraphPtr>(
+    pub fn build<C: TransformCallback, N: AsNodeGraphPtr>(
         &mut self,
-        node_graph: &'a N,
+        node_graph: &N,
         custom: C,
-    ) -> MaResult<Node<'a, Transform<C>>> {
+    ) -> MaResult<Node<Transform<C>>> {
         Node::build(
             &mut self.config,
             self.flags,
@@ -360,11 +359,11 @@ impl CustomTransformerNodeBuilder {
     /// Providing this estimate can reduce latency by avoiding unnecessary upstream
     /// reads. It is still only a scheduling hint: the transform callback remains
     /// responsible for reporting the actual input consumed and output produced.
-    pub fn build_req_frames<'a, C, N>(
+    pub fn build_req_frames<C, N>(
         &mut self,
-        node_graph: &'a N,
+        node_graph: &N,
         custom: C,
-    ) -> MaResult<Node<'a, TransformInputDemand<C>>>
+    ) -> MaResult<Node<TransformInputDemand<C>>>
     where
         C: TransformCallback + InputDemandCallback,
         N: AsNodeGraphPtr,
@@ -570,10 +569,12 @@ impl NodeBuilder {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use super::*;
     use crate::engine::{
         node_graph::{node_on_process::ProcessResult, nodes::NodeInner, NodeGraphOps},
-        Engine, EngineOps,
+        Engine,
     };
 
     #[test]
@@ -587,7 +588,7 @@ mod tests {
     #[test]
     fn node_bus_test_channels_config_build_nodes_uses_explicit_channels() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let config = NodeBusChannelsConfig {
             inputs: vec![Some(1), Some(2)],
@@ -603,7 +604,7 @@ mod tests {
     #[test]
     fn node_bus_test_channels_config_build_nodes_replaces_none_with_graph_channels() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
         let graph_channels = node_graph.channels();
 
         let config = NodeBusChannelsConfig {
@@ -784,7 +785,7 @@ mod tests {
     #[test]
     fn node_bus_test_channels_config_added_none_resolves_to_graph_channels_when_built() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
         let graph_channels = node_graph.channels();
 
         let mut config = NodeBusChannelsConfig::new(1, 1, Some(4));
@@ -858,12 +859,12 @@ mod tests {
         }
     }
 
-    fn node_inner<'a, C>(node: &'a Node<'_, C>) -> &'a NodeInner<'a, C> {
+    fn node_inner<C>(node: &Node<C>) -> &NodeInner<C> {
         unsafe { &*node.inner }
     }
 
     fn assert_vtable<C>(
-        inner: &NodeInner<'_, C>,
+        inner: &NodeInner<C>,
         expected_inputs: u32,
         expected_outputs: u32,
         expected_has_required_frames_callback: bool,
@@ -885,7 +886,7 @@ mod tests {
     #[test]
     fn node_build_test_sink_builder_builds_passthrough_node_with_one_input_and_no_outputs() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut builder = NodeBuilder::sink();
         builder.input_channel_count(1);
@@ -906,7 +907,7 @@ mod tests {
     #[test]
     fn node_build_test_sink_builder_uses_graph_channels_by_default() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
         let graph_channels = node_graph.channels();
 
         let mut builder = NodeBuilder::sink();
@@ -924,7 +925,7 @@ mod tests {
     #[test]
     fn node_build_test_source_builder_builds_source_node_with_no_inputs_and_one_output() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut builder = NodeBuilder::source();
         builder.output_channel_count(6);
@@ -947,7 +948,7 @@ mod tests {
     // #[test]
     // fn node_build_test_source_builder_builds_source_node_pass_with_no_inputs_and_one_output() {
     //     let engine = Engine::new_for_tests().unwrap();
-    //     let node_graph = engine.as_node_graph().unwrap();
+    //     let node_graph = engine.as_node_graph();
 
     //     let mut builder = NodeBuilder::source();
     //     builder.output_channel_count(6).passthrough();
@@ -970,7 +971,7 @@ mod tests {
     #[test]
     fn node_build_test_source_builder_uses_graph_channels_by_default() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
         let graph_channels = node_graph.channels();
 
         let mut builder = NodeBuilder::source();
@@ -990,7 +991,7 @@ mod tests {
     #[test]
     fn node_build_test_effect_builder_builds_process_node_with_default_one_input_and_one_output() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
         let graph_channels = node_graph.channels();
 
         let mut builder = NodeBuilder::effect();
@@ -1013,8 +1014,10 @@ mod tests {
     #[test]
     fn node_build_test_effect_builder_builds_process_node_with_custom_bus_layout() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
         let graph_channels = node_graph.channels();
+
+        println!("strong count: {}", Arc::strong_count(&engine.0));
 
         let mut builder = NodeBuilder::effect();
         builder
@@ -1022,25 +1025,30 @@ mod tests {
             .add_input_bus(None)
             .set_outputs(&[4])
             .add_output_bus(None);
+        println!("strong count: {}", Arc::strong_count(&engine.0));
 
         let node = builder
             .build(&node_graph, TestEffect { value: 30 })
             .unwrap();
+        println!("strong count: {}", Arc::strong_count(&engine.0));
 
         let inner = node_inner(&node);
+        println!("strong count: {}", Arc::strong_count(&engine.0));
 
         assert!(matches!(inner.op, NodeFunction::Process));
         assert_eq!(inner.busses.inputs, vec![1, 2, graph_channels]);
         assert_eq!(inner.busses.outputs, vec![4, graph_channels]);
+        println!("strong count: {}", Arc::strong_count(&engine.0));
 
         assert_vtable(inner, 3, 2, false);
+        println!("strong count: {}", Arc::strong_count(&engine.0));
     }
 
     #[test]
     fn node_build_test_transformer_builder_builds_resampler_node_with_default_one_input_and_one_output(
     ) {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
         let graph_channels = node_graph.channels();
 
         let mut builder = NodeBuilder::transformer();
@@ -1063,7 +1071,7 @@ mod tests {
     #[test]
     fn node_build_test_transformer_builder_builds_resampler_node_with_custom_bus_layout() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
         let graph_channels = node_graph.channels();
 
         let mut builder = NodeBuilder::transformer();
@@ -1089,7 +1097,7 @@ mod tests {
     #[test]
     fn node_build_test_transformer_builder_build_req_frames_uses_required_frames_vtable() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut builder = NodeBuilder::transformer();
 
@@ -1108,7 +1116,7 @@ mod tests {
     #[test]
     fn node_build_test_transformer_builder_build_req_frames_keeps_custom_bus_layout() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut builder = NodeBuilder::transformer();
         builder.set_inputs(&[1, 2]).set_outputs(&[4, 6]);

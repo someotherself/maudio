@@ -15,11 +15,6 @@ unsafe impl<F: PcmFormat> Send for Delay<F> {}
 impl<F: PcmFormat> Binding for Delay<F> {
     type Raw = *mut sys::ma_delay;
 
-    /// !!! unimplemented !!!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner
     }

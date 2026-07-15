@@ -20,11 +20,6 @@ unsafe impl<F: PcmFormat> Send for Lpf1<F> {}
 impl<F: PcmFormat> Binding for Lpf1<F> {
     type Raw = *mut sys::ma_lpf1;
 
-    /// !!! unimplemented !!!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner
     }

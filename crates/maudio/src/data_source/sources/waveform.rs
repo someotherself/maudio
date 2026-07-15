@@ -62,11 +62,6 @@ unsafe impl<F: PcmFormat> Send for WaveForm<F> {}
 impl<F: PcmFormat> Binding for WaveForm<F> {
     type Raw = *mut sys::ma_waveform;
 
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner
     }

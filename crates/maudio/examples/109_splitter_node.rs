@@ -1,7 +1,7 @@
 use maudio::{
     engine::{
         node_graph::{node_builder::NodeBuilder, node_on_process::EffectCallback},
-        Engine, EngineOps,
+        Engine,
     },
     MaResult,
 };
@@ -36,7 +36,7 @@ impl EffectCallback for Split {
 
 fn main() -> MaResult<()> {
     let engine = Engine::new()?;
-    let node_graph = engine.as_node_graph().unwrap();
+    let node_graph = engine.as_node_graph();
 
     let node_custom = Split {};
 

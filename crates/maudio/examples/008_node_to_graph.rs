@@ -7,7 +7,7 @@ use maudio::{
             nodes::{filters::lpf::LpfNodeBuilder, NodeOps},
             NodeGraphOps,
         },
-        Engine, EngineOps,
+        Engine,
     },
     MaResult,
 };
@@ -45,7 +45,7 @@ fn main() -> MaResult<()> {
 
     // Access the engine's internal node graph.
     // `as_node_graph` returns an option because the engine can exist without a node graph
-    let node_graph = engine.as_node_graph().unwrap();
+    let node_graph = engine.as_node_graph();
 
     // Create a low-pass filter node that will process the sound before it
     // reaches the final output.
@@ -55,7 +55,7 @@ fn main() -> MaResult<()> {
     //
     // Every source node in the node graph can be routed to the endpoint
     // and all the sounds wil be mixed there and will exit the node graph.
-    let mut end_node = node_graph.endpoint().unwrap();
+    let mut end_node = node_graph.endpoint();
 
     // Create a sound source and access its node handle.
     let mut source = engine.new_sound_from_file(&path)?;

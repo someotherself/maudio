@@ -125,11 +125,6 @@ pub struct Cb;
 impl<F: PcmFormat, S> Binding for Decoder<F, S> {
     type Raw = *mut sys::ma_decoder;
 
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner
     }

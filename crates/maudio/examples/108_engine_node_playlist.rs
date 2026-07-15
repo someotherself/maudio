@@ -17,7 +17,7 @@ use maudio::{
             },
             NodeGraphOps, NodeGraphRef,
         },
-        Engine, EngineOps,
+        Engine,
     },
     MaResult,
 };
@@ -52,12 +52,12 @@ pub enum Command {
     Add { path: PathBuf },
 }
 
-struct PlayList<'a> {
-    current: Option<AttachedSourceNode<'a, Decoder<f32, Fs>>>,
+struct PlayList {
+    current: Option<AttachedSourceNode<Decoder<f32, Fs>>>,
     queue: VecDeque<PathBuf>,
 }
 
-impl<'a> PlayList<'a> {
+impl PlayList {
     fn new() -> Self {
         Self {
             current: None,
@@ -69,7 +69,7 @@ impl<'a> PlayList<'a> {
         self.queue.push_back(path.as_ref().to_path_buf());
     }
 
-    fn play_next(&mut self, graph: &'a NodeGraphRef<'_>) -> MaResult<()> {
+    fn play_next(&mut self, graph: &NodeGraphRef) -> MaResult<()> {
         self.current = None;
 
         let Some(path) = self.queue.pop_front() else {
@@ -79,7 +79,7 @@ impl<'a> PlayList<'a> {
         let decoder =
             DecoderBuilder::new_f32(graph.channels(), SampleRate::Sr44100).from_file(&path)?;
         let mut node = AttachedSourceNodeBuilder::new(graph, decoder).build()?;
-        let mut endpoint = graph.endpoint().unwrap();
+        let mut endpoint = graph.endpoint();
         node.attach_output_bus(0, &mut endpoint, 0)?;
         self.current = Some(node);
 
@@ -99,7 +99,7 @@ impl<'a> PlayList<'a> {
         Ok(cursor >= length)
     }
 
-    fn run(&mut self, graph: &'a NodeGraphRef<'_>) -> MaResult<()> {
+    fn run(&mut self, graph: &NodeGraphRef) -> MaResult<()> {
         if self.current.is_none() {
             self.play_next(graph)?;
         }
@@ -131,7 +131,7 @@ fn main() -> MaResult<()> {
     ));
 
     let engine = Engine::new()?;
-    let graph = engine.as_node_graph().unwrap();
+    let graph = engine.as_node_graph();
     let mut playlist = PlayList::new();
 
     playlist.add_sound(path_1);

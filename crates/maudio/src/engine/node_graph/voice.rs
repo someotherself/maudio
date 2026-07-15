@@ -18,7 +18,7 @@ use crate::{
         AsNodeGraphPtr, NodeGraphOps,
     },
     sound::Sound,
-    ErrorKinds, MaResult, MaudioError,
+    MaResult,
 };
 
 /// ## Start/Stop/set_volume
@@ -32,12 +32,11 @@ use crate::{
 /// Only if finer control over the outcome is needed should you move earlier in the stack.
 /// Be aware that the mixer node may have multiple outputs (see `self.mixer.out_bus_count()`).
 pub struct VoiceStack<'g> {
-    // Primary way
     pub output: NodeRef<'g>, // 'g is borrowed from the node_graph
-    pub mix: SplitterNode<'g>,
-    pub wave_nodes: Vec<AttachedSourceNode<'g, WaveForm<f32>>>, // engine and node graps are implicitly at f32
-    pub pulse_nodes: Vec<AttachedSourceNode<'g, PulseWave<f32>>>,
-    pub sounds: Vec<Sound<'g>>,
+    pub mix: SplitterNode,
+    pub wave_nodes: Vec<AttachedSourceNode<WaveForm<f32>>>, // engine and node graps are implicitly at f32
+    pub pulse_nodes: Vec<AttachedSourceNode<PulseWave<f32>>>,
+    pub sounds: Vec<Sound>,
     state: VoiceState,
 }
 
@@ -112,9 +111,7 @@ impl<'g, N: AsNodeGraphPtr> VoiceBuilder<'g, N> {
 
     pub fn build(&mut self) -> MaResult<VoiceStack<'g>> {
         let graph_ref = self.node_graph;
-        let mut endpoint = graph_ref
-            .endpoint()
-            .ok_or(MaudioError::new_ma_error(ErrorKinds::InvalidGraphState))?;
+        let mut endpoint = graph_ref.endpoint();
         let mut mixer = SplitterNodeBuilder::new(graph_ref, self.node_graph.channels()).build()?;
 
         // TODO: Check how many outputs it has. How will dsp nodes will be added later?
@@ -153,13 +150,13 @@ mod test {
     use crate::{
         audio::sample_rate::SampleRate,
         data_source::sources::waveform::WaveFormBuilder,
-        engine::{node_graph::nodes::source::source_node::SourceNodeBuilder, Engine, EngineOps},
+        engine::{node_graph::nodes::source::source_node::SourceNodeBuilder, Engine},
     };
 
     #[test]
     fn voice_test_attached_node_basic_init() {
         let engine = Engine::new_for_tests().unwrap();
-        let graph = engine.as_node_graph().unwrap();
+        let graph = engine.as_node_graph();
         let src = WaveFormBuilder::new_sine(SampleRate::Sr44100, 500.0)
             .build_f32()
             .unwrap();

@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use maudio::{
     audio::{formats::SampleBuffer, sample_rate::SampleRate},
     data_source::sources::pcm_ring_buffer::PcmRingBuffer,
-    engine::{engine_builder::EngineBuilder, EngineOps},
+    engine::engine_builder::EngineBuilder,
     sound::sound_builder::SoundBuilder,
     MaResult,
 };

@@ -64,11 +64,6 @@ impl<F: PcmFormat> Bpf<F> {
 impl<F: PcmFormat> Binding for Bpf<F> {
     type Raw = *mut sys::ma_bpf;
 
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner
     }

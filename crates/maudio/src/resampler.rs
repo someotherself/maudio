@@ -53,11 +53,6 @@ pub struct Resampler<F: PcmFormat> {
 impl<F: PcmFormat> Binding for Resampler<F> {
     type Raw = *mut sys::ma_resampler;
 
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner
     }

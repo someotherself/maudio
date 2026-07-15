@@ -52,12 +52,6 @@ struct FenceInner {
 impl Binding for Fence {
     type Raw = *mut sys::ma_fence;
 
-    fn from_ptr(raw: Self::Raw) -> Self {
-        Self {
-            inner: Arc::new(FenceInner { inner: raw }),
-        }
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner.inner
     }
@@ -81,7 +75,9 @@ impl Fence {
         fence_ffi::ma_fence_init(mem.as_mut_ptr())?;
 
         let inner: *mut sys::ma_fence = Box::into_raw(mem) as *mut sys::ma_fence;
-        Ok(Fence::from_ptr(inner))
+        Ok(Self {
+            inner: Arc::new(FenceInner { inner }),
+        })
     }
 
     /// Manually acquires the fence and returns a guard.

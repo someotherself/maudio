@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
+use std::{mem::MaybeUninit, sync::Arc};
 
 use maudio_sys::ffi as sys;
 
@@ -6,10 +6,10 @@ use crate::{
     audio::{formats::Format, sample_rate::SampleRate},
     engine::{
         node_graph::{
-            nodes::{private_node::NotchNodeProvider, AsNodePtr, NodeRef},
-            AsNodeGraphPtr, NodeGraph,
+            nodes::{node_ffi, private_node::NotchNodeProvider, AsNodePtr, NodeRef},
+            private_node_graph, AsNodeGraphPtr, GraphOwner, NodeGraph, NodeGraphRef,
         },
-        AllocationCallbacks,
+        AllocationCallbacks, Engine,
     },
     AsRawRef, Binding, MaResult,
 };
@@ -37,10 +37,10 @@ use crate::{
 /// audible artifacts such as clicks or pops.
 ///
 /// Use [`NotchNodeBuilder`] to initialize.
-pub struct NotchNode<'a> {
+pub struct NotchNode {
     inner: *mut sys::ma_notch_node,
     alloc_cb: Option<Arc<AllocationCallbacks>>,
-    _marker: PhantomData<&'a NodeGraph>,
+    pub(crate) owner: GraphOwner,
     // Below is needed during a reinit
     channels: u32,
     // format is hard coded as ma_format_f32 in miniaudio `sys::ma_hpf_node_config_init()`
@@ -49,13 +49,10 @@ pub struct NotchNode<'a> {
     sample_rate: SampleRate,
 }
 
-impl Binding for NotchNode<'_> {
-    type Raw = *mut sys::ma_notch_node;
+unsafe impl Send for NotchNode {}
 
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
+impl Binding for NotchNode {
+    type Raw = *mut sys::ma_notch_node;
 
     fn to_raw(&self) -> Self::Raw {
         self.inner
@@ -63,11 +60,11 @@ impl Binding for NotchNode<'_> {
 }
 
 #[doc(hidden)]
-impl AsNodePtr for NotchNode<'_> {
+impl AsNodePtr for NotchNode {
     type __PtrProvider = NotchNodeProvider;
 }
 
-impl<'a> NotchNode<'a> {
+impl NotchNode {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &NotchNodeBuilder<'_, N>,
@@ -91,11 +88,30 @@ impl<'a> NotchNode<'a> {
         Ok(Self {
             inner,
             alloc_cb: alloc,
-            _marker: PhantomData,
+            owner: private_node_graph::clone_owner(node_graph),
             format: config.inner.notch.format.try_into().unwrap_or(Format::F32),
             channels: config.inner.notch.channels,
             sample_rate: config.inner.notch.sampleRate.try_into()?,
         })
+    }
+
+    /// Returns the owning engine, if any.
+    pub fn engine(&self) -> Option<Engine> {
+        self.owner.engine().map(Engine)
+    }
+
+    /// Returns the owning node graph, if any.
+    pub fn node_graph(&self) -> Option<NodeGraph> {
+        self.owner.graph().map(NodeGraph)
+    }
+
+    /// Returns a reference to the node graph.
+    pub fn node_graph_ref(&self) -> NodeGraphRef {
+        let ptr = node_ffi::ma_node_get_node_graph(self);
+        NodeGraphRef {
+            inner: ptr,
+            owner: self.owner.clone(),
+        }
     }
 
     pub fn reinit(&mut self, q: f64, frequency: f64) -> MaResult<()> {
@@ -125,7 +141,7 @@ impl<'a> NotchNode<'a> {
     /// - connect this to other nodes (effects, mixers, splitters, etc.)
     /// - insert into a custom routing graph
     /// - query node-level state exposed by the graph
-    pub fn as_node(&self) -> NodeRef<'a> {
+    pub fn as_node<'a>(&'a self) -> NodeRef<'a> {
         assert!(!self.to_raw().is_null());
         let ptr = self.to_raw().cast::<sys::ma_node>();
         NodeRef::from_ptr(ptr)
@@ -185,7 +201,7 @@ pub(crate) mod n_notch_ffi {
     }
 }
 
-impl<'a> Drop for NotchNode<'a> {
+impl Drop for NotchNode {
     fn drop(&mut self) {
         n_notch_ffi::ma_notch_node_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -223,7 +239,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> NotchNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(&self) -> MaResult<NotchNode<'a>> {
+    pub fn build(&self) -> MaResult<NotchNode> {
         if self.inner.notch.channels == 0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
@@ -273,13 +289,13 @@ impl NotchNodeParams {
 mod test {
     use crate::{
         audio::sample_rate::SampleRate,
-        engine::{node_graph::nodes::filters::notch::NotchNodeBuilder, Engine, EngineOps},
+        engine::{node_graph::nodes::filters::notch::NotchNodeBuilder, Engine},
     };
 
     #[test]
     fn test_notch_builder_basic_init() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node = NotchNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1.0, 2000.0)
             .build()
@@ -290,7 +306,7 @@ mod test {
     #[test]
     fn test_notch_builder_stereo_init() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         // Just ensure init works for >1 channel.
         let _node = NotchNodeBuilder::new(&node_graph, 2, SampleRate::Sr44100, 1.0, 1000.0)
@@ -301,7 +317,7 @@ mod test {
     #[test]
     fn test_notch_multiple_reinit_stability() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node = NotchNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 2.0, 500.0)
             .build()
@@ -318,7 +334,7 @@ mod test {
     #[test]
     fn test_notch_reinit_frequency_zero_should_error() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node = NotchNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1.0, 1000.0)
             .build()
@@ -330,7 +346,7 @@ mod test {
     #[test]
     fn test_notch_reinit_negative_q_should_error() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node = NotchNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1.0, 1000.0)
             .build()
@@ -343,7 +359,7 @@ mod test {
     #[test]
     fn test_notch_builder_frequency_above_nyquist_should_error_or_fail_init() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         // Nyquist for 44100 is 22050. Try something clearly above it.
         // Depending on miniaudio, this may error at init or may clamp/behave oddly.
@@ -360,7 +376,7 @@ mod test {
     #[test]
     fn test_notch_builder_q_zero_should_error_or_fail_init() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         // Q=0 is maybe typically invalid (division by zero-ish in coefficient derivation).
         let res = NotchNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 0.0, 1000.0).build();

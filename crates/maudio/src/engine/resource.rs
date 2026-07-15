@@ -229,11 +229,6 @@ unsafe impl<F: PcmFormat> Sync for ResourceManager<F> {}
 impl<F: PcmFormat> Binding for ResourceManager<F> {
     type Raw = *mut sys::ma_resource_manager;
 
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner.inner
     }
@@ -262,17 +257,18 @@ pub struct ResourceManagerRef<'a, F: PcmFormat> {
 impl<F: PcmFormat> Binding for ResourceManagerRef<'_, F> {
     type Raw = *mut sys::ma_resource_manager;
 
-    /// !!! unimplemented !!!
-    fn from_ptr(raw: Self::Raw) -> Self {
+    fn to_raw(&self) -> Self::Raw {
+        self.inner
+    }
+}
+
+impl<'a, F: PcmFormat> ResourceManagerRef<'a, F> {
+    pub(crate) fn from_ptr(ptr: *mut sys::ma_resource_manager) -> Self {
         Self {
-            inner: raw,
+            inner: ptr,
             _format: PhantomData,
             _marker: PhantomData,
         }
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        self.inner
     }
 }
 

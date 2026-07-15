@@ -175,11 +175,9 @@ pub(crate) mod private_data_source {
         }
     }
 
-    impl<S: AsSourcePtr> DataSourcePtrProvider<AttachedSourceNode<'_, S>>
-        for AttachedSourceNodeProvider
-    {
+    impl<S: AsSourcePtr> DataSourcePtrProvider<AttachedSourceNode<S>> for AttachedSourceNodeProvider {
         #[inline]
-        fn as_source_ptr(t: &AttachedSourceNode<'_, S>) -> *mut sys::ma_data_source {
+        fn as_source_ptr(t: &AttachedSourceNode<S>) -> *mut sys::ma_data_source {
             t.as_source().to_raw()
         }
     }
@@ -802,16 +800,18 @@ pub struct DataSourceRef<'a, F: PcmFormat> {
 impl<'a, F: PcmFormat> Binding for DataSourceRef<'a, F> {
     type Raw = *mut sys::ma_data_source;
 
-    fn from_ptr(raw: Self::Raw) -> Self {
+    fn to_raw(&self) -> Self::Raw {
+        self.inner
+    }
+}
+
+impl<'a, F: PcmFormat> DataSourceRef<'a, F> {
+    pub(crate) fn from_ptr(ptr: *mut sys::ma_data_source) -> Self {
         Self {
-            inner: raw,
+            inner: ptr,
             _marker: PhantomData,
             _format: PhantomData,
         }
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        self.inner
     }
 }
 

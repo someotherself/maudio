@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
+use std::{mem::MaybeUninit, sync::Arc};
 
 use maudio_sys::ffi as sys;
 
@@ -6,10 +6,10 @@ use crate::{
     audio::{formats::Format, sample_rate::SampleRate},
     engine::{
         node_graph::{
-            nodes::{private_node::LoShelfNodeProvider, AsNodePtr, NodeRef},
-            AsNodeGraphPtr, NodeGraph,
+            nodes::{node_ffi, private_node::LoShelfNodeProvider, AsNodePtr, NodeRef},
+            private_node_graph, AsNodeGraphPtr, GraphOwner, NodeGraph, NodeGraphRef,
         },
-        AllocationCallbacks,
+        AllocationCallbacks, Engine,
     },
     AsRawRef, Binding, MaResult,
 };
@@ -37,10 +37,10 @@ use crate::{
 /// audible artifacts such as clicks or pops.
 ///
 /// Use [`LoShelfNodeBuilder`] to initialize
-pub struct LoShelfNode<'a> {
+pub struct LoShelfNode {
     inner: *mut sys::ma_loshelf_node,
     alloc_cb: Option<Arc<AllocationCallbacks>>,
-    _marker: PhantomData<&'a NodeGraph>,
+    pub(crate) owner: GraphOwner,
     // Below is needed during a reinit
     channels: u32,
     // format is hard coded as ma_format_f32 in miniaudio `sys::ma_loshelf_node_config_init()`
@@ -48,13 +48,10 @@ pub struct LoShelfNode<'a> {
     format: Format,
 }
 
-impl Binding for LoShelfNode<'_> {
-    type Raw = *mut sys::ma_loshelf_node;
+unsafe impl Send for LoShelfNode {}
 
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
+impl Binding for LoShelfNode {
+    type Raw = *mut sys::ma_loshelf_node;
 
     fn to_raw(&self) -> Self::Raw {
         self.inner
@@ -62,11 +59,11 @@ impl Binding for LoShelfNode<'_> {
 }
 
 #[doc(hidden)]
-impl AsNodePtr for LoShelfNode<'_> {
+impl AsNodePtr for LoShelfNode {
     type __PtrProvider = LoShelfNodeProvider;
 }
 
-impl<'a> LoShelfNode<'a> {
+impl LoShelfNode {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &LoShelfNodeBuilder<N>,
@@ -90,7 +87,7 @@ impl<'a> LoShelfNode<'a> {
         Ok(Self {
             inner,
             alloc_cb: alloc,
-            _marker: PhantomData,
+            owner: private_node_graph::clone_owner(node_graph),
             channels: config.inner.loshelf.channels,
             format: config
                 .inner
@@ -99,6 +96,24 @@ impl<'a> LoShelfNode<'a> {
                 .try_into()
                 .unwrap_or(Format::F32),
         })
+    }
+    /// Returns the owning engine, if any.
+    pub fn engine(&self) -> Option<Engine> {
+        self.owner.engine().map(Engine)
+    }
+
+    /// Returns the owning node graph, if any.
+    pub fn node_graph(&self) -> Option<NodeGraph> {
+        self.owner.graph().map(NodeGraph)
+    }
+
+    /// Returns a reference to the node graph.
+    pub fn node_graph_ref(&self) -> NodeGraphRef {
+        let ptr = node_ffi::ma_node_get_node_graph(self);
+        NodeGraphRef {
+            inner: ptr,
+            owner: self.owner.clone(),
+        }
     }
 
     pub fn reinit(
@@ -132,7 +147,7 @@ impl<'a> LoShelfNode<'a> {
     /// - connect this to other nodes (effects, mixers, splitters, etc.)
     /// - insert into a custom routing graph
     /// - query node-level state exposed by the graph
-    pub fn as_node(&self) -> NodeRef<'a> {
+    pub fn as_node<'a>(&'a self) -> NodeRef<'a> {
         assert!(!self.to_raw().is_null());
         let ptr = self.to_raw().cast::<sys::ma_node>();
         NodeRef::from_ptr(ptr)
@@ -192,7 +207,7 @@ pub(crate) mod n_loshelf_ffi {
     }
 }
 
-impl<'a> Drop for LoShelfNode<'a> {
+impl Drop for LoShelfNode {
     fn drop(&mut self) {
         n_loshelf_ffi::ma_loshelf_node_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -237,7 +252,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> LoShelfNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(&self) -> MaResult<LoShelfNode<'a>> {
+    pub fn build(&self) -> MaResult<LoShelfNode> {
         if self.inner.loshelf.channels == 0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
@@ -292,14 +307,14 @@ impl LoShelfNodeParams {
 mod test {
     use crate::{
         audio::sample_rate::SampleRate,
-        engine::{node_graph::nodes::filters::loshelf::LoShelfNodeBuilder, Engine, EngineOps},
+        engine::{node_graph::nodes::filters::loshelf::LoShelfNodeBuilder, Engine},
         Binding,
     };
 
     #[test]
     fn test_loshelf_builder_basic_init() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node =
             LoShelfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0.0, 0.1, 1000.0)
@@ -312,7 +327,7 @@ mod test {
     #[test]
     fn test_loshelf_reinit_sample_rate_change_ok() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node =
             LoShelfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0.0, 0.5, 200.0)
@@ -326,7 +341,7 @@ mod test {
     #[test]
     fn test_loshelf_reinit_invalid_frequency_errors() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node =
             LoShelfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0.0, 0.5, 200.0)
@@ -339,7 +354,7 @@ mod test {
     #[test]
     fn test_loshelf_reinit_invalid_slope_errors() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node =
             LoShelfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0.0, 0.5, 200.0)
@@ -352,7 +367,7 @@ mod test {
     #[test]
     fn test_loshelf_reinit_extreme_gain_ok() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node =
             LoShelfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0.0, 0.5, 200.0)
@@ -367,7 +382,7 @@ mod test {
     #[test]
     fn test_loshelf_channels_zero_error() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let res =
             LoShelfNodeBuilder::new(&node_graph, 0, SampleRate::Sr48000, 0.0, 0.5, 200.0).build();
@@ -377,7 +392,7 @@ mod test {
     #[test]
     fn valgrind_loshelf_create_drop_many() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         for _ in 0..10_000 {
             let _node =
@@ -390,7 +405,7 @@ mod test {
     #[test]
     fn valgrind_loshelf_reinit_stress() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node =
             LoShelfNodeBuilder::new(&node_graph, 2, SampleRate::Sr48000, 0.0, 0.5, 200.0)
@@ -409,7 +424,7 @@ mod test {
     #[test]
     fn test_loshelf_failed_reinit_then_drop_is_safe() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node =
             LoShelfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0.0, 0.5, 200.0)
@@ -424,7 +439,7 @@ mod test {
     #[test]
     fn test_loshelf_as_node_smoke() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let node = LoShelfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0.0, 0.5, 200.0)
             .build()
@@ -437,7 +452,7 @@ mod test {
     #[test]
     fn test_loshelf_reinit_negative_frequency_ok_or_error() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node =
             LoShelfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0.0, 0.5, 200.0)
@@ -450,7 +465,7 @@ mod test {
     #[test]
     fn test_loshelf_reinit_nan_rejected() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node =
             LoShelfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0.0, 0.5, 200.0)

@@ -1,5 +1,5 @@
 //! A collection of sounds that can be controlled as a single Sound instance
-use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit};
+use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit, sync::Arc};
 
 use maudio_sys::ffi as sys;
 
@@ -11,37 +11,29 @@ use crate::{
     },
     engine::{
         node_graph::nodes::{private_node, AsNodePtr, NodeRef},
-        private_engine, Engine, EngineRef,
+        Engine, EngineInner,
     },
     sound::{sound_builder::SoundState, sound_flags::SoundFlags},
     AsRawRef, Binding, MaResult,
 };
 
-pub struct SoundGroup<'a> {
+pub struct SoundGroup {
     inner: *mut sys::ma_sound_group,
     _not_sync: PhantomData<Cell<()>>,
-    _marker: PhantomData<&'a Engine>,
+    _engine: Arc<EngineInner>,
 }
 
-impl Binding for SoundGroup<'_> {
+impl Binding for SoundGroup {
     type Raw = *mut sys::ma_sound_group;
-
-    fn from_ptr(raw: Self::Raw) -> Self {
-        Self {
-            inner: raw,
-            _not_sync: PhantomData,
-            _marker: PhantomData,
-        }
-    }
 
     fn to_raw(&self) -> Self::Raw {
         self.inner
     }
 }
 
-impl SoundGroup<'_> {
-    pub fn engine(&mut self) -> Option<EngineRef<'_>> {
-        s_group_ffi::ma_sound_group_get_engine(self)
+impl SoundGroup {
+    pub fn engine(&mut self) -> Engine {
+        Engine(self._engine.clone())
     }
 
     pub fn start(&mut self) -> MaResult<()> {
@@ -266,7 +258,7 @@ impl SoundGroup<'_> {
     }
 }
 
-impl Drop for SoundGroup<'_> {
+impl Drop for SoundGroup {
     fn drop(&mut self) {
         s_group_ffi::ma_sound_group_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -282,7 +274,7 @@ pub(crate) mod s_group_ffi {
             pan::PanMode,
             spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
         },
-        engine::{Engine, EngineRef},
+        engine::Engine,
         sound::sound_group::{SoundGroup, SoundGroupBuilder},
         AsRawRef, Binding, MaResult, MaudioError,
     };
@@ -302,14 +294,11 @@ pub(crate) mod s_group_ffi {
         unsafe { sys::ma_sound_group_uninit(s_group.to_raw()) };
     }
 
+    // Do not use
+    #[allow(unused)]
     #[inline]
-    pub fn ma_sound_group_get_engine<'a>(s_group: &'a SoundGroup) -> Option<EngineRef<'a>> {
-        let ptr = unsafe { sys::ma_sound_group_get_engine(s_group.to_raw() as *const _) };
-        if ptr.is_null() {
-            None
-        } else {
-            Some(EngineRef::from_ptr(ptr))
-        }
+    pub fn ma_sound_group_get_engine(s_group: &SoundGroup) -> *mut sys::ma_engine {
+        unsafe { sys::ma_sound_group_get_engine(s_group.to_raw() as *const _) }
     }
 
     #[inline]
@@ -683,8 +672,7 @@ impl AsRawRef for SoundGroupBuilder<'_> {
 
 impl<'a> SoundGroupBuilder<'a> {
     pub fn new(engine: &'a Engine) -> Self {
-        let inner =
-            unsafe { sys::ma_sound_group_config_init_2(private_engine::engine_ptr(engine)) };
+        let inner = unsafe { sys::ma_sound_group_config_init_2(engine.to_raw()) };
         Self {
             inner,
             engine,
@@ -692,8 +680,8 @@ impl<'a> SoundGroupBuilder<'a> {
         }
     }
 
-    pub fn build(&self) -> MaResult<SoundGroup<'a>> {
-        let mut group = self.new_sound_group()?;
+    pub fn build(&self) -> MaResult<SoundGroup> {
+        let mut group = self.new_sound_group(self.engine.0.clone())?;
         self.configure_sound_group(&mut group);
         Ok(group)
     }
@@ -840,13 +828,17 @@ impl<'a> SoundGroupBuilder<'a> {
         }
     }
 
-    fn new_sound_group(&self) -> MaResult<SoundGroup<'a>> {
+    fn new_sound_group(&self, engine: Arc<EngineInner>) -> MaResult<SoundGroup> {
         let mut mem: Box<MaybeUninit<sys::ma_sound_group>> = Box::new(MaybeUninit::uninit());
 
         s_group_ffi::ma_sound_group_init_ex(self.engine, self, mem.as_mut_ptr())?;
 
         let inner: *mut sys::ma_sound_group = Box::into_raw(mem) as *mut sys::ma_sound_group;
-        Ok(SoundGroup::from_ptr(inner))
+        Ok(SoundGroup {
+            inner,
+            _not_sync: PhantomData,
+            _engine: engine,
+        })
     }
 }
 

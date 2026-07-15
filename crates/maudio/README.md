@@ -82,13 +82,13 @@ Maudio also comes with a variety of custom nodes with the more common functional
 
 ```rust
     let engine = Engine::new()?;
-    let node_graph = engine.as_node_graph().unwrap();
+    let node_graph = engine.as_node_graph();
 
     // Create a custom node (low pass filter node)
     let mut lpf = LpfNodeBuilder::new(&node_graph, 2, SampleRate::Sr48000, 800.0, 1).build()?;
 
     // The ENDPOINT
-    let mut end_node = node_graph.endpoint().unwrap();
+    let mut end_node = node_graph.endpoint();
 
     // The SOURCE (sound)
     let mut source = engine.new_sound_from_file(&path)?;

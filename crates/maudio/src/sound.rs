@@ -5,6 +5,7 @@ use std::{
     cell::Cell,
     marker::PhantomData,
     path::{Path, PathBuf},
+    sync::Arc,
 };
 
 use maudio_sys::ffi as sys;
@@ -16,7 +17,10 @@ use crate::{
         spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
     },
     data_source::{DataFormat, DataSourceRef},
-    engine::{node_graph::nodes::NodeRef, Engine, EngineRef},
+    engine::{
+        node_graph::{nodes::NodeRef, GraphOwner, NodeGraphRef},
+        Engine, EngineInner,
+    },
     sound::{notifier::EndNotifier, sound_flags::SoundFlags, sound_group::SoundGroup},
     util::fence::Fence,
     Binding, MaResult, MaudioError,
@@ -50,9 +54,9 @@ impl SoundSource<'_> {
 ///
 /// A `Sound` is an engine-owned playback instance backed by a data source. It can be started,
 /// stopped, seeked, spatialized, and controlled (volume/pan/pitch).
-pub struct Sound<'a> {
+pub struct Sound {
     inner: *mut sys::ma_sound,
-    _engine: PhantomData<&'a Engine>,
+    _engine: Arc<EngineInner>,
     _not_sync: PhantomData<Cell<()>>,
     // Miniaudio stores only one ma_sound_end_proc and pUserData per ma_sound.
     // One end_notifier at a time will be ok
@@ -60,27 +64,32 @@ pub struct Sound<'a> {
     end_notifier: Option<EndNotifier>,
 }
 
-impl Binding for Sound<'_> {
+impl Binding for Sound {
     type Raw = *mut sys::ma_sound;
-
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
 
     fn to_raw(&self) -> Self::Raw {
         self.inner
     }
 }
 
-impl<'a> Sound<'a> {
-    /// Returns the owning engine, if any.
-    pub fn engine(&self) -> Option<EngineRef<'_>> {
-        sound_ffi::ma_sound_get_engine(self)
+impl Sound {
+    /// Returns the owning engine.
+    pub fn engine(&self) -> Engine {
+        Engine(self._engine.clone())
+    }
+
+    /// Returns the underlying NodeGraph
+    pub fn node_graph(&self) -> NodeGraphRef {
+        let engine = sound_ffi::ma_sound_get_engine(self);
+        let graph = engine.cast::<sys::ma_node_graph>();
+        NodeGraphRef {
+            inner: graph,
+            owner: GraphOwner::Engine(self._engine.clone()),
+        }
     }
 
     /// Returns a **borrowed view** of this sound as a node in the engine's node graph.
-    pub fn as_node(&self) -> NodeRef<'a> {
+    pub fn as_node<'a>(&'a self) -> NodeRef<'a> {
         assert!(!self.to_raw().is_null());
         let ptr: *mut sys::ma_node = self.to_raw().cast::<sys::ma_node>();
         NodeRef::from_ptr(ptr)
@@ -487,15 +496,16 @@ impl<'a> Sound<'a> {
 }
 
 // Private methods
-impl<'a> Sound<'a> {
+impl Sound {
     pub(crate) fn new_sound(
         inner: *mut sys::ma_sound,
+        engine: Arc<EngineInner>,
         fence: Option<Fence>,
         end_notifier: Option<EndNotifier>,
     ) -> Self {
         Sound {
             inner,
-            _engine: PhantomData,
+            _engine: engine,
             _not_sync: PhantomData,
             _fence: fence,
             end_notifier,
@@ -530,7 +540,7 @@ impl<'a> Sound<'a> {
     }
 }
 
-impl<'a> Drop for Sound<'a> {
+impl Drop for Sound {
     fn drop(&mut self) {
         unsafe {
             sys::ma_sound_uninit(self.to_raw());
@@ -572,7 +582,7 @@ pub(crate) mod sound_ffi {
     use crate::data_source::{private_data_source, DataFormat, DataSourceRef};
     use crate::util::fence::Fence;
     use crate::{
-        engine::{Engine, EngineRef},
+        engine::Engine,
         sound::{
             sound_builder::SoundBuilder, sound_flags::SoundFlags, sound_group::SoundGroup, Sound,
         },
@@ -692,14 +702,11 @@ pub(crate) mod sound_ffi {
         MaudioError::check(res)
     }
 
+    // Do not use
+    #[allow(unused)]
     #[inline]
-    pub fn ma_sound_get_engine<'a>(sound: &'a Sound) -> Option<EngineRef<'a>> {
-        let ptr = unsafe { sys::ma_sound_get_engine(sound.to_raw() as *const _) };
-        if ptr.is_null() {
-            None
-        } else {
-            Some(EngineRef::from_ptr(ptr))
-        }
+    pub fn ma_sound_get_engine(sound: &Sound) -> *mut sys::ma_engine {
+        unsafe { sys::ma_sound_get_engine(sound.to_raw() as *const _) }
     }
 
     #[inline]
@@ -1256,7 +1263,7 @@ mod test {
             spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
         },
         data_source::sources::buffer::AudioBufferBuilder,
-        engine::{node_graph::nodes::NodeOps, Engine, EngineOps},
+        engine::{node_graph::nodes::NodeOps, Engine},
         sound::sound_builder::SoundBuilder,
     };
 

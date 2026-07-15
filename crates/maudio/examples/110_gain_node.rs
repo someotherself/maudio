@@ -8,7 +8,7 @@ use maudio::{
             nodes::NodeOps,
             NodeGraphOps,
         },
-        Engine, EngineOps,
+        Engine,
     },
     sound::sound_builder::SoundBuilder,
     MaResult,
@@ -43,8 +43,8 @@ fn main() -> MaResult<()> {
     ));
 
     let engine = Engine::new()?;
-    let node_graph = engine.as_node_graph().unwrap();
-    let mut endpoint = node_graph.endpoint().unwrap();
+    let node_graph = engine.as_node_graph();
+    let mut endpoint = node_graph.endpoint();
 
     let mut gain_node = NodeBuilder::effect().build(&node_graph, Gain { gain: 0.5 })?;
     gain_node.attach_output_bus(0, &mut endpoint, 0)?;

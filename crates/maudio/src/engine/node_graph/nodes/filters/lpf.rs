@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
+use std::{mem::MaybeUninit, sync::Arc};
 
 use maudio_sys::ffi as sys;
 
@@ -6,10 +6,10 @@ use crate::{
     audio::{formats::Format, sample_rate::SampleRate},
     engine::{
         node_graph::{
-            nodes::{private_node, AsNodePtr, NodeRef},
-            AsNodeGraphPtr, NodeGraph,
+            nodes::{node_ffi, private_node, AsNodePtr, NodeRef},
+            private_node_graph, AsNodeGraphPtr, GraphOwner, NodeGraph, NodeGraphRef,
         },
-        AllocationCallbacks,
+        AllocationCallbacks, Engine,
     },
     AsRawRef, Binding, MaResult,
 };
@@ -36,10 +36,10 @@ use crate::{
 /// audible artifacts such as clicks or pops.
 ///
 /// Use [`LpfNodeBuilder`] to initialize.
-pub struct LpfNode<'a> {
+pub struct LpfNode {
     inner: *mut sys::ma_lpf_node,
     alloc_cb: Option<Arc<AllocationCallbacks>>,
-    _marker: PhantomData<&'a NodeGraph>,
+    pub(crate) owner: GraphOwner,
     // Below is needed during a reinit
     channels: u32,
     // format is hard coded as ma_format_f32 in miniaudio `sys::ma_lpf_node_config_init()`
@@ -48,13 +48,10 @@ pub struct LpfNode<'a> {
     order: u32,
 }
 
-impl Binding for LpfNode<'_> {
-    type Raw = *mut sys::ma_lpf_node;
+unsafe impl Send for LpfNode {}
 
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
+impl Binding for LpfNode {
+    type Raw = *mut sys::ma_lpf_node;
 
     fn to_raw(&self) -> Self::Raw {
         self.inner
@@ -62,11 +59,11 @@ impl Binding for LpfNode<'_> {
 }
 
 #[doc(hidden)]
-impl AsNodePtr for LpfNode<'_> {
+impl AsNodePtr for LpfNode {
     type __PtrProvider = private_node::LpfNodeProvider;
 }
 
-impl<'a> LpfNode<'a> {
+impl LpfNode {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &LpfNodeBuilder<'_, N>,
@@ -84,11 +81,30 @@ impl<'a> LpfNode<'a> {
         Ok(Self {
             inner,
             alloc_cb: alloc,
-            _marker: PhantomData,
+            owner: private_node_graph::clone_owner(node_graph),
             channels: config.inner.lpf.channels,
             format: config.inner.lpf.format.try_into().unwrap_or(Format::F32),
             order: config.inner.lpf.order,
         })
+    }
+
+    /// Returns the owning engine, if any.
+    pub fn engine(&self) -> Option<Engine> {
+        self.owner.engine().map(Engine)
+    }
+
+    /// Returns the owning node graph, if any.
+    pub fn node_graph(&self) -> Option<NodeGraph> {
+        self.owner.graph().map(NodeGraph)
+    }
+
+    /// Returns a reference to the node graph.
+    pub fn node_graph_ref(&self) -> NodeGraphRef {
+        let ptr = node_ffi::ma_node_get_node_graph(self);
+        NodeGraphRef {
+            inner: ptr,
+            owner: self.owner.clone(),
+        }
     }
 
     pub fn reinit(&mut self, sample_rate: SampleRate, cutoff_freq: f64) -> MaResult<()> {
@@ -119,7 +135,7 @@ impl<'a> LpfNode<'a> {
     /// - connect this to other nodes (effects, mixers, splitters, etc.)
     /// - insert into a custom routing graph
     /// - query node-level state exposed by the graph
-    pub fn as_node(&self) -> NodeRef<'a> {
+    pub fn as_node<'a>(&'a self) -> NodeRef<'a> {
         assert!(!self.to_raw().is_null());
         let ptr = self.to_raw().cast::<sys::ma_node>();
         NodeRef::from_ptr(ptr)
@@ -177,7 +193,7 @@ pub(crate) mod n_lpf_ffi {
     }
 }
 
-impl<'a> Drop for LpfNode<'a> {
+impl Drop for LpfNode {
     fn drop(&mut self) {
         n_lpf_ffi::ma_lpf_node_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -214,7 +230,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> LpfNodeBuilder<'a, N> {
         }
     }
 
-    pub fn build(&self) -> MaResult<LpfNode<'a>> {
+    pub fn build(&self) -> MaResult<LpfNode> {
         if self.inner.lpf.channels == 0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
@@ -264,14 +280,14 @@ impl LpfNodeParams {
 mod test {
     use crate::{
         audio::sample_rate::SampleRate,
-        engine::{node_graph::nodes::filters::lpf::LpfNodeBuilder, Engine, EngineOps},
+        engine::{node_graph::nodes::filters::lpf::LpfNodeBuilder, Engine},
         Binding,
     };
 
     #[test]
     fn test_lpf_builder_basic_init() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node = LpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1000.0, 1)
             .build()
@@ -282,7 +298,7 @@ mod test {
     #[test]
     fn test_lpf_multiple_reinit() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node = LpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1000.0, 1)
             .build()
@@ -296,7 +312,7 @@ mod test {
     #[test]
     fn test_lpf_reinit_changes_sample_rate() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node = LpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1000.0, 1)
             .build()
@@ -310,7 +326,7 @@ mod test {
     #[test]
     fn test_lpf_cutoff_edge_values() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node = LpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1000.0, 1)
             .build()
@@ -329,7 +345,7 @@ mod test {
     #[test]
     fn test_lpf_builder_orders() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         for &order in &[1, 2, 4, 8] {
             let node =
@@ -342,7 +358,7 @@ mod test {
     #[test]
     fn test_lpf_builder_invalid_channels() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let res = LpfNodeBuilder::new(&node_graph, 0, SampleRate::Sr44100, 1000.0, 1).build();
 
@@ -352,7 +368,7 @@ mod test {
     #[test]
     fn valgrind_lpf_mass_create_drop() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         for _ in 0..20_000 {
             let _node = LpfNodeBuilder::new(&node_graph, 2, SampleRate::Sr48000, 5000.0, 2)
@@ -364,7 +380,7 @@ mod test {
     #[test]
     fn valgrind_lpf_reinit_many() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node = LpfNodeBuilder::new(&node_graph, 2, SampleRate::Sr48000, 1000.0, 4)
             .build()
@@ -380,7 +396,7 @@ mod test {
     #[test]
     fn valgrind_lpf_many_nodes_some_reinit() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         for i in 0..5000 {
             let mut node = LpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 500.0, 2)
@@ -396,7 +412,7 @@ mod test {
     #[test]
     fn test_lpf_reinit_nyquist_boundaries() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node = LpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 1000.0, 2)
             .build()
@@ -415,7 +431,7 @@ mod test {
     #[test]
     fn test_lpf_reinit_rejects_non_finite_cutoff() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node = LpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1000.0, 2)
             .build()
@@ -429,7 +445,7 @@ mod test {
     #[test]
     fn test_lpf_failed_reinit_then_ok_then_drop() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let mut node = LpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1000.0, 2)
             .build()
@@ -443,7 +459,7 @@ mod test {
     #[test]
     fn test_lpf_as_node_smoke() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let node = LpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1000.0, 2)
             .build()

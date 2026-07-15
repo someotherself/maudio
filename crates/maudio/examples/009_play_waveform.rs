@@ -8,7 +8,7 @@ use maudio::{
             nodes::{source::source_node::SourceNodeBuilder, NodeOps},
             NodeGraphOps,
         },
-        Engine, EngineOps,
+        Engine,
     },
     MaResult,
 };
@@ -29,11 +29,11 @@ fn main() -> MaResult<()> {
         // The engine is f32 natively
         .build_f32()?;
 
-    let graph = engine.as_node_graph().unwrap();
+    let graph = engine.as_node_graph();
     let mut src_node = SourceNodeBuilder::new(&graph, &wave_src_2).build()?;
 
     // Connect a second source node to the endpoint. They will be mixed there
-    let mut end_node = graph.endpoint().unwrap();
+    let mut end_node = graph.endpoint();
     src_node.attach_output_bus(0, &mut end_node, 0)?;
 
     // Start the sound

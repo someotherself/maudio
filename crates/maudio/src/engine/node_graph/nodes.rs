@@ -58,12 +58,15 @@ use std::{
 use maudio_sys::ffi as sys;
 
 use crate::{
-    engine::node_graph::{
-        node_builder::NodeFunction,
-        node_flags::NodeFlags,
-        node_on_process::{CustomNode, ReqFramesNode},
-        node_vtable::{node_vtable, node_vtable_req_frames},
-        AsNodeGraphPtr, NodeGraph, NodeGraphOps, NodeGraphRef,
+    engine::{
+        node_graph::{
+            node_builder::NodeFunction,
+            node_flags::NodeFlags,
+            node_on_process::{CustomNode, ReqFramesNode},
+            node_vtable::{node_vtable, node_vtable_req_frames},
+            private_node_graph, AsNodeGraphPtr, GraphOwner, NodeGraph, NodeGraphOps, NodeGraphRef,
+        },
+        Engine,
     },
     AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
 };
@@ -106,22 +109,26 @@ impl TryFrom<sys::ma_node_state> for NodeState {
 /// Custom node implementation
 ///
 /// See [`NodeBuilder`](crate::engine::node_graph::node_builder)
-pub struct Node<'a, C> {
-    pub(crate) inner: *mut NodeInner<'a, C>,
+pub struct Node<C> {
+    pub(crate) inner: *mut NodeInner<C>,
+    _not_sync: PhantomData<Cell<()>>,
 }
 
 #[repr(C)]
-pub(crate) struct NodeInner<'a, C> {
+pub(crate) struct NodeInner<C> {
     pub(crate) base: sys::ma_node_base,
     pub(crate) vtable: *const sys::ma_node_vtable,
     pub(crate) busses: NodeBusChannels,
     pub(crate) custom: C,
     pub(crate) op: NodeFunction,
-    pub(crate) _marker: PhantomData<&'a NodeGraph>,
+    pub(crate) owner: GraphOwner,
     pub(crate) _not_sync: PhantomData<Cell<()>>,
 }
 
-impl<'a, C> AsRawRef for Node<'a, C> {
+unsafe impl<C> Send for NodeInner<C> {}
+unsafe impl<C> Sync for NodeInner<C> {}
+
+impl<C> AsRawRef for Node<C> {
     type Raw = sys::ma_node_base;
 
     fn as_raw(&self) -> &Self::Raw {
@@ -129,7 +136,7 @@ impl<'a, C> AsRawRef for Node<'a, C> {
     }
 }
 
-impl<C> Deref for Node<'_, C>
+impl<C> Deref for Node<C>
 where
     C: CustomNode,
 {
@@ -140,7 +147,7 @@ where
     }
 }
 
-impl<C> DerefMut for Node<'_, C>
+impl<C> DerefMut for Node<C>
 where
     C: CustomNode,
 {
@@ -149,20 +156,42 @@ where
     }
 }
 
-impl<'a, C> Node<'a, C> {
-    pub fn as_node(&self) -> NodeRef<'a> {
+impl<C> Node<C> {
+    pub fn as_node<'a>(&'a self) -> NodeRef<'a> {
         let ptr = self.as_raw_ptr().cast::<sys::ma_node>();
         NodeRef::from_ptr(ptr as *mut _)
+    }
+
+    /// Returns the owning engine, if any.
+    pub fn engine(&self) -> Option<Engine> {
+        unsafe { &*self.inner }.owner.engine().map(Engine)
+    }
+
+    /// Returns the owning node graph, if any.
+    pub fn node_graph(&self) -> Option<NodeGraph> {
+        unsafe { &*self.inner }.owner.graph().map(NodeGraph)
+    }
+
+    /// Returns a reference to the node graph.
+    pub fn node_graph_ref(&self) -> NodeGraphRef
+    where
+        C: CustomNode,
+    {
+        let ptr = node_ffi::ma_node_get_node_graph(self);
+        NodeGraphRef {
+            inner: ptr,
+            owner: unsafe { &*self.inner }.owner.clone(),
+        }
     }
 
     pub(crate) fn build<N>(
         config: &mut sys::ma_node_config,
         flags: NodeFlags,
         custom: C,
-        node_graph: &'a N,
+        node_graph: &N,
         op: NodeFunction,
         busses: &NodeBusChannelsConfig,
-    ) -> MaResult<Node<'a, C>>
+    ) -> MaResult<Node<C>>
     where
         C: CustomNode,
         N: AsNodeGraphPtr,
@@ -185,7 +214,7 @@ impl<'a, C> Node<'a, C> {
             busses,
             custom,
             op,
-            _marker: PhantomData,
+            owner: private_node_graph::clone_owner(node_graph),
             _not_sync: PhantomData,
         });
 
@@ -200,17 +229,20 @@ impl<'a, C> Node<'a, C> {
             inner_ptr.cast::<u8>(),
         );
 
-        Ok(Node { inner: inner_ptr })
+        Ok(Node {
+            inner: inner_ptr,
+            _not_sync: PhantomData,
+        })
     }
 
     pub(crate) fn build_required_frames<N>(
         config: &mut sys::ma_node_config,
         flags: NodeFlags,
         custom: C,
-        node_graph: &'a N,
+        node_graph: &N,
         op: NodeFunction,
         busses: &NodeBusChannelsConfig,
-    ) -> MaResult<Node<'a, C>>
+    ) -> MaResult<Node<C>>
     where
         C: CustomNode + ReqFramesNode,
         N: AsNodeGraphPtr,
@@ -236,7 +268,7 @@ impl<'a, C> Node<'a, C> {
             busses,
             custom,
             op,
-            _marker: PhantomData,
+            owner: private_node_graph::clone_owner(node_graph),
             _not_sync: PhantomData,
         });
 
@@ -251,7 +283,10 @@ impl<'a, C> Node<'a, C> {
             inner_ptr.cast::<u8>(),
         );
 
-        Ok(Node { inner: inner_ptr })
+        Ok(Node {
+            inner: inner_ptr,
+            _not_sync: PhantomData,
+        })
     }
 }
 
@@ -355,16 +390,18 @@ pub struct NodeRef<'a> {
 impl Binding for NodeRef<'_> {
     type Raw = *mut sys::ma_node;
 
-    fn from_ptr(raw: Self::Raw) -> Self {
+    fn to_raw(&self) -> Self::Raw {
+        self.ptr
+    }
+}
+
+impl<'a> NodeRef<'a> {
+    pub(crate) fn from_ptr(ptr: *mut sys::ma_node) -> Self {
         Self {
-            ptr: raw,
+            ptr,
             _marker: PhantomData,
             _not_sync: PhantomData,
         }
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        self.ptr
     }
 }
 
@@ -406,9 +443,9 @@ pub(crate) mod private_node {
     pub struct SourceNodeProvider;
     pub struct AttachedSourceNodeProvider;
 
-    impl<C: CustomNode> NodePtrProvider<Node<'_, C>> for NodeProvider {
+    impl<C: CustomNode> NodePtrProvider<Node<C>> for NodeProvider {
         #[inline]
-        fn as_node_ptr(t: &Node<'_, C>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &Node<C>) -> *mut sys::ma_node {
             t.as_raw_ptr() as *mut _
         }
     }
@@ -420,65 +457,65 @@ pub(crate) mod private_node {
         }
     }
 
-    impl<'a> NodePtrProvider<DelayNode<'a>> for DelayNodeProvider {
+    impl NodePtrProvider<DelayNode> for DelayNodeProvider {
         #[inline]
-        fn as_node_ptr(t: &DelayNode<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &DelayNode) -> *mut sys::ma_node {
             t.as_node().to_raw()
         }
     }
 
-    impl<'a> NodePtrProvider<BiquadNode<'a>> for BiquadNodeProvider {
+    impl NodePtrProvider<BiquadNode> for BiquadNodeProvider {
         #[inline]
-        fn as_node_ptr(t: &BiquadNode<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &BiquadNode) -> *mut sys::ma_node {
             t.as_node().to_raw()
         }
     }
 
-    impl<'a> NodePtrProvider<HiShelfNode<'a>> for HiShelfNodeProvider {
+    impl NodePtrProvider<HiShelfNode> for HiShelfNodeProvider {
         #[inline]
-        fn as_node_ptr(t: &HiShelfNode<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &HiShelfNode) -> *mut sys::ma_node {
             t.as_node().to_raw()
         }
     }
 
-    impl<'a> NodePtrProvider<HpfNode<'a>> for HpfNodeProvider {
+    impl NodePtrProvider<HpfNode> for HpfNodeProvider {
         #[inline]
-        fn as_node_ptr(t: &HpfNode<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &HpfNode) -> *mut sys::ma_node {
             t.as_node().to_raw()
         }
     }
 
-    impl<'a> NodePtrProvider<LoShelfNode<'a>> for LoShelfNodeProvider {
+    impl NodePtrProvider<LoShelfNode> for LoShelfNodeProvider {
         #[inline]
-        fn as_node_ptr(t: &LoShelfNode<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &LoShelfNode) -> *mut sys::ma_node {
             t.as_node().to_raw()
         }
     }
 
-    impl<'a> NodePtrProvider<LpfNode<'a>> for LpfNodeProvider {
+    impl NodePtrProvider<LpfNode> for LpfNodeProvider {
         #[inline]
-        fn as_node_ptr(t: &LpfNode<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &LpfNode) -> *mut sys::ma_node {
             t.as_node().to_raw()
         }
     }
 
-    impl<'a> NodePtrProvider<NotchNode<'a>> for NotchNodeProvider {
+    impl NodePtrProvider<NotchNode> for NotchNodeProvider {
         #[inline]
-        fn as_node_ptr(t: &NotchNode<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &NotchNode) -> *mut sys::ma_node {
             t.as_node().to_raw()
         }
     }
 
-    impl<'a> NodePtrProvider<PeakNode<'a>> for PeakNodeProvider {
+    impl NodePtrProvider<PeakNode> for PeakNodeProvider {
         #[inline]
-        fn as_node_ptr(t: &PeakNode<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &PeakNode) -> *mut sys::ma_node {
             t.as_node().to_raw()
         }
     }
 
-    impl<'a> NodePtrProvider<SplitterNode<'a>> for SplitterNodeProvider {
+    impl NodePtrProvider<SplitterNode> for SplitterNodeProvider {
         #[inline]
-        fn as_node_ptr(t: &SplitterNode<'a>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &SplitterNode) -> *mut sys::ma_node {
             t.as_node().to_raw()
         }
     }
@@ -490,9 +527,9 @@ pub(crate) mod private_node {
         }
     }
 
-    impl<'a, S: AsSourcePtr> NodePtrProvider<AttachedSourceNode<'a, S>> for AttachedSourceNodeProvider {
+    impl<S: AsSourcePtr> NodePtrProvider<AttachedSourceNode<S>> for AttachedSourceNodeProvider {
         #[inline]
-        fn as_node_ptr(t: &AttachedSourceNode<'a, S>) -> *mut sys::ma_node {
+        fn as_node_ptr(t: &AttachedSourceNode<S>) -> *mut sys::ma_node {
             t.as_node().to_raw()
         }
     }
@@ -508,7 +545,7 @@ pub trait AsNodePtr {
 }
 
 #[doc(hidden)]
-impl<C: CustomNode> AsNodePtr for Node<'_, C> {
+impl<C: CustomNode> AsNodePtr for Node<C> {
     type __PtrProvider = private_node::NodeProvider;
 }
 
@@ -539,11 +576,6 @@ pub trait NodeOps: AsNodePtr {
     /// Detaches all output buses from their connected input buses.
     fn detach_all_outputs(&mut self) -> MaResult<()> {
         node_ffi::ma_node_detach_all_output_buses(self)
-    }
-
-    /// Returns the owning node graph, if any.
-    fn node_graph(&self) -> Option<NodeGraphRef<'_>> {
-        node_ffi::ma_node_get_node_graph(self)
     }
 
     /// Returns the number of input buses.
@@ -633,7 +665,7 @@ pub(super) mod node_ffi {
         engine::{
             node_graph::{
                 nodes::{private_node, AsNodePtr, Node, NodeState},
-                private_node_graph, AsNodeGraphPtr, NodeGraph, NodeGraphRef,
+                private_node_graph, AsNodeGraphPtr, NodeGraph,
             },
             AllocationCallbacks,
         },
@@ -684,26 +716,19 @@ pub(super) mod node_ffi {
     }
 
     #[inline]
-    pub(crate) fn ma_node_uninit<C>(
-        node: &mut Node<'_, C>,
-        alloc: Option<Arc<AllocationCallbacks>>,
-    ) {
+    pub(crate) fn ma_node_uninit<C>(node: &mut Node<C>, alloc: Option<Arc<AllocationCallbacks>>) {
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
 
         unsafe { sys::ma_node_uninit(node.as_raw_ptr() as *mut _, alloc_cb) }
     }
 
+    // Do not use
     #[inline]
-    pub(crate) fn ma_node_get_node_graph<'a, P: AsNodePtr + ?Sized>(
-        node: &'a P,
-    ) -> Option<NodeGraphRef<'a>> {
-        let ptr = unsafe { sys::ma_node_get_node_graph(private_node::node_ptr(node) as *const _) };
-        if ptr.is_null() {
-            None
-        } else {
-            Some(NodeGraphRef::from_ptr(ptr))
-        }
+    pub(crate) fn ma_node_get_node_graph<P: AsNodePtr + ?Sized>(
+        node: &P,
+    ) -> *mut sys::ma_node_graph {
+        unsafe { sys::ma_node_get_node_graph(private_node::node_ptr(node) as *const _) }
     }
 
     #[inline]
@@ -881,7 +906,7 @@ pub(super) mod node_ffi {
     }
 }
 
-impl<'a, C> Drop for Node<'a, C> {
+impl<C> Drop for Node<C> {
     fn drop(&mut self) {
         node_ffi::ma_node_uninit(self, None);
         drop(unsafe { Box::from_raw((*self.inner).vtable as *mut sys::ma_node_vtable) });

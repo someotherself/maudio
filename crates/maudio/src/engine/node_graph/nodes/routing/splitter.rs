@@ -1,14 +1,14 @@
-use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
+use std::{mem::MaybeUninit, sync::Arc};
 
 use maudio_sys::ffi as sys;
 
 use crate::{
     engine::{
         node_graph::{
-            nodes::{private_node::SplitterNodeProvider, AsNodePtr, NodeRef},
-            AsNodeGraphPtr, NodeGraph,
+            nodes::{node_ffi, private_node::SplitterNodeProvider, AsNodePtr, NodeRef},
+            private_node_graph, AsNodeGraphPtr, GraphOwner, NodeGraph, NodeGraphRef,
         },
-        AllocationCallbacks,
+        AllocationCallbacks, Engine,
     },
     AsRawRef, Binding, MaResult,
 };
@@ -54,19 +54,16 @@ use crate::{
 /// - Volume control and routing are handled at the node-graph level
 ///
 /// Use [`SplitterNodeBuilder`] to initialize.
-pub struct SplitterNode<'a> {
+pub struct SplitterNode {
     inner: *mut sys::ma_splitter_node,
     alloc_cb: Option<Arc<AllocationCallbacks>>,
-    _marker: PhantomData<&'a NodeGraph>,
+    pub(crate) owner: GraphOwner,
 }
 
-impl Binding for SplitterNode<'_> {
-    type Raw = *mut sys::ma_splitter_node;
+unsafe impl Send for SplitterNode {}
 
-    // !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
+impl Binding for SplitterNode {
+    type Raw = *mut sys::ma_splitter_node;
 
     fn to_raw(&self) -> Self::Raw {
         self.inner
@@ -74,11 +71,11 @@ impl Binding for SplitterNode<'_> {
 }
 
 #[doc(hidden)]
-impl AsNodePtr for SplitterNode<'_> {
+impl AsNodePtr for SplitterNode {
     type __PtrProvider = SplitterNodeProvider;
 }
 
-impl<'a> SplitterNode<'a> {
+impl SplitterNode {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &SplitterNodeBuilder<'_, N>,
@@ -102,8 +99,27 @@ impl<'a> SplitterNode<'a> {
         Ok(Self {
             inner,
             alloc_cb: alloc,
-            _marker: PhantomData,
+            owner: private_node_graph::clone_owner(node_graph),
         })
+    }
+
+    /// Returns the owning engine, if any.
+    pub fn engine(&self) -> Option<Engine> {
+        self.owner.engine().map(Engine)
+    }
+
+    /// Returns the owning node graph, if any.
+    pub fn node_graph(&self) -> Option<NodeGraph> {
+        self.owner.graph().map(NodeGraph)
+    }
+
+    /// Returns a reference to the node graph.
+    pub fn node_graph_ref(&self) -> NodeGraphRef {
+        let ptr = node_ffi::ma_node_get_node_graph(self);
+        NodeGraphRef {
+            inner: ptr,
+            owner: self.owner.clone(),
+        }
     }
 
     /// Returns a **borrowed view** as a node in the engine's node graph.
@@ -114,7 +130,7 @@ impl<'a> SplitterNode<'a> {
     /// - connect this to other nodes (effects, mixers, splitters, etc.)
     /// - insert into a custom routing graph
     /// - query node-level state exposed by the graph
-    pub fn as_node(&self) -> NodeRef<'a> {
+    pub fn as_node<'a>(&'a self) -> NodeRef<'a> {
         assert!(!self.to_raw().is_null());
         let ptr = self.to_raw().cast::<sys::ma_node>();
         NodeRef::from_ptr(ptr)
@@ -164,7 +180,7 @@ pub(crate) mod n_splitter_ffi {
     }
 }
 
-impl<'a> Drop for SplitterNode<'a> {
+impl Drop for SplitterNode {
     fn drop(&mut self) {
         n_splitter_ffi::ma_splitter_node_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
@@ -199,7 +215,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> SplitterNodeBuilder<'a, N> {
         self
     }
 
-    pub fn build(&self) -> MaResult<SplitterNode<'a>> {
+    pub fn build(&self) -> MaResult<SplitterNode> {
         SplitterNode::new_with_cfg_alloc_internal(self.node_graph, self, None)
     }
 }
@@ -208,13 +224,13 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> SplitterNodeBuilder<'a, N> {
 mod test {
     use crate::engine::{
         node_graph::nodes::{routing::splitter::SplitterNodeBuilder, NodeOps, NodeState},
-        Engine, EngineOps,
+        Engine,
     };
 
     #[test]
     fn test_splitter_basic_init() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let _node = SplitterNodeBuilder::new(&node_graph, 2)
             .output_bus_count(2)
@@ -225,7 +241,7 @@ mod test {
     #[test]
     fn test_splitter_default_output_bus_count_builds() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let _node = SplitterNodeBuilder::new(&node_graph, 2).build().unwrap();
     }
@@ -233,7 +249,7 @@ mod test {
     #[test]
     fn test_splitter_various_output_bus_counts() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         for &bus_count in &[1u32, 2, 4, 8] {
             let _node = SplitterNodeBuilder::new(&node_graph, 2)
@@ -246,7 +262,7 @@ mod test {
     #[test]
     fn test_splitter_repeated_create_drop() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         for _ in 0..100 {
             let _node = SplitterNodeBuilder::new(&node_graph, 2)
@@ -260,7 +276,7 @@ mod test {
     #[test]
     fn test_splitter_zero_channels_is_err() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let res = SplitterNodeBuilder::new(&node_graph, 0)
             .output_bus_count(2)
@@ -272,7 +288,7 @@ mod test {
     #[test]
     fn test_splitter_zero_output_buses_is_err() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let res = SplitterNodeBuilder::new(&node_graph, 2)
             .output_bus_count(0)
@@ -285,7 +301,7 @@ mod test {
     #[test]
     fn test_splitter_as_node_is_valid() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let node = SplitterNodeBuilder::new(&node_graph, 2)
             .output_bus_count(2)
@@ -298,7 +314,7 @@ mod test {
     #[test]
     fn test_splitter_node_ref_bus_counts_and_channels() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let splitter = SplitterNodeBuilder::new(&node_graph, 2)
             .output_bus_count(4)
@@ -322,7 +338,7 @@ mod test {
     #[test]
     fn test_splitter_attach_and_detach_output_bus() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let splitter_a = SplitterNodeBuilder::new(&node_graph, 2)
             .output_bus_count(2)
@@ -351,7 +367,7 @@ mod test {
     #[test]
     fn test_splitter_detach_all_outputs_after_multiple_attaches() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let splitter_a = SplitterNodeBuilder::new(&node_graph, 2)
             .output_bus_count(4)
@@ -379,7 +395,7 @@ mod test {
     #[test]
     fn test_splitter_output_bus_volume_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let splitter = SplitterNodeBuilder::new(&node_graph, 2)
             .output_bus_count(3)
@@ -400,7 +416,7 @@ mod test {
     #[test]
     fn test_splitter_state_set_get() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let splitter = SplitterNodeBuilder::new(&node_graph, 2)
             .output_bus_count(2)
@@ -417,23 +433,9 @@ mod test {
     }
 
     #[test]
-    fn test_splitter_node_graph_ref_is_some() {
-        let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
-
-        let splitter = SplitterNodeBuilder::new(&node_graph, 2)
-            .output_bus_count(2)
-            .build()
-            .unwrap();
-
-        let node_ref = splitter.as_node();
-        assert!(node_ref.node_graph().is_some());
-    }
-
-    #[test]
     fn test_splitter_invalid_attach_indices_is_err() {
         let engine = Engine::new_for_tests().unwrap();
-        let node_graph = engine.as_node_graph().unwrap();
+        let node_graph = engine.as_node_graph();
 
         let splitter_a = SplitterNodeBuilder::new(&node_graph, 2)
             .output_bus_count(2)

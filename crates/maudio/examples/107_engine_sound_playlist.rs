@@ -22,13 +22,13 @@ pub enum Command {
     Add { path: PathBuf },
 }
 
-struct PlayList<'a> {
-    current: Option<Sound<'a>>,
+struct PlayList {
+    current: Option<Sound>,
     current_notifier: Option<EndNotifier>,
     queue: VecDeque<PathBuf>,
 }
 
-impl<'a> PlayList<'a> {
+impl PlayList {
     fn new() -> Self {
         Self {
             current: None,
@@ -41,7 +41,7 @@ impl<'a> PlayList<'a> {
         self.queue.push_back(path.as_ref().to_path_buf());
     }
 
-    fn play_next(&mut self, engine: &'a Engine) -> MaResult<()> {
+    fn play_next(&mut self, engine: &Engine) -> MaResult<()> {
         self.current = None;
         self.current_notifier = None;
 
@@ -61,7 +61,7 @@ impl<'a> PlayList<'a> {
         Ok(())
     }
 
-    fn run(&mut self, engine: &'a Engine) -> MaResult<()> {
+    fn run(&mut self, engine: &Engine) -> MaResult<()> {
         if self.current.is_none() {
             self.play_next(engine)?;
         }

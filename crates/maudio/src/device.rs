@@ -57,11 +57,6 @@ pub(crate) struct DeviceInner<F: PcmFormat> {
 impl<F: PcmFormat> Binding for DeviceInner<F> {
     type Raw = *mut sys::ma_device;
 
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner
     }
@@ -73,11 +68,6 @@ unsafe impl<F: PcmFormat> Sync for DeviceInner<F> {}
 
 impl<F: PcmFormat> Binding for Device<F> {
     type Raw = *mut sys::ma_device;
-
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
 
     fn to_raw(&self) -> Self::Raw {
         self.inner.inner
@@ -93,15 +83,17 @@ pub struct DeviceRef<'a> {
 impl Binding for DeviceRef<'_> {
     type Raw = *mut sys::ma_device;
 
-    fn from_ptr(raw: Self::Raw) -> Self {
-        Self {
-            inner: raw,
-            _keep_alive: PhantomData,
-        }
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner
+    }
+}
+
+impl<'a> DeviceRef<'a> {
+    pub(crate) fn from_ptr(ptr: *mut sys::ma_device) -> Self {
+        Self {
+            inner: ptr,
+            _keep_alive: PhantomData,
+        }
     }
 }
 
@@ -115,12 +107,14 @@ pub struct CallBackDevice {
 impl Binding for CallBackDevice {
     type Raw = *mut sys::ma_device;
 
-    fn from_ptr(raw: Self::Raw) -> Self {
-        Self { inner: raw }
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner
+    }
+}
+
+impl CallBackDevice {
+    pub(crate) fn from_ptr(ptr: *mut sys::ma_device) -> Self {
+        Self { inner: ptr }
     }
 }
 

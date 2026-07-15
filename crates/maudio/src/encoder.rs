@@ -110,11 +110,6 @@ type EncoderUserDataDestructor = (*mut core::ffi::c_void, fn(*mut core::ffi::c_v
 impl<F: PcmFormat, E: CodecFormat, D> Binding for Encoder<F, E, D> {
     type Raw = *mut sys::ma_encoder;
 
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner
     }

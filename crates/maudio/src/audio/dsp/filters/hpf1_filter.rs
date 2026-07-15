@@ -20,11 +20,6 @@ unsafe impl<F: PcmFormat> Send for Hpf1<F> {}
 impl<F: PcmFormat> Binding for Hpf1<F> {
     type Raw = *mut sys::ma_hpf1;
 
-    /// !!! unimplemented !!!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner
     }

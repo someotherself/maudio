@@ -35,7 +35,7 @@
 //! endpoint.
 //! See [`node_graph::NodeGraph`]
 //!
-//! Advanced users can access the endpoint node via [`EngineOps::endpoint()`] to
+//! Advanced users can access the endpoint node via [`Engine::endpoint()`] to
 //! attach custom processing or inspect the graph.
 //!
 //! ## Time
@@ -59,6 +59,7 @@ use crate::{
     device::{device_id::DeviceId, DeviceInner, DeviceRef},
     engine::{
         engine_builder::EngineBuilder,
+        engine_cb_notif::engine_notification_callback,
         node_graph::{nodes::NodeRef, NodeGraphRef},
         process_cb::ProcessState,
         resource::{ResourceManager, ResourceManagerRef},
@@ -94,11 +95,14 @@ pub mod resource;
 /// - load or create sounds
 /// - control playback and volume
 /// - optionally interact with the engine’s endpoint node / node graph for effects
-pub struct Engine {
+pub struct Engine(pub(crate) Arc<EngineInner>);
+
+#[doc(hidden)]
+pub struct EngineInner {
     inner: *mut sys::ma_engine,
-    _playback_device_id: Option<DeviceId>,  // a ref count
-    _device: Option<Arc<DeviceInner<f32>>>, // a ref count
-    _resource_manager: Option<ResourceManager<f32>>, // a ref count
+    _playback_device_id: Option<DeviceId>,  // keep alive
+    _device: Option<Arc<DeviceInner<f32>>>, // keep alive
+    _resource_manager: Option<ResourceManager<f32>>, // keep alive
     process_data_ptr: Option<*mut ProcessState>, // userdata (self.inner.pProcessUserData)
     process_data_panic: Option<Arc<AtomicBool>>, // true = callback panicked and is now poisoned
     process_data_notif: Option<ProcFramesNotif>,
@@ -106,268 +110,17 @@ pub struct Engine {
     _not_sync: PhantomData<Cell<()>>,
 }
 
+unsafe impl Send for EngineInner {}
+unsafe impl Sync for EngineInner {}
+
 impl Binding for Engine {
     type Raw = *mut sys::ma_engine;
 
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
     fn to_raw(&self) -> Self::Raw {
-        self.inner
+        self.0.inner
     }
 }
 
-/// Borrowed view of the engine
-#[derive(Clone, Copy)]
-pub struct EngineRef<'a> {
-    ptr: *mut sys::ma_engine,
-    _marker: PhantomData<&'a ()>,
-    _not_sync: PhantomData<Cell<()>>,
-}
-
-impl<'a> Binding for EngineRef<'a> {
-    type Raw = *mut sys::ma_engine;
-
-    fn from_ptr(raw: Self::Raw) -> Self {
-        EngineRef {
-            ptr: raw,
-            _marker: PhantomData,
-            _not_sync: PhantomData,
-        }
-    }
-
-    fn to_raw(&self) -> Self::Raw {
-        self.ptr
-    }
-}
-
-pub(crate) mod private_engine {
-    use super::*;
-    use maudio_sys::ffi as sys;
-
-    pub trait EnginePtrProvider<T: ?Sized> {
-        fn as_engine_ptr(t: &T) -> *mut sys::ma_engine;
-    }
-
-    pub struct EngineProvider;
-    pub struct EngineRefProvider;
-
-    impl EnginePtrProvider<Engine> for EngineProvider {
-        #[inline]
-        fn as_engine_ptr(t: &Engine) -> *mut sys::ma_engine {
-            t.to_raw()
-        }
-    }
-
-    impl<'a> EnginePtrProvider<EngineRef<'a>> for EngineRefProvider {
-        fn as_engine_ptr(t: &EngineRef<'a>) -> *mut sys::ma_engine {
-            t.to_raw()
-        }
-    }
-
-    pub fn engine_ptr<T: AsEnginePtr + ?Sized>(t: &T) -> *mut sys::ma_engine {
-        <T as AsEnginePtr>::__PtrProvider::as_engine_ptr(t)
-    }
-}
-
-#[doc(hidden)]
-pub trait AsEnginePtr {
-    type __PtrProvider: private_engine::EnginePtrProvider<Self>;
-}
-
-#[doc(hidden)]
-impl AsEnginePtr for Engine {
-    type __PtrProvider = private_engine::EngineProvider;
-}
-
-#[doc(hidden)]
-impl AsEnginePtr for EngineRef<'_> {
-    type __PtrProvider = private_engine::EngineRefProvider;
-}
-
-impl<T: AsEnginePtr + ?Sized> EngineOps for T {}
-
-/// EngineOps trait contains shared methods for [`Engine`] and [`EngineRef`]
-pub trait EngineOps: AsEnginePtr {
-    /// Sets the master volume (of the output node).
-    fn set_volume(&self, volume: f32) -> MaResult<()> {
-        engine_ffi::ma_engine_set_volume(self, volume)
-    }
-
-    /// Returns the master volume.
-    fn volume(&self) -> f32 {
-        engine_ffi::ma_engine_get_volume(self)
-    }
-
-    /// Sets the master gain in dB.
-    fn set_gain_db(&self, db_gain: f32) -> MaResult<()> {
-        engine_ffi::ma_engine_set_gain_db(self, db_gain)
-    }
-
-    /// Returns the master gain in dB.
-    fn gain_db(&self) -> f32 {
-        engine_ffi::ma_engine_get_gain_db(self)
-    }
-
-    /// Returns the number of listeners.
-    fn listener_count(&self) -> u32 {
-        engine_ffi::ma_engine_get_listener_count(self)
-    }
-
-    /// Returns the index of the closest listener to `position`.
-    fn closest_listener(&self, position: Vec3) -> u32 {
-        engine_ffi::ma_engine_find_closest_listener(self, position)
-    }
-
-    /// Sets the position of `listener`.
-    fn set_position(&self, listener: u32, position: Vec3) {
-        engine_ffi::ma_engine_listener_set_position(self, listener, position);
-    }
-
-    /// Returns the position of `listener`.
-    fn position(&self, listener: u32) -> Vec3 {
-        engine_ffi::ma_engine_listener_get_position(self, listener)
-    }
-
-    /// Sets the facing direction of `listener`.
-    fn set_direction(&self, listener: u32, direction: Vec3) {
-        engine_ffi::ma_engine_listener_set_direction(self, listener, direction);
-    }
-
-    /// Returns the facing direction of `listener`.
-    fn direction(&self, listener: u32) -> Vec3 {
-        engine_ffi::ma_engine_listener_get_direction(self, listener)
-    }
-
-    /// Sets the velocity of `listener`.
-    fn set_velocity(&self, listener: u32, position: Vec3) {
-        engine_ffi::ma_engine_listener_set_velocity(self, listener, position);
-    }
-
-    /// Returns the velocity of `listener`.
-    fn velocity(&self, listener: u32) -> Vec3 {
-        engine_ffi::ma_engine_listener_get_velocity(self, listener)
-    }
-
-    /// Sets the directional cone of `listener`.
-    fn set_cone(&self, listener: u32, cone: Cone) {
-        engine_ffi::ma_engine_listener_set_cone(self, listener, cone);
-    }
-
-    /// Returns the directional cone of `listener`.
-    fn cone(&self, listener: u32) -> Cone {
-        engine_ffi::ma_engine_listener_get_cone(self, listener)
-    }
-
-    /// Sets the world-up vector of `listener`.
-    fn set_world_up(&self, listener: u32, up_direction: Vec3) {
-        engine_ffi::ma_engine_listener_set_world_up(self, listener, up_direction);
-    }
-
-    /// Returns the world-up vector of `listener`.
-    fn get_world_up(&self, listener: u32) -> Vec3 {
-        engine_ffi::ma_engine_listener_get_world_up(self, listener)
-    }
-
-    /// Enables or disables `listener`.
-    fn toggle_listener(&self, listener: u32, enabled: bool) {
-        engine_ffi::ma_engine_listener_set_enabled(self, listener, enabled);
-    }
-
-    /// Returns `true` if `listener` is enabled.
-    fn listener_enabled(&self, listener: u32) -> bool {
-        engine_ffi::ma_engine_listener_is_enabled(self, listener)
-    }
-
-    /// Returns the engine's internal node graph, if available.
-    fn as_node_graph(&self) -> Option<NodeGraphRef<'_>> {
-        engine_ffi::ma_engine_get_node_graph(self)
-    }
-
-    /// Returns the engine's internal resource manager, if available.
-    fn resource_manager(&self) -> Option<ResourceManagerRef<'_, f32>> {
-        engine_ffi::ma_engine_get_resource_manager(self)
-    }
-
-    /// Returns the engine's internal device, if available
-    fn device(&self) -> Option<DeviceRef<'_>> {
-        engine_ffi::ma_engine_get_device(self)
-    }
-
-    /// Reads PCM frames into `dst`, returning the number of frames read.
-    fn read_pcm_frames_into(&self, dst: &mut [f32]) -> MaResult<usize> {
-        if engine_ffi::ma_engine_get_device(self).is_some() {
-            return Err(MaudioError::new_ma_error(ErrorKinds::InvalidOperation(
-                "read_pcm_frames is not allowed when engine has a device",
-            )));
-        }
-        engine_ffi::ma_engine_read_pcm_frames_into(self, dst)
-    }
-
-    /// This function pulls audio from the engine’s internal node graph and returns
-    /// up to `frame_count` frames of interleaved PCM samples.
-    ///
-    /// - This is a **pull-based render operation**.
-    /// - The engine will attempt to render `frame_count` frames, but it may return
-    ///   **fewer frames**.
-    fn read_pcm_frames(&self, frame_count: u64) -> MaResult<SampleBuffer<f32>> {
-        if engine_ffi::ma_engine_get_device(self).is_some() {
-            return Err(MaudioError::new_ma_error(ErrorKinds::InvalidOperation(
-                "read_pcm_frames is not allowed when engine has a device",
-            )));
-        }
-        engine_ffi::ma_engine_read_pcm_frames(self, frame_count)
-    }
-
-    /// Returns the engine’s **endpoint node**.
-    ///
-    /// The endpoint node is the final node in the engine’s internal node graph.
-    /// All sounds ultimately connect to this node before audio is sent to the
-    /// output device.
-    fn endpoint(&self) -> Option<NodeRef<'_>> {
-        engine_ffi::ma_engine_get_endpoint(self)
-    }
-
-    /// Returns the current local time (in PCM frames) of the output node.
-    fn time_pcm(&self) -> u64 {
-        engine_ffi::ma_engine_get_time_in_pcm_frames(self)
-    }
-
-    /// Returns the current local time (in PCM frames) of the output node.
-    ///
-    /// For sample-accurate work, prefer [`EngineOps::time_pcm()`].
-    fn time_mili(&self) -> u64 {
-        engine_ffi::ma_engine_get_time_in_milliseconds(self)
-    }
-
-    /// Sets the current local time (in PCM frames) of the output node.
-    fn set_time_pcm(&self, time: u64) {
-        engine_ffi::ma_engine_set_time_in_pcm_frames(self, time);
-    }
-
-    /// Sets the current local time (in PCM frames) of the output node.
-    ///
-    /// Precision may be lower than [`EngineOps::set_time_pcm()`].
-    fn set_time_mili(&self, time: u64) {
-        engine_ffi::ma_engine_set_time_in_milliseconds(self, time);
-    }
-
-    /// Returns the number of output **channels** used by the engine.
-    /// and output device.
-    fn channels(&self) -> u32 {
-        engine_ffi::ma_engine_get_channels(self)
-    }
-
-    /// Returns the engine’s **sample rate**, in Hz.
-    fn sample_rate(&self) -> MaResult<SampleRate> {
-        let res = engine_ffi::ma_engine_get_sample_rate(self);
-        res.try_into()
-    }
-}
-
-// These should be available to EngineRef
 impl Engine {
     /// Creates a new engine using the default configuration.
     ///
@@ -383,12 +136,12 @@ impl Engine {
     ///
     /// `ProcFramesNotif` is cheap to clone, and this function can be safely called multiple times
     pub fn get_data_notifier(&self) -> Option<ProcFramesNotif> {
-        self.process_data_notif.clone()
+        self.0.process_data_notif.clone()
     }
 
     /// Checks if the data onProcess callback is poisoned
     pub fn data_callback_panicked(&self) -> bool {
-        match &self.process_data_panic {
+        match &self.0.process_data_panic {
             Some(flag) => flag.load(std::sync::atomic::Ordering::Relaxed),
             None => false,
         }
@@ -398,7 +151,7 @@ impl Engine {
     ///
     /// `DeviceStateNotifier` is cheap to clone, and this function can be safely called multiple times
     pub fn get_state_notifier(&self) -> Option<DeviceStateNotifier> {
-        self.state_notifier.clone()
+        self.0.state_notifier.clone()
     }
 
     fn new_with_config(config: Option<&EngineBuilder>) -> MaResult<Self> {
@@ -413,17 +166,45 @@ impl Engine {
         engine_ffi::engine_init(config, mem.as_mut_ptr())?;
 
         let inner: *mut sys::ma_engine = Box::into_raw(mem) as *mut sys::ma_engine;
-        Ok(Self {
+        Ok(Self(Arc::new(EngineInner {
             inner,
             _playback_device_id: dev_id,
             _device: device,
             _resource_manager: rm,
-            process_data_ptr: None,   // set in builder after returning this
-            process_data_panic: None, // set in builder after returning this
-            process_data_notif: None, // set in builder after returning this
-            state_notifier: None,     // set in builder after returning this
+            process_data_ptr: None,
+            process_data_panic: None,
+            process_data_notif: None,
+            state_notifier: None,
             _not_sync: PhantomData,
-        })
+        })))
+    }
+
+    fn new_with_process_data(
+        config: &mut EngineBuilder,
+        data_notif: Option<ProcFramesNotif>,
+    ) -> MaResult<Self> {
+        let state_notif = if config.inner.noDevice == 0 && config.process_data.state_notif_exists {
+            config.inner.notificationCallback = Some(engine_notification_callback);
+            config.process_data.state_notif.take()
+        } else {
+            None
+        };
+
+        let mut mem: Box<MaybeUninit<sys::ma_engine>> = Box::new(MaybeUninit::uninit());
+        engine_ffi::engine_init(Some(config), mem.as_mut_ptr())?;
+
+        let inner: *mut sys::ma_engine = Box::into_raw(mem) as *mut sys::ma_engine;
+        Ok(Self(Arc::new(EngineInner {
+            inner,
+            _playback_device_id: config.playback_device_id.take(),
+            _device: config.device.take(),
+            _resource_manager: config.resource_manager.take(),
+            process_data_ptr: config.process_data.process_data_ptr,
+            process_data_panic: config.process_data.process_data_panic.take(),
+            process_data_notif: data_notif,
+            state_notifier: state_notif,
+            _not_sync: PhantomData,
+        })))
     }
 
     /// Equivalent to calling [`SoundBuilder::new()`]
@@ -436,22 +217,19 @@ impl Engine {
     /// Unlike sounds created from a file or data source, this object does not
     /// produce audio by itself. It is mainly useful as an intermediate node in
     /// the engine's node graph, where other sounds or nodes can be attached to it.
-    pub fn new_sound(&self) -> MaResult<Sound<'_>> {
+    pub fn new_sound(&self) -> MaResult<Sound> {
         self.new_sound_with_config_internal(None)
     }
 
-    pub fn new_sound_from_file(&self, path: &Path) -> MaResult<Sound<'_>> {
+    pub fn new_sound_from_file(&self, path: &Path) -> MaResult<Sound> {
         self.new_sound_with_file_internal(path, SoundFlags::NONE, None, None)
     }
 
-    pub fn new_sound_from_source<D: AsSourcePtr + ?Sized>(
-        &self,
-        source: &D,
-    ) -> MaResult<Sound<'_>> {
+    pub fn new_sound_from_source<D: AsSourcePtr + ?Sized>(&self, source: &D) -> MaResult<Sound> {
         self.new_sound_with_source_internal(SoundFlags::NONE, None, source)
     }
 
-    pub fn clone_sound(&self, sound: &Sound, flags: SoundFlags) -> MaResult<Sound<'_>> {
+    pub fn clone_sound(&self, sound: &Sound, flags: SoundFlags) -> MaResult<Sound> {
         self.new_sound_instance_internal(sound, flags, None)
     }
 
@@ -472,12 +250,12 @@ impl Engine {
         engine_ffi::ma_engine_stop(self)
     }
 
-    pub fn new_sound_from_file_with_group<'a>(
-        &'a self,
+    pub fn new_sound_from_file_with_group(
+        &self,
         path: &Path,
-        sound_group: &'a SoundGroup,
+        sound_group: &SoundGroup,
         done_fence: Option<Fence>,
-    ) -> MaResult<Sound<'a>> {
+    ) -> MaResult<Sound> {
         self.new_sound_with_file_internal(path, SoundFlags::NONE, Some(sound_group), done_fence)
     }
 
@@ -487,30 +265,205 @@ impl Engine {
         path: &Path,
         flags: SoundFlags,
         done_fence: Option<Fence>,
-    ) -> MaResult<Sound<'_>> {
+    ) -> MaResult<Sound> {
         self.new_sound_with_file_internal(path, flags, None, done_fence)
     }
 
     /// Convenience method for `SoundGroupBuilder::new(&engine).build()`
-    pub fn new_sound_group(&self) -> MaResult<SoundGroup<'_>> {
+    pub fn new_sound_group(&self) -> MaResult<SoundGroup> {
         SoundGroupBuilder::new(self).build()
+    }
+
+    /// Sets the master volume (of the output node).
+    pub fn set_volume(&self, volume: f32) -> MaResult<()> {
+        engine_ffi::ma_engine_set_volume(self, volume)
+    }
+
+    /// Returns the master volume.
+    pub fn volume(&self) -> f32 {
+        engine_ffi::ma_engine_get_volume(self)
+    }
+
+    /// Sets the master gain in dB.
+    pub fn set_gain_db(&self, db_gain: f32) -> MaResult<()> {
+        engine_ffi::ma_engine_set_gain_db(self, db_gain)
+    }
+
+    /// Returns the master gain in dB.
+    pub fn gain_db(&self) -> f32 {
+        engine_ffi::ma_engine_get_gain_db(self)
+    }
+
+    /// Returns the number of listeners.
+    pub fn listener_count(&self) -> u32 {
+        engine_ffi::ma_engine_get_listener_count(self)
+    }
+
+    /// Returns the index of the closest listener to `position`.
+    pub fn closest_listener(&self, position: Vec3) -> u32 {
+        engine_ffi::ma_engine_find_closest_listener(self, position)
+    }
+
+    /// Sets the position of `listener`.
+    pub fn set_position(&self, listener: u32, position: Vec3) {
+        engine_ffi::ma_engine_listener_set_position(self, listener, position);
+    }
+
+    /// Returns the position of `listener`.
+    pub fn position(&self, listener: u32) -> Vec3 {
+        engine_ffi::ma_engine_listener_get_position(self, listener)
+    }
+
+    /// Sets the facing direction of `listener`.
+    pub fn set_direction(&self, listener: u32, direction: Vec3) {
+        engine_ffi::ma_engine_listener_set_direction(self, listener, direction);
+    }
+
+    /// Returns the facing direction of `listener`.
+    pub fn direction(&self, listener: u32) -> Vec3 {
+        engine_ffi::ma_engine_listener_get_direction(self, listener)
+    }
+
+    /// Sets the velocity of `listener`.
+    pub fn set_velocity(&self, listener: u32, position: Vec3) {
+        engine_ffi::ma_engine_listener_set_velocity(self, listener, position);
+    }
+
+    /// Returns the velocity of `listener`.
+    pub fn velocity(&self, listener: u32) -> Vec3 {
+        engine_ffi::ma_engine_listener_get_velocity(self, listener)
+    }
+
+    /// Sets the directional cone of `listener`.
+    pub fn set_cone(&self, listener: u32, cone: Cone) {
+        engine_ffi::ma_engine_listener_set_cone(self, listener, cone);
+    }
+
+    /// Returns the directional cone of `listener`.
+    pub fn cone(&self, listener: u32) -> Cone {
+        engine_ffi::ma_engine_listener_get_cone(self, listener)
+    }
+
+    /// Sets the world-up vector of `listener`.
+    pub fn set_world_up(&self, listener: u32, up_direction: Vec3) {
+        engine_ffi::ma_engine_listener_set_world_up(self, listener, up_direction);
+    }
+
+    /// Returns the world-up vector of `listener`.
+    pub fn get_world_up(&self, listener: u32) -> Vec3 {
+        engine_ffi::ma_engine_listener_get_world_up(self, listener)
+    }
+
+    /// Enables or disables `listener`.
+    pub fn toggle_listener(&self, listener: u32, enabled: bool) {
+        engine_ffi::ma_engine_listener_set_enabled(self, listener, enabled);
+    }
+
+    /// Returns `true` if `listener` is enabled.
+    pub fn listener_enabled(&self, listener: u32) -> bool {
+        engine_ffi::ma_engine_listener_is_enabled(self, listener)
+    }
+
+    /// Returns the engine's internal node graph.
+    pub fn as_node_graph(&self) -> NodeGraphRef {
+        engine_ffi::ma_engine_get_node_graph(self)
+    }
+
+    /// Returns the engine's internal resource manager, if available.
+    pub fn resource_manager(&self) -> Option<ResourceManagerRef<'_, f32>> {
+        engine_ffi::ma_engine_get_resource_manager(self)
+    }
+
+    /// Returns the engine's internal device, if available
+    pub fn device(&self) -> Option<DeviceRef<'_>> {
+        engine_ffi::ma_engine_get_device(self)
+    }
+
+    /// Reads PCM frames into `dst`, returning the number of frames read.
+    pub fn read_pcm_frames_into(&self, dst: &mut [f32]) -> MaResult<usize> {
+        if engine_ffi::ma_engine_get_device(self).is_some() {
+            return Err(MaudioError::new_ma_error(ErrorKinds::InvalidOperation(
+                "read_pcm_frames is not allowed when engine has a device",
+            )));
+        }
+        engine_ffi::ma_engine_read_pcm_frames_into(self, dst)
+    }
+
+    /// This function pulls audio from the engine’s internal node graph and returns
+    /// up to `frame_count` frames of interleaved PCM samples.
+    ///
+    /// - This is a **pull-based render operation**.
+    /// - The engine will attempt to render `frame_count` frames, but it may return
+    ///   **fewer frames**.
+    pub fn read_pcm_frames(&self, frame_count: u64) -> MaResult<SampleBuffer<f32>> {
+        if engine_ffi::ma_engine_get_device(self).is_some() {
+            return Err(MaudioError::new_ma_error(ErrorKinds::InvalidOperation(
+                "read_pcm_frames is not allowed when engine has a device",
+            )));
+        }
+        engine_ffi::ma_engine_read_pcm_frames(self, frame_count)
+    }
+
+    /// Returns the engine’s **endpoint node**.
+    ///
+    /// The endpoint node is the final node in the engine’s internal node graph.
+    /// All sounds ultimately connect to this node before audio is sent to the
+    /// output device.
+    pub fn endpoint(&self) -> NodeRef<'_> {
+        engine_ffi::ma_engine_get_endpoint(self)
+    }
+
+    /// Returns the current local time (in PCM frames) of the output node.
+    pub fn time_pcm(&self) -> u64 {
+        engine_ffi::ma_engine_get_time_in_pcm_frames(self)
+    }
+
+    /// Returns the current local time (in PCM frames) of the output node.
+    ///
+    /// For sample-accurate work, prefer [`Engine::time_pcm()`].
+    pub fn time_mili(&self) -> u64 {
+        engine_ffi::ma_engine_get_time_in_milliseconds(self)
+    }
+
+    /// Sets the current local time (in PCM frames) of the output node.
+    pub fn set_time_pcm(&self, time: u64) {
+        engine_ffi::ma_engine_set_time_in_pcm_frames(self, time);
+    }
+
+    /// Sets the current local time (in PCM frames) of the output node.
+    ///
+    /// Precision may be lower than [`Engine::set_time_pcm()`].
+    pub fn set_time_mili(&self, time: u64) {
+        engine_ffi::ma_engine_set_time_in_milliseconds(self, time);
+    }
+
+    /// Returns the number of output **channels** used by the engine.
+    /// and output device.
+    pub fn channels(&self) -> u32 {
+        engine_ffi::ma_engine_get_channels(self)
+    }
+
+    /// Returns the engine’s **sample rate**, in Hz.
+    pub fn sample_rate(&self) -> MaResult<SampleRate> {
+        let res = engine_ffi::ma_engine_get_sample_rate(self);
+        res.try_into()
     }
 }
 
 // Private mathods
 impl Engine {
-    fn new_sound_instance_internal<'a>(
-        &'a self,
+    fn new_sound_instance_internal(
+        &self,
         sound: &Sound,
         flags: SoundFlags,
         sound_group: Option<&mut SoundGroup>,
-    ) -> MaResult<Sound<'a>> {
+    ) -> MaResult<Sound> {
         let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new(MaybeUninit::uninit());
 
         sound_ffi::ma_sound_init_copy(self, sound, flags, sound_group, mem.as_mut_ptr())?;
 
         let inner: *mut sys::ma_sound = Box::into_raw(mem) as *mut sys::ma_sound;
-        Ok(Sound::new_sound(inner, None, None))
+        Ok(Sound::new_sound(inner, self.0.clone(), None, None))
     }
 
     pub(crate) fn sample_rate_u32(&self) -> u32 {
@@ -532,7 +485,7 @@ impl Engine {
     pub(crate) fn new_sound_with_config_internal(
         &self,
         config: Option<&SoundBuilder>,
-    ) -> MaResult<Sound<'_>> {
+    ) -> MaResult<Sound> {
         let temp_config = &SoundBuilder::init(self);
         let config = config.unwrap_or(temp_config);
         let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new(MaybeUninit::uninit());
@@ -542,17 +495,18 @@ impl Engine {
         let inner: *mut sys::ma_sound = Box::into_raw(mem) as *mut sys::ma_sound;
         Ok(Sound::new_sound(
             inner,
+            self.0.clone(),
             config.fence.clone(),
             config.end_notifier.clone(),
         ))
     }
 
-    pub(crate) fn new_sound_with_source_internal<'a, D: AsSourcePtr + ?Sized>(
-        &'a self,
+    pub(crate) fn new_sound_with_source_internal<D: AsSourcePtr + ?Sized>(
+        &self,
         flags: SoundFlags,
-        sound_group: Option<&'a SoundGroup>,
+        sound_group: Option<&SoundGroup>,
         data_source: &D,
-    ) -> MaResult<Sound<'a>> {
+    ) -> MaResult<Sound> {
         let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new(MaybeUninit::uninit());
 
         sound_ffi::ma_sound_init_from_data_source(
@@ -564,16 +518,16 @@ impl Engine {
         )?;
 
         let inner: *mut sys::ma_sound = Box::into_raw(mem) as *mut sys::ma_sound;
-        Ok(Sound::new_sound(inner, None, None))
+        Ok(Sound::new_sound(inner, self.0.clone(), None, None))
     }
 
-    pub(crate) fn new_sound_with_file_internal<'a>(
-        &'a self,
+    pub(crate) fn new_sound_with_file_internal(
+        &self,
         path: &Path,
         flags: SoundFlags,
-        sound_group: Option<&'a SoundGroup>,
+        sound_group: Option<&SoundGroup>,
         done_fence: Option<Fence>,
-    ) -> MaResult<Sound<'a>> {
+    ) -> MaResult<Sound> {
         let mut mem: Box<MaybeUninit<sys::ma_sound>> = Box::new(MaybeUninit::uninit());
 
         Sound::init_from_file_internal(
@@ -586,17 +540,17 @@ impl Engine {
         )?;
 
         let inner: *mut sys::ma_sound = Box::into_raw(mem) as *mut sys::ma_sound;
-        Ok(Sound::new_sound(inner, None, None))
+        Ok(Sound::new_sound(inner, self.0.clone(), None, None))
     }
 }
 
-impl Drop for Engine {
+impl Drop for EngineInner {
     fn drop(&mut self) {
         engine_ffi::engine_uninit(self);
         if let Some(proc_data_ptr) = self.process_data_ptr {
             drop(unsafe { Box::from_raw(proc_data_ptr) });
         }
-        drop(unsafe { Box::from_raw(self.to_raw()) });
+        drop(unsafe { Box::from_raw(self.inner) });
     }
 }
 
@@ -828,17 +782,6 @@ mod test {
     }
 
     #[test]
-    fn test_engine_node_graph_and_endpoint_exist() {
-        let engine = Engine::new_for_tests().unwrap();
-
-        let graph = engine.as_node_graph();
-        assert!(graph.is_some(), "engine should expose a node graph");
-
-        let endpoint = engine.endpoint();
-        assert!(endpoint.is_some(), "engine should expose an endpoint node");
-    }
-
-    #[test]
     fn test_engine_read_pcm_frames_shapes_output() {
         let engine = EngineBuilder::new()
             .no_device(2, SampleRate::Sr44100)
@@ -924,10 +867,9 @@ pub(crate) mod engine_ffi {
         device::DeviceRef,
         engine::{
             engine_builder::EngineBuilder,
-            node_graph::{nodes::NodeRef, NodeGraphRef},
-            private_engine,
+            node_graph::{nodes::NodeRef, GraphOwner, NodeGraphRef},
             resource::ResourceManagerRef,
-            AsEnginePtr, Binding, Engine, EngineOps,
+            Binding, Engine, EngineInner,
         },
         AsRawRef, MaResult, MaudioError,
     };
@@ -944,17 +886,14 @@ pub(crate) mod engine_ffi {
     }
 
     #[inline]
-    pub fn engine_uninit(engine: &Engine) {
+    pub fn engine_uninit(engine: &mut EngineInner) {
         unsafe {
-            sys::ma_engine_uninit(engine.to_raw());
+            sys::ma_engine_uninit(engine.inner);
         }
     }
 
     #[inline]
-    pub fn ma_engine_read_pcm_frames_into<E: AsEnginePtr + ?Sized>(
-        engine: &E,
-        dst: &mut [f32],
-    ) -> MaResult<usize> {
+    pub fn ma_engine_read_pcm_frames_into(engine: &Engine, dst: &mut [f32]) -> MaResult<usize> {
         let channels = engine.channels();
         let len = dst.len() as u64;
 
@@ -968,7 +907,7 @@ pub(crate) mod engine_ffi {
         let mut frames_read = 0;
         let res = unsafe {
             sys::ma_engine_read_pcm_frames(
-                private_engine::engine_ptr(engine),
+                engine.to_raw(),
                 dst.as_mut_ptr() as *mut std::ffi::c_void,
                 frame_count,
                 &mut frames_read,
@@ -980,8 +919,8 @@ pub(crate) mod engine_ffi {
     }
 
     #[inline]
-    pub fn ma_engine_read_pcm_frames<E: AsEnginePtr + ?Sized>(
-        engine: &E,
+    pub fn ma_engine_read_pcm_frames(
+        engine: &Engine,
         frame_count: u64,
     ) -> MaResult<SampleBuffer<f32>> {
         let channels = engine.channels();
@@ -989,7 +928,7 @@ pub(crate) mod engine_ffi {
         let mut frames_read = 0;
         let res = unsafe {
             sys::ma_engine_read_pcm_frames(
-                private_engine::engine_ptr(engine),
+                engine.to_raw(),
                 buffer.as_mut_ptr() as *mut std::ffi::c_void,
                 frame_count,
                 &mut frames_read,
@@ -1000,23 +939,19 @@ pub(crate) mod engine_ffi {
     }
 
     #[inline]
-    pub fn ma_engine_get_node_graph<'a, E: AsEnginePtr + ?Sized>(
-        engine: &'a E,
-    ) -> Option<NodeGraphRef<'a>> {
-        let ptr = unsafe { sys::ma_engine_get_node_graph(private_engine::engine_ptr(engine)) };
-        if ptr.is_null() {
-            None
-        } else {
-            Some(NodeGraphRef::from_ptr(ptr))
+    pub fn ma_engine_get_node_graph(engine: &Engine) -> NodeGraphRef {
+        let ptr = unsafe { sys::ma_engine_get_node_graph(engine.to_raw()) };
+        NodeGraphRef {
+            inner: ptr,
+            owner: GraphOwner::Engine(engine.0.clone()),
         }
     }
 
     #[inline]
-    pub fn ma_engine_get_resource_manager<'a, E: AsEnginePtr + ?Sized>(
-        engine: &'a E,
+    pub fn ma_engine_get_resource_manager<'a>(
+        engine: &'a Engine,
     ) -> Option<ResourceManagerRef<'a, f32>> {
-        let ptr =
-            unsafe { sys::ma_engine_get_resource_manager(private_engine::engine_ptr(engine)) };
+        let ptr = unsafe { sys::ma_engine_get_resource_manager(engine.to_raw()) };
         if ptr.is_null() {
             None
         } else {
@@ -1026,10 +961,8 @@ pub(crate) mod engine_ffi {
 
     // AsEnginePtr
     #[inline]
-    pub fn ma_engine_get_device<'a, E: AsEnginePtr + ?Sized>(
-        engine: &'a E,
-    ) -> Option<DeviceRef<'a>> {
-        let ptr = unsafe { sys::ma_engine_get_device(private_engine::engine_ptr(engine)) };
+    pub fn ma_engine_get_device<'a>(engine: &'a Engine) -> Option<DeviceRef<'a>> {
+        let ptr = unsafe { sys::ma_engine_get_device(engine.to_raw()) };
         if ptr.is_null() {
             None
         } else {
@@ -1044,52 +977,41 @@ pub(crate) mod engine_ffi {
         unsafe { sys::ma_engine_get_log(engine.to_raw()) }
     }
 
+    // TODO
     #[inline]
-    pub fn ma_engine_get_endpoint<'a, E: AsEnginePtr + ?Sized>(
-        engine: &'a E,
-    ) -> Option<NodeRef<'a>> {
-        let ptr = unsafe { sys::ma_engine_get_endpoint(private_engine::engine_ptr(engine)) };
-        if ptr.is_null() {
-            None
-        } else {
-            Some(NodeRef::from_ptr(ptr))
-        }
+    pub fn ma_engine_get_endpoint<'a>(engine: &'a Engine) -> NodeRef<'a> {
+        let ptr = unsafe { sys::ma_engine_get_endpoint(engine.to_raw()) };
+        NodeRef::from_ptr(ptr)
     }
 
     #[inline]
-    pub fn ma_engine_get_time_in_pcm_frames<E: AsEnginePtr + ?Sized>(engine: &E) -> u64 {
-        unsafe {
-            sys::ma_engine_get_time_in_pcm_frames(private_engine::engine_ptr(engine) as *const _)
-        }
+    pub fn ma_engine_get_time_in_pcm_frames(engine: &Engine) -> u64 {
+        unsafe { sys::ma_engine_get_time_in_pcm_frames(engine.to_raw() as *const _) }
     }
 
     #[inline]
-    pub fn ma_engine_get_time_in_milliseconds<E: AsEnginePtr + ?Sized>(engine: &E) -> u64 {
-        unsafe {
-            sys::ma_engine_get_time_in_milliseconds(private_engine::engine_ptr(engine) as *const _)
-        }
+    pub fn ma_engine_get_time_in_milliseconds(engine: &Engine) -> u64 {
+        unsafe { sys::ma_engine_get_time_in_milliseconds(engine.to_raw() as *const _) }
     }
 
     #[inline]
-    pub fn ma_engine_set_time_in_pcm_frames<E: AsEnginePtr + ?Sized>(engine: &E, time: u64) {
-        unsafe { sys::ma_engine_set_time_in_pcm_frames(private_engine::engine_ptr(engine), time) };
+    pub fn ma_engine_set_time_in_pcm_frames(engine: &Engine, time: u64) {
+        unsafe { sys::ma_engine_set_time_in_pcm_frames(engine.to_raw(), time) };
     }
 
     #[inline]
-    pub fn ma_engine_set_time_in_milliseconds<E: AsEnginePtr + ?Sized>(engine: &E, time: u64) {
-        unsafe {
-            sys::ma_engine_set_time_in_milliseconds(private_engine::engine_ptr(engine), time)
-        };
+    pub fn ma_engine_set_time_in_milliseconds(engine: &Engine, time: u64) {
+        unsafe { sys::ma_engine_set_time_in_milliseconds(engine.to_raw(), time) };
     }
 
     #[inline]
-    pub fn ma_engine_get_channels<E: AsEnginePtr + ?Sized>(engine: &E) -> u32 {
-        unsafe { sys::ma_engine_get_channels(private_engine::engine_ptr(engine) as *const _) }
+    pub fn ma_engine_get_channels(engine: &Engine) -> u32 {
+        unsafe { sys::ma_engine_get_channels(engine.to_raw() as *const _) }
     }
 
     #[inline]
-    pub fn ma_engine_get_sample_rate<E: AsEnginePtr + ?Sized>(engine: &E) -> u32 {
-        unsafe { sys::ma_engine_get_sample_rate(private_engine::engine_ptr(engine) as *const _) }
+    pub fn ma_engine_get_sample_rate(engine: &Engine) -> u32 {
+        unsafe { sys::ma_engine_get_sample_rate(engine.to_raw() as *const _) }
     }
 
     #[inline]
@@ -1105,44 +1027,37 @@ pub(crate) mod engine_ffi {
     }
 
     #[inline]
-    pub fn ma_engine_set_volume<E: AsEnginePtr + ?Sized>(engine: &E, volume: f32) -> MaResult<()> {
-        let res = unsafe { sys::ma_engine_set_volume(private_engine::engine_ptr(engine), volume) };
+    pub fn ma_engine_set_volume(engine: &Engine, volume: f32) -> MaResult<()> {
+        let res = unsafe { sys::ma_engine_set_volume(engine.to_raw(), volume) };
         MaudioError::check(res)
     }
 
     #[inline]
-    pub fn ma_engine_get_volume<E: AsEnginePtr + ?Sized>(engine: &E) -> f32 {
-        unsafe { sys::ma_engine_get_volume(private_engine::engine_ptr(engine)) }
+    pub fn ma_engine_get_volume(engine: &Engine) -> f32 {
+        unsafe { sys::ma_engine_get_volume(engine.to_raw()) }
     }
 
     #[inline]
-    pub fn ma_engine_set_gain_db<E: AsEnginePtr + ?Sized>(
-        engine: &E,
-        db_gain: f32,
-    ) -> MaResult<()> {
-        let res =
-            unsafe { sys::ma_engine_set_gain_db(private_engine::engine_ptr(engine), db_gain) };
+    pub fn ma_engine_set_gain_db(engine: &Engine, db_gain: f32) -> MaResult<()> {
+        let res = unsafe { sys::ma_engine_set_gain_db(engine.to_raw(), db_gain) };
         MaudioError::check(res)
     }
 
     #[inline]
-    pub fn ma_engine_get_gain_db<E: AsEnginePtr + ?Sized>(engine: &E) -> f32 {
-        unsafe { sys::ma_engine_get_gain_db(private_engine::engine_ptr(engine)) }
+    pub fn ma_engine_get_gain_db(engine: &Engine) -> f32 {
+        unsafe { sys::ma_engine_get_gain_db(engine.to_raw()) }
     }
 
     #[inline]
-    pub fn ma_engine_get_listener_count<E: AsEnginePtr + ?Sized>(engine: &E) -> u32 {
-        unsafe { sys::ma_engine_get_listener_count(private_engine::engine_ptr(engine) as *const _) }
+    pub fn ma_engine_get_listener_count(engine: &Engine) -> u32 {
+        unsafe { sys::ma_engine_get_listener_count(engine.to_raw() as *const _) }
     }
 
     #[inline]
-    pub fn ma_engine_find_closest_listener<E: AsEnginePtr + ?Sized>(
-        engine: &E,
-        position: Vec3,
-    ) -> u32 {
+    pub fn ma_engine_find_closest_listener(engine: &Engine, position: Vec3) -> u32 {
         unsafe {
             sys::ma_engine_find_closest_listener(
-                private_engine::engine_ptr(engine) as *const _,
+                engine.to_raw() as *const _,
                 position.x,
                 position.y,
                 position.z,
@@ -1151,14 +1066,10 @@ pub(crate) mod engine_ffi {
     }
 
     #[inline]
-    pub fn ma_engine_listener_set_position<E: AsEnginePtr + ?Sized>(
-        engine: &E,
-        listener: u32,
-        position: Vec3,
-    ) {
+    pub fn ma_engine_listener_set_position(engine: &Engine, listener: u32, position: Vec3) {
         unsafe {
             sys::ma_engine_listener_set_position(
-                private_engine::engine_ptr(engine),
+                engine.to_raw(),
                 listener,
                 position.x,
                 position.y,
@@ -1168,28 +1079,17 @@ pub(crate) mod engine_ffi {
     }
 
     #[inline]
-    pub fn ma_engine_listener_get_position<E: AsEnginePtr + ?Sized>(
-        engine: &E,
-        listener: u32,
-    ) -> Vec3 {
-        let vec = unsafe {
-            sys::ma_engine_listener_get_position(
-                private_engine::engine_ptr(engine) as *const _,
-                listener,
-            )
-        };
+    pub fn ma_engine_listener_get_position(engine: &Engine, listener: u32) -> Vec3 {
+        let vec =
+            unsafe { sys::ma_engine_listener_get_position(engine.to_raw() as *const _, listener) };
         vec.into()
     }
 
     #[inline]
-    pub fn ma_engine_listener_set_direction<E: AsEnginePtr + ?Sized>(
-        engine: &E,
-        listener: u32,
-        position: Vec3,
-    ) {
+    pub fn ma_engine_listener_set_direction(engine: &Engine, listener: u32, position: Vec3) {
         unsafe {
             sys::ma_engine_listener_set_direction(
-                private_engine::engine_ptr(engine),
+                engine.to_raw(),
                 listener,
                 position.x,
                 position.y,
@@ -1199,28 +1099,17 @@ pub(crate) mod engine_ffi {
     }
 
     #[inline]
-    pub fn ma_engine_listener_get_direction<E: AsEnginePtr + ?Sized>(
-        engine: &E,
-        listener: u32,
-    ) -> Vec3 {
-        let vec = unsafe {
-            sys::ma_engine_listener_get_direction(
-                private_engine::engine_ptr(engine) as *const _,
-                listener,
-            )
-        };
+    pub fn ma_engine_listener_get_direction(engine: &Engine, listener: u32) -> Vec3 {
+        let vec =
+            unsafe { sys::ma_engine_listener_get_direction(engine.to_raw() as *const _, listener) };
         vec.into()
     }
 
     #[inline]
-    pub fn ma_engine_listener_set_velocity<E: AsEnginePtr + ?Sized>(
-        engine: &E,
-        listener: u32,
-        position: Vec3,
-    ) {
+    pub fn ma_engine_listener_set_velocity(engine: &Engine, listener: u32, position: Vec3) {
         unsafe {
             sys::ma_engine_listener_set_velocity(
-                private_engine::engine_ptr(engine),
+                engine.to_raw(),
                 listener,
                 position.x,
                 position.y,
@@ -1230,28 +1119,17 @@ pub(crate) mod engine_ffi {
     }
 
     #[inline]
-    pub fn ma_engine_listener_get_velocity<E: AsEnginePtr + ?Sized>(
-        engine: &E,
-        listener: u32,
-    ) -> Vec3 {
-        let vec = unsafe {
-            sys::ma_engine_listener_get_velocity(
-                private_engine::engine_ptr(engine) as *const _,
-                listener,
-            )
-        };
+    pub fn ma_engine_listener_get_velocity(engine: &Engine, listener: u32) -> Vec3 {
+        let vec =
+            unsafe { sys::ma_engine_listener_get_velocity(engine.to_raw() as *const _, listener) };
         vec.into()
     }
 
     #[inline]
-    pub fn ma_engine_listener_set_cone<E: AsEnginePtr + ?Sized>(
-        engine: &E,
-        listener: u32,
-        cone: Cone,
-    ) {
+    pub fn ma_engine_listener_set_cone(engine: &Engine, listener: u32, cone: Cone) {
         unsafe {
             sys::ma_engine_listener_set_cone(
-                private_engine::engine_ptr(engine),
+                engine.to_raw(),
                 listener,
                 cone.inner_angle_rad,
                 cone.outer_angle_rad,
@@ -1261,14 +1139,14 @@ pub(crate) mod engine_ffi {
     }
 
     #[inline]
-    pub fn ma_engine_listener_get_cone<E: AsEnginePtr + ?Sized>(engine: &E, listener: u32) -> Cone {
+    pub fn ma_engine_listener_get_cone(engine: &Engine, listener: u32) -> Cone {
         let mut inner = 0.0f32;
         let mut outer = 0.0f32;
         let mut gain = 1.0f32;
 
         unsafe {
             sys::ma_engine_listener_get_cone(
-                private_engine::engine_ptr(engine) as *const _,
+                engine.to_raw() as *const _,
                 listener,
                 &mut inner,
                 &mut outer,
@@ -1284,62 +1162,28 @@ pub(crate) mod engine_ffi {
     }
 
     #[inline]
-    pub fn ma_engine_listener_set_world_up<E: AsEnginePtr + ?Sized>(
-        engine: &E,
-        listener: u32,
-        vec: Vec3,
-    ) {
+    pub fn ma_engine_listener_set_world_up(engine: &Engine, listener: u32, vec: Vec3) {
         unsafe {
-            sys::ma_engine_listener_set_world_up(
-                private_engine::engine_ptr(engine),
-                listener,
-                vec.x,
-                vec.y,
-                vec.z,
-            );
+            sys::ma_engine_listener_set_world_up(engine.to_raw(), listener, vec.x, vec.y, vec.z);
         }
     }
 
     #[inline]
-    pub fn ma_engine_listener_get_world_up<E: AsEnginePtr + ?Sized>(
-        engine: &E,
-        listener: u32,
-    ) -> Vec3 {
-        let vec = unsafe {
-            sys::ma_engine_listener_get_world_up(
-                private_engine::engine_ptr(engine) as *const _,
-                listener,
-            )
-        };
+    pub fn ma_engine_listener_get_world_up(engine: &Engine, listener: u32) -> Vec3 {
+        let vec =
+            unsafe { sys::ma_engine_listener_get_world_up(engine.to_raw() as *const _, listener) };
         vec.into()
     }
 
     #[inline]
-    pub fn ma_engine_listener_set_enabled<E: AsEnginePtr + ?Sized>(
-        engine: &E,
-        listener: u32,
-        enabled: bool,
-    ) {
-        unsafe {
-            sys::ma_engine_listener_set_enabled(
-                private_engine::engine_ptr(engine),
-                listener,
-                enabled as u32,
-            )
-        }
+    pub fn ma_engine_listener_set_enabled(engine: &Engine, listener: u32, enabled: bool) {
+        unsafe { sys::ma_engine_listener_set_enabled(engine.to_raw(), listener, enabled as u32) }
     }
 
     #[inline]
-    pub fn ma_engine_listener_is_enabled<E: AsEnginePtr + ?Sized>(
-        engine: &E,
-        listener: u32,
-    ) -> bool {
-        let res = unsafe {
-            sys::ma_engine_listener_is_enabled(
-                private_engine::engine_ptr(engine) as *const _,
-                listener,
-            )
-        };
+    pub fn ma_engine_listener_is_enabled(engine: &Engine, listener: u32) -> bool {
+        let res =
+            unsafe { sys::ma_engine_listener_is_enabled(engine.to_raw() as *const _, listener) };
         res == 1
     }
 }

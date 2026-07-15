@@ -25,11 +25,6 @@ unsafe impl<F: PcmFormat> Send for Spatializer<F> {}
 impl<F: PcmFormat> Binding for Spatializer<F> {
     type Raw = *mut sys::ma_spatializer;
 
-    /// !!! unimplemented !!!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner
     }
@@ -559,11 +554,6 @@ unsafe impl<F: PcmFormat> Send for Listener<F> {}
 
 impl<F: PcmFormat> Binding for Listener<F> {
     type Raw = *mut sys::ma_spatializer_listener;
-
-    /// !!! unimplemented !!!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
 
     fn to_raw(&self) -> Self::Raw {
         self.inner

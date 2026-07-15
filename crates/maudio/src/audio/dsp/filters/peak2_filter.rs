@@ -23,11 +23,6 @@ unsafe impl<F: PcmFormat> Send for Peak2<F> {}
 impl<F: PcmFormat> Binding for Peak2<F> {
     type Raw = *mut sys::ma_peak2;
 
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner
     }

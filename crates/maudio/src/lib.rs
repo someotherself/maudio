@@ -116,9 +116,6 @@ use maudio_sys::ffi as sys;
 pub(crate) trait Binding: Sized {
     type Raw;
 
-    /// Construct the wrapper from a raw FFI handle.
-    fn from_ptr(raw: Self::Raw) -> Self;
-
     fn to_raw(&self) -> Self::Raw;
 }
 

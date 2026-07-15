@@ -17,14 +17,18 @@ use crate::{
 };
 
 pub struct EngineBuilder {
-    inner: sys::ma_engine_config,
+    pub(crate) inner: sys::ma_engine_config,
     pub(crate) playback_device_id: Option<DeviceId>,
     pub(crate) device: Option<Arc<DeviceInner<f32>>>, // a ref count, not ownership
     pub(crate) resource_manager: Option<ResourceManager<f32>>, // a ref count, not ownership
-    process_data_ptr: Option<*mut ProcessState>,
-    process_data_panic: Option<Arc<AtomicBool>>,
-    state_notif_exists: bool,
-    state_notif: Option<DeviceStateNotifier>, // Always set by set_process_notifier. Dropped if state_notif_exists is false
+    pub(crate) process_data: EngineProcessCbData,
+}
+
+pub(crate) struct EngineProcessCbData {
+    pub(crate) process_data_ptr: Option<*mut ProcessState>,
+    pub(crate) process_data_panic: Option<Arc<AtomicBool>>,
+    pub(crate) state_notif_exists: bool,
+    pub(crate) state_notif: Option<DeviceStateNotifier>, // Always set by set_process_notifier. Dropped if state_notif_exists is false
 }
 
 unsafe impl Send for EngineBuilder {}
@@ -47,10 +51,12 @@ impl EngineBuilder {
             playback_device_id: None,
             device: None,
             resource_manager: None,
-            process_data_ptr: None,
-            process_data_panic: None,
-            state_notif_exists: false,
-            state_notif: None,
+            process_data: EngineProcessCbData {
+                process_data_ptr: None,
+                process_data_panic: None,
+                state_notif_exists: false,
+                state_notif: None,
+            },
         }
     }
 
@@ -77,7 +83,7 @@ impl EngineBuilder {
 
     /// Sets up up the engine without a default device
     ///
-    /// Data can be read manually using [`EngineOps::read_pcm_frames()`](crate::engine::EngineOps::read_pcm_frames())
+    /// Data can be read manually using [`Engine::read_pcm_frames()`](crate::engine::Engine::read_pcm_frames())
     pub fn no_device(&mut self, channels: u32, sample_rate: SampleRate) -> &mut Self {
         self.inner.sampleRate = sample_rate.into();
 
@@ -181,9 +187,9 @@ impl EngineBuilder {
 
         self.inner.pProcessUserData = state_ptr.cast();
 
-        self.process_data_ptr = Some(state_ptr); // Will be set on the engine returned by Engine::new_with_config
-        self.process_data_panic = Some(proc_data_panic); // Will be set on the engine returned by Engine::new_with_config
-        self.state_notif = Some(state_notif); // Will be set in EngineBuilder::build if state_notif_exists and a device exists
+        self.process_data.process_data_ptr = Some(state_ptr);
+        self.process_data.process_data_panic = Some(proc_data_panic);
+        self.process_data.state_notif = Some(state_notif);
 
         proc_notif
     }
@@ -191,7 +197,7 @@ impl EngineBuilder {
     /// Builds an [`Engine`] configured with a lightweight process “tick” notifier.
     ///
     /// Miniaudio doc:
-    /// "Fired at the end of each call to ma_engine_read_pcm_frames() ([`EngineOps::read_pcm_frames()`](crate::engine::EngineOps::read_pcm_frames())).
+    /// "Fired at the end of each call to ma_engine_read_pcm_frames() ([`Engine::read_pcm_frames()`](crate::engine::Engine::read_pcm_frames())).
     /// For engine's that manage their own internal device (the default configuration),
     /// this will be fired from the audio thread, and you do not need to call ma_engine_read_pcm_frames()
     /// manually in order to trigger this."
@@ -238,13 +244,7 @@ impl EngineBuilder {
         let notifier = self.set_process_notifier(None);
         self.inner.onProcess = Some(on_process_callback);
 
-        let mut engine = self.build_with_callback()?;
-        // Set the process data ptr and panic flag on the engine
-        engine.process_data_ptr = self.process_data_ptr;
-        engine.process_data_panic = self.process_data_panic.take();
-        engine.process_data_notif = Some(notifier);
-
-        Ok(engine)
+        Engine::new_with_process_data(self, Some(notifier))
     }
 
     /// This API installs a callback that is executed from the engine’s **real-time audio thread**
@@ -283,52 +283,24 @@ impl EngineBuilder {
         let notifier = self.set_process_notifier(Some(Box::new(cb)));
         self.inner.onProcess = Some(on_process_callback);
 
-        let mut engine = self.build_with_callback()?;
-        // Set the process data ptr and panic flag on the engine
-        engine.process_data_ptr = self.process_data_ptr;
-        engine.process_data_panic = self.process_data_panic.take();
-        engine.process_data_notif = Some(notifier);
-
-        Ok(engine)
-    }
-
-    fn build_with_callback(&mut self) -> MaResult<Engine> {
-        if self.inner.noDevice == 0 && self.state_notif_exists {
-            self.inner.notificationCallback = Some(engine_notification_callback);
-        }
-
-        let mut engine = Engine::new_with_config(Some(self))?;
-        // Check if we set the state notifier callback
-        engine.process_data_ptr = self.process_data_ptr; // TODO: Refactor this build process
-        engine.process_data_panic = self.process_data_panic.take();
-        if self.inner.noDevice == 0 && self.state_notif_exists {
-            engine.state_notifier = self.state_notif.clone();
-        }
-        Ok(engine)
+        Engine::new_with_process_data(self, Some(notifier))
     }
 
     pub fn build(&mut self) -> MaResult<Engine> {
         let _ = self.set_process_notifier(None);
 
-        if self.inner.noDevice == 0 && self.state_notif_exists {
+        if self.inner.noDevice == 0 && self.process_data.state_notif_exists {
             self.inner.notificationCallback = Some(engine_notification_callback);
         }
 
-        let mut engine = Engine::new_with_config(Some(self))?;
-        // Check if we set the state notifier callback
-        engine.process_data_ptr = self.process_data_ptr; // TODO: Refactor this build process
-        engine.process_data_panic = self.process_data_panic.take();
-        if self.inner.noDevice == 0 && self.state_notif_exists {
-            engine.state_notifier = self.state_notif.clone();
-        }
-        Ok(engine)
+        Engine::new_with_process_data(self, None)
     }
 
     /// Sets a [`DeviceStateNotifier`] that fires when the real time engine callback runs
     ///
     /// It can be retrieved by calling [`Engine::get_state_notifier()`] after building the `Engine`.
     pub fn state_notifier(&mut self) -> &mut Self {
-        self.state_notif_exists = true;
+        self.process_data.state_notif_exists = true;
         self
     }
 
@@ -343,7 +315,7 @@ impl EngineBuilder {
 
 #[cfg(test)]
 mod test {
-    use crate::engine::{resource::rm_builder::ResourceManagerBuilder, EngineOps};
+    use crate::engine::resource::rm_builder::ResourceManagerBuilder;
 
     use super::*;
 
@@ -355,6 +327,16 @@ mod test {
         let engine = build_ci_engine(EngineBuilder::new())?;
         drop(engine);
         Ok(())
+    }
+
+    #[test]
+    fn test_engine_get_multiple_engine() {
+        let engine = Engine::new_for_tests().unwrap();
+        let sound = engine.new_sound().unwrap();
+        // no panics or double free
+        let _engine1 = sound.engine();
+        let _engine2 = sound.engine();
+        let _engine3 = sound.engine();
     }
 
     #[cfg(not(feature = "ci-tests"))]
@@ -392,7 +374,6 @@ mod test {
 
         assert!(!notif.contains(DeviceNotificationType::Started));
         engine.start().unwrap();
-        // std::thread::sleep(std::time::Duration::from_micros(10000));
         let total = std::time::Duration::from_millis(200);
         let start = std::time::Instant::now();
         loop {
@@ -410,7 +391,7 @@ mod test {
 
     #[cfg(not(feature = "ci-tests"))]
     #[test]
-    fn test_engine_builder_with_state_notifier() {
+    fn test_engine_builder_with_state_notifier_alone() {
         use crate::util::device_notif::DeviceNotificationType;
 
         let engine = EngineBuilder::new()

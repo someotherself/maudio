@@ -49,11 +49,6 @@ unsafe impl<F: PcmFormat> Send for PulseWave<F> {}
 impl<F: PcmFormat> Binding for PulseWave<F> {
     type Raw = *mut sys::ma_pulsewave;
 
-    /// !!! unimplemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
-    }
-
     fn to_raw(&self) -> Self::Raw {
         self.inner
     }

@@ -1,5 +1,5 @@
 //! A pull-based audio processing graph.
-use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit, sync::Arc};
+use std::{mem::MaybeUninit, sync::Arc};
 
 pub mod node_builder;
 pub(crate) mod node_flags;
@@ -15,7 +15,7 @@ use crate::{
     audio::formats::SampleBuffer,
     engine::{
         node_graph::{node_graph_builder::NodeGraphBuilder, nodes::NodeRef},
-        AllocationCallbacks, Engine,
+        AllocationCallbacks, EngineInner,
     },
     AsRawRef, Binding, MaResult, MaudioError,
 };
@@ -56,24 +56,55 @@ use crate::{
 /// - non-standard processing graphs
 /// - offline rendering of audio
 /// - fine-grained control over how audio is evaluated
-pub struct NodeGraph {
-    inner: *mut sys::ma_node_graph,
-    alloc_cb: Option<Arc<AllocationCallbacks>>,
-    _not_sync: PhantomData<Cell<()>>,
-}
+pub struct NodeGraph(Arc<GraphInner>);
 
 unsafe impl Send for NodeGraph {}
+
+#[doc(hidden)]
+#[derive(Clone)]
+pub enum GraphOwner {
+    Engine(Arc<EngineInner>),
+    Graph(Arc<GraphInner>),
+}
+
+impl GraphOwner {
+    pub(crate) fn engine(&self) -> Option<Arc<EngineInner>> {
+        match self {
+            Self::Engine(e) => Some(e.clone()),
+            Self::Graph(_) => None,
+        }
+    }
+
+    pub(crate) fn graph(&self) -> Option<Arc<GraphInner>> {
+        match self {
+            Self::Engine(_) => None,
+            Self::Graph(g) => Some(g.clone()),
+        }
+    }
+}
+
+#[doc(hidden)]
+pub struct GraphInner {
+    pub(crate) base: *mut sys::ma_node_graph,
+    pub(crate) alloc_cb: Option<Arc<AllocationCallbacks>>,
+}
+
+unsafe impl Send for GraphInner {}
+unsafe impl Sync for GraphInner {}
 
 impl Binding for NodeGraph {
     type Raw = *mut sys::ma_node_graph;
 
-    /// !!! Not Implemented !!!
-    fn from_ptr(_raw: Self::Raw) -> Self {
-        unimplemented!()
+    fn to_raw(&self) -> Self::Raw {
+        self.0.base
     }
+}
+
+impl Binding for GraphInner {
+    type Raw = *mut sys::ma_node_graph;
 
     fn to_raw(&self) -> Self::Raw {
-        self.inner
+        self.base
     }
 }
 
@@ -88,25 +119,16 @@ impl Binding for NodeGraph {
 ///
 /// This type exists to safely model miniaudio APIs that return pointers to
 /// internally managed node graphs (for example `ma_engine_get_node_graph`).
-pub struct NodeGraphRef<'e> {
-    ptr: *mut sys::ma_node_graph,
-    _engine: PhantomData<&'e mut Engine>,
-    _not_sync: PhantomData<Cell<()>>,
+pub struct NodeGraphRef {
+    pub(crate) inner: *mut sys::ma_node_graph,
+    pub(crate) owner: GraphOwner,
 }
 
-impl Binding for NodeGraphRef<'_> {
+impl Binding for NodeGraphRef {
     type Raw = *mut sys::ma_node_graph;
 
-    fn from_ptr(raw: Self::Raw) -> Self {
-        Self {
-            ptr: raw,
-            _engine: PhantomData,
-            _not_sync: PhantomData,
-        }
-    }
-
     fn to_raw(&self) -> Self::Raw {
-        self.ptr
+        self.inner
     }
 }
 
@@ -116,6 +138,7 @@ pub(crate) mod private_node_graph {
 
     pub trait NodeGraphPtrProvider<T: ?Sized> {
         fn as_node_graph_ptr(t: &T) -> *mut sys::ma_node_graph;
+        fn clone_owner(t: &T) -> GraphOwner;
     }
 
     pub struct NodeGraphProvider;
@@ -126,17 +149,29 @@ pub(crate) mod private_node_graph {
         fn as_node_graph_ptr(t: &NodeGraph) -> *mut sys::ma_node_graph {
             t.to_raw()
         }
+
+        fn clone_owner(t: &NodeGraph) -> GraphOwner {
+            GraphOwner::Graph(t.0.clone())
+        }
     }
 
-    impl<'a> NodeGraphPtrProvider<NodeGraphRef<'a>> for NodeGraphRefProvider {
+    impl NodeGraphPtrProvider<NodeGraphRef> for NodeGraphRefProvider {
         #[inline]
         fn as_node_graph_ptr(t: &NodeGraphRef) -> *mut sys::ma_node_graph {
             t.to_raw()
+        }
+
+        fn clone_owner(t: &NodeGraphRef) -> GraphOwner {
+            t.owner.clone()
         }
     }
 
     pub fn node_graph_ptr<T: AsNodeGraphPtr + ?Sized>(t: &T) -> *mut sys::ma_node_graph {
         <T as AsNodeGraphPtr>::__PtrProvider::as_node_graph_ptr(t)
+    }
+
+    pub fn clone_owner<T: AsNodeGraphPtr + ?Sized>(t: &T) -> GraphOwner {
+        <T as AsNodeGraphPtr>::__PtrProvider::clone_owner(t)
     }
 }
 
@@ -151,7 +186,7 @@ impl AsNodeGraphPtr for NodeGraph {
 }
 
 #[doc(hidden)]
-impl AsNodeGraphPtr for NodeGraphRef<'_> {
+impl AsNodeGraphPtr for NodeGraphRef {
     type __PtrProvider = private_node_graph::NodeGraphRefProvider;
 }
 
@@ -159,18 +194,8 @@ impl<T: AsNodeGraphPtr + ?Sized> NodeGraphOps for T {}
 
 pub trait NodeGraphOps: AsNodeGraphPtr {
     /// Returns the endpoint node of the graph, if any.
-    fn endpoint(&self) -> Option<NodeRef<'_>> {
+    fn endpoint(&self) -> NodeRef<'_> {
         graph_ffi::ma_node_graph_get_endpoint(self)
-    }
-
-    /// Reads PCM frames into `dst`, returning the number of frames read.
-    fn read_pcm_frames_into(&mut self, dst: &mut [f32]) -> MaResult<usize> {
-        graph_ffi::ma_node_graph_read_pcm_frames_into(self, dst)
-    }
-
-    /// Allocates and reads `frame_count` PCM frames from the graph.
-    fn read_pcm_frames(&mut self, frame_count: u64) -> MaResult<SampleBuffer<f32>> {
-        graph_ffi::ma_node_graph_read_pcm_frames(self, frame_count)
     }
 
     /// Returns the number of output channels in the graph.
@@ -191,6 +216,16 @@ pub trait NodeGraphOps: AsNodeGraphPtr {
 }
 
 impl NodeGraph {
+    /// Reads PCM frames into `dst`, returning the number of frames read.
+    pub fn read_pcm_frames_into(&mut self, dst: &mut [f32]) -> MaResult<usize> {
+        graph_ffi::ma_node_graph_read_pcm_frames_into(self, dst)
+    }
+
+    /// Allocates and reads `frame_count` PCM frames from the graph.
+    pub fn read_pcm_frames(&mut self, frame_count: u64) -> MaResult<SampleBuffer<f32>> {
+        graph_ffi::ma_node_graph_read_pcm_frames(self, frame_count)
+    }
+
     fn with_alloc_callbacks(
         config: &NodeGraphBuilder,
         alloc: Option<Arc<AllocationCallbacks>>,
@@ -202,38 +237,36 @@ impl NodeGraph {
         graph_ffi::ma_node_graph_init(config.as_raw_ptr(), alloc_cb, mem.as_mut_ptr())?;
 
         let inner: *mut sys::ma_node_graph = Box::into_raw(mem) as *mut sys::ma_node_graph;
-        Ok(Self {
-            inner,
+        Ok(Self(Arc::new(GraphInner {
+            base: inner,
             alloc_cb: alloc,
-            _not_sync: PhantomData,
-        })
+        })))
     }
 
-    #[inline]
-    fn alloc_cb_ptr(&self) -> *const sys::ma_allocation_callbacks {
-        match &self.alloc_cb {
-            Some(cb) => cb.as_raw_ptr(),
-            None => core::ptr::null(),
-        }
-    }
-
+    // TODO: Fix after implementing new NodeGraphRef
     /// Create a NodeGraphRef borrowing the NodeGraph
-    pub fn as_ref<'a>(&'a self) -> NodeGraphRef<'a> {
+    pub fn as_ref(&self) -> NodeGraphRef {
         NodeGraphRef {
-            ptr: self.inner,
-            _engine: PhantomData,
-            _not_sync: PhantomData,
+            inner: self.0.base,
+            owner: GraphOwner::Graph(self.0.clone()),
         }
     }
 }
 
 mod graph_ffi {
+    use std::sync::Arc;
+
     use maudio_sys::ffi as sys;
 
     use crate::{
         audio::formats::SampleBuffer,
-        engine::node_graph::{nodes::NodeRef, private_node_graph, AsNodeGraphPtr, NodeGraphOps},
-        Binding, MaResult, MaudioError,
+        engine::{
+            node_graph::{
+                nodes::NodeRef, private_node_graph, AsNodeGraphPtr, GraphInner, NodeGraphOps,
+            },
+            AllocationCallbacks,
+        },
+        AsRawRef, Binding, MaResult, MaudioError,
     };
 
     #[inline]
@@ -248,24 +281,23 @@ mod graph_ffi {
 
     #[inline]
     pub(crate) fn ma_node_graph_uninit(
-        node_graph: *mut sys::ma_node_graph,
-        alloc_cb: *const sys::ma_allocation_callbacks,
+        node_graph: &mut GraphInner,
+        alloc: Option<Arc<AllocationCallbacks>>,
     ) {
-        unsafe { sys::ma_node_graph_uninit(node_graph, alloc_cb) }
+        let alloc_cb: *const sys::ma_allocation_callbacks =
+            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
+
+        unsafe { sys::ma_node_graph_uninit(node_graph.to_raw(), alloc_cb) }
     }
 
     #[inline]
     pub(crate) fn ma_node_graph_get_endpoint<'a, N: AsNodeGraphPtr + ?Sized>(
         node_graph: &'a N,
-    ) -> Option<NodeRef<'a>> {
+    ) -> NodeRef<'a> {
         let ptr = unsafe {
             sys::ma_node_graph_get_endpoint(private_node_graph::node_graph_ptr(node_graph))
         };
-        if ptr.is_null() {
-            None
-        } else {
-            Some(NodeRef::from_ptr(ptr))
-        }
+        NodeRef::from_ptr(ptr)
     }
 
     #[inline]
@@ -344,9 +376,10 @@ mod graph_ffi {
     }
 }
 
-impl Drop for NodeGraph {
+impl Drop for GraphInner {
     fn drop(&mut self) {
-        graph_ffi::ma_node_graph_uninit(self.to_raw(), self.alloc_cb_ptr());
+        let alloc_cb = self.alloc_cb.clone();
+        graph_ffi::ma_node_graph_uninit(self, alloc_cb);
         drop(unsafe { Box::from_raw(self.to_raw()) });
     }
 }

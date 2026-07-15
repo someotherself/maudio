@@ -82,7 +82,7 @@ use crate::{
     },
     pcm_frames::{PcmFormat, S24Packed},
     util::{device_notif::DeviceStateNotifier, proc_notif::ProcFramesNotif},
-    AsRawRef, Binding, MaResult,
+    AsRawRef, MaResult,
 };
 
 /// Entry point for constructing audio devices.
