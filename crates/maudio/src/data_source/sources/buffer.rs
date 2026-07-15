@@ -693,12 +693,20 @@ impl<'a> AudioBufferBuilder<'a> {
             ));
         }
 
-        let mut mem: MaybeUninit<sys::ma_audio_buffer_ref> = MaybeUninit::uninit();
+        // Allocate the C object at its final, stable address before initialization.
+        let mut inner = Box::<sys::ma_audio_buffer_ref>::new_uninit();
+        let inner_ptr = inner.as_mut_ptr();
 
-        buffer_ffi::ma_audio_buffer_ref_init(format, size_frames, channels, mem.as_mut_ptr())?;
+        buffer_ffi::ma_audio_buffer_ref_init(format, size_frames, channels, inner_ptr)?;
 
-        let base = unsafe { mem.assume_init() };
-        let inner = Box::into_raw(Box::new(base));
+        // FFI successfully initialized the entire object.
+        let inner = unsafe { inner.assume_init() };
+        let inner = Box::into_raw(inner);
+
+        debug_assert_eq!(
+            unsafe { (*inner).ds.pCurrent.cast::<u8>() },
+            inner.cast::<u8>(),
+        );
 
         Ok(AudioBufferBase {
             inner,
