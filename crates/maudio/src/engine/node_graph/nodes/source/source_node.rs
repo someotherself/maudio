@@ -107,7 +107,7 @@ impl<'a, S: AsSourcePtr> SourceNode<'a, S> {
 pub struct AttachedSourceNode<S: AsSourcePtr> {
     inner: *mut sys::ma_data_source_node,
     alloc_cb: Option<Arc<AllocationCallbacks>>,
-    source: Arc<S>,
+    source: S,
     pub(crate) owner: GraphOwner,
 }
 
@@ -135,7 +135,7 @@ impl<S: AsSourcePtr> AsSourcePtr for AttachedSourceNode<S> {
 impl<S: AsSourcePtr> AttachedSourceNode<S> {
     fn new_with_cfg_alloc_internal<'a, N: AsNodeGraphPtr>(
         node_graph: &N,
-        config: &AttachedSourceNodeBuilder<'a, N, S>,
+        config: AttachedSourceNodeBuilder<'a, N, S>,
         alloc: Option<Arc<AllocationCallbacks>>,
     ) -> MaResult<Self> {
         let alloc_cb: *const sys::ma_allocation_callbacks =
@@ -157,7 +157,7 @@ impl<S: AsSourcePtr> AttachedSourceNode<S> {
         Ok(Self {
             inner,
             alloc_cb: alloc,
-            source: config.source.clone(),
+            source: config.source,
             owner: private_node_graph::clone_owner(node_graph),
         })
     }
@@ -193,10 +193,14 @@ impl<S: AsSourcePtr> AttachedSourceNode<S> {
         &self.source
     }
 
+    /// Retrieve a reference to the underlying source
+    pub fn source_mut(&mut self) -> &mut S {
+        &mut self.source
+    }
+
     pub fn as_source<'a>(&'a self) -> DataSourceRef<'a, S::Format> {
-        debug_assert!(!private_data_source::source_ptr(self.source.as_ref()).is_null());
-        let ptr =
-            private_data_source::source_ptr(self.source.as_ref()).cast::<sys::ma_data_source>();
+        debug_assert!(!private_data_source::source_ptr(&self.source).is_null());
+        let ptr = private_data_source::source_ptr(&self.source).cast::<sys::ma_data_source>();
         DataSourceRef::from_ptr(ptr)
     }
 
@@ -337,18 +341,17 @@ where
 
 impl<'a, N: AsNodeGraphPtr, S: AsSourcePtr> AttachedSourceNodeBuilder<'a, N, S> {
     pub fn new(node_graph: &'a N, source: S) -> Self {
-        let src_arc = Arc::new(source);
         let inner = unsafe {
-            sys::ma_data_source_node_config_init(private_data_source::source_ptr(src_arc.as_ref()))
+            sys::ma_data_source_node_config_init(private_data_source::source_ptr(&source))
         };
         Self {
             inner,
             node_graph,
-            source: src_arc,
+            source,
         }
     }
 
-    pub fn build(&self) -> MaResult<AttachedSourceNode<S>> {
+    pub fn build(self) -> MaResult<AttachedSourceNode<S>> {
         AttachedSourceNode::new_with_cfg_alloc_internal(self.node_graph, self, None)
     }
 }
@@ -437,5 +440,20 @@ mod test {
         let n2 = SourceNodeBuilder::new(&graph, &b2).build().unwrap();
 
         assert_ne!(n1.to_raw(), n2.to_raw());
+    }
+
+    #[test]
+    fn source_node_attached_builder() {
+        let engine = Engine::new_for_tests().unwrap();
+        let graph = engine.as_node_graph();
+
+        let d1 = ramp_f32_interleaved(2, 32);
+        let b1 = AudioBufferBuilder::build_f32(2, &d1).unwrap();
+
+        let src_node = AttachedSourceNodeBuilder::new(&graph, b1).build().unwrap();
+
+        let _ = src_node.as_source();
+        let buff = src_node.source();
+        let _ = buff.length_pcm().unwrap();
     }
 }

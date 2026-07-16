@@ -1,5 +1,8 @@
 //! Interface for reading from a data source
-use std::{marker::PhantomData, ops::Deref};
+use std::{
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 use maudio_sys::ffi as sys;
 
@@ -73,6 +76,12 @@ impl<F: PcmFormat, P: PcmSource<F>> Deref for DataSource<F, P> {
     }
 }
 
+impl<F: PcmFormat, P: PcmSource<F>> DerefMut for DataSource<F, P> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { &mut (*self.inner).source }
+    }
+}
+
 impl<F: PcmFormat, P: PcmSource<F>> DataSource<F, P> {
     #[allow(unused)]
     fn as_source<'a>(&'a self) -> DataSourceRef<'a, F> {
@@ -126,7 +135,6 @@ pub(crate) mod private_data_source {
     pub struct ChainSourceProvider;
 
     impl<F: PcmFormat, P: PcmSource<F>> DataSourcePtrProvider<DataSource<F, P>> for DataSourceProvider {
-        // TODO
         #[inline]
         fn as_source_ptr(t: &DataSource<F, P>) -> *mut sys::ma_data_source {
             t.as_raw_ptr() as *mut _
