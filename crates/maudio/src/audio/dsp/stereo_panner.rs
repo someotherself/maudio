@@ -29,10 +29,10 @@ impl<F: PcmFormat> Binding for Panner<F> {
 impl<F: PcmFormat> Panner<F> {
     fn build(config: &sys::ma_panner_config, format: Format) -> MaResult<Panner<F>> {
         let channels = config.channels;
-        let mut inner: MaybeUninit<sys::ma_panner> = MaybeUninit::uninit();
+        let mut inner: Box<MaybeUninit<sys::ma_panner>> = Box::new(MaybeUninit::uninit());
         panner_ffi::ma_panner_init(config, inner.as_mut_ptr())?;
 
-        let inner_ptr = Box::into_raw(Box::new(unsafe { inner.assume_init() }));
+        let inner_ptr = Box::into_raw(inner) as *mut sys::ma_panner;
         Ok(Panner {
             inner: inner_ptr,
             channels,

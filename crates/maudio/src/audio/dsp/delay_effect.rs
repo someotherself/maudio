@@ -23,10 +23,10 @@ impl<F: PcmFormat> Binding for Delay<F> {
 impl<F: PcmFormat> Delay<F> {
     fn build(config: &sys::ma_delay_config) -> MaResult<Delay<F>> {
         let channels = config.channels;
-        let mut inner: MaybeUninit<sys::ma_delay> = MaybeUninit::uninit();
+        let mut inner: Box<MaybeUninit<sys::ma_delay>> = Box::new(MaybeUninit::uninit());
         delay_ffi::ma_delay_init(config, None, inner.as_mut_ptr())?;
 
-        let inner_ptr = Box::into_raw(Box::new(unsafe { inner.assume_init() }));
+        let inner_ptr = Box::into_raw(inner) as *mut sys::ma_delay;
         Ok(Delay {
             inner: inner_ptr,
             channels,

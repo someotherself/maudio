@@ -76,7 +76,7 @@ impl<'a, S: AsSourcePtr> SourceNode<'a, S> {
 
     /// Returns the owning node graph, if any.
     pub fn node_graph(&self) -> Option<NodeGraph> {
-        self.owner.graph().map(NodeGraph)
+        self.owner.graph().map(|g| NodeGraph { inner: g })
     }
 
     /// Returns a reference to the node graph.
@@ -169,10 +169,10 @@ impl<S: AsSourcePtr> AttachedSourceNode<S> {
 
     /// Returns the owning node graph, if any.
     pub fn node_graph(&self) -> Option<NodeGraph> {
-        self.owner.graph().map(NodeGraph)
+        self.owner.graph().map(|g| NodeGraph { inner: g })
     }
 
-    /// Returns a reference to the node graph.
+    /// Returns a refer            inner: g,h.
     pub fn node_graph_ref(&self) -> NodeGraphRef {
         let ptr = node_ffi::ma_node_get_node_graph(self);
         NodeGraphRef {
@@ -324,7 +324,7 @@ where
 {
     inner: sys::ma_data_source_node_config,
     node_graph: &'a N,
-    source: Arc<S>,
+    source: S,
 }
 
 impl<N, S> AsRawRef for AttachedSourceNodeBuilder<'_, N, S>
@@ -360,7 +360,12 @@ impl<'a, N: AsNodeGraphPtr, S: AsSourcePtr> AttachedSourceNodeBuilder<'a, N, S> 
 mod test {
     use crate::{
         data_source::sources::buffer::AudioBufferBuilder,
-        engine::{node_graph::nodes::source::source_node::SourceNodeBuilder, Engine},
+        engine::{
+            node_graph::nodes::source::source_node::{
+                AttachedSourceNodeBuilder, SourceNodeBuilder,
+            },
+            Engine,
+        },
         Binding,
     };
 

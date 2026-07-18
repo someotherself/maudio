@@ -132,6 +132,7 @@ impl<F: PcmFormat> AudioBuffer<F> {
         buffer_ffi::ma_audio_buffer_get_available_frames(self)
     }
 
+    // TODO: Could be used to call read_pcm_frames from 2 places
     /// Returns a [`DataSourceRef`] view of this buffer.
     pub fn as_source<'a>(&'a self) -> DataSourceRef<'a, F> {
         debug_assert!(!self.to_raw().is_null());
@@ -145,6 +146,7 @@ impl<F: PcmFormat> AudioBufferBase<F> {
         buffer_ffi::ma_audio_buffer_ref_set_data(self, data)
     }
 
+    // TODO: Could be used to call read_pcm_frames from 2 places
     /// Returns a [`DataSourceRef`] view of this buffer.
     pub fn as_source<'a>(&'a self) -> DataSourceRef<'a, F> {
         debug_assert!(!self.to_raw().is_null());
@@ -694,14 +696,12 @@ impl<'a> AudioBufferBuilder<'a> {
         }
 
         // Allocate the C object at its final, stable address before initialization.
-        let mut inner = Box::<sys::ma_audio_buffer_ref>::new_uninit();
+        let mut inner: Box<MaybeUninit<sys::ma_audio_buffer_ref>> = Box::new(MaybeUninit::uninit());
         let inner_ptr = inner.as_mut_ptr();
 
         buffer_ffi::ma_audio_buffer_ref_init(format, size_frames, channels, inner_ptr)?;
 
-        // FFI successfully initialized the entire object.
-        let inner = unsafe { inner.assume_init() };
-        let inner = Box::into_raw(inner);
+        let inner = Box::into_raw(inner) as *mut sys::ma_audio_buffer_ref;
 
         debug_assert_eq!(
             unsafe { (*inner).ds.pCurrent.cast::<u8>() },

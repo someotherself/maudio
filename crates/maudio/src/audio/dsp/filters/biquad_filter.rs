@@ -24,10 +24,10 @@ impl<F: PcmFormat> Binding for Biquad<F> {
 impl<F: PcmFormat> Biquad<F> {
     fn build(config: &sys::ma_biquad_config, format: Format) -> MaResult<Biquad<F>> {
         let channels = config.channels;
-        let mut inner: MaybeUninit<sys::ma_biquad> = MaybeUninit::uninit();
+        let mut inner: Box<MaybeUninit<sys::ma_biquad>> = Box::new(MaybeUninit::uninit());
         biquad_ffi::ma_biquad_init(config, None, inner.as_mut_ptr())?;
 
-        let inner_ptr = Box::into_raw(Box::new(unsafe { inner.assume_init() }));
+        let inner_ptr = Box::into_raw(inner) as *mut sys::ma_biquad;
         Ok(Biquad {
             inner: inner_ptr,
             format,

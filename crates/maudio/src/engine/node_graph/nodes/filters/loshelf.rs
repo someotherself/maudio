@@ -104,7 +104,7 @@ impl LoShelfNode {
 
     /// Returns the owning node graph, if any.
     pub fn node_graph(&self) -> Option<NodeGraph> {
-        self.owner.graph().map(NodeGraph)
+        self.owner.graph().map(|g| NodeGraph { inner: g })
     }
 
     /// Returns a reference to the node graph.

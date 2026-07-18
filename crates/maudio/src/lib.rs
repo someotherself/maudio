@@ -270,6 +270,7 @@ impl std::fmt::Display for ErrorKinds {
             ErrorKinds::InvalidOperation(error) => write!(f, "{error}",),
             ErrorKinds::Other(error) => write!(f, "{error}",),
             ErrorKinds::NotImplemented => write!(f, "Not implemented"),
+            ErrorKinds::ReaderExists => write!(f, "Reader already exists"),
         }
     }
 }
@@ -433,6 +434,7 @@ pub enum ErrorKinds {
         err: std::num::TryFromIntError,
     },
     NotImplemented,
+    ReaderExists,
 }
 
 impl std::error::Error for MaudioError {}

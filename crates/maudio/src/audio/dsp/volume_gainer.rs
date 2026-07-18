@@ -23,10 +23,10 @@ impl<F: PcmFormat> Binding for Gainer<F> {
 impl<F: PcmFormat> Gainer<F> {
     fn build(config: &sys::ma_gainer_config) -> MaResult<Gainer<F>> {
         let channels = config.channels;
-        let mut inner: MaybeUninit<sys::ma_gainer> = MaybeUninit::uninit();
+        let mut inner: Box<MaybeUninit<sys::ma_gainer>> = Box::new(MaybeUninit::uninit());
         gainer_ffi::ma_gainer_init(config, None, inner.as_mut_ptr())?;
 
-        let inner_ptr = Box::into_raw(Box::new(unsafe { inner.assume_init() }));
+        let inner_ptr = Box::into_raw(inner) as *mut sys::ma_gainer;
         Ok(Gainer {
             inner: inner_ptr,
             channels,

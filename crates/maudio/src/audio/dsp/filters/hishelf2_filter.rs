@@ -34,10 +34,10 @@ impl<F: PcmFormat> HiShelf2<F> {
         let gain_db = config.gainDB;
         let slope = config.shelfSlope;
         let frequency = config.frequency;
-        let mut inner: MaybeUninit<sys::ma_hishelf2> = MaybeUninit::uninit();
+        let mut inner: Box<MaybeUninit<sys::ma_hishelf2>> = Box::new(MaybeUninit::uninit());
         hishelf2_ffi::ma_hishelf2_init(config, None, inner.as_mut_ptr())?;
 
-        let inner_ptr = Box::into_raw(Box::new(unsafe { inner.assume_init() }));
+        let inner_ptr = Box::into_raw(inner) as *mut sys::ma_hishelf2;
         Ok(HiShelf2 {
             inner: inner_ptr,
             format,

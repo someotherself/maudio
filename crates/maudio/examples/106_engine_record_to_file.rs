@@ -35,6 +35,7 @@ fn main() -> MaResult<()> {
 
     let now = Instant::now();
     let seconds = 4;
+    let mut reader = engine.try_acquire_reader().unwrap();
 
     while frames_remaining > 0 {
         // We need to stop the app in a way that runs the drop implementation on the encoder
@@ -45,7 +46,7 @@ fn main() -> MaResult<()> {
 
         let frames_to_read = frames_remaining.min(chunk_frames) as u64;
 
-        let buffer = engine.read_pcm_frames(frames_to_read)?;
+        let buffer = reader.read_pcm_frames(frames_to_read)?;
 
         if buffer.is_empty() {
             break;

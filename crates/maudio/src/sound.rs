@@ -73,7 +73,6 @@ impl Binding for Sound {
 }
 
 impl Sound {
-    /// Returns the owning engine.
     pub fn engine(&self) -> Engine {
         Engine(self._engine.clone())
     }
@@ -96,7 +95,7 @@ impl Sound {
     }
 
     /// Returns the underlying data source, if any.
-    pub fn data_source(&mut self) -> Option<DataSourceRef<'_, f32>> {
+    pub fn data_source(&self) -> DataSourceRef<'_, f32> {
         sound_ffi::ma_sound_get_data_source(self)
     }
 
@@ -710,13 +709,9 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_get_data_source<'a>(sound: &'a mut Sound) -> Option<DataSourceRef<'a, f32>> {
+    pub fn ma_sound_get_data_source<'a>(sound: &'a Sound) -> DataSourceRef<'a, f32> {
         let ptr = unsafe { sys::ma_sound_get_data_source(sound.to_raw() as *const _) };
-        if ptr.is_null() {
-            None
-        } else {
-            Some(DataSourceRef::from_ptr(ptr))
-        }
+        DataSourceRef::from_ptr(ptr)
     }
 
     #[inline]

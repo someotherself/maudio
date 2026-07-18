@@ -461,7 +461,8 @@ mod test {
             .with_process_notifier()?;
 
         let tick = engine.get_data_notifier().unwrap();
-        let _buf = engine.read_pcm_frames(256)?;
+        let mut reader = engine.try_acquire_reader().unwrap();
+        let _buf = reader.read_pcm_frames(256)?;
 
         let mut called = false;
         tick.take_with(|delta_frames| {

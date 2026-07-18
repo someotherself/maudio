@@ -21,6 +21,38 @@
 //! # }
 //! ```
 //!
+//! ## Important notes
+//!
+//! Some types, like a [`Sound`], are intrinsicly tied to the engine and
+//! a Sound cannot exit without the Engine being alive.
+//!
+//! This is enforced using using reference counting instead of lifetimes,
+//! to more closely match the thread-safety model from miniaudio.
+//!
+//! This makes makes storing types or moving them across threads easier
+//! but it also allows running `drop(engine)` at any point. This is accepted
+//! behaviour and the engine can be recoved using [`Sound::engine`].
+//!
+//! ## Internals and thread-safety
+//!
+//! Internally, the Engine is a node_graph, but only a borrowed version of that node
+//! graph can be obtained via [`Engine::as_node_graph`]. The [`NodeGraphRef`]
+//! must be used if the user wants to create nodes, but it cannot run `read_pcm_frames`,
+//! as that must be managed through the engine. The engine can also be recovered
+//! using [`NodeGraphRef::engine`]. Be aware that it returns an `Option` as this
+//! is not the only way to create a [`NodeGraphRef`].
+//!
+//! Across the library, many types will expose a function called `read_pcm_frames`.
+//! This is the default way of manually pulling PCM frames. However, doing this
+//! on the Engine is optional. While is has a device, `read_pcm_frames` is not
+//! possible as the internal `Device` already calls this function internally.
+//! Concurrent calls to (any) `read_pcm_frames` (on any type) are not safe.
+//!
+//! The engine exposes manually reading pcm frames on the `EngineReader` obtained
+//! via [`Engine::try_acquire_reader`]. Only one instance of `EngineReader` can exist at any time.
+//!
+//! For more information about the Node Graph and it's thread safety model, see [`node_graph`].
+//!
 //! ## Resource manager
 //! The resource manager handles loading and lifetime management of audio data
 //! (for example, decoding audio files and sharing them between sounds).
@@ -35,8 +67,8 @@
 //! endpoint.
 //! See [`node_graph::NodeGraph`]
 //!
-//! Advanced users can access the endpoint node via [`Engine::endpoint()`] to
-//! attach custom processing or inspect the graph.
+//! The endpoint can be accessed via [`Engine::endpoint()`] to attach custom
+//! processing nodes.
 //!
 //! ## Time
 //! The engine maintains a global timeline that advances as audio is processed.
@@ -44,11 +76,12 @@
 //!
 //! For sample-accurate control, prefer the PCM-frame APIs.
 use std::{
-    cell::Cell,
-    marker::PhantomData,
     mem::MaybeUninit,
     path::Path,
-    sync::{atomic::AtomicBool, Arc},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
 };
 
 use crate::{
@@ -107,7 +140,7 @@ pub struct EngineInner {
     process_data_panic: Option<Arc<AtomicBool>>, // true = callback panicked and is now poisoned
     process_data_notif: Option<ProcFramesNotif>,
     state_notifier: Option<DeviceStateNotifier>,
-    _not_sync: PhantomData<Cell<()>>,
+    reader_exists: Arc<AtomicBool>,
 }
 
 unsafe impl Send for EngineInner {}
@@ -119,6 +152,92 @@ impl Binding for Engine {
     fn to_raw(&self) -> Self::Raw {
         self.0.inner
     }
+}
+
+/// Dedicated type for reading frames from the Engine
+///
+/// Concurrent calls to `read_pcm_frames` are not safe. This type exists to enforce this.
+pub struct EngineReader(Arc<EngineInner>);
+
+unsafe impl Send for EngineReader {}
+
+impl Binding for EngineReader {
+    type Raw = *mut sys::ma_engine;
+
+    fn to_raw(&self) -> Self::Raw {
+        self.0.inner
+    }
+}
+impl EngineReader {
+    /// Reads PCM frames into `dst`, returning the number of frames read.
+    pub fn read_pcm_frames_into(&mut self, dst: &mut [f32]) -> MaResult<usize> {
+        if engine_ffi::ma_engine_get_device(self).is_some() {
+            return Err(MaudioError::new_ma_error(ErrorKinds::InvalidOperation(
+                "read_pcm_frames is not allowed when engine has a device",
+            )));
+        }
+        engine_ffi::ma_engine_read_pcm_frames_into(self, dst)
+    }
+
+    /// This function pulls audio from the engine’s internal node graph and returns
+    /// up to `frame_count` frames of interleaved PCM samples.
+    ///
+    /// - This is a **pull-based render operation**.
+    /// - The engine will attempt to render `frame_count` frames, but it may return
+    ///   **fewer frames**.
+    pub fn read_pcm_frames(&mut self, frame_count: u64) -> MaResult<SampleBuffer<f32>> {
+        if engine_ffi::ma_engine_get_device(self).is_some() {
+            return Err(MaudioError::new_ma_error(ErrorKinds::InvalidOperation(
+                "read_pcm_frames is not allowed when engine has a device",
+            )));
+        }
+        engine_ffi::ma_engine_read_pcm_frames(self, frame_count)
+    }
+}
+
+pub(crate) mod private_engine {
+    use super::*;
+    use maudio_sys::ffi as sys;
+
+    pub trait EnginePtrProvider<T: ?Sized> {
+        fn as_engine_ptr(t: &T) -> *mut sys::ma_engine;
+    }
+
+    pub struct EngineProvider;
+    pub struct EngineReaderProvider;
+
+    impl EnginePtrProvider<Engine> for EngineProvider {
+        #[inline]
+        fn as_engine_ptr(t: &Engine) -> *mut sys::ma_engine {
+            t.to_raw()
+        }
+    }
+
+    impl EnginePtrProvider<EngineReader> for EngineReaderProvider {
+        #[inline]
+        fn as_engine_ptr(t: &EngineReader) -> *mut sys::ma_engine {
+            t.to_raw()
+        }
+    }
+
+    pub fn engine_ptr<T: AsEnginePtr + ?Sized>(t: &T) -> *mut sys::ma_engine {
+        <T as AsEnginePtr>::__PtrProvider::as_engine_ptr(t)
+    }
+}
+
+#[doc(hidden)]
+pub trait AsEnginePtr {
+    type __PtrProvider: private_engine::EnginePtrProvider<Self>;
+}
+
+#[doc(hidden)]
+impl AsEnginePtr for Engine {
+    type __PtrProvider = private_engine::EngineProvider;
+}
+
+#[doc(hidden)]
+impl AsEnginePtr for EngineReader {
+    type __PtrProvider = private_engine::EngineReaderProvider;
 }
 
 impl Engine {
@@ -175,7 +294,7 @@ impl Engine {
             process_data_panic: None,
             process_data_notif: None,
             state_notifier: None,
-            _not_sync: PhantomData,
+            reader_exists: Arc::new(AtomicBool::new(false)),
         })))
     }
 
@@ -203,7 +322,7 @@ impl Engine {
             process_data_panic: config.process_data.process_data_panic.take(),
             process_data_notif: data_notif,
             state_notifier: state_notif,
-            _not_sync: PhantomData,
+            reader_exists: Arc::new(AtomicBool::new(false)),
         })))
     }
 
@@ -233,6 +352,7 @@ impl Engine {
         self.new_sound_instance_internal(sound, flags, None)
     }
 
+    // Thread-safe
     /// Manually starts the engine
     ///
     /// By default, an engine will be created with `no_auto_start` to false.
@@ -243,6 +363,7 @@ impl Engine {
         engine_ffi::ma_engine_start(self)
     }
 
+    // Thread-safe
     /// Manually stops the engine
     ///
     /// Start and stop operations on an engine with no device will result in an error
@@ -274,6 +395,7 @@ impl Engine {
         SoundGroupBuilder::new(self).build()
     }
 
+    // Thread-safe
     /// Sets the master volume (of the output node).
     pub fn set_volume(&self, volume: f32) -> MaResult<()> {
         engine_ffi::ma_engine_set_volume(self, volume)
@@ -284,6 +406,7 @@ impl Engine {
         engine_ffi::ma_engine_get_volume(self)
     }
 
+    // Thread-safe
     /// Sets the master gain in dB.
     pub fn set_gain_db(&self, db_gain: f32) -> MaResult<()> {
         engine_ffi::ma_engine_set_gain_db(self, db_gain)
@@ -304,6 +427,7 @@ impl Engine {
         engine_ffi::ma_engine_find_closest_listener(self, position)
     }
 
+    // Thread-safe
     /// Sets the position of `listener`.
     pub fn set_position(&self, listener: u32, position: Vec3) {
         engine_ffi::ma_engine_listener_set_position(self, listener, position);
@@ -314,6 +438,7 @@ impl Engine {
         engine_ffi::ma_engine_listener_get_position(self, listener)
     }
 
+    // Thread-safe
     /// Sets the facing direction of `listener`.
     pub fn set_direction(&self, listener: u32, direction: Vec3) {
         engine_ffi::ma_engine_listener_set_direction(self, listener, direction);
@@ -324,6 +449,7 @@ impl Engine {
         engine_ffi::ma_engine_listener_get_direction(self, listener)
     }
 
+    // Thread-safe
     /// Sets the velocity of `listener`.
     pub fn set_velocity(&self, listener: u32, position: Vec3) {
         engine_ffi::ma_engine_listener_set_velocity(self, listener, position);
@@ -334,6 +460,7 @@ impl Engine {
         engine_ffi::ma_engine_listener_get_velocity(self, listener)
     }
 
+    // Thread-safe
     /// Sets the directional cone of `listener`.
     pub fn set_cone(&self, listener: u32, cone: Cone) {
         engine_ffi::ma_engine_listener_set_cone(self, listener, cone);
@@ -344,6 +471,7 @@ impl Engine {
         engine_ffi::ma_engine_listener_get_cone(self, listener)
     }
 
+    // Thread-safe
     /// Sets the world-up vector of `listener`.
     pub fn set_world_up(&self, listener: u32, up_direction: Vec3) {
         engine_ffi::ma_engine_listener_set_world_up(self, listener, up_direction);
@@ -354,6 +482,19 @@ impl Engine {
         engine_ffi::ma_engine_listener_get_world_up(self, listener)
     }
 
+    pub fn try_acquire_reader(&self) -> MaResult<EngineReader> {
+        match self.0.reader_exists.compare_exchange(
+            false,
+            true,
+            Ordering::Acquire,
+            Ordering::Relaxed,
+        ) {
+            Ok(_) => Ok(EngineReader(self.0.clone())),
+            Err(_) => Err(MaudioError::new_ma_error(ErrorKinds::ReaderExists)),
+        }
+    }
+
+    // Thread-safe
     /// Enables or disables `listener`.
     pub fn toggle_listener(&self, listener: u32, enabled: bool) {
         engine_ffi::ma_engine_listener_set_enabled(self, listener, enabled);
@@ -379,31 +520,6 @@ impl Engine {
         engine_ffi::ma_engine_get_device(self)
     }
 
-    /// Reads PCM frames into `dst`, returning the number of frames read.
-    pub fn read_pcm_frames_into(&self, dst: &mut [f32]) -> MaResult<usize> {
-        if engine_ffi::ma_engine_get_device(self).is_some() {
-            return Err(MaudioError::new_ma_error(ErrorKinds::InvalidOperation(
-                "read_pcm_frames is not allowed when engine has a device",
-            )));
-        }
-        engine_ffi::ma_engine_read_pcm_frames_into(self, dst)
-    }
-
-    /// This function pulls audio from the engine’s internal node graph and returns
-    /// up to `frame_count` frames of interleaved PCM samples.
-    ///
-    /// - This is a **pull-based render operation**.
-    /// - The engine will attempt to render `frame_count` frames, but it may return
-    ///   **fewer frames**.
-    pub fn read_pcm_frames(&self, frame_count: u64) -> MaResult<SampleBuffer<f32>> {
-        if engine_ffi::ma_engine_get_device(self).is_some() {
-            return Err(MaudioError::new_ma_error(ErrorKinds::InvalidOperation(
-                "read_pcm_frames is not allowed when engine has a device",
-            )));
-        }
-        engine_ffi::ma_engine_read_pcm_frames(self, frame_count)
-    }
-
     /// Returns the engine’s **endpoint node**.
     ///
     /// The endpoint node is the final node in the engine’s internal node graph.
@@ -425,11 +541,13 @@ impl Engine {
         engine_ffi::ma_engine_get_time_in_milliseconds(self)
     }
 
+    // Thread-safe
     /// Sets the current local time (in PCM frames) of the output node.
     pub fn set_time_pcm(&self, time: u64) {
         engine_ffi::ma_engine_set_time_in_pcm_frames(self, time);
     }
 
+    // Thread-safe
     /// Sets the current local time (in PCM frames) of the output node.
     ///
     /// Precision may be lower than [`Engine::set_time_pcm()`].
@@ -481,7 +599,6 @@ impl Engine {
         }
     }
 
-    // TODO: lifetimes needed here?
     pub(crate) fn new_sound_with_config_internal(
         &self,
         config: Option<&SoundBuilder>,
@@ -554,6 +671,12 @@ impl Drop for EngineInner {
     }
 }
 
+impl Drop for EngineReader {
+    fn drop(&mut self) {
+        self.0.reader_exists.store(false, Ordering::Relaxed);
+    }
+}
+
 #[cfg(unix)]
 pub(crate) fn cstring_from_path(path: &Path) -> MaResult<std::ffi::CString> {
     use std::os::unix::ffi::OsStrExt;
@@ -602,8 +725,369 @@ impl AsRawRef for AllocationCallbacks {
     }
 }
 
+pub(crate) mod engine_ffi {
+    use maudio_sys::ffi as sys;
+
+    use crate::{
+        audio::{formats::SampleBuffer, math::vec3::Vec3, spatial::cone::Cone},
+        device::DeviceRef,
+        engine::{
+            engine_builder::EngineBuilder,
+            engine_ffi,
+            node_graph::{nodes::NodeRef, GraphOwner, NodeGraphRef},
+            private_engine,
+            resource::ResourceManagerRef,
+            AsEnginePtr, Binding, Engine, EngineInner, EngineReader,
+        },
+        AsRawRef, MaResult, MaudioError,
+    };
+
+    #[inline]
+    pub fn engine_init(
+        config: Option<&EngineBuilder>,
+        engine: *mut sys::ma_engine,
+    ) -> MaResult<()> {
+        let p_config: *const sys::ma_engine_config =
+            config.map_or(core::ptr::null(), |c| c.as_raw_ptr());
+        let res = unsafe { sys::ma_engine_init(p_config, engine) };
+        MaudioError::check(res)
+    }
+
+    #[inline]
+    pub fn engine_uninit(engine: &mut EngineInner) {
+        unsafe {
+            sys::ma_engine_uninit(engine.inner);
+        }
+    }
+
+    #[inline]
+    pub fn ma_engine_read_pcm_frames_into(
+        engine: &EngineReader,
+        dst: &mut [f32],
+    ) -> MaResult<usize> {
+        let channels = engine_ffi::ma_engine_get_channels(engine);
+        let len = dst.len() as u64;
+
+        if channels == 0 {
+            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
+        }
+
+        // May truncate, and that is desired
+        let frame_count = len / channels as u64;
+
+        let mut frames_read = 0;
+        let res = unsafe {
+            sys::ma_engine_read_pcm_frames(
+                engine.to_raw(),
+                dst.as_mut_ptr() as *mut std::ffi::c_void,
+                frame_count,
+                &mut frames_read,
+            )
+        };
+        MaudioError::check(res)?;
+
+        Ok(frames_read as usize)
+    }
+
+    #[inline]
+    pub fn ma_engine_read_pcm_frames(
+        engine: &EngineReader,
+        frame_count: u64,
+    ) -> MaResult<SampleBuffer<f32>> {
+        let channels = engine_ffi::ma_engine_get_channels(engine);
+        let mut buffer = vec![0.0f32; (frame_count * channels as u64) as usize];
+        let mut frames_read = 0;
+        let res = unsafe {
+            sys::ma_engine_read_pcm_frames(
+                engine.to_raw(),
+                buffer.as_mut_ptr() as *mut std::ffi::c_void,
+                frame_count,
+                &mut frames_read,
+            )
+        };
+        MaudioError::check(res)?;
+        SampleBuffer::<f32>::from_storage(buffer, frames_read as usize, channels)
+    }
+
+    #[inline]
+    pub fn ma_engine_get_node_graph(engine: &Engine) -> NodeGraphRef {
+        let ptr = unsafe { sys::ma_engine_get_node_graph(engine.to_raw()) };
+        NodeGraphRef {
+            inner: ptr,
+            owner: GraphOwner::Engine(engine.0.clone()),
+        }
+    }
+
+    #[inline]
+    pub fn ma_engine_get_resource_manager<'a>(
+        engine: &'a Engine,
+    ) -> Option<ResourceManagerRef<'a, f32>> {
+        let ptr = unsafe { sys::ma_engine_get_resource_manager(engine.to_raw()) };
+        if ptr.is_null() {
+            None
+        } else {
+            Some(ResourceManagerRef::from_ptr(ptr))
+        }
+    }
+
+    // AsEnginePtr
+    #[inline]
+    pub fn ma_engine_get_device<'a, E: AsEnginePtr + ?Sized>(
+        engine: &'a E,
+    ) -> Option<DeviceRef<'a>> {
+        let ptr = unsafe { sys::ma_engine_get_device(private_engine::engine_ptr(engine)) };
+        if ptr.is_null() {
+            None
+        } else {
+            Some(DeviceRef::from_ptr(ptr))
+        }
+    }
+
+    // TODO: Implement Log(Ref?)
+    #[inline]
+    #[allow(dead_code)]
+    pub fn ma_engine_get_log(engine: &Engine) -> *mut sys::ma_log {
+        unsafe { sys::ma_engine_get_log(engine.to_raw()) }
+    }
+
+    #[inline]
+    pub fn ma_engine_get_endpoint<'a>(engine: &'a Engine) -> NodeRef<'a> {
+        let ptr = unsafe { sys::ma_engine_get_endpoint(engine.to_raw()) };
+        NodeRef::from_ptr(ptr)
+    }
+
+    #[inline]
+    pub fn ma_engine_get_time_in_pcm_frames(engine: &Engine) -> u64 {
+        unsafe { sys::ma_engine_get_time_in_pcm_frames(engine.to_raw() as *const _) }
+    }
+
+    #[inline]
+    pub fn ma_engine_get_time_in_milliseconds(engine: &Engine) -> u64 {
+        unsafe { sys::ma_engine_get_time_in_milliseconds(engine.to_raw() as *const _) }
+    }
+
+    #[inline]
+    pub fn ma_engine_set_time_in_pcm_frames(engine: &Engine, time: u64) {
+        unsafe { sys::ma_engine_set_time_in_pcm_frames(engine.to_raw(), time) };
+    }
+
+    #[inline]
+    pub fn ma_engine_set_time_in_milliseconds(engine: &Engine, time: u64) {
+        unsafe { sys::ma_engine_set_time_in_milliseconds(engine.to_raw(), time) };
+    }
+
+    #[inline]
+    pub fn ma_engine_get_channels<E: AsEnginePtr + ?Sized>(engine: &E) -> u32 {
+        unsafe { sys::ma_engine_get_channels(private_engine::engine_ptr(engine) as *const _) }
+    }
+
+    #[inline]
+    pub fn ma_engine_get_sample_rate(engine: &Engine) -> u32 {
+        unsafe { sys::ma_engine_get_sample_rate(engine.to_raw() as *const _) }
+    }
+
+    #[inline]
+    pub fn ma_engine_start(engine: &Engine) -> MaResult<()> {
+        let res = unsafe { sys::ma_engine_start(engine.to_raw()) };
+        MaudioError::check(res)
+    }
+
+    #[inline]
+    pub fn ma_engine_stop(engine: &Engine) -> MaResult<()> {
+        let res = unsafe { sys::ma_engine_stop(engine.to_raw()) };
+        MaudioError::check(res)
+    }
+
+    #[inline]
+    pub fn ma_engine_set_volume(engine: &Engine, volume: f32) -> MaResult<()> {
+        let res = unsafe { sys::ma_engine_set_volume(engine.to_raw(), volume) };
+        MaudioError::check(res)
+    }
+
+    #[inline]
+    pub fn ma_engine_get_volume(engine: &Engine) -> f32 {
+        unsafe { sys::ma_engine_get_volume(engine.to_raw()) }
+    }
+
+    #[inline]
+    pub fn ma_engine_set_gain_db(engine: &Engine, db_gain: f32) -> MaResult<()> {
+        let res = unsafe { sys::ma_engine_set_gain_db(engine.to_raw(), db_gain) };
+        MaudioError::check(res)
+    }
+
+    #[inline]
+    pub fn ma_engine_get_gain_db(engine: &Engine) -> f32 {
+        unsafe { sys::ma_engine_get_gain_db(engine.to_raw()) }
+    }
+
+    #[inline]
+    pub fn ma_engine_get_listener_count(engine: &Engine) -> u32 {
+        unsafe { sys::ma_engine_get_listener_count(engine.to_raw() as *const _) }
+    }
+
+    #[inline]
+    pub fn ma_engine_find_closest_listener(engine: &Engine, position: Vec3) -> u32 {
+        unsafe {
+            sys::ma_engine_find_closest_listener(
+                engine.to_raw() as *const _,
+                position.x,
+                position.y,
+                position.z,
+            )
+        }
+    }
+
+    #[inline]
+    pub fn ma_engine_listener_set_position(engine: &Engine, listener: u32, position: Vec3) {
+        unsafe {
+            sys::ma_engine_listener_set_position(
+                engine.to_raw(),
+                listener,
+                position.x,
+                position.y,
+                position.z,
+            )
+        };
+    }
+
+    #[inline]
+    pub fn ma_engine_listener_get_position(engine: &Engine, listener: u32) -> Vec3 {
+        let vec =
+            unsafe { sys::ma_engine_listener_get_position(engine.to_raw() as *const _, listener) };
+        vec.into()
+    }
+
+    #[inline]
+    pub fn ma_engine_listener_set_direction(engine: &Engine, listener: u32, position: Vec3) {
+        unsafe {
+            sys::ma_engine_listener_set_direction(
+                engine.to_raw(),
+                listener,
+                position.x,
+                position.y,
+                position.z,
+            )
+        };
+    }
+
+    #[inline]
+    pub fn ma_engine_listener_get_direction(engine: &Engine, listener: u32) -> Vec3 {
+        let vec =
+            unsafe { sys::ma_engine_listener_get_direction(engine.to_raw() as *const _, listener) };
+        vec.into()
+    }
+
+    #[inline]
+    pub fn ma_engine_listener_set_velocity(engine: &Engine, listener: u32, position: Vec3) {
+        unsafe {
+            sys::ma_engine_listener_set_velocity(
+                engine.to_raw(),
+                listener,
+                position.x,
+                position.y,
+                position.z,
+            )
+        };
+    }
+
+    #[inline]
+    pub fn ma_engine_listener_get_velocity(engine: &Engine, listener: u32) -> Vec3 {
+        let vec =
+            unsafe { sys::ma_engine_listener_get_velocity(engine.to_raw() as *const _, listener) };
+        vec.into()
+    }
+
+    #[inline]
+    pub fn ma_engine_listener_set_cone(engine: &Engine, listener: u32, cone: Cone) {
+        unsafe {
+            sys::ma_engine_listener_set_cone(
+                engine.to_raw(),
+                listener,
+                cone.inner_angle_rad,
+                cone.outer_angle_rad,
+                cone.outer_gain,
+            )
+        };
+    }
+
+    #[inline]
+    pub fn ma_engine_listener_get_cone(engine: &Engine, listener: u32) -> Cone {
+        let mut inner = 0.0f32;
+        let mut outer = 0.0f32;
+        let mut gain = 1.0f32;
+
+        unsafe {
+            sys::ma_engine_listener_get_cone(
+                engine.to_raw() as *const _,
+                listener,
+                &mut inner,
+                &mut outer,
+                &mut gain,
+            )
+        };
+
+        Cone {
+            inner_angle_rad: inner,
+            outer_angle_rad: outer,
+            outer_gain: gain,
+        }
+    }
+
+    #[inline]
+    pub fn ma_engine_listener_set_world_up(engine: &Engine, listener: u32, vec: Vec3) {
+        unsafe {
+            sys::ma_engine_listener_set_world_up(engine.to_raw(), listener, vec.x, vec.y, vec.z);
+        }
+    }
+
+    #[inline]
+    pub fn ma_engine_listener_get_world_up(engine: &Engine, listener: u32) -> Vec3 {
+        let vec =
+            unsafe { sys::ma_engine_listener_get_world_up(engine.to_raw() as *const _, listener) };
+        vec.into()
+    }
+
+    #[inline]
+    pub fn ma_engine_listener_set_enabled(engine: &Engine, listener: u32, enabled: bool) {
+        unsafe { sys::ma_engine_listener_set_enabled(engine.to_raw(), listener, enabled as u32) }
+    }
+
+    #[inline]
+    pub fn ma_engine_listener_is_enabled(engine: &Engine, listener: u32) -> bool {
+        let res =
+            unsafe { sys::ma_engine_listener_is_enabled(engine.to_raw() as *const _, listener) };
+        res == 1
+    }
+}
+
 #[cfg(test)]
 mod test {
+    #[test]
+    fn test_engine_acquire_reader() {
+        let engine = Engine::new_for_tests().unwrap();
+        let res = engine.try_acquire_reader();
+        assert!(res.is_ok());
+    }
+
+    #[test]
+    fn test_engine_acquire_reader_twice() {
+        let engine = Engine::new_for_tests().unwrap();
+        let _reader = engine.try_acquire_reader().unwrap();
+
+        let res = engine.try_acquire_reader();
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_engine_acquire_reader_drop_reacquire() {
+        let engine = Engine::new_for_tests().unwrap();
+        let reader = engine.try_acquire_reader().unwrap();
+        drop(reader);
+
+        let res = engine.try_acquire_reader();
+        assert!(res.is_ok());
+    }
+
     use super::*;
 
     fn assert_f32_eq(a: f32, b: f32) {
@@ -789,7 +1273,8 @@ mod test {
             .unwrap();
 
         let requested = 256u64;
-        let buffer = engine.read_pcm_frames(requested).unwrap();
+        let mut reader = engine.try_acquire_reader().unwrap();
+        let buffer = reader.read_pcm_frames(requested).unwrap();
         let frames = buffer.frames() as u64;
         let samples = buffer.as_ref();
 
@@ -856,334 +1341,5 @@ mod test {
 
         let got = engine.direction(0);
         assert_vec3_eq(got, dir);
-    }
-}
-
-pub(crate) mod engine_ffi {
-    use maudio_sys::ffi as sys;
-
-    use crate::{
-        audio::{formats::SampleBuffer, math::vec3::Vec3, spatial::cone::Cone},
-        device::DeviceRef,
-        engine::{
-            engine_builder::EngineBuilder,
-            node_graph::{nodes::NodeRef, GraphOwner, NodeGraphRef},
-            resource::ResourceManagerRef,
-            Binding, Engine, EngineInner,
-        },
-        AsRawRef, MaResult, MaudioError,
-    };
-
-    #[inline]
-    pub fn engine_init(
-        config: Option<&EngineBuilder>,
-        engine: *mut sys::ma_engine,
-    ) -> MaResult<()> {
-        let p_config: *const sys::ma_engine_config =
-            config.map_or(core::ptr::null(), |c| c.as_raw_ptr());
-        let res = unsafe { sys::ma_engine_init(p_config, engine) };
-        MaudioError::check(res)
-    }
-
-    #[inline]
-    pub fn engine_uninit(engine: &mut EngineInner) {
-        unsafe {
-            sys::ma_engine_uninit(engine.inner);
-        }
-    }
-
-    #[inline]
-    pub fn ma_engine_read_pcm_frames_into(engine: &Engine, dst: &mut [f32]) -> MaResult<usize> {
-        let channels = engine.channels();
-        let len = dst.len() as u64;
-
-        if channels == 0 {
-            return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
-        }
-
-        // May truncate, and that is desired
-        let frame_count = len / channels as u64;
-
-        let mut frames_read = 0;
-        let res = unsafe {
-            sys::ma_engine_read_pcm_frames(
-                engine.to_raw(),
-                dst.as_mut_ptr() as *mut std::ffi::c_void,
-                frame_count,
-                &mut frames_read,
-            )
-        };
-        MaudioError::check(res)?;
-
-        Ok(frames_read as usize)
-    }
-
-    #[inline]
-    pub fn ma_engine_read_pcm_frames(
-        engine: &Engine,
-        frame_count: u64,
-    ) -> MaResult<SampleBuffer<f32>> {
-        let channels = engine.channels();
-        let mut buffer = vec![0.0f32; (frame_count * channels as u64) as usize];
-        let mut frames_read = 0;
-        let res = unsafe {
-            sys::ma_engine_read_pcm_frames(
-                engine.to_raw(),
-                buffer.as_mut_ptr() as *mut std::ffi::c_void,
-                frame_count,
-                &mut frames_read,
-            )
-        };
-        MaudioError::check(res)?;
-        SampleBuffer::<f32>::from_storage(buffer, frames_read as usize, channels)
-    }
-
-    #[inline]
-    pub fn ma_engine_get_node_graph(engine: &Engine) -> NodeGraphRef {
-        let ptr = unsafe { sys::ma_engine_get_node_graph(engine.to_raw()) };
-        NodeGraphRef {
-            inner: ptr,
-            owner: GraphOwner::Engine(engine.0.clone()),
-        }
-    }
-
-    #[inline]
-    pub fn ma_engine_get_resource_manager<'a>(
-        engine: &'a Engine,
-    ) -> Option<ResourceManagerRef<'a, f32>> {
-        let ptr = unsafe { sys::ma_engine_get_resource_manager(engine.to_raw()) };
-        if ptr.is_null() {
-            None
-        } else {
-            Some(ResourceManagerRef::from_ptr(ptr))
-        }
-    }
-
-    // AsEnginePtr
-    #[inline]
-    pub fn ma_engine_get_device<'a>(engine: &'a Engine) -> Option<DeviceRef<'a>> {
-        let ptr = unsafe { sys::ma_engine_get_device(engine.to_raw()) };
-        if ptr.is_null() {
-            None
-        } else {
-            Some(DeviceRef::from_ptr(ptr))
-        }
-    }
-
-    // TODO: Implement Log(Ref?)
-    #[inline]
-    #[allow(dead_code)]
-    pub fn ma_engine_get_log(engine: &Engine) -> *mut sys::ma_log {
-        unsafe { sys::ma_engine_get_log(engine.to_raw()) }
-    }
-
-    // TODO
-    #[inline]
-    pub fn ma_engine_get_endpoint<'a>(engine: &'a Engine) -> NodeRef<'a> {
-        let ptr = unsafe { sys::ma_engine_get_endpoint(engine.to_raw()) };
-        NodeRef::from_ptr(ptr)
-    }
-
-    #[inline]
-    pub fn ma_engine_get_time_in_pcm_frames(engine: &Engine) -> u64 {
-        unsafe { sys::ma_engine_get_time_in_pcm_frames(engine.to_raw() as *const _) }
-    }
-
-    #[inline]
-    pub fn ma_engine_get_time_in_milliseconds(engine: &Engine) -> u64 {
-        unsafe { sys::ma_engine_get_time_in_milliseconds(engine.to_raw() as *const _) }
-    }
-
-    #[inline]
-    pub fn ma_engine_set_time_in_pcm_frames(engine: &Engine, time: u64) {
-        unsafe { sys::ma_engine_set_time_in_pcm_frames(engine.to_raw(), time) };
-    }
-
-    #[inline]
-    pub fn ma_engine_set_time_in_milliseconds(engine: &Engine, time: u64) {
-        unsafe { sys::ma_engine_set_time_in_milliseconds(engine.to_raw(), time) };
-    }
-
-    #[inline]
-    pub fn ma_engine_get_channels(engine: &Engine) -> u32 {
-        unsafe { sys::ma_engine_get_channels(engine.to_raw() as *const _) }
-    }
-
-    #[inline]
-    pub fn ma_engine_get_sample_rate(engine: &Engine) -> u32 {
-        unsafe { sys::ma_engine_get_sample_rate(engine.to_raw() as *const _) }
-    }
-
-    #[inline]
-    pub fn ma_engine_start(engine: &Engine) -> MaResult<()> {
-        let res = unsafe { sys::ma_engine_start(engine.to_raw()) };
-        MaudioError::check(res)
-    }
-
-    #[inline]
-    pub fn ma_engine_stop(engine: &Engine) -> MaResult<()> {
-        let res = unsafe { sys::ma_engine_stop(engine.to_raw()) };
-        MaudioError::check(res)
-    }
-
-    #[inline]
-    pub fn ma_engine_set_volume(engine: &Engine, volume: f32) -> MaResult<()> {
-        let res = unsafe { sys::ma_engine_set_volume(engine.to_raw(), volume) };
-        MaudioError::check(res)
-    }
-
-    #[inline]
-    pub fn ma_engine_get_volume(engine: &Engine) -> f32 {
-        unsafe { sys::ma_engine_get_volume(engine.to_raw()) }
-    }
-
-    #[inline]
-    pub fn ma_engine_set_gain_db(engine: &Engine, db_gain: f32) -> MaResult<()> {
-        let res = unsafe { sys::ma_engine_set_gain_db(engine.to_raw(), db_gain) };
-        MaudioError::check(res)
-    }
-
-    #[inline]
-    pub fn ma_engine_get_gain_db(engine: &Engine) -> f32 {
-        unsafe { sys::ma_engine_get_gain_db(engine.to_raw()) }
-    }
-
-    #[inline]
-    pub fn ma_engine_get_listener_count(engine: &Engine) -> u32 {
-        unsafe { sys::ma_engine_get_listener_count(engine.to_raw() as *const _) }
-    }
-
-    #[inline]
-    pub fn ma_engine_find_closest_listener(engine: &Engine, position: Vec3) -> u32 {
-        unsafe {
-            sys::ma_engine_find_closest_listener(
-                engine.to_raw() as *const _,
-                position.x,
-                position.y,
-                position.z,
-            )
-        }
-    }
-
-    #[inline]
-    pub fn ma_engine_listener_set_position(engine: &Engine, listener: u32, position: Vec3) {
-        unsafe {
-            sys::ma_engine_listener_set_position(
-                engine.to_raw(),
-                listener,
-                position.x,
-                position.y,
-                position.z,
-            )
-        };
-    }
-
-    #[inline]
-    pub fn ma_engine_listener_get_position(engine: &Engine, listener: u32) -> Vec3 {
-        let vec =
-            unsafe { sys::ma_engine_listener_get_position(engine.to_raw() as *const _, listener) };
-        vec.into()
-    }
-
-    #[inline]
-    pub fn ma_engine_listener_set_direction(engine: &Engine, listener: u32, position: Vec3) {
-        unsafe {
-            sys::ma_engine_listener_set_direction(
-                engine.to_raw(),
-                listener,
-                position.x,
-                position.y,
-                position.z,
-            )
-        };
-    }
-
-    #[inline]
-    pub fn ma_engine_listener_get_direction(engine: &Engine, listener: u32) -> Vec3 {
-        let vec =
-            unsafe { sys::ma_engine_listener_get_direction(engine.to_raw() as *const _, listener) };
-        vec.into()
-    }
-
-    #[inline]
-    pub fn ma_engine_listener_set_velocity(engine: &Engine, listener: u32, position: Vec3) {
-        unsafe {
-            sys::ma_engine_listener_set_velocity(
-                engine.to_raw(),
-                listener,
-                position.x,
-                position.y,
-                position.z,
-            )
-        };
-    }
-
-    #[inline]
-    pub fn ma_engine_listener_get_velocity(engine: &Engine, listener: u32) -> Vec3 {
-        let vec =
-            unsafe { sys::ma_engine_listener_get_velocity(engine.to_raw() as *const _, listener) };
-        vec.into()
-    }
-
-    #[inline]
-    pub fn ma_engine_listener_set_cone(engine: &Engine, listener: u32, cone: Cone) {
-        unsafe {
-            sys::ma_engine_listener_set_cone(
-                engine.to_raw(),
-                listener,
-                cone.inner_angle_rad,
-                cone.outer_angle_rad,
-                cone.outer_gain,
-            )
-        };
-    }
-
-    #[inline]
-    pub fn ma_engine_listener_get_cone(engine: &Engine, listener: u32) -> Cone {
-        let mut inner = 0.0f32;
-        let mut outer = 0.0f32;
-        let mut gain = 1.0f32;
-
-        unsafe {
-            sys::ma_engine_listener_get_cone(
-                engine.to_raw() as *const _,
-                listener,
-                &mut inner,
-                &mut outer,
-                &mut gain,
-            )
-        };
-
-        Cone {
-            inner_angle_rad: inner,
-            outer_angle_rad: outer,
-            outer_gain: gain,
-        }
-    }
-
-    #[inline]
-    pub fn ma_engine_listener_set_world_up(engine: &Engine, listener: u32, vec: Vec3) {
-        unsafe {
-            sys::ma_engine_listener_set_world_up(engine.to_raw(), listener, vec.x, vec.y, vec.z);
-        }
-    }
-
-    #[inline]
-    pub fn ma_engine_listener_get_world_up(engine: &Engine, listener: u32) -> Vec3 {
-        let vec =
-            unsafe { sys::ma_engine_listener_get_world_up(engine.to_raw() as *const _, listener) };
-        vec.into()
-    }
-
-    #[inline]
-    pub fn ma_engine_listener_set_enabled(engine: &Engine, listener: u32, enabled: bool) {
-        unsafe { sys::ma_engine_listener_set_enabled(engine.to_raw(), listener, enabled as u32) }
-    }
-
-    #[inline]
-    pub fn ma_engine_listener_is_enabled(engine: &Engine, listener: u32) -> bool {
-        let res =
-            unsafe { sys::ma_engine_listener_is_enabled(engine.to_raw() as *const _, listener) };
-        res == 1
     }
 }

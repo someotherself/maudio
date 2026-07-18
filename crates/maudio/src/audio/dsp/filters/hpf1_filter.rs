@@ -28,10 +28,10 @@ impl<F: PcmFormat> Binding for Hpf1<F> {
 impl<F: PcmFormat> Hpf1<F> {
     fn build(config: &sys::ma_hpf1_config, format: Format) -> MaResult<Hpf1<F>> {
         let channels = config.channels;
-        let mut inner: MaybeUninit<sys::ma_hpf1> = MaybeUninit::uninit();
+        let mut inner: Box<MaybeUninit<sys::ma_hpf1>> = Box::new(MaybeUninit::uninit());
         hpf1_ffi::ma_hpf1_init(config, None, inner.as_mut_ptr())?;
 
-        let inner_ptr = Box::into_raw(Box::new(unsafe { inner.assume_init() }));
+        let inner_ptr = Box::into_raw(inner) as *mut sys::ma_hpf1;
         Ok(Hpf1 {
             inner: inner_ptr,
             format,

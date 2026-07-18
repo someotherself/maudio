@@ -30,10 +30,10 @@ impl<F: PcmFormat> Lpf<F> {
     fn build(config: &sys::ma_lpf_config, format: Format) -> MaResult<Lpf<F>> {
         let channels = config.channels;
         let order = config.order;
-        let mut inner: MaybeUninit<sys::ma_lpf> = MaybeUninit::uninit();
+        let mut inner: Box<MaybeUninit<sys::ma_lpf>> = Box::new(MaybeUninit::uninit());
         lpf_ffi::ma_lpf_init(config, None, inner.as_mut_ptr())?;
 
-        let inner_ptr = Box::into_raw(Box::new(unsafe { inner.assume_init() }));
+        let inner_ptr = Box::into_raw(inner) as *mut sys::ma_lpf;
         Ok(Lpf {
             inner: inner_ptr,
             format,

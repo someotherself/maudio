@@ -30,10 +30,10 @@ impl<F: PcmFormat> Hpf<F> {
     fn build(config: &sys::ma_hpf_config, format: Format) -> MaResult<Hpf<F>> {
         let channels = config.channels;
         let order = config.order;
-        let mut inner: MaybeUninit<sys::ma_hpf> = MaybeUninit::uninit();
+        let mut inner: Box<MaybeUninit<sys::ma_hpf>> = Box::new(MaybeUninit::uninit());
         hpf_ffi::ma_hpf_init(config, None, inner.as_mut_ptr())?;
 
-        let inner_ptr = Box::into_raw(Box::new(unsafe { inner.assume_init() }));
+        let inner_ptr = Box::into_raw(inner) as *mut sys::ma_hpf;
         Ok(Hpf {
             inner: inner_ptr,
             format,

@@ -23,6 +23,17 @@ The minimum supported Rust version depends on how the crate is built.
 - Pre-generated bindings exist for Windows and Linux.
 - On MacOS, `--generate-bindings` feature must be used for now.
 
+### Status of cross-platform compatibility
+| Platform | Pregen bindings exist | Passed tests | Precompiled binary exists
+|-------|--------|--------|--------|
+| `windows` | Yes | Yes | No |
+| `linux` | Yes | Yes | No |
+| `macOS` | No | Yes | No |
+| `BSD family` | No | No | No |
+| `iOS` | No | No | No |
+| `Android` | No | No | No |
+| `Web` | No | No | No |
+
 ## How to use
 
 See [Examples](./crates/maudio/examples/) for a tutorial style introduction into `maudio`

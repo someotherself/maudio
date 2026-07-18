@@ -30,10 +30,10 @@ impl<F: PcmFormat> Notch2<F> {
     fn build(config: &sys::ma_notch2_config, format: Format) -> MaResult<Notch2<F>> {
         let channels = config.channels;
         let quality = config.q;
-        let mut inner: MaybeUninit<sys::ma_notch2> = MaybeUninit::uninit();
+        let mut inner: Box<MaybeUninit<sys::ma_notch2>> = Box::new(MaybeUninit::uninit());
         notch2_ffi::ma_notch2_init(config, None, inner.as_mut_ptr())?;
 
-        let inner_ptr = Box::into_raw(Box::new(unsafe { inner.assume_init() }));
+        let inner_ptr = Box::into_raw(inner) as *mut sys::ma_notch2;
         Ok(Notch2 {
             inner: inner_ptr,
             format,

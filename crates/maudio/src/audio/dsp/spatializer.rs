@@ -32,10 +32,10 @@ impl<F: PcmFormat> Binding for Spatializer<F> {
 
 impl<F: PcmFormat> Spatializer<F> {
     fn build(config: &sys::ma_spatializer_config) -> MaResult<Spatializer<F>> {
-        let mut inner: MaybeUninit<sys::ma_spatializer> = MaybeUninit::uninit();
+        let mut inner: Box<MaybeUninit<sys::ma_spatializer>> = Box::new(MaybeUninit::uninit());
         spatializer_ffi::ma_spatializer_init(config, None, inner.as_mut_ptr())?;
 
-        let inner_ptr = Box::into_raw(Box::new(unsafe { inner.assume_init() }));
+        let inner_ptr = Box::into_raw(inner) as *mut sys::ma_spatializer;
         Ok(Spatializer {
             inner: inner_ptr,
             channels_in: config.channelsIn,
@@ -563,10 +563,11 @@ impl<F: PcmFormat> Binding for Listener<F> {
 impl<F: PcmFormat> Listener<F> {
     fn build(config: &sys::ma_spatializer_listener_config) -> MaResult<Listener<F>> {
         let channels_out = config.channelsOut;
-        let mut inner: MaybeUninit<sys::ma_spatializer_listener> = MaybeUninit::uninit();
+        let mut inner: Box<MaybeUninit<sys::ma_spatializer_listener>> =
+            Box::new(MaybeUninit::uninit());
         sp_listener_ffi::ma_spatializer_listener_init(config, None, inner.as_mut_ptr())?;
 
-        let inner_ptr = Box::into_raw(Box::new(unsafe { inner.assume_init() }));
+        let inner_ptr = Box::into_raw(inner) as *mut sys::ma_spatializer_listener;
 
         Ok(Listener {
             inner: inner_ptr,

@@ -61,6 +61,7 @@ fn main() -> MaResult<()> {
     let mut total_from_engine = 0;
     let mut total_into_ring = 0;
     let mut total_from_ring = 0;
+    let mut reader = engine.try_acquire_reader().unwrap();
 
     for i in 0..20 {
         // `write_with` gives us a writable PCM slice and expects the closure to
@@ -69,7 +70,7 @@ fn main() -> MaResult<()> {
         // This is where `read_pcm_frames_into` is useful: it writes engine output
         // directly into the provided slice and returns the number of frames read.
         let written =
-            send.write_with(100, |slice| engine.read_pcm_frames_into(slice).unwrap_or(0))?;
+            send.write_with(100, |slice| reader.read_pcm_frames_into(slice).unwrap_or(0))?;
 
         total_from_engine += written;
         total_into_ring += written;

@@ -30,10 +30,10 @@ impl<F: PcmFormat> Bpf2<F> {
     fn build(config: &sys::ma_bpf2_config, format: Format) -> MaResult<Bpf2<F>> {
         let channels = config.channels;
         let quality = config.q;
-        let mut inner: MaybeUninit<sys::ma_bpf2> = MaybeUninit::uninit();
+        let mut inner: Box<MaybeUninit<sys::ma_bpf2>> = Box::new(MaybeUninit::uninit());
         bpf2_ffi::ma_bpf2_init(config, None, inner.as_mut_ptr())?;
 
-        let inner_ptr = Box::into_raw(Box::new(unsafe { inner.assume_init() }));
+        let inner_ptr = Box::into_raw(inner) as *mut sys::ma_bpf2;
         Ok(Bpf2 {
             inner: inner_ptr,
             format,

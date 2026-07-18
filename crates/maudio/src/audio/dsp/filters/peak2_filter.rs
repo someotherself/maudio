@@ -34,10 +34,10 @@ impl<F: PcmFormat> Peak2<F> {
         let quality = config.q;
         let frequency = config.frequency;
         let gain_db = config.gainDB;
-        let mut inner: MaybeUninit<sys::ma_peak2> = MaybeUninit::uninit();
+        let mut inner: Box<MaybeUninit<sys::ma_peak2>> = Box::new(MaybeUninit::uninit());
         peak2_ffi::ma_peak2_init(config, None, inner.as_mut_ptr())?;
 
-        let inner_ptr = Box::into_raw(Box::new(unsafe { inner.assume_init() }));
+        let inner_ptr = Box::into_raw(inner) as *mut sys::ma_peak2;
         Ok(Peak2 {
             inner: inner_ptr,
             format,

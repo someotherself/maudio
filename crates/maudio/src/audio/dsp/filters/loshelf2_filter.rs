@@ -28,10 +28,10 @@ impl<F: PcmFormat> Binding for LoShelf2<F> {
 impl<F: PcmFormat> LoShelf2<F> {
     fn build(config: &sys::ma_loshelf2_config, format: Format) -> MaResult<LoShelf2<F>> {
         let channels = config.channels;
-        let mut inner: MaybeUninit<sys::ma_loshelf2> = MaybeUninit::uninit();
+        let mut inner: Box<MaybeUninit<sys::ma_loshelf2>> = Box::new(MaybeUninit::uninit());
         loshelf2_ffi::ma_loshelf2_init(config, None, inner.as_mut_ptr())?;
 
-        let inner_ptr = Box::into_raw(Box::new(unsafe { inner.assume_init() }));
+        let inner_ptr = Box::into_raw(inner) as *mut sys::ma_loshelf2;
         Ok(LoShelf2 {
             inner: inner_ptr,
             format,

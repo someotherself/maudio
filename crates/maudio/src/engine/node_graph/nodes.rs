@@ -169,7 +169,10 @@ impl<C> Node<C> {
 
     /// Returns the owning node graph, if any.
     pub fn node_graph(&self) -> Option<NodeGraph> {
-        unsafe { &*self.inner }.owner.graph().map(NodeGraph)
+        unsafe { &*self.inner }
+            .owner
+            .graph()
+            .map(|g| NodeGraph { inner: g })
     }
 
     /// Returns a reference to the node graph.
