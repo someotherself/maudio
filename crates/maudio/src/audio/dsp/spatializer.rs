@@ -53,7 +53,7 @@ impl<F: PcmFormat> Spatializer<F> {
         spatializer_ffi::ma_spatializer_process_pcm_frames(self, listener, frames_out, frames_in)
     }
 
-    pub fn set_master_volume(&mut self, volume: f32) -> MaResult<()> {
+    pub fn set_master_volume(&self, volume: f32) -> MaResult<()> {
         spatializer_ffi::ma_spatializer_set_master_volume(self, volume)
     }
 
@@ -73,11 +73,11 @@ impl<F: PcmFormat> Spatializer<F> {
         spatializer_ffi::ma_spatializer_get_attenuation_model(self)
     }
 
-    pub fn set_attenuation_model(&mut self, model: AttenuationModel) {
+    pub fn set_attenuation_model(&self, model: AttenuationModel) {
         spatializer_ffi::ma_spatializer_set_attenuation_model(self, model);
     }
 
-    pub fn set_positioning(&mut self, positioning: Positioning) {
+    pub fn set_positioning(&self, positioning: Positioning) {
         spatializer_ffi::ma_spatializer_set_positioning(self, positioning);
     }
 
@@ -85,7 +85,7 @@ impl<F: PcmFormat> Spatializer<F> {
         spatializer_ffi::ma_spatializer_get_positioning(self)
     }
 
-    pub fn set_rolloff(&mut self, rolloff: f32) {
+    pub fn set_rolloff(&self, rolloff: f32) {
         spatializer_ffi::ma_spatializer_set_rolloff(self, rolloff);
     }
 
@@ -93,7 +93,7 @@ impl<F: PcmFormat> Spatializer<F> {
         spatializer_ffi::ma_spatializer_get_rolloff(self)
     }
 
-    pub fn set_min_gain(&mut self, min_gain: f32) {
+    pub fn set_min_gain(&self, min_gain: f32) {
         spatializer_ffi::ma_spatializer_set_min_gain(self, min_gain);
     }
 
@@ -101,7 +101,7 @@ impl<F: PcmFormat> Spatializer<F> {
         spatializer_ffi::ma_spatializer_get_min_gain(self)
     }
 
-    pub fn set_max_gain(&mut self, max_gain: f32) {
+    pub fn set_max_gain(&self, max_gain: f32) {
         spatializer_ffi::ma_spatializer_set_max_gain(self, max_gain);
     }
 
@@ -109,7 +109,7 @@ impl<F: PcmFormat> Spatializer<F> {
         spatializer_ffi::ma_spatializer_get_max_gain(self)
     }
 
-    pub fn set_min_distance(&mut self, min_distance: f32) {
+    pub fn set_min_distance(&self, min_distance: f32) {
         spatializer_ffi::ma_spatializer_set_min_distance(self, min_distance);
     }
 
@@ -117,7 +117,7 @@ impl<F: PcmFormat> Spatializer<F> {
         spatializer_ffi::ma_spatializer_get_min_distance(self)
     }
 
-    pub fn set_max_distance(&mut self, max_distance: f32) {
+    pub fn set_max_distance(&self, max_distance: f32) {
         spatializer_ffi::ma_spatializer_set_max_distance(self, max_distance);
     }
 
@@ -125,7 +125,7 @@ impl<F: PcmFormat> Spatializer<F> {
         spatializer_ffi::ma_spatializer_get_max_distance(self)
     }
 
-    pub fn set_cone(&mut self, cone: Cone) {
+    pub fn set_cone(&self, cone: Cone) {
         spatializer_ffi::ma_spatializer_set_cone(self, cone);
     }
 
@@ -133,7 +133,7 @@ impl<F: PcmFormat> Spatializer<F> {
         spatializer_ffi::ma_spatializer_get_cone(self)
     }
 
-    pub fn set_doppler_factor(&mut self, doppler_factor: f32) {
+    pub fn set_doppler_factor(&self, doppler_factor: f32) {
         spatializer_ffi::ma_spatializer_set_doppler_factor(self, doppler_factor);
     }
 
@@ -141,7 +141,7 @@ impl<F: PcmFormat> Spatializer<F> {
         spatializer_ffi::ma_spatializer_get_doppler_factor(self)
     }
 
-    pub fn set_directional_attenuation_factor(&mut self, factor: f32) {
+    pub fn set_directional_attenuation_factor(&self, factor: f32) {
         spatializer_ffi::ma_spatializer_set_directional_attenuation_factor(self, factor);
     }
 
@@ -149,7 +149,7 @@ impl<F: PcmFormat> Spatializer<F> {
         spatializer_ffi::ma_spatializer_get_directional_attenuation_factor(self)
     }
 
-    pub fn set_position(&mut self, position: Vec3) {
+    pub fn set_position(&self, position: Vec3) {
         spatializer_ffi::ma_spatializer_set_position(self, position);
     }
 
@@ -157,7 +157,7 @@ impl<F: PcmFormat> Spatializer<F> {
         spatializer_ffi::ma_spatializer_get_position(self)
     }
 
-    pub fn set_direction(&mut self, direction: Vec3) {
+    pub fn set_direction(&self, direction: Vec3) {
         spatializer_ffi::ma_spatializer_set_direction(self, direction);
     }
 
@@ -165,7 +165,7 @@ impl<F: PcmFormat> Spatializer<F> {
         spatializer_ffi::ma_spatializer_get_direction(self)
     }
 
-    pub fn set_velocity(&mut self, velocity: Vec3) {
+    pub fn set_velocity(&self, velocity: Vec3) {
         spatializer_ffi::ma_spatializer_set_velocity(self, velocity);
     }
 
@@ -173,7 +173,7 @@ impl<F: PcmFormat> Spatializer<F> {
         spatializer_ffi::ma_spatializer_get_velocity(self)
     }
 
-    pub fn relative_position_and_direction(&self, listener: &mut Listener<F>) -> (Vec3, Vec3) {
+    pub fn relative_position_and_direction(&self, listener: &Listener<F>) -> (Vec3, Vec3) {
         spatializer_ffi::ma_spatializer_get_relative_position_and_direction(self, listener)
     }
 }
@@ -255,7 +255,7 @@ mod spatializer_ffi {
 
     #[inline]
     pub fn ma_spatializer_set_master_volume<F: PcmFormat>(
-        spatializer: &mut Spatializer<F>,
+        spatializer: &Spatializer<F>,
         volume: f32,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_spatializer_set_master_volume(spatializer.to_raw(), volume) };
@@ -285,7 +285,7 @@ mod spatializer_ffi {
 
     #[inline]
     pub fn ma_spatializer_set_attenuation_model<F: PcmFormat>(
-        spatializer: &mut Spatializer<F>,
+        spatializer: &Spatializer<F>,
         model: AttenuationModel,
     ) {
         unsafe {
@@ -303,7 +303,7 @@ mod spatializer_ffi {
 
     #[inline]
     pub fn ma_spatializer_set_positioning<F: PcmFormat>(
-        spatializer: &mut Spatializer<F>,
+        spatializer: &Spatializer<F>,
         positioning: Positioning,
     ) {
         unsafe {
@@ -320,10 +320,7 @@ mod spatializer_ffi {
     }
 
     #[inline]
-    pub fn ma_spatializer_set_rolloff<F: PcmFormat>(
-        spatializer: &mut Spatializer<F>,
-        rolloff: f32,
-    ) {
+    pub fn ma_spatializer_set_rolloff<F: PcmFormat>(spatializer: &Spatializer<F>, rolloff: f32) {
         unsafe { sys::ma_spatializer_set_rolloff(spatializer.to_raw(), rolloff) };
     }
 
@@ -333,10 +330,7 @@ mod spatializer_ffi {
     }
 
     #[inline]
-    pub fn ma_spatializer_set_min_gain<F: PcmFormat>(
-        spatializer: &mut Spatializer<F>,
-        min_gain: f32,
-    ) {
+    pub fn ma_spatializer_set_min_gain<F: PcmFormat>(spatializer: &Spatializer<F>, min_gain: f32) {
         unsafe { sys::ma_spatializer_set_min_gain(spatializer.to_raw(), min_gain) };
     }
 
@@ -346,10 +340,7 @@ mod spatializer_ffi {
     }
 
     #[inline]
-    pub fn ma_spatializer_set_max_gain<F: PcmFormat>(
-        spatializer: &mut Spatializer<F>,
-        max_gain: f32,
-    ) {
+    pub fn ma_spatializer_set_max_gain<F: PcmFormat>(spatializer: &Spatializer<F>, max_gain: f32) {
         unsafe { sys::ma_spatializer_set_max_gain(spatializer.to_raw(), max_gain) };
     }
 
@@ -360,7 +351,7 @@ mod spatializer_ffi {
 
     #[inline]
     pub fn ma_spatializer_set_min_distance<F: PcmFormat>(
-        spatializer: &mut Spatializer<F>,
+        spatializer: &Spatializer<F>,
         min_distance: f32,
     ) {
         unsafe {
@@ -375,7 +366,7 @@ mod spatializer_ffi {
 
     #[inline]
     pub fn ma_spatializer_set_max_distance<F: PcmFormat>(
-        spatializer: &mut Spatializer<F>,
+        spatializer: &Spatializer<F>,
         max_distance: f32,
     ) {
         unsafe {
@@ -404,7 +395,7 @@ mod spatializer_ffi {
     }
 
     #[inline]
-    pub fn ma_spatializer_set_cone<F: PcmFormat>(spatializer: &mut Spatializer<F>, cone: Cone) {
+    pub fn ma_spatializer_set_cone<F: PcmFormat>(spatializer: &Spatializer<F>, cone: Cone) {
         unsafe {
             sys::ma_spatializer_set_cone(
                 spatializer.to_raw(),
@@ -417,7 +408,7 @@ mod spatializer_ffi {
 
     #[inline]
     pub fn ma_spatializer_set_doppler_factor<F: PcmFormat>(
-        spatializer: &mut Spatializer<F>,
+        spatializer: &Spatializer<F>,
         doppler: f32,
     ) {
         unsafe {
@@ -432,7 +423,7 @@ mod spatializer_ffi {
 
     #[inline]
     pub fn ma_spatializer_set_directional_attenuation_factor<F: PcmFormat>(
-        spatializer: &mut Spatializer<F>,
+        spatializer: &Spatializer<F>,
         factor: f32,
     ) {
         unsafe {
@@ -454,10 +445,7 @@ mod spatializer_ffi {
     }
 
     #[inline]
-    pub fn ma_spatializer_set_position<F: PcmFormat>(
-        spatializer: &mut Spatializer<F>,
-        position: Vec3,
-    ) {
+    pub fn ma_spatializer_set_position<F: PcmFormat>(spatializer: &Spatializer<F>, position: Vec3) {
         unsafe {
             sys::ma_spatializer_set_position(
                 spatializer.to_raw(),
@@ -476,7 +464,7 @@ mod spatializer_ffi {
 
     #[inline]
     pub fn ma_spatializer_set_direction<F: PcmFormat>(
-        spatializer: &mut Spatializer<F>,
+        spatializer: &Spatializer<F>,
         direction: Vec3,
     ) {
         unsafe {
@@ -496,10 +484,7 @@ mod spatializer_ffi {
     }
 
     #[inline]
-    pub fn ma_spatializer_set_velocity<F: PcmFormat>(
-        spatializer: &mut Spatializer<F>,
-        velocity: Vec3,
-    ) {
+    pub fn ma_spatializer_set_velocity<F: PcmFormat>(spatializer: &Spatializer<F>, velocity: Vec3) {
         unsafe {
             sys::ma_spatializer_set_velocity(
                 spatializer.to_raw(),
@@ -513,7 +498,7 @@ mod spatializer_ffi {
     #[inline]
     pub fn ma_spatializer_get_relative_position_and_direction<F: PcmFormat>(
         spatializer: &Spatializer<F>,
-        listener: &mut Listener<F>,
+        listener: &Listener<F>,
     ) -> (Vec3, Vec3) {
         let mut relative_pos = sys::ma_vec3f {
             x: 0.0,
@@ -580,7 +565,7 @@ impl<F: PcmFormat> Listener<F> {
         sp_listener_ffi::ma_spatializer_listener_get_channel_map(self)
     }
 
-    pub fn set_cone(&mut self, cone: Cone) {
+    pub fn set_cone(&self, cone: Cone) {
         sp_listener_ffi::ma_spatializer_listener_set_cone(self, cone);
     }
 
@@ -588,7 +573,7 @@ impl<F: PcmFormat> Listener<F> {
         sp_listener_ffi::ma_spatializer_listener_get_cone(self)
     }
 
-    pub fn set_position(&mut self, position: Vec3) {
+    pub fn set_position(&self, position: Vec3) {
         sp_listener_ffi::ma_spatializer_listener_set_position(self, position);
     }
 
@@ -596,7 +581,7 @@ impl<F: PcmFormat> Listener<F> {
         sp_listener_ffi::ma_spatializer_listener_get_position(self)
     }
 
-    pub fn set_direction(&mut self, direction: Vec3) {
+    pub fn set_direction(&self, direction: Vec3) {
         sp_listener_ffi::ma_spatializer_listener_set_direction(self, direction);
     }
 
@@ -604,7 +589,7 @@ impl<F: PcmFormat> Listener<F> {
         sp_listener_ffi::ma_spatializer_listener_get_direction(self)
     }
 
-    pub fn set_velocity(&mut self, velocity: Vec3) {
+    pub fn set_velocity(&self, velocity: Vec3) {
         sp_listener_ffi::ma_spatializer_listener_set_velocity(self, velocity);
     }
 
@@ -612,7 +597,7 @@ impl<F: PcmFormat> Listener<F> {
         sp_listener_ffi::ma_spatializer_listener_get_velocity(self)
     }
 
-    pub fn set_speed_of_sound(&mut self, speed: f32) {
+    pub fn set_speed_of_sound(&self, speed: f32) {
         sp_listener_ffi::ma_spatializer_listener_set_speed_of_sound(self, speed);
     }
 
@@ -620,7 +605,7 @@ impl<F: PcmFormat> Listener<F> {
         sp_listener_ffi::ma_spatializer_listener_get_speed_of_sound(self)
     }
 
-    pub fn set_world_up(&mut self, up: Vec3) {
+    pub fn set_world_up(&self, up: Vec3) {
         sp_listener_ffi::ma_spatializer_listener_set_world_up(self, up);
     }
 
@@ -628,7 +613,7 @@ impl<F: PcmFormat> Listener<F> {
         sp_listener_ffi::ma_spatializer_listener_get_world_up(self)
     }
 
-    pub fn set_enabled(&mut self, enabled: bool) {
+    pub fn set_enabled(&self, enabled: bool) {
         sp_listener_ffi::ma_spatializer_listener_set_enabled(self, enabled);
     }
 
@@ -701,7 +686,7 @@ mod sp_listener_ffi {
     }
 
     #[inline]
-    pub fn ma_spatializer_listener_set_cone<F: PcmFormat>(listener: &mut Listener<F>, cone: Cone) {
+    pub fn ma_spatializer_listener_set_cone<F: PcmFormat>(listener: &Listener<F>, cone: Cone) {
         unsafe {
             sys::ma_spatializer_listener_set_cone(
                 listener.to_raw(),
@@ -734,7 +719,7 @@ mod sp_listener_ffi {
 
     #[inline]
     pub fn ma_spatializer_listener_set_position<F: PcmFormat>(
-        listener: &mut Listener<F>,
+        listener: &Listener<F>,
         position: Vec3,
     ) {
         unsafe {
@@ -761,7 +746,7 @@ mod sp_listener_ffi {
 
     #[inline]
     pub fn ma_spatializer_listener_set_direction<F: PcmFormat>(
-        listener: &mut Listener<F>,
+        listener: &Listener<F>,
         direction: Vec3,
     ) {
         unsafe {
@@ -776,7 +761,7 @@ mod sp_listener_ffi {
 
     #[inline]
     pub fn ma_spatializer_listener_set_velocity<F: PcmFormat>(
-        listener: &mut Listener<F>,
+        listener: &Listener<F>,
         velocity: Vec3,
     ) {
         unsafe {
@@ -797,7 +782,7 @@ mod sp_listener_ffi {
 
     #[inline]
     pub fn ma_spatializer_listener_set_speed_of_sound<F: PcmFormat>(
-        listener: &mut Listener<F>,
+        listener: &Listener<F>,
         speed: f32,
     ) {
         unsafe {
@@ -811,10 +796,7 @@ mod sp_listener_ffi {
     }
 
     #[inline]
-    pub fn ma_spatializer_listener_set_world_up<F: PcmFormat>(
-        listener: &mut Listener<F>,
-        up: Vec3,
-    ) {
+    pub fn ma_spatializer_listener_set_world_up<F: PcmFormat>(listener: &Listener<F>, up: Vec3) {
         unsafe {
             sys::ma_spatializer_listener_set_world_up(listener.to_raw(), up.x, up.y, up.z);
         }
@@ -828,7 +810,7 @@ mod sp_listener_ffi {
 
     #[inline]
     pub fn ma_spatializer_listener_set_enabled<F: PcmFormat>(
-        listener: &mut Listener<F>,
+        listener: &Listener<F>,
         enabled: bool,
     ) {
         unsafe {
@@ -898,7 +880,7 @@ mod tests {
 
     #[test]
     fn spatializer_test_set_and_get_master_volume() -> MaResult<()> {
-        let mut spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
+        let spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
 
         spatializer.set_master_volume(0.25)?;
 
@@ -909,7 +891,7 @@ mod tests {
 
     #[test]
     fn spatializer_test_set_and_get_positioning() -> MaResult<()> {
-        let mut spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
+        let spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
 
         spatializer.set_positioning(Positioning::Relative);
 
@@ -924,7 +906,7 @@ mod tests {
 
     #[test]
     fn spatializer_test_set_and_get_rolloff() -> MaResult<()> {
-        let mut spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
+        let spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
 
         spatializer.set_rolloff(2.5);
 
@@ -935,7 +917,7 @@ mod tests {
 
     #[test]
     fn spatializer_test_set_and_get_min_gain() -> MaResult<()> {
-        let mut spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
+        let spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
 
         spatializer.set_min_gain(0.25);
 
@@ -946,7 +928,7 @@ mod tests {
 
     #[test]
     fn spatializer_test_set_and_get_max_gain() -> MaResult<()> {
-        let mut spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
+        let spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
 
         spatializer.set_max_gain(0.75);
 
@@ -957,7 +939,7 @@ mod tests {
 
     #[test]
     fn spatializer_test_set_and_get_min_distance() -> MaResult<()> {
-        let mut spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
+        let spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
 
         spatializer.set_min_distance(3.0);
 
@@ -968,7 +950,7 @@ mod tests {
 
     #[test]
     fn spatializer_test_set_and_get_max_distance() -> MaResult<()> {
-        let mut spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
+        let spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
 
         spatializer.set_max_distance(100.0);
 
@@ -979,7 +961,7 @@ mod tests {
 
     #[test]
     fn spatializer_test_set_and_get_cone() -> MaResult<()> {
-        let mut spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
+        let spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
 
         let cone = Cone {
             inner_angle_rad: 0.25,
@@ -996,7 +978,7 @@ mod tests {
 
     #[test]
     fn spatializer_test_set_and_get_doppler_factor() -> MaResult<()> {
-        let mut spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
+        let spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
 
         spatializer.set_doppler_factor(1.5);
 
@@ -1007,7 +989,7 @@ mod tests {
 
     #[test]
     fn spatializer_test_set_and_get_directional_attenuation_factor() -> MaResult<()> {
-        let mut spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
+        let spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
 
         spatializer.set_directional_attenuation_factor(0.75);
 
@@ -1018,7 +1000,7 @@ mod tests {
 
     #[test]
     fn spatializer_test_set_and_get_position() -> MaResult<()> {
-        let mut spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
+        let spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
 
         let position = Vec3 {
             x: 1.0,
@@ -1035,7 +1017,7 @@ mod tests {
 
     #[test]
     fn spatializer_test_set_and_get_direction() -> MaResult<()> {
-        let mut spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
+        let spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
 
         let direction = Vec3 {
             x: 0.0,
@@ -1052,7 +1034,7 @@ mod tests {
 
     #[test]
     fn spatializer_test_set_and_get_velocity() -> MaResult<()> {
-        let mut spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
+        let spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
 
         let velocity = Vec3 {
             x: 10.0,
@@ -1078,12 +1060,12 @@ mod tests {
 
     #[test]
     fn spatializer_test_relative_position_and_direction_with_default_listener() -> MaResult<()> {
-        let mut spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
+        let spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
         spatializer.set_positioning(Positioning::Relative);
-        let mut listener = ListenerBuilder::new(2).build_f32()?;
+        let listener = ListenerBuilder::new(2).build_f32()?;
 
         let (relative_position, relative_direction) =
-            spatializer.relative_position_and_direction(&mut listener);
+            spatializer.relative_position_and_direction(&listener);
 
         assert_vec3_eq(
             relative_position,
@@ -1108,9 +1090,9 @@ mod tests {
 
     #[test]
     fn spatializer_test_relative_position_and_direction_changes_with_listener() -> MaResult<()> {
-        let mut spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
+        let spatializer = SpatializerBuilder::new(1, 2).build_f32()?;
         spatializer.set_positioning(Positioning::Relative);
-        let mut listener = ListenerBuilder::new(2).build_f32()?;
+        let listener = ListenerBuilder::new(2).build_f32()?;
 
         spatializer.set_position(Vec3 {
             x: 10.0,
@@ -1125,7 +1107,7 @@ mod tests {
         });
 
         let (relative_position, _relative_direction) =
-            spatializer.relative_position_and_direction(&mut listener);
+            spatializer.relative_position_and_direction(&listener);
 
         assert_vec3_eq(
             relative_position,
@@ -1214,7 +1196,7 @@ mod tests {
 
     #[test]
     fn spatializer_listener_test_set_and_get_cone() -> MaResult<()> {
-        let mut listener = ListenerBuilder::new(2).build_f32()?;
+        let listener = ListenerBuilder::new(2).build_f32()?;
 
         let cone = Cone {
             inner_angle_rad: 0.25,
@@ -1231,7 +1213,7 @@ mod tests {
 
     #[test]
     fn spatializer_listener_test_and_get_position() -> MaResult<()> {
-        let mut listener = ListenerBuilder::new(2).build_f32()?;
+        let listener = ListenerBuilder::new(2).build_f32()?;
 
         let position = Vec3 {
             x: 1.0,
@@ -1248,7 +1230,7 @@ mod tests {
 
     #[test]
     fn spatializer_listener_test_set_and_get_direction() -> MaResult<()> {
-        let mut listener = ListenerBuilder::new(2).build_f32()?;
+        let listener = ListenerBuilder::new(2).build_f32()?;
 
         let direction = Vec3 {
             x: 0.0,
@@ -1265,7 +1247,7 @@ mod tests {
 
     #[test]
     fn spatializer_listener_test_set_and_get_velocity() -> MaResult<()> {
-        let mut listener = ListenerBuilder::new(2).build_f32()?;
+        let listener = ListenerBuilder::new(2).build_f32()?;
 
         let velocity = Vec3 {
             x: 10.0,
@@ -1282,7 +1264,7 @@ mod tests {
 
     #[test]
     fn spatializer_listener_test_set_and_get_speed_of_sound() -> MaResult<()> {
-        let mut listener = ListenerBuilder::new(2).build_f32()?;
+        let listener = ListenerBuilder::new(2).build_f32()?;
 
         listener.set_speed_of_sound(123.45);
 
@@ -1293,7 +1275,7 @@ mod tests {
 
     #[test]
     fn spatializer_listener_test_set_and_get_world_up() -> MaResult<()> {
-        let mut listener = ListenerBuilder::new(2).build_f32()?;
+        let listener = ListenerBuilder::new(2).build_f32()?;
 
         let up = Vec3 {
             x: 0.0,
@@ -1310,7 +1292,7 @@ mod tests {
 
     #[test]
     fn spatializer_listener_test_set_and_get_enabled() -> MaResult<()> {
-        let mut listener = ListenerBuilder::new(2).build_f32()?;
+        let listener = ListenerBuilder::new(2).build_f32()?;
 
         listener.set_enabled(false);
         assert!(!listener.is_enabled());
