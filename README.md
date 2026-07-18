@@ -40,7 +40,7 @@ See [Examples](./crates/maudio/examples/) for a tutorial style introduction into
 
 # Description
 
-Currently, `maudio` offers a high level audio interface accessed via an Engine.
+`maudio` offers access to bit the high level audio and low level API's from miniaudio.
 
 While exposing a very easy-to-use interface, the Engine only allows playback and does not support recording, loopback, or duplex operation, and lacks the flexibility and complexity of the low-level API.
 
@@ -52,7 +52,7 @@ It also has a **Decoder** and can decode audio either before or after it is load
 - **NodeGraph**: It is a directed graph of audio processing units called Nodes. Nodes can be audio sources (such as sounds or waveforms), processing units (DSP, filters, splitters), or endpoints. Audio data flows through the graph from source nodes, through optional processing nodes, and finally into the endpoint.
 - **Device**: An abstraction of a physical device. Represents the audio playback device and is responsible for driving the engine. Internally, it runs a callback on a dedicated audio thread, which continuously requests (pulls) audio frames from the engine. The engine, in turn, processes the node graph to produce the requested audio data.
 
-By default, sounds created from an Engine are automatically attached to the graph’s endpoint and played in a push-based manner. This means audio is produced and mixed internally by the engine, and the user does not need to manually pull or read audio data.
+By default, `Sounds` created from an Engine are automatically attached to the graph’s endpoint. This means audio is produced and mixed internally by the engine, and the user does not need to manually pull or read audio data. Other source nodes nodes will need to be manually connected.
 
 While simple playback can be achieved without interacting directly with the NodeGraph, more advanced setups allow nodes to be manually connected, reordered, or routed through custom processing chains.
 
@@ -69,7 +69,8 @@ The low level API includes:
 
 - **Context** for initializing the audio backend and enumerating devices.
 - **Device** for creating playback, capture, loopback, or duplex streams with direct control over the audio callback.
-- **Decoder** for reading audio from encoded formats.
+- **Decoder** for reading audio from encoded formats (mp3, flac, wav and ogg).
+- **Encoder** for saving PCM frames into an encoded format (wav supported).
 - **Data sources** as a unified interface for producing PCM frames.
 - **Audio buffers** for working with decoded PCM data in memory.
 - **Utility primitives** such as ring buffers, fences, and notification systems for real-time and asynchronous coordination.

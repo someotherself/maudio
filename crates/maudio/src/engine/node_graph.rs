@@ -33,7 +33,7 @@ use crate::{
 /// Unlike a traditional “pipeline” where audio is pushed into a graph,
 /// a `NodeGraph` has **no external input**. Instead, audio is generated
 /// on demand when the graph is read (for example by an audio device or
-/// by calling [`NodeGraph::read_pcm_frames`]).
+/// by calling [`NodeGraphReader::read_pcm_frames`]).
 ///
 /// ## How audio flows
 ///
@@ -61,7 +61,7 @@ use crate::{
 /// - At other end, audio sources are connected. These sources can be a `Sound`,
 ///   noise, pulse, wave generators, an encoder etc... or even a capture device.
 /// - The endpoint doesn't get connected to anything, at least not in the same way
-///   nodes are connected within the graph. Instead, [`NodeGraph::read_pcm_frames`]
+///   nodes are connected within the graph. Instead, [`NodeGraphReader::read_pcm_frames`]
 ///   is called into an output buffer. This call can be made inside the audio callback
 ///   of a playback device directly into the `out` buffer, or into another
 ///   buffer (can be just a `Vec`) for further processing or to be used by an encoder.

@@ -17,6 +17,20 @@ use crate::{
 /// An `Encoder` accepts interleaved PCM frames in the format specified by `F`,
 /// encodes them as `E`, and writes the resulting bytes to the destination type `D`.
 ///
+/// # Thread-safety
+///
+/// /// This encoder does not support concurrent access.
+///
+/// To write from multiple threads, protect it with a [`Mutex`](std::sync::Mutex).
+/// Use an [`Arc`] as well if shared ownership is required.
+///
+/// # Important notes
+///
+/// The encoder must be dropped normally to finalize its output. Terminating the
+/// process without running destructors, such as with [`std::process::exit`] or an
+/// termination signal (ctrlc) may leave the output file incomplete or malformed.
+/// Handle termination signals and perform a graceful shutdown before exiting.
+///
 /// # Format support
 ///
 /// Currently, miniaudio's streaming encoder only supports **WAV** output.

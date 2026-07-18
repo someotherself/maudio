@@ -34,6 +34,13 @@ use crate::{
 /// - a custom reader
 /// - an in-memory byte slice or owned byte buffer
 ///
+/// # Thread-safety
+///
+/// This decoder does not support concurrent access.
+///
+/// To read from or seek the decoder across multiple threads, wrap it in
+/// [`Arc<Mutex<_>>`](std::sync::Arc).
+///
 /// # What a decoder does
 ///
 /// A decoder sits between encoded input data and raw PCM output:

@@ -197,7 +197,7 @@ impl EngineBuilder {
     /// Builds an [`Engine`] configured with a lightweight process “tick” notifier.
     ///
     /// Miniaudio doc:
-    /// "Fired at the end of each call to ma_engine_read_pcm_frames() ([`Engine::read_pcm_frames()`](crate::engine::Engine::read_pcm_frames())).
+    /// "Fired at the end of each call to ma_engine_read_pcm_frames() ([`EngineReader::read_pcm_frames()`](crate::engine::EngineReader::read_pcm_frames())).
     /// For engine's that manage their own internal device (the default configuration),
     /// this will be fired from the audio thread, and you do not need to call ma_engine_read_pcm_frames()
     /// manually in order to trigger this."
