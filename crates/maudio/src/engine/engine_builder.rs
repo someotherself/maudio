@@ -83,7 +83,7 @@ impl EngineBuilder {
 
     /// Sets up up the engine without a default device
     ///
-    /// Data can be read manually using [`Engine::read_pcm_frames()`](crate::engine::Engine::read_pcm_frames())
+    /// Data can be read manually using [`EngineReader::read_pcm_frames()`](crate::engine::EngineReader::read_pcm_frames())
     pub fn no_device(&mut self, channels: u32, sample_rate: SampleRate) -> &mut Self {
         self.inner.sampleRate = sample_rate.into();
 
