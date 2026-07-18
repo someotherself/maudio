@@ -71,7 +71,7 @@ impl<'a, R: AsRmPtr> AsSourcePtr for ResourceManagerBuffer<'a, R> {
 }
 
 impl<'a, R: AsRmPtr> ResourceManagerBuffer<'a, R> {
-    pub fn as_source(&'a self) -> DataSourceRef<'a, R::Format> {
+    pub fn as_source_ref(&'a self) -> DataSourceRef<'a, R::Format> {
         debug_assert!(!self.to_raw().is_null());
         let ptr = self.to_raw().cast::<sys::ma_data_source>();
         DataSourceRef::from_ptr(ptr)

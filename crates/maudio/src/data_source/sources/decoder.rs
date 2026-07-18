@@ -430,7 +430,7 @@ pub trait DecoderOps: AsDecoderPtr + AsSourcePtr {
     }
 
     /// Returns a [`DataSourceRef`] view of this decoder.
-    fn as_source<'a>(&'a self) -> DataSourceRef<'a, Self::Format> {
+    fn as_source_ref<'a>(&'a self) -> DataSourceRef<'a, Self::Format> {
         debug_assert!(!private_decoder::decoder_ptr(self).is_null());
         let ptr = private_decoder::decoder_ptr(self).cast::<sys::ma_data_source>();
         DataSourceRef::from_ptr(ptr)

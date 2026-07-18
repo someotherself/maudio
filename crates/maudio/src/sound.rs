@@ -1633,7 +1633,7 @@ mod test {
 
         let buf = AudioBufferBuilder::build_f32(2, &data).unwrap();
 
-        let src = buf.as_source();
+        let src = buf.as_source_ref();
 
         let mut sound = SoundBuilder::new(&engine)
             .data_source(&src)
@@ -1654,7 +1654,7 @@ mod test {
 
         let buf = AudioBufferBuilder::build_f32(2, &data).unwrap();
 
-        let src = buf.as_source();
+        let src = buf.as_source_ref();
 
         let mut sound = engine.new_sound_from_source(&src).unwrap();
 

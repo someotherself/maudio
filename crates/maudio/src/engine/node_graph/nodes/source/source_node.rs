@@ -198,7 +198,7 @@ impl<S: AsSourcePtr> AttachedSourceNode<S> {
         &mut self.source
     }
 
-    pub fn as_source<'a>(&'a self) -> DataSourceRef<'a, S::Format> {
+    pub fn as_source_ref<'a>(&'a self) -> DataSourceRef<'a, S::Format> {
         debug_assert!(!private_data_source::source_ptr(&self.source).is_null());
         let ptr = private_data_source::source_ptr(&self.source).cast::<sys::ma_data_source>();
         DataSourceRef::from_ptr(ptr)
@@ -457,7 +457,7 @@ mod test {
 
         let src_node = AttachedSourceNodeBuilder::new(&graph, b1).build().unwrap();
 
-        let _ = src_node.as_source();
+        let _ = src_node.as_source_ref();
         let buff = src_node.source();
         let _ = buff.length_pcm().unwrap();
     }

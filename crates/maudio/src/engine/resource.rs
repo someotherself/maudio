@@ -1462,7 +1462,6 @@ pub(crate) mod resource_ffi {
         Ok(())
     }
 
-    // Not used. Already available on DataSourceOps
     #[allow(unused)]
     pub fn ma_resource_manager_data_buffer_read_pcm_frames<'a, R: AsRmPtr>(
         data_buffer: &mut ResourceManagerBuffer<'a, R>,

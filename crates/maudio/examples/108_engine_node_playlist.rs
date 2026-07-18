@@ -5,10 +5,7 @@ use std::{
 
 use maudio::{
     audio::sample_rate::SampleRate,
-    data_source::{
-        sources::decoder::{Decoder, DecoderBuilder, Fs},
-        DataSourceOps,
-    },
+    data_source::sources::decoder::{Decoder, DecoderBuilder, Fs},
     engine::{
         node_graph::{
             nodes::{
@@ -91,7 +88,7 @@ impl PlayList {
             return Ok(true);
         };
 
-        let decoder = current.as_source();
+        let decoder = current.as_source_ref();
 
         let cursor = decoder.cursor_in_pcm_frames()?;
         let length = decoder.length_in_pcm_frames()?;

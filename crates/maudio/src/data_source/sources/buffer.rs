@@ -74,6 +74,14 @@ pub struct AudioBufferRef<'a, F: PcmFormat> {
     _data: &'a [F::StorageUnit],
 }
 
+impl<F: PcmFormat> Binding for AudioBufferRef<'_, F> {
+    type Raw = *mut sys::ma_audio_buffer_ref;
+
+    fn to_raw(&self) -> Self::Raw {
+        self.base.inner
+    }
+}
+
 // Allows AudioBuffer to pass as a DataSource
 #[doc(hidden)]
 impl<F: PcmFormat> AsSourcePtr for AudioBuffer<F> {
@@ -132,9 +140,8 @@ impl<F: PcmFormat> AudioBuffer<F> {
         buffer_ffi::ma_audio_buffer_get_available_frames(self)
     }
 
-    // TODO: Could be used to call read_pcm_frames from 2 places
     /// Returns a [`DataSourceRef`] view of this buffer.
-    pub fn as_source<'a>(&'a self) -> DataSourceRef<'a, F> {
+    pub fn as_source_ref<'a>(&'a self) -> DataSourceRef<'a, F> {
         debug_assert!(!self.to_raw().is_null());
         let ptr = self.to_raw().cast::<sys::ma_data_source>();
         DataSourceRef::from_ptr(ptr)
@@ -146,9 +153,8 @@ impl<F: PcmFormat> AudioBufferBase<F> {
         buffer_ffi::ma_audio_buffer_ref_set_data(self, data)
     }
 
-    // TODO: Could be used to call read_pcm_frames from 2 places
     /// Returns a [`DataSourceRef`] view of this buffer.
-    pub fn as_source<'a>(&'a self) -> DataSourceRef<'a, F> {
+    pub(crate) fn as_source_ref<'a>(&'a self) -> DataSourceRef<'a, F> {
         debug_assert!(!self.to_raw().is_null());
         let ptr = self.to_raw().cast::<sys::ma_data_source>();
         DataSourceRef::from_ptr(ptr)
@@ -156,6 +162,13 @@ impl<F: PcmFormat> AudioBufferBase<F> {
 }
 
 impl<'a, F: PcmFormat> AudioBufferRef<'a, F> {
+    /// Returns a [`DataSourceRef`] view of this buffer.
+    pub fn as_source_ref(&'a self) -> DataSourceRef<'a, F> {
+        debug_assert!(!self.to_raw().is_null());
+        let ptr = self.to_raw().cast::<sys::ma_data_source>();
+        DataSourceRef::from_ptr(ptr)
+    }
+
     /// Reads PCM frames into `dst`, returning the number of frames read.
     pub fn read_pcm_frames_into(
         &mut self,

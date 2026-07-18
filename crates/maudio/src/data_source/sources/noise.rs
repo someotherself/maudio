@@ -5,6 +5,7 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     audio::formats::{Format, SampleBuffer},
+    data_source::{private_data_source, AsSourcePtr, DataSourceRef},
     engine::AllocationCallbacks,
     pcm_frames::{PcmFormat, S24Packed, S24},
     AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
@@ -25,6 +26,12 @@ impl<F: PcmFormat> Binding for Noise<F> {
     fn to_raw(&self) -> Self::Raw {
         self.inner
     }
+}
+
+#[doc(hidden)]
+impl<F: PcmFormat> AsSourcePtr for Noise<F> {
+    type Format = F;
+    type __PtrProvider = private_data_source::NoiseProvider;
 }
 
 impl<F: PcmFormat> Noise<F> {
@@ -52,6 +59,13 @@ impl<F: PcmFormat> Noise<F> {
     /// A seed of `0` uses miniaudio's randomized default behavior.
     pub fn set_seed(&mut self, seed: i32) -> MaResult<()> {
         noise_ffi::ma_noise_set_seed(self, seed)
+    }
+
+    /// Returns a [`DataSourceRef`] view of this noise generator.
+    pub fn as_source_ref<'a>(&'a self) -> DataSourceRef<'a, F> {
+        debug_assert!(!self.to_raw().is_null());
+        let ptr = self.to_raw().cast::<sys::ma_data_source>();
+        DataSourceRef::from_ptr(ptr)
     }
 }
 

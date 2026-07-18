@@ -75,7 +75,7 @@
 //! each entry.
 
 use crate::{
-    data_source::{data_source_ffi, private_data_source, AsSourcePtr, DataSourceRef, SharedSource},
+    data_source::{data_source_ffi, private_data_source, AsSourcePtr, DataSourceRef},
     pcm_frames::PcmFormat,
     Binding, ErrorKinds, MaResult, MaudioError,
 };
@@ -282,12 +282,10 @@ impl<'a, F: PcmFormat> ChainSource<'a, F> {
         Ok(())
     }
 
-    pub(crate) fn as_source(&self) -> DataSourceRef<'a, F> {
+    pub(crate) fn as_source_ref(&self) -> DataSourceRef<'a, F> {
         self.head
     }
 }
-
-impl<F: PcmFormat> SharedSource for ChainSource<'_, F> {}
 
 impl<'a, F: PcmFormat> AsSourcePtr for ChainSource<'a, F> {
     type Format = F;
@@ -314,7 +312,7 @@ mod tests {
         let data = vec![0.0f32; 200];
         let src = buffer_source(&data);
 
-        let chain = ChainSource::new(src.as_source(), false);
+        let chain = ChainSource::new(src.as_source_ref(), false);
 
         assert!(!chain.is_looping());
         assert_eq!(chain.tail_len(), 0);
@@ -326,7 +324,7 @@ mod tests {
         let data = vec![0.0f32; 200];
         let src = buffer_source(&data);
 
-        let chain = ChainSource::new(src.as_source(), true);
+        let chain = ChainSource::new(src.as_source_ref(), true);
 
         assert!(chain.is_looping());
         assert_eq!(chain.tail_len(), 0);
@@ -337,7 +335,7 @@ mod tests {
         let data = vec![0.0f32; 200];
         let src = buffer_source(&data);
 
-        let mut chain = ChainSource::new(src.as_source(), false);
+        let mut chain = ChainSource::new(src.as_source_ref(), false);
 
         chain.set_looping(true).unwrap();
         assert!(chain.is_looping());
@@ -354,9 +352,9 @@ mod tests {
         let src1 = buffer_source(&data1);
         let src2 = buffer_source(&data2);
 
-        let mut chain = ChainSource::new(src1.as_source(), false);
+        let mut chain = ChainSource::new(src1.as_source_ref(), false);
 
-        chain.insert(src2.as_source()).unwrap();
+        chain.insert(src2.as_source_ref()).unwrap();
 
         assert_eq!(chain.tail_len(), 1);
         assert!(!chain.tail_is_empty());
@@ -367,9 +365,9 @@ mod tests {
         let data = vec![0.0f32; 200];
         let src = buffer_source(&data);
 
-        let mut chain = ChainSource::new(src.as_source(), false);
+        let mut chain = ChainSource::new(src.as_source_ref(), false);
 
-        let result = chain.insert(src.as_source());
+        let result = chain.insert(src.as_source_ref());
 
         assert!(result.is_err());
         assert_eq!(chain.tail_len(), 0);
@@ -383,11 +381,11 @@ mod tests {
         let src1 = buffer_source(&data1);
         let src2 = buffer_source(&data2);
 
-        let mut chain = ChainSource::new(src1.as_source(), false);
+        let mut chain = ChainSource::new(src1.as_source_ref(), false);
 
-        chain.insert(src2.as_source()).unwrap();
+        chain.insert(src2.as_source_ref()).unwrap();
 
-        let result = chain.insert(src2.as_source());
+        let result = chain.insert(src2.as_source_ref());
 
         assert!(result.is_err());
         assert_eq!(chain.tail_len(), 1);
@@ -401,11 +399,11 @@ mod tests {
         let src1 = buffer_source(&data1);
         let src2 = buffer_source(&data2);
 
-        let mut chain = ChainSource::new(src1.as_source(), false);
+        let mut chain = ChainSource::new(src1.as_source_ref(), false);
 
-        chain.insert(src2.as_source()).unwrap();
+        chain.insert(src2.as_source_ref()).unwrap();
 
-        let removed = chain.unlink(src2.as_source()).unwrap();
+        let removed = chain.unlink(src2.as_source_ref()).unwrap();
 
         assert!(removed);
         assert_eq!(chain.tail_len(), 0);
@@ -420,9 +418,9 @@ mod tests {
         let src1 = buffer_source(&data1);
         let src2 = buffer_source(&data2);
 
-        let mut chain = ChainSource::new(src1.as_source(), false);
+        let mut chain = ChainSource::new(src1.as_source_ref(), false);
 
-        let removed = chain.unlink(src2.as_source()).unwrap();
+        let removed = chain.unlink(src2.as_source_ref()).unwrap();
 
         assert!(!removed);
         assert_eq!(chain.tail_len(), 0);
@@ -433,9 +431,9 @@ mod tests {
         let data = vec![0.0f32; 200];
         let src = buffer_source(&data);
 
-        let mut chain = ChainSource::new(src.as_source(), false);
+        let mut chain = ChainSource::new(src.as_source_ref(), false);
 
-        let res = chain.unlink(src.as_source());
+        let res = chain.unlink(src.as_source_ref());
 
         assert!(res.is_err());
         assert_eq!(chain.tail_len(), 0);
@@ -451,10 +449,10 @@ mod tests {
         let src2 = buffer_source(&data2);
         let src3 = buffer_source(&data3);
 
-        let mut chain = ChainSource::new(src1.as_source(), false);
+        let mut chain = ChainSource::new(src1.as_source_ref(), false);
 
-        chain.insert(src2.as_source()).unwrap();
-        chain.insert(src3.as_source()).unwrap();
+        chain.insert(src2.as_source_ref()).unwrap();
+        chain.insert(src3.as_source_ref()).unwrap();
 
         assert_eq!(chain.tail_len(), 2);
 
@@ -474,15 +472,15 @@ mod tests {
         let src2 = buffer_source(&data2);
         let src3 = buffer_source(&data3);
 
-        let mut chain = ChainSource::new(src1.as_source(), false);
+        let mut chain = ChainSource::new(src1.as_source_ref(), false);
 
-        chain.insert(src2.as_source()).unwrap();
-        chain.insert_after_head(src3.as_source()).unwrap();
+        chain.insert(src2.as_source_ref()).unwrap();
+        chain.insert_after_head(src3.as_source_ref()).unwrap();
 
         assert_eq!(chain.tail_len(), 2);
 
-        assert_eq!(chain.tail[0], src3.as_source());
-        assert_eq!(chain.tail[1], src2.as_source());
+        assert_eq!(chain.tail[0], src3.as_source_ref());
+        assert_eq!(chain.tail[1], src2.as_source_ref());
     }
 
     #[test]
@@ -495,17 +493,17 @@ mod tests {
         let src2 = buffer_source(&data2);
         let src3 = buffer_source(&data3);
 
-        let mut chain = ChainSource::new(src1.as_source(), false);
+        let mut chain = ChainSource::new(src1.as_source_ref(), false);
 
-        chain.insert(src2.as_source()).unwrap();
+        chain.insert(src2.as_source_ref()).unwrap();
         chain
-            .insert_after(src2.as_source(), src3.as_source())
+            .insert_after(src2.as_source_ref(), src3.as_source_ref())
             .unwrap();
 
         assert_eq!(chain.tail_len(), 2);
 
-        assert_eq!(chain.tail[0], src2.as_source());
-        assert_eq!(chain.tail[1], src3.as_source());
+        assert_eq!(chain.tail[0], src2.as_source_ref());
+        assert_eq!(chain.tail[1], src3.as_source_ref());
     }
 
     #[test]
@@ -516,14 +514,14 @@ mod tests {
         let src1 = buffer_source(&data1);
         let src2 = buffer_source(&data2);
 
-        let mut chain = ChainSource::new(src1.as_source(), false);
+        let mut chain = ChainSource::new(src1.as_source_ref(), false);
 
         chain
-            .insert_after(src1.as_source(), src2.as_source())
+            .insert_after(src1.as_source_ref(), src2.as_source_ref())
             .unwrap();
 
         assert_eq!(chain.tail_len(), 1);
-        assert_eq!(chain.tail[0], src2.as_source());
+        assert_eq!(chain.tail[0], src2.as_source_ref());
     }
 
     #[test]
@@ -534,11 +532,11 @@ mod tests {
         let src1 = buffer_source(&data1);
         let src2 = buffer_source(&data2);
 
-        let mut chain = ChainSource::new(src1.as_source(), false);
+        let mut chain = ChainSource::new(src1.as_source_ref(), false);
 
-        chain.insert(src2.as_source()).unwrap();
+        chain.insert(src2.as_source_ref()).unwrap();
 
-        let result = chain.insert_after(src1.as_source(), src2.as_source());
+        let result = chain.insert_after(src1.as_source_ref(), src2.as_source_ref());
 
         assert!(result.is_err());
         assert_eq!(chain.tail_len(), 1);
@@ -554,14 +552,17 @@ mod tests {
         let src2 = buffer_source(&data2);
         let src3 = buffer_source(&data3);
 
-        let mut chain = ChainSource::new(src1.as_source(), false);
+        let mut chain = ChainSource::new(src1.as_source_ref(), false);
 
-        chain.insert(src2.as_source()).unwrap();
-        chain.insert(src3.as_source()).unwrap();
+        chain.insert(src2.as_source_ref()).unwrap();
+        chain.insert(src3.as_source_ref()).unwrap();
 
-        assert_eq!(chain.get_next(), Some(src2.as_source()));
-        assert_eq!(chain.get_next_at(src2.as_source()), Some(src3.as_source()));
-        assert_eq!(chain.get_next_at(src3.as_source()), None);
+        assert_eq!(chain.get_next(), Some(src2.as_source_ref()));
+        assert_eq!(
+            chain.get_next_at(src2.as_source_ref()),
+            Some(src3.as_source_ref())
+        );
+        assert_eq!(chain.get_next_at(src3.as_source_ref()), None);
     }
 
     #[test]
@@ -574,14 +575,20 @@ mod tests {
         let src2 = buffer_source(&data2);
         let src3 = buffer_source(&data3);
 
-        let mut chain = ChainSource::new(src1.as_source(), true);
+        let mut chain = ChainSource::new(src1.as_source_ref(), true);
 
-        chain.insert(src2.as_source()).unwrap();
-        chain.insert(src3.as_source()).unwrap();
+        chain.insert(src2.as_source_ref()).unwrap();
+        chain.insert(src3.as_source_ref()).unwrap();
 
-        assert_eq!(chain.get_next(), Some(src2.as_source()));
-        assert_eq!(chain.get_next_at(src2.as_source()), Some(src3.as_source()));
-        assert_eq!(chain.get_next_at(src3.as_source()), Some(src1.as_source()));
+        assert_eq!(chain.get_next(), Some(src2.as_source_ref()));
+        assert_eq!(
+            chain.get_next_at(src2.as_source_ref()),
+            Some(src3.as_source_ref())
+        );
+        assert_eq!(
+            chain.get_next_at(src3.as_source_ref()),
+            Some(src1.as_source_ref())
+        );
     }
 
     #[test]
@@ -592,18 +599,21 @@ mod tests {
         let src1 = buffer_source(&data1);
         let src2 = buffer_source(&data2);
 
-        let mut chain = ChainSource::new(src1.as_source(), false);
+        let mut chain = ChainSource::new(src1.as_source_ref(), false);
 
-        chain.insert(src2.as_source()).unwrap();
+        chain.insert(src2.as_source_ref()).unwrap();
 
-        assert_eq!(chain.get_next_at(src2.as_source()), None);
+        assert_eq!(chain.get_next_at(src2.as_source_ref()), None);
 
         chain.set_looping(true).unwrap();
 
-        assert_eq!(chain.get_next_at(src2.as_source()), Some(src1.as_source()));
+        assert_eq!(
+            chain.get_next_at(src2.as_source_ref()),
+            Some(src1.as_source_ref())
+        );
 
         chain.set_looping(false).unwrap();
 
-        assert_eq!(chain.get_next_at(src2.as_source()), None);
+        assert_eq!(chain.get_next_at(src2.as_source_ref()), None);
     }
 }
