@@ -17,11 +17,14 @@ use crate::{
         formats::{Format, SampleBuffer},
         sample_rate::SampleRate,
     },
-    data_source::{private_data_source, AsSourcePtr, DataFormat, DataSourceRef},
+    data_source::{data_source_ffi, private_data_source, AsSourcePtr, DataFormat, DataSourceRef},
     device::device_builder::Unknown,
     pcm_frames::{PcmFormat, S24Packed},
     AsRawRef, Binding, MaResult,
 };
+
+mod custom_decoder_builder;
+mod decoder_vtable;
 
 /// Streaming audio decoder.
 ///
@@ -419,9 +422,25 @@ pub trait DecoderOps: AsDecoderPtr + AsSourcePtr {
         decoder_ffi::ma_decoder_get_cursor_in_pcm_frames(self)
     }
 
+    fn cursor_in_seconds(&self) -> MaResult<f32> {
+        data_source_ffi::ma_data_source_get_cursor_in_seconds(self)
+    }
+
     /// Returns the total length in PCM frames.
     fn length_pcm(&self) -> MaResult<u64> {
         decoder_ffi::ma_decoder_get_length_in_pcm_frames(self)
+    }
+
+    fn length_in_seconds(&self) -> MaResult<f32> {
+        data_source_ffi::ma_data_source_get_length_in_seconds(self)
+    }
+
+    fn set_looping(&mut self, is_looping: bool) -> MaResult<()> {
+        data_source_ffi::ma_data_source_set_looping(self, is_looping)
+    }
+
+    fn looping(&self) -> bool {
+        data_source_ffi::ma_data_source_is_looping(self)
     }
 
     /// Returns the number of frames available from the current cursor to the end.
