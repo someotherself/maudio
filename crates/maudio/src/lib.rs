@@ -100,7 +100,6 @@ pub mod device;
 pub mod encoder;
 pub mod engine;
 pub mod pcm_frames;
-mod resampler; // not implemented
 pub mod sound;
 pub(crate) mod test_assets;
 pub mod util;

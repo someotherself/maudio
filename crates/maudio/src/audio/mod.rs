@@ -1,5 +1,6 @@
 //! Audio-related types and utilities
 pub mod channels;
+pub mod converters;
 pub mod dsp;
 pub mod formats;
 pub mod math;
