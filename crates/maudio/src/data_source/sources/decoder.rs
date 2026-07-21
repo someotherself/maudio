@@ -23,7 +23,6 @@ use crate::{
     AsRawRef, Binding, MaResult,
 };
 
-mod custom_decoder_builder;
 mod decoder_vtable;
 
 /// Streaming audio decoder.
@@ -433,14 +432,6 @@ pub trait DecoderOps: AsDecoderPtr + AsSourcePtr {
 
     fn length_in_seconds(&self) -> MaResult<f32> {
         data_source_ffi::ma_data_source_get_length_in_seconds(self)
-    }
-
-    fn set_looping(&mut self, is_looping: bool) -> MaResult<()> {
-        data_source_ffi::ma_data_source_set_looping(self, is_looping)
-    }
-
-    fn looping(&self) -> bool {
-        data_source_ffi::ma_data_source_is_looping(self)
     }
 
     /// Returns the number of frames available from the current cursor to the end.
