@@ -1,5 +1,3 @@
-#![allow(unused_variables)]
-
 use std::sync::{Arc, Mutex};
 
 use crate::{data_source::SourceContext, pcm_frames::PcmFormat, ErrorKinds, MaResult, MaudioError};

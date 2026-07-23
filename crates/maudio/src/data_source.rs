@@ -172,7 +172,7 @@ pub(crate) mod private_data_source {
             data_source_chain::ChainSource,
             sources::{
                 buffer::{AudioBuffer, AudioBufferBase},
-                decoder::{Decoder, DecoderOps},
+                decoder::{custom_decoder::CustomDecoder, Decoder, DecoderOps},
                 noise::Noise,
                 pulsewave::{PulseWave, PulseWaveOps},
                 waveform::{WaveForm, WaveFormOps},
@@ -199,6 +199,7 @@ pub(crate) mod private_data_source {
     pub struct AudioBufferProvider;
     pub struct AudioBufferBaseProvider;
     pub struct DecoderProvider;
+    pub struct CustomDecoderProvider;
     pub struct PulseWaveProvider;
     pub struct WaveFormProvider;
     pub struct NoiseProvider;
@@ -239,6 +240,13 @@ pub(crate) mod private_data_source {
     impl<F: PcmFormat, S> DataSourcePtrProvider<Decoder<F, S>> for DecoderProvider {
         #[inline]
         fn as_source_ptr(t: &Decoder<F, S>) -> *mut sys::ma_data_source {
+            t.as_source_ref().to_raw()
+        }
+    }
+
+    impl<F: PcmFormat, S> DataSourcePtrProvider<CustomDecoder<F, S>> for CustomDecoderProvider {
+        #[inline]
+        fn as_source_ptr(t: &CustomDecoder<F, S>) -> *mut sys::ma_data_source {
             t.as_source_ref().to_raw()
         }
     }
@@ -440,8 +448,8 @@ pub(crate) mod data_source_ffi {
     use crate::{
         audio::{channels::Channel, formats::SampleBuffer},
         data_source::{
-            data_source_builder::DataSourceBuilder, pcm_source::PcmSource, private_data_source,
-            AsSourcePtr, DataFormat, DataSource, DataSourceRef, GetNextCallback,
+            data_source_builder::DataSourceBuilder, private_data_source, AsSourcePtr, DataFormat,
+            DataSourceRef, GetNextCallback,
         },
         pcm_frames::{PcmFormat, PcmFormatInternal},
         AsRawRef, Binding, MaResult, MaudioError,
@@ -457,9 +465,9 @@ pub(crate) mod data_source_ffi {
     }
 
     #[inline]
-    pub fn ma_data_source_uninit<F: PcmFormat, P: PcmSource<F>>(source: &mut DataSource<F, P>) {
+    pub fn ma_data_source_uninit(source: *mut sys::ma_data_source_base) {
         unsafe {
-            sys::ma_data_source_uninit(source.as_raw_ptr() as *mut _);
+            sys::ma_data_source_uninit(source as *mut _);
         }
     }
 
@@ -858,7 +866,7 @@ pub(crate) mod data_source_ffi {
 
 impl<F: PcmFormat, P: PcmSource<F>> Drop for DataSource<F, P> {
     fn drop(&mut self) {
-        data_source_ffi::ma_data_source_uninit(self);
+        data_source_ffi::ma_data_source_uninit(self.as_raw_ptr() as *mut _);
         drop(unsafe { Box::from_raw((*self.inner).vtable as *mut sys::ma_data_source_vtable) });
         drop(unsafe { Box::from_raw(self.inner) });
     }
@@ -940,5 +948,24 @@ impl<'a, F: PcmFormat> DataSourceRef<'a, F> {
 
     pub fn loop_point_in_pcm_frames(&self) -> core::ops::Range<u64> {
         data_source_ffi::ma_data_source_get_loop_point_in_pcm_frames(self)
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    use crate::data_source::data_source_builder::DataSourceBuilder;
+
+    use super::*;
+    #[test]
+    fn test_custom_data_source_basic_test() {
+        let data = vec![0.1; 1000];
+        let mut ds = DataSourceBuilder::new(1, SampleRate::Sr44100)
+            .build_f32(data)
+            .unwrap();
+
+        let out = ds.read_pcm_frames(40).unwrap();
+
+        assert_eq!(out.data.len(), 40);
     }
 }

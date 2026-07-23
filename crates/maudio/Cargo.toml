@@ -30,3 +30,6 @@ no-webaudio = ["maudio-sys/no-webaudio"]
 
 [dependencies]
 maudio-sys = "0.1.3"
+
+[dev-dependencies]
+symphonia = "0.6.0"

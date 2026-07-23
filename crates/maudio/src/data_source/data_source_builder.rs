@@ -13,7 +13,7 @@ use crate::{
 };
 
 pub struct DataSourceBuilder {
-    inner: sys::ma_data_source_config,
+    pub(crate) inner: sys::ma_data_source_config,
     sample_rate: SampleRate,
     channels: u32,
     channel_map: Option<Vec<Channel>>,

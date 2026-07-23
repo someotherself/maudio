@@ -23,7 +23,9 @@ use crate::{
     AsRawRef, Binding, MaResult,
 };
 
+pub mod custom_decoder;
 mod decoder_vtable;
+pub mod decoding_backend;
 
 /// Streaming audio decoder.
 ///
@@ -45,10 +47,11 @@ mod decoder_vtable;
 ///
 /// # What a decoder does
 ///
-/// A decoder sits between encoded input data and raw PCM output:
+/// A decoder behaves like a `DataSource` because the decoding backend produces a `DataSource`.
+/// It sits between encoded input data and raw PCM output:
 ///
 /// - encoded bytes come from the source chosen when the decoder is created
-/// - PCM frames are produced when the decoder is read from
+/// - PCM frames are produced and they are fed into miniaudio in the form of a `DataSource`
 ///
 /// This makes decoders well suited for:
 ///
@@ -167,7 +170,7 @@ impl<F: PcmFormat, S> Decoder<F, S> {
         decoder_ffi::ma_decoder_init_memory(
             data.as_ptr() as *const _,
             data.len(),
-            config,
+            config.as_raw_ptr(),
             mem.as_mut_ptr(),
         )?;
 
@@ -185,7 +188,7 @@ impl<F: PcmFormat, S> Decoder<F, S> {
         decoder_ffi::ma_decoder_init_memory(
             data_arc.as_ptr() as *const _,
             data_arc.len(),
-            config,
+            config.as_raw_ptr(),
             mem.as_mut_ptr(),
         )?;
 
@@ -211,13 +214,17 @@ impl<F: PcmFormat, S> Decoder<F, S> {
         let user_data = Box::new(DecoderUserData { reader });
         let user_data_ptr = Box::into_raw(user_data) as *mut _;
 
-        decoder_ffi::ma_decoder_init(
+        if let Err(e) = decoder_ffi::ma_decoder_init(
             Some(decoder_read_proc::<R>),
             Some(decoder_seek_proc::<R>),
             user_data_ptr,
-            config,
+            config.as_raw_ptr(),
             mem.as_mut_ptr(),
-        )?;
+        ) {
+            println!("Failed: {e:?}");
+            drop(unsafe { Box::from_raw(user_data_ptr as *mut DecoderUserData<R>) });
+            return Err(e);
+        }
 
         let inner: *mut sys::ma_decoder = Box::into_raw(mem) as *mut sys::ma_decoder;
         let mut decoder = Decoder::new(inner, config, config.format, Cb);
@@ -236,7 +243,7 @@ impl<F: PcmFormat, S> Decoder<F, S> {
             use crate::engine::cstring_from_path;
 
             let path = cstring_from_path(path)?;
-            decoder_ffi::ma_decoder_init_file(path, config, decoder)
+            decoder_ffi::ma_decoder_init_file(path, config.as_raw_ptr(), decoder)
         }
 
         #[cfg(windows)]
@@ -245,7 +252,7 @@ impl<F: PcmFormat, S> Decoder<F, S> {
 
             let path = wide_null_terminated(path);
 
-            decoder_ffi::ma_decoder_init_file_w(&path, config, decoder)
+            decoder_ffi::ma_decoder_init_file_w(&path, config.as_raw_ptr(), decoder)
         }
 
         #[cfg(not(any(unix, windows)))]
@@ -339,6 +346,8 @@ unsafe extern "C" fn decoder_seek_proc_no_op(
 // Keeps the as_decoder_ptr method on AsDecoderPtr private.
 // Could be removed as there is no DecoderRef
 mod private_decoder {
+    use crate::data_source::sources::decoder::custom_decoder::CustomDecoder;
+
     use super::*;
     use maudio_sys::ffi as sys;
 
@@ -347,6 +356,13 @@ mod private_decoder {
     }
 
     pub struct DecoderProvider;
+    pub struct CustomDecoderProvider;
+
+    impl<F: PcmFormat, S> DecoderPtrProvider<CustomDecoder<F, S>> for CustomDecoderProvider {
+        fn as_decoder_ptr(t: &CustomDecoder<F, S>) -> *mut sys::ma_decoder {
+            t.to_raw()
+        }
+    }
 
     impl<F: PcmFormat, S> DecoderPtrProvider<Decoder<F, S>> for DecoderProvider {
         fn as_decoder_ptr(t: &Decoder<F, S>) -> *mut sys::ma_decoder {
@@ -452,23 +468,21 @@ pub(crate) mod decoder_ffi {
 
     use crate::audio::{channels::Channel, formats::SampleBuffer};
     use crate::data_source::{
-        sources::decoder::{private_decoder, AsDecoderPtr, DecoderBuilder},
+        sources::decoder::{private_decoder, AsDecoderPtr},
         DataFormat,
     };
     use crate::pcm_frames::{PcmFormat, PcmFormatInternal};
-    use crate::{AsRawRef, MaResult, MaudioError};
+    use crate::{MaResult, MaudioError};
 
     #[inline]
-    pub fn ma_decoder_init<F: PcmFormat>(
+    pub fn ma_decoder_init(
         on_read: sys::ma_decoder_read_proc,
         on_seek: sys::ma_decoder_seek_proc,
         user_data: *mut core::ffi::c_void,
-        config: &DecoderBuilder<F>,
+        config: *const sys::ma_decoder_config,
         decoder: *mut sys::ma_decoder,
     ) -> MaResult<()> {
-        let res = unsafe {
-            sys::ma_decoder_init(on_read, on_seek, user_data, config.as_raw_ptr(), decoder)
-        };
+        let res = unsafe { sys::ma_decoder_init(on_read, on_seek, user_data, config, decoder) };
         MaudioError::check(res)
     }
 
@@ -479,37 +493,35 @@ pub(crate) mod decoder_ffi {
     }
 
     #[inline]
-    pub fn ma_decoder_init_memory<F: PcmFormat>(
+    pub fn ma_decoder_init_memory(
         data: *const core::ffi::c_void,
         data_size: usize,
-        config: &DecoderBuilder<F>,
+        config: *const sys::ma_decoder_config,
         decoder: *mut sys::ma_decoder,
     ) -> MaResult<()> {
-        let res =
-            unsafe { sys::ma_decoder_init_memory(data, data_size, config.as_raw_ptr(), decoder) };
+        let res = unsafe { sys::ma_decoder_init_memory(data, data_size, config, decoder) };
         MaudioError::check(res)
     }
 
     #[inline]
     #[cfg(unix)]
-    pub fn ma_decoder_init_file<F: PcmFormat>(
+    pub fn ma_decoder_init_file(
         path: std::ffi::CString,
-        config: &DecoderBuilder<F>,
+        config: *const sys::ma_decoder_config,
         decoder: *mut sys::ma_decoder,
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_decoder_init_file(path.as_ptr(), config.as_raw_ptr(), decoder) };
+        let res = unsafe { sys::ma_decoder_init_file(path.as_ptr(), config, decoder) };
         MaudioError::check(res)
     }
 
     #[inline]
     #[cfg(windows)]
-    pub fn ma_decoder_init_file_w<F: PcmFormat>(
+    pub fn ma_decoder_init_file_w(
         path: &[u16],
-        config: &DecoderBuilder<F>,
+        config: *const sys::ma_decoder_config,
         decoder: *mut sys::ma_decoder,
     ) -> MaResult<()> {
-        let res =
-            unsafe { sys::ma_decoder_init_file_w(path.as_ptr(), config.as_raw_ptr(), decoder) };
+        let res = unsafe { sys::ma_decoder_init_file_w(path.as_ptr(), config, decoder) };
         MaudioError::check(res)
     }
 
