@@ -165,8 +165,7 @@ unsafe extern "C" fn decoder_on_init_file_w<F: PcmFormat, D: DecodingBackend<For
         }
 
         let wide = unsafe { std::slice::from_raw_parts(path, len) };
-        let path = OsString::from_wide(wide).into();
-        let path = PathBuf::from(path);
+        let path = PathBuf::from(OsString::from_wide(wide));
 
         let file = OpenOptions::new().read(true).open(&path)?;
 
