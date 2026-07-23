@@ -146,7 +146,8 @@ unsafe extern "C" fn decoder_on_init_file_w<F: PcmFormat, D: DecodingBackend<For
     _: *const sys::ma_allocation_callbacks,
     backend: *mut *mut sys::ma_data_source,
 ) -> sys::ma_result {
-    use std::os::windows::ffi::{OsString, OsStringExt};
+    use std::ffi::OsString;
+    use std::os::windows::ffi::OsStringExt;
 
     if backend_user_data.is_null() || path.is_null() {
         return sys::ma_result_MA_INVALID_ARGS;
