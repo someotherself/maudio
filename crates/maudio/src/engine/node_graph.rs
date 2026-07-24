@@ -13,7 +13,6 @@ pub mod node_graph_builder;
 pub mod node_on_process;
 pub mod node_vtable;
 pub mod nodes;
-mod voice; // experiment
 
 use maudio_sys::ffi as sys;
 
