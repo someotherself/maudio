@@ -96,6 +96,7 @@ unsafe extern "C" fn decoder_on_init<F: PcmFormat, D: DecodingBackend<Format = F
     }
 }
 
+#[cfg(not(windows))]
 unsafe extern "C" fn decoder_on_init_file<F: PcmFormat, D: DecodingBackend<Format = F>>(
     backend_user_data: *mut core::ffi::c_void,
     path: *const core::ffi::c_char,
