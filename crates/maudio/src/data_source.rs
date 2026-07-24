@@ -174,6 +174,7 @@ pub(crate) mod private_data_source {
                 buffer::{AudioBuffer, AudioBufferBase},
                 decoder::{custom_decoder::CustomDecoder, Decoder, DecoderOps},
                 noise::Noise,
+                pcm_ring_buffer::PcmRbRecv,
                 pulsewave::{PulseWave, PulseWaveOps},
                 waveform::{WaveForm, WaveFormOps},
             },
@@ -198,6 +199,7 @@ pub(crate) mod private_data_source {
     pub struct DataSourceRefProvider;
     pub struct AudioBufferProvider;
     pub struct AudioBufferBaseProvider;
+    pub struct PcmRbRecvProvider;
     pub struct DecoderProvider;
     pub struct CustomDecoderProvider;
     pub struct PulseWaveProvider;
@@ -233,6 +235,13 @@ pub(crate) mod private_data_source {
     impl<F: PcmFormat> DataSourcePtrProvider<AudioBufferBase<F>> for AudioBufferBaseProvider {
         #[inline]
         fn as_source_ptr(t: &AudioBufferBase<F>) -> *mut sys::ma_data_source {
+            t.as_source_ref().to_raw()
+        }
+    }
+
+    impl<F: PcmFormat> DataSourcePtrProvider<PcmRbRecv<F>> for PcmRbRecvProvider {
+        #[inline]
+        fn as_source_ptr(t: &PcmRbRecv<F>) -> *mut sys::ma_data_source {
             t.as_source_ref().to_raw()
         }
     }

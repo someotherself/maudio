@@ -16,6 +16,36 @@
 //! - [`S24Packed`] represents miniaudio’s 24-bit **packed 3-byte** interleaved samples.
 //! - [`S24`] is a convenience type for “24-bit stored in i32”.
 //!
+//! ## Using it as a data source
+//!
+//! The Pcm Ring Buffer, specifically the [`PcmRbRecv`] can pass as a data source.
+//! Either implicitly where possible using the `AsSourcePtr` trait, or
+//! using [`PcmRbRecv::as_source_ref`] to return a [`DataSourceRef`].
+//!
+//! The resulting data source represents a continuous PCM stream rather than a
+//! finite audio resource. It therefore supports only:
+//!
+//! - reading PCM frames;
+//! - retrieving the PCM format, channel count, and sample rate.
+//!
+//! Seeking, looping, and retrieving the cursor or stream length are not
+//! supported.
+//!
+//! [`DataSourceRef`] does not expose PCM reading directly. However, miniaudio
+//! can still read from the receiver when it is passed to an API that receives
+//! a data source.
+//!
+//! # Underruns
+//!
+//! If fewer frames are available than requested, the available frames are
+//! consumed and the remainder of the output is filled with silence. An empty
+//! ring buffer therefore produces silence rather than signaling the end of the
+//! stream.
+//!
+//! This is necessary because a ring buffer may temporarily be empty while its
+//! producer is still active; returning zero frames would normally be
+//! interpreted as the end of a data source.
+//!
 //! ## Example: SPSC usage pattern (one owner per endpoint)
 //!
 //! ```no_run
@@ -47,8 +77,12 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     audio::{formats::Format, sample_rate::SampleRate},
-    data_source::sources::pcm_ring_buffer::private_pcm_db::{
-        PcmRbPtrImplementation, PcmRbRecvProvider, PcmRbSendProvider,
+    data_source::{
+        private_data_source,
+        sources::pcm_ring_buffer::private_pcm_db::{
+            PcmRbPtrImplementation, PcmRbRecvProvider, PcmRbSendProvider,
+        },
+        AsSourcePtr, DataSourceRef,
     },
     engine::AllocationCallbacks,
     pcm_frames::{PcmFormat, PcmFormatInternal, S24Packed, S24},
@@ -99,6 +133,11 @@ pub struct PcmRbRecv<F: PcmFormat> {
     channels: usize,
     _not_sync: PhantomData<Cell<()>>,
     _marker: PhantomData<F>,
+}
+
+impl<F: PcmFormat> AsSourcePtr for PcmRbRecv<F> {
+    type Format = F;
+    type __PtrProvider = private_data_source::PcmRbRecvProvider;
 }
 
 trait RbReadOwner {
@@ -210,6 +249,13 @@ impl<F: PcmFormat> PcmRbSend<F> {
 }
 
 impl<F: PcmFormat> PcmRbRecv<F> {
+    /// Returns a [`DataSourceRef`] view.
+    pub fn as_source_ref<'a>(&'a self) -> DataSourceRef<'a, F> {
+        debug_assert!(!self.inner.inner.is_null());
+        let ptr = self.inner.inner.cast::<sys::ma_data_source>();
+        DataSourceRef::from_ptr(ptr)
+    }
+
     pub fn read(&mut self, dst: &mut [F::PcmUnit]) -> MaResult<usize> {
         PcmRingBuffer::read_internal(self, dst)
     }
