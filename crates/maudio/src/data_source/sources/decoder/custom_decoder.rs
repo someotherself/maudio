@@ -1,7 +1,11 @@
 use std::{marker::PhantomData, mem::MaybeUninit, path::Path, sync::Arc};
 
 use crate::{
-    audio::{channels::Channel, formats::Format, sample_rate::SampleRate},
+    audio::{
+        channels::{Channel, RawChannel},
+        formats::Format,
+        sample_rate::SampleRate,
+    },
     data_source::{
         data_source_ffi, private_data_source,
         sources::decoder::{
@@ -281,8 +285,7 @@ pub struct CustomDecoderBuilder<F = Unknown> {
     sample_rate: SampleRate,
     channels: u32,
     format: Format,
-    #[allow(unused)]
-    channel_map: Vec<Channel>,
+    channel_map: Vec<RawChannel>,
     // user_data: Option<U>,
     _format: PhantomData<F>,
 }
@@ -396,6 +399,15 @@ impl<F: PcmFormat> CustomDecoderBuilder<F> {
         ptr
     }
 
+    pub fn channel_map<I>(mut self, channel_map: I) -> Self
+    where
+        I: IntoIterator<Item = Channel>,
+    {
+        self.channel_map = channel_map.into_iter().map(RawChannel::from).collect();
+        self.channels = self.channel_map.len() as u32;
+        self
+    }
+
     fn set_backend_vtables(&mut self) -> MaResult<Box<[*const sys::ma_decoding_backend_vtable]>> {
         if self.vtables.is_empty() {
             return Err(MaudioError::new_ma_error(ErrorKinds::InvalidOperation(
@@ -420,9 +432,20 @@ impl<F: PcmFormat> CustomDecoderBuilder<F> {
                 "Channel count cannot be 0",
             )));
         }
+        if !self.channel_map.is_empty() && self.channels as usize != self.channel_map.len() {
+            println!(
+                "channels: {}, map count: {}",
+                self.channels,
+                self.channel_map.len()
+            );
+            return Err(MaudioError::new_ma_error(ErrorKinds::InvalidOperation(
+                "Channel map length must match the channel count",
+            )));
+        }
+
         if self.channel_map.is_empty() {
             self.channel_map
-                .resize_with(self.channels as usize, || Channel::from_raw(0));
+                .resize_with(self.channels as usize, || RawChannel::from_raw(0));
             unsafe {
                 sys::ma_channel_map_init_standard(
                     sys::ma_standard_channel_map_ma_standard_channel_map_default,
@@ -431,7 +454,6 @@ impl<F: PcmFormat> CustomDecoderBuilder<F> {
                     self.channels,
                 );
             };
-            self.inner.pChannelMap = self.channel_map.as_mut_ptr() as *mut _;
         };
         self.inner.pChannelMap = self.channel_map.as_mut_ptr() as *mut _;
         Ok(())

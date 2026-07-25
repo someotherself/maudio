@@ -11,6 +11,7 @@ use std::{
 use maudio_sys::ffi as sys;
 
 use crate::{
+    audio::channels::Channel,
     backend::Backend,
     context::{ContextBuilder, ContextRef},
     device::{
@@ -190,6 +191,30 @@ pub trait DeviceOps: AsDevicePtr {
     /// Returns 0 if device is not setup for playback
     fn channels_playback(&self) -> u32 {
         unsafe { (*private_device::device_ptr(self)).playback.channels }
+    }
+
+    /// Retrieve the playback channel map
+    fn channel_map_playback(&self) -> MaResult<Vec<Channel>> {
+        let raw_map = unsafe { (*private_device::device_ptr(self)).playback.channelMap };
+        let channels = unsafe { (*private_device::device_ptr(self)).playback.channels };
+
+        let mut map = Vec::new();
+        for &entry in raw_map.iter().take(channels as usize) {
+            map.push(Channel::try_from(entry)?);
+        }
+        Ok(map)
+    }
+
+    /// Retrieve the capture channel map
+    fn channel_map_capture(&self) -> MaResult<Vec<Channel>> {
+        let raw_map = unsafe { (*private_device::device_ptr(self)).capture.channelMap };
+        let channels = unsafe { (*private_device::device_ptr(self)).capture.channels };
+
+        let mut map = Vec::new();
+        for &entry in raw_map.iter().take(channels as usize) {
+            map.push(Channel::try_from(entry)?);
+        }
+        Ok(map)
     }
 
     /// Retrieve the playback channels count

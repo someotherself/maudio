@@ -477,7 +477,8 @@ pub trait DecoderOps: AsDecoderPtr + AsSourcePtr {
 pub(crate) mod decoder_ffi {
     use maudio_sys::ffi as sys;
 
-    use crate::audio::{channels::Channel, formats::SampleBuffer};
+    use crate::audio::channels::Channel;
+    use crate::audio::formats::SampleBuffer;
     use crate::data_source::{
         sources::decoder::{private_decoder, AsDecoderPtr},
         DataFormat,
@@ -652,16 +653,18 @@ pub(crate) mod decoder_ffi {
         };
         MaudioError::check(res)?;
 
-        // Could cast when passing the ptr to miniaudio, but copying should be fine here
-        let mut channel_map: Vec<Channel> =
-            channel_map_raw.into_iter().map(Channel::from_raw).collect();
+        // Could maybe cast when passing the ptr to miniaudio, but copying should be fine here
+        let mut channel_map: Vec<Channel> = Vec::new();
+        for c in channel_map_raw {
+            channel_map.push(Channel::try_from(c)?);
+        }
         channel_map.truncate(channels as usize);
 
         Ok(DataFormat {
             format: format_raw.try_into()?,
             channels,
             sample_rate: sample_rate.try_into()?,
-            channel_map: Some(channel_map),
+            channel_map,
         })
     }
 

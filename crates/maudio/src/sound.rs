@@ -1186,16 +1186,18 @@ pub(crate) mod sound_ffi {
         };
         MaudioError::check(res)?;
 
-        // Could cast when passing the ptr to miniaudio, but copying should be fine here
-        let mut channel_map: Vec<Channel> =
-            channel_map_raw.into_iter().map(Channel::from_raw).collect();
+        // Could maybe cast when passing the ptr to miniaudio, but copying should be fine here
+        let mut channel_map: Vec<Channel> = Vec::new();
+        for c in channel_map_raw {
+            channel_map.push(Channel::try_from(c)?);
+        }
         channel_map.truncate(channels as usize);
 
         Ok(DataFormat {
             format: format_raw.try_into()?,
             channels,
             sample_rate: sample_rate.try_into()?,
-            channel_map: Some(channel_map),
+            channel_map,
         })
     }
 

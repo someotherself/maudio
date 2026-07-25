@@ -561,7 +561,7 @@ impl<F: PcmFormat> Listener<F> {
         })
     }
 
-    pub fn channel_map(&self) -> Vec<Channel> {
+    pub fn channel_map(&self) -> MaResult<Vec<Channel>> {
         sp_listener_ffi::ma_spatializer_listener_get_channel_map(self)
     }
 
@@ -674,15 +674,19 @@ mod sp_listener_ffi {
     #[inline]
     pub fn ma_spatializer_listener_get_channel_map<F: PcmFormat>(
         listener: &Listener<F>,
-    ) -> Vec<Channel> {
+    ) -> MaResult<Vec<Channel>> {
         let channels_out = listener.channels_out as usize;
 
         let res = unsafe { sys::ma_spatializer_listener_get_channel_map(listener.to_raw()) };
         if res.is_null() {
-            return Vec::new();
+            return Ok(Vec::new());
         }
         let channel_map = unsafe { std::slice::from_raw_parts(res, channels_out) };
-        channel_map.iter().copied().map(Channel::from_raw).collect()
+        let mut out = Vec::new();
+        for &c in channel_map {
+            out.push(Channel::try_from(c)?);
+        }
+        Ok(out)
     }
 
     #[inline]
@@ -834,7 +838,7 @@ impl<F: PcmFormat> Drop for Listener<F> {
 
 #[cfg(test)]
 mod tests {
-    use crate::audio::channels::ChannelPosition;
+    use crate::audio::channels::Channel;
 
     use super::*;
     fn assert_vec3_eq(actual: Vec3, expected: Vec3) {
@@ -1176,11 +1180,11 @@ mod tests {
     fn spatializer_listener_test_returns_channel_map_for_output_channels() -> MaResult<()> {
         let listener = ListenerBuilder::new(2).build_f32()?;
 
-        let channel_map = listener.channel_map();
+        let channel_map = listener.channel_map().unwrap();
 
         assert_eq!(channel_map.len(), 2);
-        assert_eq!(channel_map[0], ChannelPosition::SideLeft.into());
-        assert_eq!(channel_map[1], ChannelPosition::SideRight.into());
+        assert_eq!(channel_map[0], Channel::SideLeft);
+        assert_eq!(channel_map[1], Channel::SideRight);
 
         Ok(())
     }

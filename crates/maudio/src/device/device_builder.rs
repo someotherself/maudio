@@ -65,7 +65,7 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     audio::{
-        channels::{Channel, ChannelMixMode},
+        channels::{Channel, ChannelMixMode, RawChannel},
         performance::PerformanceProfile,
         sample_rate::SampleRate,
     },
@@ -153,6 +153,7 @@ pub struct PlaybackDeviceBuilder<'a, F = Unknown> {
     state_notifier: bool,
     playback_device_id: Option<DeviceId>,
     capture_device_id: Option<DeviceId>,
+    playback_channel_map: Vec<RawChannel>,
     _format: PhantomData<F>,
 }
 
@@ -173,6 +174,7 @@ pub struct CaptureDeviceBuilder<'a, F = Unknown> {
     state_notifier: bool,
     playback_device_id: Option<DeviceId>,
     capture_device_id: Option<DeviceId>,
+    capture_channel_map: Vec<RawChannel>,
     _format: PhantomData<F>,
 }
 
@@ -193,6 +195,8 @@ pub struct DuplexDeviceBuilder<'a, F = Unknown> {
     state_notifier: bool,
     playback_device_id: Option<DeviceId>,
     capture_device_id: Option<DeviceId>,
+    playback_channel_map: Vec<RawChannel>,
+    capture_channel_map: Vec<RawChannel>,
     _format: PhantomData<F>,
 }
 
@@ -212,6 +216,7 @@ pub struct LoopbackDeviceBuilder<'a, F = Unknown> {
     state_notifier: bool,
     playback_device_id: Option<DeviceId>,
     capture_device_id: Option<DeviceId>,
+    playback_channel_map: Vec<RawChannel>,
     _format: PhantomData<F>,
 }
 
@@ -296,6 +301,8 @@ pub(crate) mod private_device_b {
     pub trait DeviceBulderProvider<'a, T: ?Sized> {
         fn set_backends<'s>(t: &'s mut T, backends: &'a [Backend]);
         fn get_backends(t: &T) -> Option<&[Backend]>;
+        fn set_playback_channel_map(t: &mut T, map: Vec<RawChannel>);
+        fn set_capture_channel_map(t: &mut T, map: Vec<RawChannel>);
         fn set_context<'s>(t: &'s mut T, context: &'a ContextBuilder);
         fn get_callback_info(t: &T) -> Option<DeviceBuilderDataCallBack>;
         fn set_state_cb_info(t: &mut T);
@@ -320,6 +327,16 @@ pub(crate) mod private_device_b {
 
         fn get_backends<'s>(t: &'s PlaybackDeviceBuilder<'a, F>) -> Option<&'s [Backend]> {
             t.backends
+        }
+
+        fn set_playback_channel_map(t: &mut PlaybackDeviceBuilder<'a, F>, map: Vec<RawChannel>) {
+            t.inner.playback.channels = map.len() as u32;
+            t.playback_channel_map = map;
+            t.inner.playback.pChannelMap = t.playback_channel_map.as_ptr() as *mut _;
+        }
+
+        fn set_capture_channel_map(_t: &mut PlaybackDeviceBuilder<'a, F>, _map: Vec<RawChannel>) {
+            unreachable!()
         }
 
         fn set_context<'s>(t: &'s mut PlaybackDeviceBuilder<'a, F>, context: &'a ContextBuilder) {
@@ -368,6 +385,16 @@ pub(crate) mod private_device_b {
             t.backends
         }
 
+        fn set_playback_channel_map(_t: &mut CaptureDeviceBuilder<'a, F>, _map: Vec<RawChannel>) {
+            unreachable!()
+        }
+
+        fn set_capture_channel_map(t: &mut CaptureDeviceBuilder<'a, F>, map: Vec<RawChannel>) {
+            t.inner.capture.channels = map.len() as u32;
+            t.capture_channel_map = map;
+            t.inner.capture.pChannelMap = t.capture_channel_map.as_ptr() as *mut _;
+        }
+
         fn set_context<'s>(t: &'s mut CaptureDeviceBuilder<'a, F>, context: &'a ContextBuilder) {
             t.context = Some(context);
         }
@@ -412,6 +439,18 @@ pub(crate) mod private_device_b {
             t.backends
         }
 
+        fn set_playback_channel_map(t: &mut DuplexDeviceBuilder<'a, F>, map: Vec<RawChannel>) {
+            t.inner.playback.channels = map.len() as u32;
+            t.playback_channel_map = map;
+            t.inner.playback.pChannelMap = t.playback_channel_map.as_ptr() as *mut _;
+        }
+
+        fn set_capture_channel_map(t: &mut DuplexDeviceBuilder<'a, F>, map: Vec<RawChannel>) {
+            t.inner.capture.channels = map.len() as u32;
+            t.capture_channel_map = map;
+            t.inner.capture.pChannelMap = t.capture_channel_map.as_ptr() as *mut _;
+        }
+
         fn set_context<'s>(t: &'s mut DuplexDeviceBuilder<'a, F>, context: &'a ContextBuilder) {
             t.context = Some(context);
         }
@@ -454,6 +493,16 @@ pub(crate) mod private_device_b {
 
         fn get_backends<'s>(t: &'s LoopbackDeviceBuilder<'a, F>) -> Option<&'s [Backend]> {
             t.backends
+        }
+
+        fn set_playback_channel_map(t: &mut LoopbackDeviceBuilder<'a, F>, map: Vec<RawChannel>) {
+            t.inner.playback.channels = map.len() as u32;
+            t.playback_channel_map = map;
+            t.inner.playback.pChannelMap = t.playback_channel_map.as_ptr() as *mut _;
+        }
+
+        fn set_capture_channel_map(_t: &mut LoopbackDeviceBuilder<'a, F>, _map: Vec<RawChannel>) {
+            unreachable!()
         }
 
         fn set_context<'s>(t: &'s mut LoopbackDeviceBuilder<'a, F>, context: &'a ContextBuilder) {
@@ -502,6 +551,20 @@ pub(crate) mod private_device_b {
         t: &'s T,
     ) -> Option<&'s [Backend]> {
         <T as AsDeviceBuilder>::_DeviceBuilderProvider::get_backends(t)
+    }
+
+    pub fn set_playback_channel_map<'a, T: AsDeviceBuilder<'a> + ?Sized>(
+        t: &mut T,
+        map: Vec<RawChannel>,
+    ) {
+        <T as AsDeviceBuilder>::_DeviceBuilderProvider::set_playback_channel_map(t, map);
+    }
+
+    pub fn set_capture_channel_map<'a, T: AsDeviceBuilder<'a> + ?Sized>(
+        t: &mut T,
+        map: Vec<RawChannel>,
+    ) {
+        <T as AsDeviceBuilder>::_DeviceBuilderProvider::set_capture_channel_map(t, map);
     }
 
     pub fn set_context<'a, 's, T: AsDeviceBuilder<'a> + ?Sized>(
@@ -555,6 +618,7 @@ impl<'a> PlaybackDeviceBuilder<'a, Unknown> {
             state_notifier: false,
             playback_device_id: None,
             capture_device_id: None,
+            playback_channel_map: Vec::new(),
             _format: PhantomData,
         }
     }
@@ -595,6 +659,7 @@ impl<'a> CaptureDeviceBuilder<'a, Unknown> {
             state_notifier: false,
             playback_device_id: None,
             capture_device_id: None,
+            capture_channel_map: Vec::new(),
             _format: PhantomData,
         }
     }
@@ -635,6 +700,8 @@ impl<'a> DuplexDeviceBuilder<'a, Unknown> {
             state_notifier: false,
             playback_device_id: None,
             capture_device_id: None,
+            playback_channel_map: Vec::new(),
+            capture_channel_map: Vec::new(),
             _format: PhantomData,
         }
     }
@@ -680,6 +747,7 @@ impl<'a> LoopbackDeviceBuilder<'a, Unknown> {
             state_notifier: false,
             playback_device_id: None,
             capture_device_id: None,
+            playback_channel_map: Vec::new(),
             _format: PhantomData,
         }
     }
@@ -769,12 +837,13 @@ pub trait DeviceBuilderOps<'a>: AsDeviceBuilder<'a> {
     /// Sets the playback channel map.
     ///
     /// Also updates the channel count to match the map length.
-    fn playback_channel_map(&mut self, map: &[Channel]) -> &mut Self
+    fn playback_channel_map<I>(&mut self, map: I) -> &mut Self
     where
         Self: private_device_b::SupportsPlayback,
+        I: IntoIterator<Item = Channel>,
     {
-        private_device_b::inner(self).playback.pChannelMap = map.as_ptr() as *mut _;
-        private_device_b::inner(self).playback.channels = map.len() as _;
+        let map = map.into_iter().map(RawChannel::from).collect();
+        private_device_b::set_playback_channel_map(self, map);
         self
     }
 
@@ -821,12 +890,13 @@ pub trait DeviceBuilderOps<'a>: AsDeviceBuilder<'a> {
     /// Sets the capture channel map.
     ///
     /// Also updates the channel count to match the map length.
-    fn capture_channel_map(&mut self, map: &[Channel]) -> &mut Self
+    fn capture_channel_map<I>(&mut self, map: I) -> &mut Self
     where
         Self: private_device_b::SupportsCapture,
+        I: IntoIterator<Item = Channel>,
     {
-        private_device_b::inner(self).capture.pChannelMap = map.as_ptr() as *mut _;
-        private_device_b::inner(self).capture.channels = map.len() as _;
+        let map = map.into_iter().map(RawChannel::from).collect();
+        private_device_b::set_capture_channel_map(self, map);
         self
     }
 
@@ -973,6 +1043,7 @@ impl<'a> DeviceBuilder {
             state_notifier: false,
             playback_device_id: None,
             capture_device_id: None,
+            playback_channel_map: Vec::new(),
             _format: PhantomData,
         }
     }
@@ -987,6 +1058,7 @@ impl<'a> DeviceBuilder {
             state_notifier: false,
             playback_device_id: None,
             capture_device_id: None,
+            capture_channel_map: Vec::new(),
             _format: PhantomData,
         }
     }
@@ -1001,6 +1073,8 @@ impl<'a> DeviceBuilder {
             state_notifier: false,
             playback_device_id: None,
             capture_device_id: None,
+            playback_channel_map: Vec::new(),
+            capture_channel_map: Vec::new(),
             _format: PhantomData,
         }
     }
@@ -1015,6 +1089,7 @@ impl<'a> DeviceBuilder {
             state_notifier: false,
             playback_device_id: None,
             capture_device_id: None,
+            playback_channel_map: Vec::new(),
             _format: PhantomData,
         }
     }
@@ -1747,6 +1822,138 @@ mod test {
         std::thread::sleep(std::time::Duration::from_micros(10));
         assert!(notif.contains(DeviceNotificationType::Started));
         device.device_stop().unwrap();
+    }
+
+    #[cfg(not(feature = "ci-tests"))]
+    #[test]
+    fn test_device_builder_playback_set_channel_map() {
+        use crate::{
+            audio::channels::Channel,
+            device::{
+                device_builder::{DeviceBuilder, DeviceBuilderOps},
+                DeviceOps,
+            },
+        };
+
+        let map = [
+            Channel::SideLeft,
+            Channel::SideRight,
+            Channel::BackLeft,
+            Channel::BackRight,
+        ];
+        let device = DeviceBuilder::playback()
+            .f32()
+            .playback_channel_map(map)
+            .with_callback(|_, _| {})
+            .unwrap();
+        let channels = device.channels_playback();
+        let playback_ch_map = device.channel_map_playback().unwrap();
+        let capture_ch_map = device.channel_map_capture().unwrap();
+        assert_eq!(channels, 4);
+        assert_eq!(playback_ch_map, map);
+        assert!(capture_ch_map.is_empty());
+    }
+
+    #[cfg(not(feature = "ci-tests"))]
+    #[test]
+    fn test_device_builder_capture_set_channel_map() {
+        use crate::{
+            audio::channels::Channel,
+            device::{
+                device_builder::{DeviceBuilder, DeviceBuilderOps},
+                DeviceOps,
+            },
+        };
+
+        let map = [
+            Channel::SideLeft,
+            Channel::SideRight,
+            Channel::BackLeft,
+            Channel::BackRight,
+        ];
+        let device = DeviceBuilder::capture()
+            .f32()
+            .capture_channel_map(map)
+            .with_callback(|_, _| {})
+            .unwrap();
+        let channels = device.channels_capture();
+        let playback_ch_map = device.channel_map_playback().unwrap();
+        let capture_ch_map = device.channel_map_capture().unwrap();
+        assert_eq!(channels, 4);
+        assert_eq!(capture_ch_map, map);
+        assert!(playback_ch_map.is_empty());
+    }
+
+    #[cfg(not(feature = "ci-tests"))]
+    #[test]
+    fn test_device_builder_duplex_set_channel_map() {
+        use crate::{
+            audio::channels::Channel,
+            device::{
+                device_builder::{DeviceBuilder, DeviceBuilderOps},
+                DeviceOps,
+            },
+        };
+
+        let play_map = [
+            Channel::SideLeft,
+            Channel::SideRight,
+            Channel::BackLeft,
+            Channel::BackRight,
+        ];
+        let capt_map = [
+            Channel::SideLeft,
+            Channel::SideRight,
+            Channel::BackLeft,
+            Channel::BackRight,
+            Channel::TopFrontLeft,
+            Channel::TopFrontRight,
+        ];
+        let device = DeviceBuilder::duplex()
+            .f32()
+            .playback_channel_map(play_map)
+            .capture_channel_map(capt_map)
+            .with_callback(|_, _, _| {})
+            .unwrap();
+        let play_channels = device.channels_playback();
+        let capt_channels = device.channels_capture();
+        let playback_ch_map = device.channel_map_playback().unwrap();
+        let capture_ch_map = device.channel_map_capture().unwrap();
+        assert_eq!(play_channels, 4);
+        assert_eq!(capt_channels, 6);
+        assert_eq!(playback_ch_map, play_map);
+        assert_eq!(capture_ch_map, capt_map);
+    }
+
+    #[cfg(windows)]
+    #[cfg(not(feature = "ci-tests"))]
+    #[test]
+    fn test_device_builder_loopback_set_channel_map() {
+        use crate::{
+            audio::channels::Channel,
+            device::{
+                device_builder::{DeviceBuilder, DeviceBuilderOps},
+                DeviceOps,
+            },
+        };
+
+        let map = [
+            Channel::SideLeft,
+            Channel::SideRight,
+            Channel::BackLeft,
+            Channel::BackRight,
+        ];
+        let device = DeviceBuilder::loopback()
+            .f32()
+            .playback_channel_map(map)
+            .with_callback(|_a, out| out.fill(0.0))
+            .unwrap();
+        let channels = device.channels_playback();
+        let playback_ch_map = device.channel_map_playback().unwrap();
+        let capture_ch_map = device.channel_map_capture().unwrap();
+        assert_eq!(channels, 4);
+        assert_eq!(playback_ch_map, map);
+        assert!(capture_ch_map.is_empty());
     }
 
     #[cfg(not(feature = "ci-tests"))]

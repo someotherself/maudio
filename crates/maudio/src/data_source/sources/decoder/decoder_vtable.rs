@@ -257,7 +257,7 @@ fn create_data_source<F: PcmFormat, D: DecodingBackend<Format = F>, R: Read + Se
             format: registration.format,
             channels: registration.channels,
             sample_rate: registration.sample_rate,
-            channel_map: None,
+            channel_map: Vec::new(), // TODO: Add channel map to registration?
         },
         cursor: 0,
         looping: false,

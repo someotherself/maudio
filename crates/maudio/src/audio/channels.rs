@@ -89,7 +89,7 @@ impl TryFrom<sys::ma_channel_mix_mode> for ChannelMixMode {
 /// `ma_standard_channel_map`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(C)]
-pub enum ChannelMap {
+pub enum ChannelPosition {
     /// Microsoft channel ordering.
     ///
     /// This is the default channel layout used by Windows audio APIs
@@ -155,38 +155,54 @@ pub enum ChannelMap {
     Default,
 }
 
-impl From<ChannelMap> for sys::ma_standard_channel_map {
-    fn from(value: ChannelMap) -> Self {
+impl From<ChannelPosition> for sys::ma_standard_channel_map {
+    fn from(value: ChannelPosition) -> Self {
         match value {
-            ChannelMap::Microsoft => sys::ma_standard_channel_map_ma_standard_channel_map_microsoft,
-            ChannelMap::Alsa => sys::ma_standard_channel_map_ma_standard_channel_map_alsa,
-            ChannelMap::Rfc3551 => sys::ma_standard_channel_map_ma_standard_channel_map_rfc3551,
-            ChannelMap::Flac => sys::ma_standard_channel_map_ma_standard_channel_map_flac,
-            ChannelMap::Vorbis => sys::ma_standard_channel_map_ma_standard_channel_map_vorbis,
-            ChannelMap::Sound4 => sys::ma_standard_channel_map_ma_standard_channel_map_sound4,
-            ChannelMap::Sndio => sys::ma_standard_channel_map_ma_standard_channel_map_sndio,
-            ChannelMap::Webaudio => sys::ma_standard_channel_map_ma_standard_channel_map_webaudio,
-            ChannelMap::Default => sys::ma_standard_channel_map_ma_standard_channel_map_default,
+            ChannelPosition::Microsoft => {
+                sys::ma_standard_channel_map_ma_standard_channel_map_microsoft
+            }
+            ChannelPosition::Alsa => sys::ma_standard_channel_map_ma_standard_channel_map_alsa,
+            ChannelPosition::Rfc3551 => {
+                sys::ma_standard_channel_map_ma_standard_channel_map_rfc3551
+            }
+            ChannelPosition::Flac => sys::ma_standard_channel_map_ma_standard_channel_map_flac,
+            ChannelPosition::Vorbis => sys::ma_standard_channel_map_ma_standard_channel_map_vorbis,
+            ChannelPosition::Sound4 => sys::ma_standard_channel_map_ma_standard_channel_map_sound4,
+            ChannelPosition::Sndio => sys::ma_standard_channel_map_ma_standard_channel_map_sndio,
+            ChannelPosition::Webaudio => {
+                sys::ma_standard_channel_map_ma_standard_channel_map_webaudio
+            }
+            ChannelPosition::Default => {
+                sys::ma_standard_channel_map_ma_standard_channel_map_default
+            }
         }
     }
 }
 
-impl TryFrom<sys::ma_standard_channel_map> for ChannelMap {
+impl TryFrom<sys::ma_standard_channel_map> for ChannelPosition {
     type Error = MaudioError;
 
     fn try_from(value: sys::ma_standard_channel_map) -> Result<Self, Self::Error> {
         match value {
             sys::ma_standard_channel_map_ma_standard_channel_map_microsoft => {
-                Ok(ChannelMap::Microsoft)
+                Ok(ChannelPosition::Microsoft)
             }
-            sys::ma_standard_channel_map_ma_standard_channel_map_alsa => Ok(ChannelMap::Alsa),
-            sys::ma_standard_channel_map_ma_standard_channel_map_rfc3551 => Ok(ChannelMap::Rfc3551),
-            sys::ma_standard_channel_map_ma_standard_channel_map_flac => Ok(ChannelMap::Flac),
-            sys::ma_standard_channel_map_ma_standard_channel_map_vorbis => Ok(ChannelMap::Vorbis),
-            sys::ma_standard_channel_map_ma_standard_channel_map_sound4 => Ok(ChannelMap::Sound4),
-            sys::ma_standard_channel_map_ma_standard_channel_map_sndio => Ok(ChannelMap::Sndio),
+            sys::ma_standard_channel_map_ma_standard_channel_map_alsa => Ok(ChannelPosition::Alsa),
+            sys::ma_standard_channel_map_ma_standard_channel_map_rfc3551 => {
+                Ok(ChannelPosition::Rfc3551)
+            }
+            sys::ma_standard_channel_map_ma_standard_channel_map_flac => Ok(ChannelPosition::Flac),
+            sys::ma_standard_channel_map_ma_standard_channel_map_vorbis => {
+                Ok(ChannelPosition::Vorbis)
+            }
+            sys::ma_standard_channel_map_ma_standard_channel_map_sound4 => {
+                Ok(ChannelPosition::Sound4)
+            }
+            sys::ma_standard_channel_map_ma_standard_channel_map_sndio => {
+                Ok(ChannelPosition::Sndio)
+            }
             other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
-                ChannelMap,
+                ChannelPosition,
             >(other as i64))),
         }
     }
@@ -194,23 +210,24 @@ impl TryFrom<sys::ma_standard_channel_map> for ChannelMap {
 
 #[repr(transparent)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct Channel(sys::ma_channel);
+pub struct RawChannel(sys::ma_channel);
 
-impl Channel {
+impl RawChannel {
+    #[allow(unused)]
     #[inline]
-    pub const fn as_raw(self) -> sys::ma_channel {
+    pub(crate) const fn as_raw(self) -> sys::ma_channel {
         self.0
     }
 
     #[inline]
-    pub const fn from_raw(v: sys::ma_channel) -> Self {
+    pub(crate) const fn from_raw(v: sys::ma_channel) -> Self {
         Self(v)
     }
 }
 
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-pub enum ChannelPosition {
+pub enum Channel {
     None,
     Mono,
     FrontLeft,
@@ -265,7 +282,7 @@ pub enum ChannelPosition {
     Aux31,
 }
 
-impl TryFrom<sys::ma_channel> for ChannelPosition {
+impl TryFrom<sys::ma_channel> for Channel {
     type Error = MaudioError;
 
     fn try_from(v: sys::ma_channel) -> Result<Self, Self::Error> {
@@ -322,32 +339,32 @@ impl TryFrom<sys::ma_channel> for ChannelPosition {
             49 => Ok(Self::Aux29),
             50 => Ok(Self::Aux30),
             51 => Ok(Self::Aux31),
-            _ => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
-                ChannelPosition,
-            >(v as i64))),
+            _ => Err(MaudioError::new_ma_error(
+                ErrorKinds::unknown_enum::<Channel>(v as i64),
+            )),
         }
     }
 }
 
-impl TryFrom<Channel> for ChannelPosition {
+impl TryFrom<RawChannel> for Channel {
     type Error = MaudioError;
 
     #[inline]
-    fn try_from(c: Channel) -> Result<Self, Self::Error> {
-        ChannelPosition::try_from(c.0)
+    fn try_from(c: RawChannel) -> Result<Self, Self::Error> {
+        Channel::try_from(c.0)
     }
 }
 
-impl From<ChannelPosition> for Channel {
+impl From<Channel> for RawChannel {
     #[inline]
-    fn from(p: ChannelPosition) -> Self {
-        Channel(p as sys::ma_channel)
+    fn from(p: Channel) -> Self {
+        RawChannel(p as sys::ma_channel)
     }
 }
 
-impl From<ChannelPosition> for sys::ma_channel {
+impl From<Channel> for sys::ma_channel {
     #[inline]
-    fn from(p: ChannelPosition) -> Self {
+    fn from(p: Channel) -> Self {
         p as sys::ma_channel
     }
 }
@@ -414,31 +431,31 @@ mod tests {
     fn test_channel_map_from_rust_to_sys_variants() {
         // Exact-name variants.
         assert_eq!(
-            sys::ma_standard_channel_map::from(ChannelMap::Microsoft),
+            sys::ma_standard_channel_map::from(ChannelPosition::Microsoft),
             sys::ma_standard_channel_map_ma_standard_channel_map_microsoft
         );
         assert_eq!(
-            sys::ma_standard_channel_map::from(ChannelMap::Alsa),
+            sys::ma_standard_channel_map::from(ChannelPosition::Alsa),
             sys::ma_standard_channel_map_ma_standard_channel_map_alsa
         );
         assert_eq!(
-            sys::ma_standard_channel_map::from(ChannelMap::Rfc3551),
+            sys::ma_standard_channel_map::from(ChannelPosition::Rfc3551),
             sys::ma_standard_channel_map_ma_standard_channel_map_rfc3551
         );
         assert_eq!(
-            sys::ma_standard_channel_map::from(ChannelMap::Flac),
+            sys::ma_standard_channel_map::from(ChannelPosition::Flac),
             sys::ma_standard_channel_map_ma_standard_channel_map_flac
         );
         assert_eq!(
-            sys::ma_standard_channel_map::from(ChannelMap::Vorbis),
+            sys::ma_standard_channel_map::from(ChannelPosition::Vorbis),
             sys::ma_standard_channel_map_ma_standard_channel_map_vorbis
         );
         assert_eq!(
-            sys::ma_standard_channel_map::from(ChannelMap::Sound4),
+            sys::ma_standard_channel_map::from(ChannelPosition::Sound4),
             sys::ma_standard_channel_map_ma_standard_channel_map_sound4
         );
         assert_eq!(
-            sys::ma_standard_channel_map::from(ChannelMap::Sndio),
+            sys::ma_standard_channel_map::from(ChannelPosition::Sndio),
             sys::ma_standard_channel_map_ma_standard_channel_map_sndio
         );
 
@@ -446,7 +463,7 @@ mod tests {
         // - webaudio = flac
         // - default = microsoft
         assert_eq!(
-            sys::ma_standard_channel_map::from(ChannelMap::Webaudio),
+            sys::ma_standard_channel_map::from(ChannelPosition::Webaudio),
             sys::ma_standard_channel_map_ma_standard_channel_map_webaudio
         );
         assert_eq!(
@@ -455,7 +472,7 @@ mod tests {
         );
 
         assert_eq!(
-            sys::ma_standard_channel_map::from(ChannelMap::Default),
+            sys::ma_standard_channel_map::from(ChannelPosition::Default),
             sys::ma_standard_channel_map_ma_standard_channel_map_default
         );
         assert_eq!(
@@ -468,39 +485,41 @@ mod tests {
     fn test_channel_map_try_from_sys_to_rust_variants() {
         // Most should round-trip directly.
         assert_eq!(
-            ChannelMap::try_from(sys::ma_standard_channel_map_ma_standard_channel_map_microsoft)
-                .unwrap(),
-            ChannelMap::Microsoft
+            ChannelPosition::try_from(
+                sys::ma_standard_channel_map_ma_standard_channel_map_microsoft
+            )
+            .unwrap(),
+            ChannelPosition::Microsoft
         );
         assert_eq!(
-            ChannelMap::try_from(sys::ma_standard_channel_map_ma_standard_channel_map_alsa)
+            ChannelPosition::try_from(sys::ma_standard_channel_map_ma_standard_channel_map_alsa)
                 .unwrap(),
-            ChannelMap::Alsa
+            ChannelPosition::Alsa
         );
         assert_eq!(
-            ChannelMap::try_from(sys::ma_standard_channel_map_ma_standard_channel_map_rfc3551)
+            ChannelPosition::try_from(sys::ma_standard_channel_map_ma_standard_channel_map_rfc3551)
                 .unwrap(),
-            ChannelMap::Rfc3551
+            ChannelPosition::Rfc3551
         );
         assert_eq!(
-            ChannelMap::try_from(sys::ma_standard_channel_map_ma_standard_channel_map_flac)
+            ChannelPosition::try_from(sys::ma_standard_channel_map_ma_standard_channel_map_flac)
                 .unwrap(),
-            ChannelMap::Flac
+            ChannelPosition::Flac
         );
         assert_eq!(
-            ChannelMap::try_from(sys::ma_standard_channel_map_ma_standard_channel_map_vorbis)
+            ChannelPosition::try_from(sys::ma_standard_channel_map_ma_standard_channel_map_vorbis)
                 .unwrap(),
-            ChannelMap::Vorbis
+            ChannelPosition::Vorbis
         );
         assert_eq!(
-            ChannelMap::try_from(sys::ma_standard_channel_map_ma_standard_channel_map_sound4)
+            ChannelPosition::try_from(sys::ma_standard_channel_map_ma_standard_channel_map_sound4)
                 .unwrap(),
-            ChannelMap::Sound4
+            ChannelPosition::Sound4
         );
         assert_eq!(
-            ChannelMap::try_from(sys::ma_standard_channel_map_ma_standard_channel_map_sndio)
+            ChannelPosition::try_from(sys::ma_standard_channel_map_ma_standard_channel_map_sndio)
                 .unwrap(),
-            ChannelMap::Sndio
+            ChannelPosition::Sndio
         );
 
         // Alias semantics:
@@ -512,11 +531,15 @@ mod tests {
         //
         // The usual choice is to map that numeric value back to `ChannelMap::Flac`.
         // If your TryFrom intentionally maps it to `Webaudio` instead, change this assertion.
-        let from_webaudio =
-            ChannelMap::try_from(sys::ma_standard_channel_map_ma_standard_channel_map_webaudio)
-                .unwrap();
+        let from_webaudio = ChannelPosition::try_from(
+            sys::ma_standard_channel_map_ma_standard_channel_map_webaudio,
+        )
+        .unwrap();
         assert!(
-            matches!(from_webaudio, ChannelMap::Flac | ChannelMap::Webaudio),
+            matches!(
+                from_webaudio,
+                ChannelPosition::Flac | ChannelPosition::Webaudio
+            ),
             "Expected FLAC/WEBAUDIO alias to map to Flac or Webaudio; got {from_webaudio:?}"
         );
 
@@ -525,10 +548,13 @@ mod tests {
         //
         // Same ambiguity as above: the numeric value is identical. Accept either.
         let from_default =
-            ChannelMap::try_from(sys::ma_standard_channel_map_ma_standard_channel_map_default)
+            ChannelPosition::try_from(sys::ma_standard_channel_map_ma_standard_channel_map_default)
                 .unwrap();
         assert!(
-            matches!(from_default, ChannelMap::Microsoft | ChannelMap::Default),
+            matches!(
+                from_default,
+                ChannelPosition::Microsoft | ChannelPosition::Default
+            ),
             "Expected DEFAULT/MICROSOFT alias to map to Microsoft or Default; got {from_default:?}"
         );
     }
@@ -537,7 +563,7 @@ mod tests {
     fn test_channel_map_try_from_invalid_returns_error() {
         let invalid: sys::ma_standard_channel_map = 0x7FFF as sys::ma_standard_channel_map;
 
-        let err = ChannelMap::try_from(invalid).unwrap_err();
+        let err = ChannelPosition::try_from(invalid).unwrap_err();
         assert_eq!(err, MaError(sys::ma_result_MA_ERROR));
     }
 

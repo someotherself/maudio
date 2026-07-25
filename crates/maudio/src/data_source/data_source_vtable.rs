@@ -1,6 +1,7 @@
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use crate::{
+    audio::channels::RawChannel,
     data_source::{pcm_source::PcmSource, DataSourceInner},
     pcm_frames::PcmFormat,
     ErrorKinds,
@@ -128,10 +129,14 @@ unsafe extern "C" fn data_source_get_format_proc<F: PcmFormat, P: PcmSource<F>>(
     }
 
     if !channel_map.is_null() && channel_map_cap > 0 {
-        if let Some(map) = ds.context.data_format.channel_map.as_ref() {
+        if ds.context.data_format.channel_map.is_empty() {
+            let map = &ds.context.data_format.channel_map;
             let count = core::cmp::min(map.len(), channel_map_cap);
-
-            core::ptr::copy_nonoverlapping(map.as_ptr(), channel_map.cast(), count);
+            let mut raw_channel_map = Vec::new();
+            for &entry in map.iter().take(count) {
+                raw_channel_map.push(RawChannel::from(entry));
+            }
+            core::ptr::copy_nonoverlapping(raw_channel_map.as_ptr(), channel_map.cast(), count);
         } else {
             sys::ma_channel_map_init_standard(
                 sys::ma_standard_channel_map_ma_standard_channel_map_default,

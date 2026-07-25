@@ -38,8 +38,11 @@ impl DataSourceBuilder {
         }
     }
 
-    pub fn channel_map(&mut self, map: Vec<Channel>) -> &mut Self {
-        self.channel_map = map;
+    pub fn channel_map<I>(mut self, channel_map: I) -> Self
+    where
+        I: IntoIterator<Item = Channel>,
+    {
+        self.channel_map = channel_map.into_iter().collect();
         self
     }
 
@@ -48,7 +51,7 @@ impl DataSourceBuilder {
             format,
             channels: self.channels,
             sample_rate: self.sample_rate,
-            channel_map: Some(self.channel_map.clone()),
+            channel_map: self.channel_map.clone(),
         }
     }
 

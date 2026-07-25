@@ -57,7 +57,7 @@ impl<F: PcmFormat> Fader<F> {
             format: self.format,
             channels: self.channels,
             sample_rate: self.sample_rate,
-            channel_map: None,
+            channel_map: Vec::new(),
         }
     }
 
@@ -153,7 +153,7 @@ mod fader_ffi {
             format: format_raw.try_into()?,
             channels,
             sample_rate: sample_rate.try_into()?,
-            channel_map: None,
+            channel_map: Vec::new(),
         })
     }
 
@@ -229,7 +229,7 @@ mod tests {
         assert_eq!(format.format, Format::F32);
         assert_eq!(format.channels, 2);
         assert_eq!(format.sample_rate, SampleRate::Sr44100);
-        assert!(format.channel_map.is_none());
+        assert!(format.channel_map.is_empty());
     }
 
     #[test]
@@ -242,7 +242,7 @@ mod tests {
         assert_eq!(format.format, Format::F32);
         assert_eq!(format.channels, 2);
         assert_eq!(format.sample_rate, SampleRate::Sr44100);
-        assert!(format.channel_map.is_none());
+        assert!(format.channel_map.is_empty());
     }
 
     #[test]
