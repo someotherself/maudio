@@ -60,6 +60,9 @@ unsafe extern "C" fn data_source_read_proc<F: PcmFormat, P: PcmSource<F>>(
     }));
     match res {
         Ok(Ok(frames)) => {
+            if frames as u64 > frame_count {
+                return sys::ma_result_MA_ERROR;
+            }
             if !frames_read.is_null() {
                 *frames_read = frames as u64;
             }
@@ -72,8 +75,11 @@ unsafe extern "C" fn data_source_read_proc<F: PcmFormat, P: PcmSource<F>>(
                 sys::ma_result_MA_SUCCESS
             }
         }
-        Ok(Err(_)) | Err(_) => {
-            println!("ERROR");
+        Ok(Err(e)) => {
+            out.fill(F::PCM_UNIT_SILENCE);
+            e.ma_result.0
+        }
+        Err(_) => {
             out.fill(F::PCM_UNIT_SILENCE);
             sys::ma_result_MA_ERROR
         }
@@ -200,8 +206,11 @@ unsafe extern "C" fn data_source_set_looping_proc<F: PcmFormat, P: PcmSource<F>>
 
     let ds = &mut *(data_source).cast::<DataSourceInner<F, P>>();
 
+    // Update the looping flag in the context.
+    ds.context.looping = is_looping == 1;
+
     let res = catch_unwind(AssertUnwindSafe(|| {
-        ds.source.set_looping(is_looping == 1, &mut ds.context)
+        ds.source.on_looping(is_looping == 1, &mut ds.context)
     }));
     match res {
         Ok(Ok(_)) => sys::ma_result_MA_SUCCESS,

@@ -619,14 +619,6 @@ mod test {
         fn length_in_pcm_frames(&self, _ctx: &crate::data_source::SourceContext) -> MaResult<u64> {
             self.0.length_pcm()
         }
-
-        fn set_looping(
-            &self,
-            _looping: bool,
-            _ctx: &mut crate::data_source::SourceContext,
-        ) -> MaResult<()> {
-            Ok(())
-        }
     }
 
     #[test]

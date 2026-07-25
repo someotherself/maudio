@@ -40,10 +40,36 @@ pub struct DataFormat {
     pub channel_map: Vec<Channel>,
 }
 
+/// State associated with a custom [`PcmSource`].
+///
+/// A `SourceContext` is created and retained by the resulting [`DataSource`], then
+/// passed to the [`PcmSource`] implementation during data-source operations.
+///
+/// The implementation may inspect the data format and looping state. It is
+/// responsible for keeping the cursor consistent with the position of the
+/// underlying source.
 #[derive(Debug, Clone)]
 pub struct SourceContext {
     pub data_format: DataFormat,
+    /// The current position in PCM frames.
+    ///
+    /// The implementation must advance this value when frames are consumed by
+    /// [`PcmSource::fill_pcm_frames`] and update it after a successful
+    /// [`PcmSource::seek_to_pcm_frame`].
+    ///
+    /// This value is measured in complete PCM frames, not individual interleaved
+    /// samples. For example, advancing by 10 stereo frames advances the cursor by
+    /// 10, even though 20 samples were consumed.
     pub cursor: u64,
+    /// Whether looping is currently enabled for the data source.
+    ///
+    /// This mirrors miniaudio's internal looping flag. It does not indicate
+    /// whether the source supports looping, and implementations should not
+    /// normally perform looping themselves.
+    ///
+    /// Miniaudio-managed looping requires the source to support seeking. This
+    /// value is primarily useful to implementations that need to observe or
+    /// mirror the looping state.
     pub looping: bool,
 }
 

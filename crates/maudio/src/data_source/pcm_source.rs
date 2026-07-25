@@ -2,14 +2,13 @@ use std::sync::{Arc, Mutex};
 
 use crate::{data_source::SourceContext, pcm_frames::PcmFormat, ErrorKinds, MaResult, MaudioError};
 
-/// A source of interleaved PCM frames for a [`DataSource`].
+/// A source of interleaved PCM frames for a [`DataSource`](crate::data_source).
 ///
 /// Implementors must provide [`PcmSource::fill_pcm_frames`]. The remaining
-/// methods represent optional data-source capabilities and return
-/// [`ErrorKinds::NotImplemented`] by default.
+/// methods represent optional data-source capabilities.
 ///
 /// Override an optional method to expose that capability through the resulting
-/// [`DataSource`]. Leaving its default implementation unchanged causes the
+/// [`DataSource`](crate::data_source). Leaving its default implementation unchanged causes the
 /// corresponding `DataSource` operations to return `MA_NOT_IMPLEMENTED`.
 ///
 /// [`SourceContext`] contains information managed by the data source, including
@@ -20,21 +19,49 @@ use crate::{data_source::SourceContext, pcm_frames::PcmFormat, ErrorKinds, MaRes
 pub trait PcmSource<F: PcmFormat> {
     /// Reads PCM frames into `out`.
     ///
-    /// `out` contains interleaved PCM samples in the format represented by `F`.
-    /// Its length is measured in PCM units, not frames. The number of requested
-    /// frames can be calculated from the channel count in `ctx`.
+    /// This method performs a single read from the source's current position.
+    /// Looping, and data-source chaining are handled by miniaudio outside
+    /// of this callback and should not normally be implemented here, unless
+    /// the implementor specifically wants to manage that state and behaviour.
     ///
-    /// Returns the number of complete PCM frames written to `out`. This must
-    /// not exceed the capacity of `out` for the configured channel count.
+    /// The length of `out` is measured in PCM units rather than frames. The
+    /// number of frames it can hold is therefore:
+    ///
+    /// ```text
+    /// out.len() / ctx.data_format.channels
+    /// ```
+    ///
+    /// Returns the number of complete PCM frames written to `out`. The returned
+    /// count must not exceed the capacity of `out` for the configured channel
+    /// count.
+    ///
     /// Returning fewer frames than requested indicates that only that many
-    /// frames were currently available. Returning zero indicates that no
-    /// frames were produced.
+    /// frames were produced. Returning zero indicates that the source has
+    /// reached its end. The unused portion of `out` does not need to be filled
+    /// with silence.
+    ///
+    /// ### Cursor
     ///
     /// The implementation is responsible for keeping the cursor in `ctx`
     /// consistent with the frames it consumes.
     ///
-    /// When looping is enabled, the implementation must perform any necessary
-    /// rewind and continue filling `out` itself.
+    /// The cursor does must track frames, not individual samples.
+    /// For example, consuming 10 stereo frames advances the cursor by 10 even
+    /// though 20 samples were read from the underlying storage.
+    ///
+    /// ### Looping
+    ///
+    /// This method is not normally responsible for looping. When looping is
+    /// enabled and this method reports the end of the source, miniaudio seeks
+    /// to the configured loop beginning and continues reading.
+    ///
+    /// Miniaudio-managed looping therefore needs
+    /// [`PcmSource::seek_to_pcm_frame`] to be implemented. The read
+    /// implementation must also:
+    ///
+    /// - accurately report the number of frames produced;
+    /// - advance the cursor by that number of frames;
+    /// - eventually return zero after reaching the end of the source.
     fn fill_pcm_frames(
         &mut self,
         out: &mut [F::PcmUnit],
@@ -49,23 +76,25 @@ pub trait PcmSource<F: PcmFormat> {
     /// The implementation is responsible for keeping the cursor in `ctx`
     /// consistent with the new position.
     ///
-    /// The default implementation returns [`ErrorKinds::NotImplemented`],
-    /// disabling seeking through the resulting [`DataSource`].
+    /// This method is optional for sequential reading, but is required for:
     ///
-    /// When seeking is disabled, the following methods return `MA_NOT_IMPLEMENTED`:
-    /// - `DataSource::seek_pcm_frames`
-    /// - `DataSource::seek_to_pcm_frame`
-    /// - `DataSource::seek_seconds`
-    /// - `DataSource::seek_to_second`
-    ///   This will affect other components in audio chain connected to this data source,
-    ///   when they try to access these methods.
+    /// - seeking through the resulting [`DataSource`](crate::data_source);
+    /// - miniaudio-managed looping;
+    /// - entering this source through a data-source chain,
+    ///   because miniaudio rewinds the next source to frame zero.
     ///
-    /// However, it does not prevent the user implementation of
-    /// [`PcmSource::fill_pcm_frames`] from using or modifying the cursor, via `ctx.cursor`.
+    /// The default implementation returns [`ErrorKinds::NotImplemented`].
+    /// Consequently, operations which require repositioning may return
+    /// `MA_NOT_IMPLEMENTED`, including:
     ///
-    /// This may also be useful when the `PcmSource` type self manages the cursor.
+    /// - [`DataSource::seek_pcm_frames`](crate::data_source);
+    /// - [`DataSource::seek_to_pcm_frame`](crate::data_source);
+    /// - [`DataSource::seek_seconds`](crate::data_source);
+    /// - [`DataSource::seek_to_second`](crate::data_source).
     ///
-    /// The [`PcmSource::seek_to_pcm_frame`] will never run and may return `MaudioError::NotImplemented`.
+    /// Not implementing this method does not prevent
+    /// [`PcmSource::fill_pcm_frames`] from reading sequentially or maintaining
+    /// [`SourceContext::cursor`].
     fn seek_to_pcm_frame(&mut self, _frame_index: u64, _ctx: &mut SourceContext) -> MaResult<()> {
         Err(MaudioError::new_ma_error(ErrorKinds::NotImplemented))
     }
@@ -75,7 +104,7 @@ pub trait PcmSource<F: PcmFormat> {
     /// The returned position identifies the frame that will be read next.
     ///
     /// The default implementation returns [`ErrorKinds::NotImplemented`],
-    /// disabling cursor queries through the resulting [`DataSource`].
+    /// disabling cursor queries through the resulting [`DataSource`](crate::data_source).
     fn cursor_in_pcm_frames(&self, _ctx: &SourceContext) -> MaResult<u64> {
         Err(MaudioError::new_ma_error(ErrorKinds::NotImplemented))
     }
@@ -83,25 +112,23 @@ pub trait PcmSource<F: PcmFormat> {
     /// Returns the total length of the source in PCM frames.
     ///
     /// The default implementation returns [`ErrorKinds::NotImplemented`],
-    /// disabling length queries through the resulting [`DataSource`].
+    /// disabling length queries through the resulting [`DataSource`](crate::data_source).
     fn length_in_pcm_frames(&self, _ctx: &SourceContext) -> MaResult<u64> {
         Err(MaudioError::new_ma_error(ErrorKinds::NotImplemented))
     }
 
-    /// Enables or disables the ability for this source to loop.
+    /// Called when the data source's looping state is changed.
     ///
-    /// When `looping` is `true`, subsequent calls to
-    /// [`PcmSource::fill_pcm_frames`] must repeat the source instead of remaining
-    /// at the end. The source implementation is responsible for rewinding and
-    /// producing the repeated frames.
+    /// Miniaudio stores and uses the looping state itself. This callback does not
+    /// perform looping; it only allows the implementation to react to the new
+    /// state or mirror it in its own internal state.
     ///
-    /// `ctx` exposes the data source's current state and may be updated as needed.
+    /// The default implementation accepts the change without performing any
+    /// additional work.
     ///
-    /// The default implementation returns [`ErrorKinds::NotImplemented`],
-    /// meaning that the resulting [`DataSource`] does not support changing its
-    /// looping behavior.
-    fn set_looping(&self, _looping: bool, _ctx: &mut SourceContext) -> MaResult<()> {
-        Err(MaudioError::new_ma_error(ErrorKinds::NotImplemented))
+    /// The [`SourceContext::looping`] flag is updated automatically.
+    fn on_looping(&mut self, _looping: bool, _ctx: &mut SourceContext) -> MaResult<()> {
+        Ok(())
     }
 }
 
@@ -112,61 +139,25 @@ impl<F: PcmFormat> PcmSource<F> for Vec<F::PcmUnit> {
         ctx: &mut SourceContext,
     ) -> MaResult<usize> {
         let channels = ctx.data_format.channels as usize;
+        let length_frames = self.len() / channels;
+        let cursor_frames = usize::try_from(ctx.cursor).unwrap_or(usize::MAX);
 
-        let cursor_samples = ctx.cursor as usize * channels;
-
-        // seek_to_pcm_frame should also defend against this
-        if cursor_samples > self.len() {
-            out.fill(F::PCM_UNIT_SILENCE);
+        if cursor_frames >= length_frames {
             return Ok(0);
         }
 
-        let mut samples_written = 0;
-        let capacity_samples = out.len();
+        let capacity_frames = out.len() / channels;
+        let available_frames = length_frames - cursor_frames;
+        let frames_to_copy = capacity_frames.min(available_frames);
 
-        loop {
-            let remaining_capacity_samples = out.len() - samples_written;
+        let src_start = cursor_frames * channels;
+        let samples_to_copy = frames_to_copy * channels;
 
-            let cursor_samples = ctx.cursor as usize * channels;
+        out[..samples_to_copy].copy_from_slice(&self[src_start..src_start + samples_to_copy]);
 
-            let available_samples = (self.len()).saturating_sub(cursor_samples);
-            // Make sure we only copy whole frames. out.len() is guarateed to fit whole frames but not self.len()
-            let samples_to_copy =
-                available_samples.min(remaining_capacity_samples) / channels * channels;
-            if samples_to_copy == 0 {
-                out[samples_written..].fill(F::PCM_UNIT_SILENCE);
-                break;
-            }
+        ctx.cursor += frames_to_copy as u64;
 
-            let src_start = cursor_samples;
-            let src_end = cursor_samples + samples_to_copy;
-
-            let out_start = samples_written;
-            let out_end = out_start + samples_to_copy;
-            out[out_start..out_end].copy_from_slice(&self[src_start..src_end]);
-
-            samples_written += samples_to_copy;
-            // Advance the cursor. The cursor keeps track of frames, not samples.
-            ctx.cursor += (samples_to_copy / channels) as u64;
-
-            if samples_written == capacity_samples {
-                break;
-            }
-
-            // Check if we have reached the end of the source
-            if ctx.cursor as usize * channels >= self.len() {
-                if ctx.looping {
-                    ctx.cursor = 0;
-                    continue;
-                } else {
-                    // We have reached the end and looping is not enabled.
-                    out[samples_written..capacity_samples].fill(F::PCM_UNIT_SILENCE);
-                    break;
-                }
-            }
-        }
-
-        Ok(samples_written / channels)
+        Ok(frames_to_copy)
     }
 
     fn seek_to_pcm_frame(&mut self, frame_index: u64, ctx: &mut SourceContext) -> MaResult<()> {
@@ -186,11 +177,6 @@ impl<F: PcmFormat> PcmSource<F> for Vec<F::PcmUnit> {
 
     fn length_in_pcm_frames(&self, ctx: &SourceContext) -> MaResult<u64> {
         Ok((self.len() as u64) / ctx.data_format.channels as u64)
-    }
-
-    fn set_looping(&self, looping: bool, ctx: &mut SourceContext) -> MaResult<()> {
-        ctx.looping = looping;
-        Ok(())
     }
 }
 
@@ -221,10 +207,5 @@ where
     fn length_in_pcm_frames(&self, ctx: &SourceContext) -> MaResult<u64> {
         let src = self.lock().unwrap();
         (*src).length_in_pcm_frames(ctx)
-    }
-
-    fn set_looping(&self, looping: bool, ctx: &mut SourceContext) -> MaResult<()> {
-        let src = self.lock().unwrap();
-        (*src).set_looping(looping, ctx)
     }
 }
