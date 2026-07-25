@@ -1,7 +1,7 @@
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use crate::{
-    data_source::{data_source_builder::DataSourceBuilder, pcm_source::PcmSource, DataSourceInner},
+    data_source::{pcm_source::PcmSource, DataSourceInner},
     pcm_frames::PcmFormat,
     ErrorKinds,
 };
@@ -9,9 +9,8 @@ use crate::{
 use maudio_sys::ffi as sys;
 
 pub(crate) fn data_source_vtable<F: PcmFormat, P: PcmSource<F>>(
-    builder: &DataSourceBuilder,
 ) -> *const sys::ma_data_source_vtable {
-    let mut vtable = sys::ma_data_source_vtable {
+    let vtable = sys::ma_data_source_vtable {
         onRead: Some(data_source_read_proc::<F, P>),
         onSeek: Some(data_source_seek_proc::<F, P>),
         onGetDataFormat: Some(data_source_get_format_proc::<F, P>),
@@ -20,19 +19,7 @@ pub(crate) fn data_source_vtable<F: PcmFormat, P: PcmSource<F>>(
         onSetLooping: Some(data_source_set_looping_proc::<F, P>),
         flags: 0,
     };
-    if builder.no_seek {
-        vtable.onSeek = None;
-    }
-    if builder.no_cursor {
-        vtable.onGetCursor = None;
-        vtable.onSeek = None;
-    }
-    if builder.no_length {
-        vtable.onGetLength = None;
-    }
-    if builder.no_looping {
-        vtable.onSetLooping = None;
-    }
+
     Box::into_raw(Box::new(vtable)) as *const _
 }
 
@@ -85,6 +72,7 @@ unsafe extern "C" fn data_source_read_proc<F: PcmFormat, P: PcmSource<F>>(
             }
         }
         Ok(Err(_)) | Err(_) => {
+            println!("ERROR");
             out.fill(F::PCM_UNIT_SILENCE);
             sys::ma_result_MA_ERROR
         }
@@ -139,11 +127,18 @@ unsafe extern "C" fn data_source_get_format_proc<F: PcmFormat, P: PcmSource<F>>(
         *sample_rate = ds.context.data_format.sample_rate.into();
     }
 
-    if !channel_map.is_null() && !channel_map_cap > 0 {
+    if !channel_map.is_null() && channel_map_cap > 0 {
         if let Some(map) = ds.context.data_format.channel_map.as_ref() {
             let count = core::cmp::min(map.len(), channel_map_cap);
 
             core::ptr::copy_nonoverlapping(map.as_ptr(), channel_map.cast(), count);
+        } else {
+            sys::ma_channel_map_init_standard(
+                sys::ma_standard_channel_map_ma_standard_channel_map_default,
+                channel_map,
+                channel_map_cap,
+                ds.context.data_format.channels,
+            );
         }
     }
 
@@ -177,12 +172,17 @@ unsafe extern "C" fn data_source_get_len_proc<F: PcmFormat, P: PcmSource<F>>(
     let res = catch_unwind(AssertUnwindSafe(|| {
         ds.source.length_in_pcm_frames(&ds.context)
     }));
-    let len = match res {
-        Ok(Some(l)) => l,
-        _ => 0,
-    };
-    *length = len;
-    sys::ma_result_MA_SUCCESS
+
+    match res {
+        Ok(Ok(length_in_frames)) => {
+            length.write(length_in_frames);
+            sys::ma_result_MA_SUCCESS
+        }
+        Ok(Err(error)) if error.kind() == Some(&ErrorKinds::NotImplemented) => {
+            sys::ma_result_MA_NOT_IMPLEMENTED
+        }
+        Ok(Err(_)) | Err(_) => sys::ma_result_MA_ERROR,
+    }
 }
 
 unsafe extern "C" fn data_source_set_looping_proc<F: PcmFormat, P: PcmSource<F>>(

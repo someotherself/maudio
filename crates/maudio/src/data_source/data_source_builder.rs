@@ -16,11 +16,7 @@ pub struct DataSourceBuilder {
     pub(crate) inner: sys::ma_data_source_config,
     sample_rate: SampleRate,
     channels: u32,
-    channel_map: Option<Vec<Channel>>,
-    pub(crate) no_looping: bool,
-    pub(crate) no_length: bool,
-    pub(crate) no_seek: bool,
-    pub(crate) no_cursor: bool,
+    channel_map: Vec<Channel>,
 }
 
 impl AsRawRef for DataSourceBuilder {
@@ -38,78 +34,12 @@ impl DataSourceBuilder {
             inner,
             sample_rate,
             channels,
-            channel_map: None,
-            no_looping: false,
-            no_length: false,
-            no_seek: false,
-            no_cursor: false,
+            channel_map: Vec::new(),
         }
     }
 
     pub fn channel_map(&mut self, map: Vec<Channel>) -> &mut Self {
-        self.channel_map = Some(map);
-        self
-    }
-
-    /// This does not enable or disable looping. It disables the ability to enable or disable looping on the resulting data source.
-    ///
-    /// Looping support is enabled by default.
-    ///
-    /// When disabled, the following will return `MA_NOT_IMPLEMENTED`:
-    /// - `DataSource::set_looping`
-    /// - `DataSource::looping`
-    ///
-    /// If looping support is enabled and looping is turned on, the actual looping
-    /// behavior must be implemented by [`PcmSource::fill_pcm_frames`]. The
-    /// [`DataSource`] only stores and exposes the looping flag; it does not
-    /// automatically rewind or repeat the source.
-    ///
-    /// Source implementations can inspect the looping flag through
-    /// [`SourceContext`] when filling PCM frames.
-    pub fn no_looping(&mut self, no: bool) -> &mut Self {
-        self.no_looping = no;
-        self
-    }
-
-    /// False by default
-    ///
-    /// This disables maudio methods that access length. Specifically:
-    /// - `DataSource::length_in_pcm_frames`
-    /// - `DataSource::length_in_seconds`
-    ///
-    pub fn no_length(&mut self, no: bool) -> &mut Self {
-        self.no_length = no;
-        self
-    }
-
-    /// Enables or disables `DataSource`-managed seeking.
-    ///
-    /// Seeking is enabled by default.
-    ///
-    /// When seeking is enabled, `DataSource` owns and manages the cursor.
-    ///
-    /// When seeking is disabled, the following methods return `MA_NOT_IMPLEMENTED`:
-    /// - `DataSource::seek_pcm_frames`
-    /// - `DataSource::seek_to_pcm_frame`
-    /// - `DataSource::seek_seconds`
-    /// - `DataSource::seek_to_second`
-    ///   This will affect other components in audio chain connected to this data source,
-    ///   when they try to access these methods.
-    ///
-    /// However, it does not prevent the user implementation of
-    /// [`PcmSource::fill_pcm_frames`] from using or modifying the cursor, via `ctx.cursor`.
-    ///
-    /// This may also be useful when the `PcmSource` type self manages the cursor.
-    ///
-    /// The [`PcmSource::seek_to_pcm_frame`] will never run and may return `MaudioError::NotImplemented`.
-    pub fn no_seek(&mut self, no: bool) -> &mut Self {
-        self.no_seek = no;
-        self
-    }
-
-    /// False by default
-    pub fn no_cursor(&mut self, no: bool) -> &mut Self {
-        self.no_cursor = no;
+        self.channel_map = map;
         self
     }
 
@@ -118,7 +48,7 @@ impl DataSourceBuilder {
             format,
             channels: self.channels,
             sample_rate: self.sample_rate,
-            channel_map: self.channel_map.take(),
+            channel_map: Some(self.channel_map.clone()),
         }
     }
 
@@ -162,7 +92,7 @@ impl DataSourceBuilder {
             looping: false,
         };
 
-        let vtable = data_source_vtable::<u8, P>(self);
+        let vtable = data_source_vtable::<u8, P>();
         self.build::<u8, P>(source, context, vtable)
     }
 
@@ -174,7 +104,7 @@ impl DataSourceBuilder {
             looping: false,
         };
 
-        let vtable = data_source_vtable::<i16, P>(self);
+        let vtable = data_source_vtable::<i16, P>();
         self.build::<i16, P>(source, context, vtable)
     }
 
@@ -186,7 +116,7 @@ impl DataSourceBuilder {
             looping: false,
         };
 
-        let vtable = data_source_vtable::<i32, P>(self);
+        let vtable = data_source_vtable::<i32, P>();
         self.build::<i32, P>(source, context, vtable)
     }
 
@@ -201,7 +131,7 @@ impl DataSourceBuilder {
             looping: false,
         };
 
-        let vtable = data_source_vtable::<S24Packed, P>(self);
+        let vtable = data_source_vtable::<S24Packed, P>();
         self.build::<S24Packed, P>(source, context, vtable)
     }
 
@@ -213,7 +143,7 @@ impl DataSourceBuilder {
             looping: false,
         };
 
-        let vtable = data_source_vtable::<f32, P>(self);
+        let vtable = data_source_vtable::<f32, P>();
         self.build::<f32, P>(source, context, vtable)
     }
 }

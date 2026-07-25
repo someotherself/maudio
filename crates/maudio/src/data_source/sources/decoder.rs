@@ -221,7 +221,6 @@ impl<F: PcmFormat, S> Decoder<F, S> {
             config.as_raw_ptr(),
             mem.as_mut_ptr(),
         ) {
-            println!("Failed: {e:?}");
             drop(unsafe { Box::from_raw(user_data_ptr as *mut DecoderUserData<R>) });
             return Err(e);
         }
@@ -432,6 +431,14 @@ pub trait DecoderOps: AsDecoderPtr + AsSourcePtr {
         decoder_ffi::ma_decoder_get_data_format(self)
     }
 
+    fn looping(&mut self) -> bool {
+        data_source_ffi::ma_data_source_is_looping(self)
+    }
+
+    fn set_looping(&mut self, looping: bool) -> MaResult<()> {
+        data_source_ffi::ma_data_source_set_looping(self, looping)
+    }
+
     /// Returns the current cursor position in PCM frames.
     fn cursor_pcm(&self) -> MaResult<u64> {
         decoder_ffi::ma_decoder_get_cursor_in_pcm_frames(self)
@@ -458,8 +465,12 @@ pub trait DecoderOps: AsDecoderPtr + AsSourcePtr {
     /// Returns a [`DataSourceRef`] view of this decoder.
     fn as_source_ref<'a>(&'a self) -> DataSourceRef<'a, Self::Format> {
         debug_assert!(!private_decoder::decoder_ptr(self).is_null());
-        let ptr = private_decoder::decoder_ptr(self).cast::<sys::ma_data_source>();
-        DataSourceRef::from_ptr(ptr)
+        // let ptr = private_decoder::decoder_ptr(self).cast::<sys::ma_data_source>();
+        // DataSourceRef::from_ptr(ptr)
+        let ptr = private_decoder::decoder_ptr(self);
+        let backend = unsafe { &*ptr }.pBackend.cast::<sys::ma_data_source>();
+        debug_assert!(!backend.is_null());
+        DataSourceRef::from_ptr(backend)
     }
 }
 

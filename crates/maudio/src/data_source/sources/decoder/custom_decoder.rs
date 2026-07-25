@@ -82,8 +82,8 @@ where
     D: DecodingBackend<Format = F>,
 {
     fn drop(&mut self) {
-        drop(unsafe { Box::from_raw(self.vtable as *mut sys::ma_data_source_vtable) });
         data_source_ffi::ma_data_source_uninit(self.as_raw_ptr() as *mut _);
+        drop(unsafe { Box::from_raw(self.vtable as *mut sys::ma_data_source_vtable) });
     }
 }
 
@@ -195,6 +195,7 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
     ) -> MaResult<CustomDecoder<F, Cb>> {
         let vtables = config.set_backend_vtables()?;
         let reg = config.set_backend_registration();
+        config.set_channel_map()?;
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
 
         let user_data = Box::new(DecoderUserData { reader });
@@ -281,7 +282,7 @@ pub struct CustomDecoderBuilder<F = Unknown> {
     channels: u32,
     format: Format,
     #[allow(unused)]
-    channel_map: Option<Vec<Channel>>,
+    channel_map: Vec<Channel>,
     // user_data: Option<U>,
     _format: PhantomData<F>,
 }
@@ -301,7 +302,11 @@ impl CustomDecoderBuilder<Unknown> {
         out_sample_rate: SampleRate,
         format: Format,
     ) -> sys::ma_decoder_config {
-        unsafe { sys::ma_decoder_config_init(format.into(), out_channels, out_sample_rate.into()) }
+        let mut config = unsafe { sys::ma_decoder_config_init_default() };
+        config.channels = out_channels;
+        config.sampleRate = out_sample_rate.into();
+        config.format = format.into();
+        config
     }
 
     pub fn new_u8(out_channels: u32, out_sample_rate: SampleRate) -> CustomDecoderBuilder<u8> {
@@ -312,7 +317,7 @@ impl CustomDecoderBuilder<Unknown> {
             sample_rate: out_sample_rate,
             channels: out_channels,
             format: Format::U8,
-            channel_map: None,
+            channel_map: Vec::new(),
             // user_data: None,
             _format: PhantomData,
         }
@@ -326,7 +331,7 @@ impl CustomDecoderBuilder<Unknown> {
             sample_rate: out_sample_rate,
             channels: out_channels,
             format: Format::S16,
-            channel_map: None,
+            channel_map: Vec::new(),
             // user_data: None,
             _format: PhantomData,
         }
@@ -340,7 +345,7 @@ impl CustomDecoderBuilder<Unknown> {
             sample_rate: out_sample_rate,
             channels: out_channels,
             format: Format::S32,
-            channel_map: None,
+            channel_map: Vec::new(),
             // user_data: None,
             _format: PhantomData,
         }
@@ -357,7 +362,7 @@ impl CustomDecoderBuilder<Unknown> {
             sample_rate: out_sample_rate,
             channels: out_channels,
             format: Format::S24Packed,
-            channel_map: None,
+            channel_map: Vec::new(),
             // user_data: None,
             _format: PhantomData,
         }
@@ -371,7 +376,7 @@ impl CustomDecoderBuilder<Unknown> {
             sample_rate: out_sample_rate,
             channels: out_channels,
             format: Format::F32,
-            channel_map: None,
+            channel_map: Vec::new(),
             // user_data: None,
             _format: PhantomData,
         }
@@ -407,6 +412,29 @@ impl<F: PcmFormat> CustomDecoderBuilder<F> {
             vtables.as_mut_ptr() as *mut *mut sys::ma_decoding_backend_vtable;
 
         Ok(vtables)
+    }
+
+    fn set_channel_map(&mut self) -> MaResult<()> {
+        if self.channels == 0 {
+            return Err(MaudioError::new_ma_error(ErrorKinds::InvalidOperation(
+                "Channel count cannot be 0",
+            )));
+        }
+        if self.channel_map.is_empty() {
+            self.channel_map
+                .resize_with(self.channels as usize, || Channel::from_raw(0));
+            unsafe {
+                sys::ma_channel_map_init_standard(
+                    sys::ma_standard_channel_map_ma_standard_channel_map_default,
+                    self.channel_map.as_mut_ptr().cast(),
+                    self.channels as usize,
+                    self.channels,
+                );
+            };
+            self.inner.pChannelMap = self.channel_map.as_mut_ptr() as *mut _;
+        };
+        self.inner.pChannelMap = self.channel_map.as_mut_ptr() as *mut _;
+        Ok(())
     }
 
     pub fn backend<B: DecodingBackend<Format = F>>(&mut self) -> &mut Self {
@@ -562,12 +590,12 @@ mod test {
             Ok(())
         }
 
-        fn cursor_in_pcm_frames(&self, ctx: &crate::data_source::SourceContext) -> Option<u64> {
-            Some(ctx.cursor)
+        fn cursor_in_pcm_frames(&self, ctx: &crate::data_source::SourceContext) -> MaResult<u64> {
+            Ok(ctx.cursor)
         }
 
-        fn length_in_pcm_frames(&self, _ctx: &crate::data_source::SourceContext) -> Option<u64> {
-            self.0.length_pcm().ok()
+        fn length_in_pcm_frames(&self, _ctx: &crate::data_source::SourceContext) -> MaResult<u64> {
+            self.0.length_pcm()
         }
 
         fn set_looping(
@@ -671,9 +699,6 @@ mod test {
             .backend::<TestCbDecoder>()
             .from_memory(&wav)
             .unwrap();
-
-        let avail = dec.available_frames().unwrap();
-        println!("avail: {avail}");
 
         let b = dec.read_pcm_frames(5).unwrap();
 

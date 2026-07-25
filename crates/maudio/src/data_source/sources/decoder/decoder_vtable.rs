@@ -104,7 +104,7 @@ unsafe extern "C" fn decoder_on_init_file<F: PcmFormat, D: DecodingBackend<Forma
     _: *const sys::ma_allocation_callbacks,
     backend: *mut *mut sys::ma_data_source,
 ) -> sys::ma_result {
-    if backend_user_data.is_null() || path.is_null() {
+    if backend_user_data.is_null() || path.is_null() || backend.is_null() {
         return sys::ma_result_MA_INVALID_ARGS;
     }
 
@@ -150,7 +150,7 @@ unsafe extern "C" fn decoder_on_init_file_w<F: PcmFormat, D: DecodingBackend<For
     use std::ffi::OsString;
     use std::os::windows::ffi::OsStringExt;
 
-    if backend_user_data.is_null() || path.is_null() {
+    if backend_user_data.is_null() || path.is_null() || backend.is_null() {
         return sys::ma_result_MA_INVALID_ARGS;
     }
 
@@ -198,7 +198,7 @@ unsafe extern "C" fn decoder_on_init_memory<F: PcmFormat, D: DecodingBackend<For
     _: *const sys::ma_allocation_callbacks,
     backend: *mut *mut sys::ma_data_source,
 ) -> sys::ma_result {
-    if backend_user_data.is_null() || data.is_null() {
+    if backend_user_data.is_null() || data.is_null() || backend.is_null() {
         return sys::ma_result_MA_INVALID_ARGS;
     }
 
@@ -249,7 +249,7 @@ fn create_data_source<F: PcmFormat, D: DecodingBackend<Format = F>, R: Read + Se
     let decoder = D::init_decoder(decoder_stream)?;
 
     let mut builder = DataSourceBuilder::new(registration.channels, registration.sample_rate);
-    let vtable = data_source_vtable::<F, D::Decoder>(&builder);
+    let vtable = data_source_vtable::<F, D::Decoder>();
     builder.inner.vtable = vtable;
 
     let src_ctx = SourceContext {
