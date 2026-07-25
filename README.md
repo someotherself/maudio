@@ -5,6 +5,8 @@
 # Miniaudio version
 - The crate is currently locked to miniaudio version **0.11.23**
 
+miniaudio does not guarantee a stable ABI, even between minor releases. The same applies to maudio.
+
 # Building
 
 ### Compiling
@@ -74,6 +76,11 @@ The low level API includes:
 - **Data sources** as a unified interface for producing PCM frames.
 - **Audio buffers** for working with decoded PCM data in memory.
 - **Utility primitives** such as ring buffers, fences, and notification systems for real-time and asynchronous coordination.
+
+## Custom types
+- **Custom nodes**: Allows creating nodes with functionality beyond what already exists in miniaudio. This includes sources, passthrough (for inspecting frames), transformers (for dsp) or resampling nodes
+- **Custom audio sources**: Allows exposing any source of PCM frames through miniaudio’s standard data-source interface. Custom sources can support operations such as reading, seeking, looping, and querying their format, and can be used anywhere another data source—such as a decoder—would be accepted.
+- **Custom decoders**: Allows using any decoding library to create a decoder that integrates seamlessly with the rest of the library. This can extend the supported formats beyond mp3, flac, wav and ogg (for example adding symphonia to maudio).
 
 Use the low level API when you need full control over how audio is generated, processed, or delivered, or when building abstractions on top of `maudio`.
 
@@ -166,4 +173,74 @@ fn main() {
     let mut sound = engine.new_sound_from_source(&decoder).unwrap();
     // Play sound...
 }
+```
+# Examples using the Low Level API
+
+Playback device
+
+A playback device exposes a `&mut out` slice where we pass in pcm frames for playback.
+
+```rust
+    let mut decoder = DecoderBuilder::new_f32(2, SampleRate::Sr44100).from_file(&path)?;
+
+    let mut device = DeviceBuilder::playback()
+        .f16()
+        .playback_channels(2)
+        .sample_rate(SampleRate::Sr44100)
+        .with_callback(move |_, out| {
+            let frames_read = decoder.read_pcm_frames_into(out).unwrap_or(0);
+
+            let samples_read = frames_read * data_format.channels as usize;
+
+            if samples_read < out.len() {
+                out[samples_read..].fill(0);
+            }
+        })?;
+
+    device.device_start()?;
+```
+
+Capture device
+
+A playback device exposes a `&input` slice where we pass in pcm frames for playback.
+
+```rust
+    let mut encoder = EncoderBuilder::new_f32(2, SampleRate::Sr44100)
+        .wav()
+        .build_path(&dst_path)?;
+
+    let mut device = DeviceBuilder::capture()
+        .f16()
+        .capture_channels(2)
+        .sample_rate(SampleRate::Sr44100)
+        .with_callback(move |_, input| {
+              let Ok(_) = encoder.write_pcm_frames(input) else {
+                  return;
+              };
+    })?;
+
+    device.device_start()?;
+```
+
+Playback device with a node graph for advanced dsp
+
+```rust
+    // When initializing a node graph, we must pick the channels count of the endpoint
+    let node_graph = NodeGraphBuilder::new(2).build()?;
+    let mut reader = node_graph.try_acquire_reader()?;
+
+    let mut device = DeviceBuilder::playback()
+        .f16()
+        .playback_channels(2)
+        .sample_rate(SampleRate::Sr44100)
+        .with_callback(move |_, out| {
+            // We read directly from the node_graph's endpoint into the device
+            // The node graph always outputs silence if there are no sources
+            // and always satisfies the device's requested frame count
+            let _ = reader.read_pcm_frames_into(out);
+        })?;
+
+    // Use the node_graph to create other nodes such as sources or dsp
+
+    device.device_start()?;
 ```
