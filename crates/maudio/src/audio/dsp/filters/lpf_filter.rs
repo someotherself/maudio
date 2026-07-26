@@ -8,7 +8,6 @@
 //! Each order contributes approximately 6 dB per octave of attenuation. For
 //! example, an order-two filter rolls off at approximately 12 dB per octave,
 //! while an order-four filter rolls off at approximately 24 dB per octave.
-//! Orders up to [`MAX_FILTER_ORDER`] are supported.
 //!
 //! Internally, the filter is constructed by chaining first- and second-order
 //! stages. The stages are configured automatically to form the requested

@@ -13,7 +13,7 @@
 //! shelf and the unaffected higher frequencies. The shelf slope controls how sharply
 //! the filter transitions between these two regions.
 //!
-//! [`Loshelf2`] is implemented using a biquad. It is commonly used for bass controls,
+//! [`Loshelf2`](crate::audio) is implemented using a biquad. It is commonly used for bass controls,
 //! tonal balancing, and reducing low-frequency content without removing it entirely.
 //!
 //! The filter operates independently on each channel of interleaved PCM audio. It

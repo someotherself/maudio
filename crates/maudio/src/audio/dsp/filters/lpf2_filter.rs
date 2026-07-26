@@ -3,7 +3,7 @@
 //! A low-pass filter allows frequencies below its cutoff frequency to pass while
 //! progressively attenuating frequencies above it. [`Lpf2`] has a roll-off of
 //! approximately 12 dB per octave, providing stronger high-frequency attenuation
-//! than [`Lpf1`].
+//! than [`Lpf1`](crate::audio).
 //!
 //! The Q factor controls the response around the cutoff frequency. A higher Q
 //! produces a more pronounced peak near the cutoff, while a lower Q produces a

@@ -9,7 +9,6 @@
 //! is constructed by chaining second-order band-pass filters.
 //!
 //! Band-pass filters cannot have a first-order response, so the order must be even.
-//! Orders up to [`MAX_FILTER_ORDER`] are supported.
 //!
 //! Use [`Bpf2`](crate::audio::dsp) when only a second-order filter is needed or when direct control over
 //! the Q factor and passband width is required. Use [`Bpf`] when a higher-order

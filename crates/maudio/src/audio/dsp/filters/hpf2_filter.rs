@@ -3,7 +3,7 @@
 //! A high-pass filter allows frequencies above its cutoff frequency to pass while
 //! progressively attenuating frequencies below it. Below the cutoff, [`Hpf2`]
 //! attenuates frequencies by approximately 12 dB per octave, providing stronger
-//! low-frequency attenuation than [`Hpf1`].
+//! low-frequency attenuation than [`Hpf1`](crate::audio).
 //!
 //! The Q factor controls the response around the cutoff frequency. A higher Q
 //! produces a more pronounced peak near the cutoff, while a lower Q produces a
