@@ -1,11 +1,6 @@
 use std::{
-    ffi::CStr,
-    fs::OpenOptions,
-    io::{Cursor, Read, Seek},
-    marker::PhantomData,
-    mem::MaybeUninit,
-    panic::AssertUnwindSafe,
-    path::PathBuf,
+    ffi::CStr, fs::OpenOptions, io::Cursor, marker::PhantomData, mem::MaybeUninit,
+    panic::AssertUnwindSafe, path::PathBuf,
 };
 
 use maudio_sys::ffi as sys;
@@ -18,7 +13,8 @@ use crate::{
         sources::decoder::{
             custom_decoder::{BackendDataSource, BackendRegistration},
             decoding_backend::{
-                DecoderByteStream, DecoderFileStream, DecoderStream, DecodingBackend,
+                DecoderByteStream, DecoderFileStream, DecoderStream, DecoderStreamImpl,
+                DecodingBackend, DrBackendContext, ReaderStream,
             },
         },
         DataFormat, SourceContext,
@@ -73,7 +69,7 @@ unsafe extern "C" fn decoder_on_init<F: PcmFormat, D: DecodingBackend<Format = F
         // Also, the vtable should be used?
         let registration = unsafe { &mut *backend_user_data.cast::<BackendRegistration<F>>() };
 
-        let decoder_stream = DecoderStream {
+        let decoder_stream = ReaderStream {
             on_read,
             on_seek,
             on_tell,
@@ -82,7 +78,7 @@ unsafe extern "C" fn decoder_on_init<F: PcmFormat, D: DecodingBackend<Format = F
         };
 
         let inner_ptr: *mut BackendDataSource<F, D> =
-            create_data_source::<F, D, DecoderStream>(decoder_stream, registration)?;
+            create_data_source::<F, D>(decoder_stream, registration)?;
 
         backend.write(inner_ptr.cast::<sys::ma_data_source>());
 
@@ -119,13 +115,12 @@ unsafe extern "C" fn decoder_on_init_file<F: PcmFormat, D: DecodingBackend<Forma
 
         let file = OpenOptions::new().read(true).open(&path)?;
 
-        let decoder_stream = DecoderFileStream { file };
+        let decoder_stream = DecoderFileStream(file);
 
         let registration: &BackendRegistration<F> =
             unsafe { &*backend_user_data.cast::<BackendRegistration<F>>() };
 
-        let inner_ptr =
-            create_data_source::<F, D, DecoderFileStream>(decoder_stream, registration)?;
+        let inner_ptr = create_data_source::<F, D>(decoder_stream, registration)?;
 
         backend.write(inner_ptr.cast::<sys::ma_data_source>());
 
@@ -212,15 +207,12 @@ unsafe extern "C" fn decoder_on_init_memory<F: PcmFormat, D: DecodingBackend<For
         // struct created by `CustomDecoderBuilder::from_memory`
         let slice: &[u8] = std::slice::from_raw_parts(data.cast(), data_size);
 
-        let decoder_stream = DecoderByteStream {
-            bytes: Cursor::new(slice),
-        };
+        let decoder_stream = DecoderByteStream(Cursor::new(slice));
 
         let registration: &BackendRegistration<F> =
             unsafe { &*backend_user_data.cast::<BackendRegistration<F>>() };
 
-        let inner_ptr =
-            create_data_source::<F, D, DecoderByteStream>(decoder_stream, registration)?;
+        let inner_ptr = create_data_source::<F, D>(decoder_stream, registration)?;
 
         backend.write(inner_ptr.cast::<sys::ma_data_source>());
 
@@ -242,26 +234,40 @@ unsafe extern "C" fn decoder_on_uninit<F: PcmFormat, D: DecodingBackend<Format =
     drop(Box::from_raw(backend.cast::<BackendDataSource<F, D>>()));
 }
 
-fn create_data_source<F: PcmFormat, D: DecodingBackend<Format = F>, R: Read + Seek>(
-    decoder_stream: R,
+fn create_data_source<'stream, F: PcmFormat, D: DecodingBackend<Format = F> + 'stream>(
+    decoder_stream: impl DecoderStreamImpl + 'stream,
     registration: &BackendRegistration<F>,
-) -> MaResult<*mut BackendDataSource<F, D>> {
-    let decoder = D::init_decoder(decoder_stream)?;
-
-    let mut builder = DataSourceBuilder::new(registration.channels, registration.sample_rate);
-    let vtable = data_source_vtable::<F, D::Decoder>();
-    builder.inner.vtable = vtable;
-
-    let src_ctx = SourceContext {
-        data_format: DataFormat {
-            format: registration.format,
-            channels: registration.channels,
-            sample_rate: registration.sample_rate,
-            channel_map: Vec::new(), // TODO: Add channel map to registration?
+) -> MaResult<*mut BackendDataSource<'stream, F, D>> {
+    // output data format
+    let df: DataFormat = DataFormat {
+        format: registration.format,
+        channels: registration.channels,
+        sample_rate: registration.sample_rate,
+        channel_map: registration.channel_map.clone(),
+    };
+    let decoder = D::init_decoder(
+        DecoderStream(Box::new(decoder_stream)),
+        DrBackendContext {
+            output_format: df.clone(),
         },
+    )?;
+
+    let input_df = <D as DecodingBackend>::input_data_format(&decoder);
+
+    // Contains the input data format (df of the source created by the backend)
+    let src_ctx = SourceContext {
+        data_format: input_df,
         cursor: 0,
         looping: false,
     };
+
+    let mut builder = DataSourceBuilder::new(
+        src_ctx.data_format.channels,
+        src_ctx.data_format.sample_rate,
+    )
+    .channel_map(src_ctx.data_format.channel_map.clone());
+    let vtable = data_source_vtable::<F, D::Decoder<'stream>>();
+    builder.inner.vtable = vtable;
 
     let mut inner: Box<BackendDataSource<F, D>> = Box::new(BackendDataSource {
         base: unsafe { MaybeUninit::zeroed().assume_init() },
@@ -274,12 +280,12 @@ fn create_data_source<F: PcmFormat, D: DecodingBackend<Format = F>, R: Read + Se
     let base_ptr = core::ptr::addr_of_mut!(inner.base);
 
     data_source_ffi::ma_data_source_init(&builder, base_ptr.cast())?;
-
-    let inner_ptr = Box::into_raw(inner);
+    let inner_ptr = (&mut *inner) as *mut BackendDataSource<'stream, F, D>;
 
     debug_assert_eq!(
-        unsafe { core::ptr::addr_of_mut!((*inner_ptr).base) }.cast::<u8>(),
+        core::ptr::addr_of_mut!(inner.base).cast::<u8>(),
         inner_ptr.cast::<u8>(),
     );
-    Ok(inner_ptr)
+
+    Ok(Box::into_raw(inner))
 }

@@ -29,6 +29,8 @@ pub struct CustomDecoder<F: PcmFormat, S> {
     #[allow(unused)]
     sample_rate: SampleRate,
     format: Format,
+    #[allow(unused)]
+    channel_map: Vec<Channel>,
     user_data: Option<DecoderUserDataDestructor>,
     backend_reg: *mut BackendRegistration<F>,
     _source_data: S,                                                 // keep alive
@@ -51,24 +53,25 @@ where
     pub(crate) channels: u32,
     pub(crate) sample_rate: SampleRate,
     pub(crate) format: Format,
+    pub(crate) channel_map: Vec<Channel>,
     _format: PhantomData<F>,
 }
 
 /// The Data Source create inside the onInit
 #[repr(C)]
-pub(crate) struct BackendDataSource<F, D>
+pub(crate) struct BackendDataSource<'stream, F, D>
 where
     F: PcmFormat,
-    D: DecodingBackend<Format = F>,
+    D: DecodingBackend<Format = F> + 'stream,
 {
     pub(crate) base: sys::ma_data_source_base,
     pub(crate) context: SourceContext,
-    pub(crate) decoder: D::Decoder,
+    pub(crate) decoder: D::Decoder<'stream>,
     pub(crate) vtable: *const sys::ma_data_source_vtable,
     pub(crate) _format: PhantomData<F>,
 }
 
-impl<F, D> AsRawRef for BackendDataSource<F, D>
+impl<'stream, F, D> AsRawRef for BackendDataSource<'stream, F, D>
 where
     F: PcmFormat,
     D: DecodingBackend<Format = F>,
@@ -80,7 +83,7 @@ where
     }
 }
 
-impl<F, D> Drop for BackendDataSource<F, D>
+impl<'stream, F, D> Drop for BackendDataSource<'stream, F, D>
 where
     F: PcmFormat,
     D: DecodingBackend<Format = F>,
@@ -128,6 +131,7 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
     fn new(
         inner: *mut sys::ma_decoder,
         config: &CustomDecoderBuilder<F>,
+        channel_map: Vec<Channel>,
         format: Format,
         vtables: Box<[*const sys::ma_decoding_backend_vtable]>,
         reg: *mut BackendRegistration<F>,
@@ -138,6 +142,7 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
             channels: config.channels,
             sample_rate: config.sample_rate,
             format,
+            channel_map,
             user_data: None,
             backend_reg: reg,
             _source_data: source_data,
@@ -151,8 +156,8 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
         config: &mut CustomDecoderBuilder<F>,
     ) -> MaResult<CustomDecoder<F, Fs>> {
         let vtables = config.set_backend_vtables()?;
-        let reg = config.set_backend_registration();
-        config.set_channel_map()?;
+        let map = config.set_channel_map()?;
+        let reg = config.set_backend_registration(map.clone());
 
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
 
@@ -162,6 +167,7 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
         Ok(CustomDecoder::new(
             inner,
             config,
+            map,
             config.format,
             vtables,
             reg,
@@ -199,8 +205,8 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
         config: &mut CustomDecoderBuilder<F>,
     ) -> MaResult<CustomDecoder<F, Cb>> {
         let vtables = config.set_backend_vtables()?;
-        let reg = config.set_backend_registration();
-        config.set_channel_map()?;
+        let map = config.set_channel_map()?;
+        let reg = config.set_backend_registration(map.clone());
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
 
         let user_data = Box::new(DecoderUserData { reader });
@@ -218,7 +224,7 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
         }
 
         let inner: *mut sys::ma_decoder = Box::into_raw(mem) as *mut sys::ma_decoder;
-        let mut decoder = CustomDecoder::new(inner, config, config.format, vtables, reg, Cb);
+        let mut decoder = CustomDecoder::new(inner, config, map, config.format, vtables, reg, Cb);
         decoder.user_data = Some((user_data_ptr, encoder_user_data_drop::<R>));
 
         Ok(decoder)
@@ -229,8 +235,8 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
         config: &mut CustomDecoderBuilder<F>,
     ) -> MaResult<CustomDecoder<F, Borrowed<'a>>> {
         let vtables = config.set_backend_vtables()?;
-        let reg = config.set_backend_registration();
-        config.set_channel_map()?;
+        let map = config.set_channel_map()?;
+        let reg = config.set_backend_registration(map.clone());
 
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
 
@@ -245,6 +251,7 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
         Ok(CustomDecoder::new(
             inner,
             config,
+            map,
             config.format,
             vtables,
             reg,
@@ -257,8 +264,8 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
         config: &mut CustomDecoderBuilder<F>,
     ) -> MaResult<CustomDecoder<F, Owned>> {
         let vtables = config.set_backend_vtables()?;
-        let reg = config.set_backend_registration();
-        config.set_channel_map()?;
+        let map = config.set_channel_map()?;
+        let reg = config.set_backend_registration(map.clone());
 
         let data_arc = data.into();
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
@@ -274,6 +281,7 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
         Ok(CustomDecoder::new(
             inner,
             config,
+            map,
             config.format,
             vtables,
             reg,
@@ -390,11 +398,15 @@ impl CustomDecoderBuilder<Unknown> {
 }
 
 impl<F: PcmFormat> CustomDecoderBuilder<F> {
-    fn set_backend_registration(&mut self) -> *mut BackendRegistration<F> {
+    fn set_backend_registration(
+        &mut self,
+        channel_map: Vec<Channel>,
+    ) -> *mut BackendRegistration<F> {
         let registration: BackendRegistration<F> = BackendRegistration {
             channels: self.channels,
             sample_rate: self.sample_rate,
             format: self.format,
+            channel_map,
             _format: PhantomData,
         };
         let ptr = Box::into_raw(Box::new(registration));
@@ -429,7 +441,7 @@ impl<F: PcmFormat> CustomDecoderBuilder<F> {
         Ok(vtables)
     }
 
-    fn set_channel_map(&mut self) -> MaResult<()> {
+    fn set_channel_map(&mut self) -> MaResult<Vec<Channel>> {
         if self.channels == 0 {
             return Err(MaudioError::new_ma_error(ErrorKinds::InvalidOperation(
                 "Channel count cannot be 0",
@@ -453,8 +465,12 @@ impl<F: PcmFormat> CustomDecoderBuilder<F> {
                 );
             };
         };
+        let mut map: Vec<Channel> = Vec::with_capacity(self.channel_map.len());
+        for &entry in self.channel_map.iter() {
+            map.push(Channel::try_from(entry)?);
+        }
         self.inner.pChannelMap = self.channel_map.as_mut_ptr() as *mut _;
-        Ok(())
+        Ok(map)
     }
 
     pub fn backend<B: DecodingBackend<Format = F>>(&mut self) -> &mut Self {
@@ -526,7 +542,10 @@ impl<F: PcmFormat> CustomDecoderBuilder<F> {
     /// If the source behaves like a stream and may temporarily provide fewer
     /// bytes than requested, this will be treated as EOF,
     /// and decoding will stop instead of waiting for more data.
-    pub fn from_reader<R: SeekRead>(&mut self, reader: R) -> MaResult<CustomDecoder<F, Cb>> {
+    pub fn from_reader<R: SeekRead + Send + Sync>(
+        &mut self,
+        reader: R,
+    ) -> MaResult<CustomDecoder<F, Cb>> {
         CustomDecoder::<F, Cb>::init_from_reader(reader, self)
     }
 }
@@ -547,19 +566,24 @@ impl<F: PcmFormat, S> Drop for CustomDecoder<F, S> {
 
 #[cfg(test)]
 mod test {
-    use crate::test_assets::{
-        temp_file::{unique_tmp_path, TempFileGuard},
-        wav_i16_le,
-    };
     use crate::{
         audio::sample_rate::SampleRate,
         data_source::{
             pcm_source::PcmSource,
             sources::decoder::{
-                decoding_backend::DecodingBackend, Cb, Decoder, DecoderBuilder, DecoderOps,
+                decoding_backend::{DecodingBackend, DrBackendContext},
+                Cb, Decoder, DecoderBuilder, DecoderOps,
             },
+            DataFormat,
         },
         MaResult,
+    };
+    use crate::{
+        data_source::sources::decoder::decoding_backend::DecoderStream,
+        test_assets::{
+            temp_file::{unique_tmp_path, TempFileGuard},
+            wav_i16_le,
+        },
     };
 
     use super::*;
@@ -577,13 +601,28 @@ mod test {
     impl DecodingBackend for TestCbDecoder {
         type Format = f32;
 
-        type Decoder = TestCbDecoder;
+        type Decoder<'stream>
+            = TestCbDecoder
+        where
+            Self: 'stream;
 
-        fn init_decoder<R: std::io::prelude::Read + std::io::prelude::Seek>(
-            stream: R,
-        ) -> MaResult<Self::Decoder> {
+        fn init_decoder<'stream>(
+            stream: DecoderStream<'stream>,
+            _ctx: DrBackendContext,
+        ) -> MaResult<Self::Decoder<'stream>> {
             let decoder = DecoderBuilder::new_f32(1, SampleRate::Sr48000).from_reader(stream)?;
             Ok(TestCbDecoder(decoder))
+        }
+
+        fn input_data_format<'stream>(
+            _ds: &Self::Decoder<'stream>,
+        ) -> crate::data_source::DataFormat {
+            DataFormat {
+                format: Format::F32,
+                channels: 1,
+                sample_rate: SampleRate::Sr48000,
+                channel_map: Vec::new(),
+            }
         }
     }
 
@@ -682,7 +721,7 @@ mod test {
 
     #[test]
     fn test_custom_decoder_from_file_reads_and_reports_length() {
-        let frames_total: usize = 40;
+        let frames_total: usize = 60;
         let wav = tiny_test_wav_mono(frames_total);
 
         let guard = TempFileGuard::new(unique_tmp_path("wav"));
