@@ -136,6 +136,13 @@ unsafe extern "C" fn data_source_get_format_proc<F: PcmFormat, P: PcmSource<F>>(
 
     if !channel_map.is_null() && channel_map_cap > 0 {
         if ds.context.data_format.channel_map.is_empty() {
+            sys::ma_channel_map_init_standard(
+                sys::ma_standard_channel_map_ma_standard_channel_map_default,
+                channel_map,
+                channel_map_cap,
+                ds.context.data_format.channels,
+            );
+        } else {
             let map = &ds.context.data_format.channel_map;
             let count = core::cmp::min(map.len(), channel_map_cap);
             let mut raw_channel_map = Vec::new();
@@ -143,13 +150,6 @@ unsafe extern "C" fn data_source_get_format_proc<F: PcmFormat, P: PcmSource<F>>(
                 raw_channel_map.push(RawChannel::from(entry));
             }
             core::ptr::copy_nonoverlapping(raw_channel_map.as_ptr(), channel_map.cast(), count);
-        } else {
-            sys::ma_channel_map_init_standard(
-                sys::ma_standard_channel_map_ma_standard_channel_map_default,
-                channel_map,
-                channel_map_cap,
-                ds.context.data_format.channels,
-            );
         }
     }
 

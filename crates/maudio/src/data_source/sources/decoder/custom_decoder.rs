@@ -152,6 +152,7 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
     ) -> MaResult<CustomDecoder<F, Fs>> {
         let vtables = config.set_backend_vtables()?;
         let reg = config.set_backend_registration();
+        config.set_channel_map()?;
 
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
 
@@ -229,6 +230,7 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
     ) -> MaResult<CustomDecoder<F, Borrowed<'a>>> {
         let vtables = config.set_backend_vtables()?;
         let reg = config.set_backend_registration();
+        config.set_channel_map()?;
 
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
 
@@ -256,6 +258,7 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
     ) -> MaResult<CustomDecoder<F, Owned>> {
         let vtables = config.set_backend_vtables()?;
         let reg = config.set_backend_registration();
+        config.set_channel_map()?;
 
         let data_arc = data.into();
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
@@ -433,11 +436,6 @@ impl<F: PcmFormat> CustomDecoderBuilder<F> {
             )));
         }
         if !self.channel_map.is_empty() && self.channels as usize != self.channel_map.len() {
-            println!(
-                "channels: {}, map count: {}",
-                self.channels,
-                self.channel_map.len()
-            );
             return Err(MaudioError::new_ma_error(ErrorKinds::InvalidOperation(
                 "Channel map length must match the channel count",
             )));

@@ -135,7 +135,7 @@ impl std::io::Seek for DecoderFileStream {
     }
 }
 
-pub struct DecoderByteStream<'a> {
+pub(crate) struct DecoderByteStream<'a> {
     pub(crate) bytes: Cursor<&'a [u8]>,
 }
 
