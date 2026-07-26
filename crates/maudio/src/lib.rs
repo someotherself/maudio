@@ -387,7 +387,7 @@ impl ErrorKinds {
 /// - Detecting arithmetic overflow
 ///
 /// Miniaudio-native errors are represented separately by `MA_RESULT`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum ErrorKinds {
     // Error converting a raw value to an enum variant
@@ -425,7 +425,7 @@ pub enum ErrorKinds {
     /// Error coverting Path to CString
     InvalidCString,
     InvalidOperation(&'static str),
-    Other(&'static str),
+    Other(String),
     IoError {
         err: std::io::ErrorKind,
     },
@@ -468,7 +468,7 @@ impl From<TryFromIntError> for MaudioError {
 ///
 /// When `Some`, the error was produced by the wrapper and may include an
 /// associated miniaudio result for context. In this case, ma_result will be `MA_ERROR (-1)`.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MaudioError {
     native: Option<ErrorKinds>,
     ma_result: MaError,

@@ -627,7 +627,7 @@ impl<B: AsAsyncSource> PendingResource<B> {
                         }
                         Err(e) if e.is_busy() => Ok(false),
                         Err(e) => {
-                            *self = PendingResource::Failed(e);
+                            *self = PendingResource::Failed(e.clone());
                             Err(e)
                         }
                     }
@@ -635,7 +635,7 @@ impl<B: AsAsyncSource> PendingResource<B> {
                     unreachable!()
                 }
             }
-            PendingResource::Failed(e) => Err(*e),
+            PendingResource::Failed(e) => Err(e.clone()),
         }
     }
 
