@@ -1,3 +1,27 @@
+//! Second-order low-shelf filtering.
+//!
+//! A low-shelf filter boosts or attenuates frequencies below a selected frequency
+//! while leaving higher frequencies mostly unchanged. Unlike a high-pass filter,
+//! it does not progressively eliminate low-frequency content. Instead, it adjusts
+//! that content by a fixed amount.
+//!
+//! The gain determines the low-frequency adjustment in decibels. A positive gain
+//! boosts low frequencies, while a negative gain attenuates them. A gain of zero
+//! leaves the signal unchanged.
+//!
+//! The configured frequency marks the transition between the adjusted low-frequency
+//! shelf and the unaffected higher frequencies. The shelf slope controls how sharply
+//! the filter transitions between these two regions.
+//!
+//! [`Loshelf2`] is implemented using a biquad. It is commonly used for bass controls,
+//! tonal balancing, and reducing low-frequency content without removing it entirely.
+//!
+//! The filter operates independently on each channel of interleaved PCM audio. It
+//! supports `s16` and `f32` samples and can process audio in place.
+//!
+//! The sample rate, shelf frequency, gain, or shelf slope can be changed by
+//! reinitializing the filter while preserving its internal state. The sample
+//! format and channel count cannot be changed after initialization.
 use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;

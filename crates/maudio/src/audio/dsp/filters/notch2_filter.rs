@@ -1,3 +1,22 @@
+//! Second-order notch filtering.
+//!
+//! A notch filter strongly attenuates a narrow range of frequencies while allowing
+//! frequencies above and below that range to pass. It is commonly used to remove a
+//! known unwanted tone, such as electrical hum, feedback, or a narrow resonance.
+//!
+//! The configured frequency is the center of the rejected band. The Q factor
+//! controls its width: a higher Q produces a narrower, more selective notch, while
+//! a lower Q attenuates a wider range of surrounding frequencies.
+//!
+//! [`Notch2`] is implemented using a biquad. Multiple filters can be chained to
+//! suppress several unrelated frequencies, such as electrical hum and its harmonics.
+//!
+//! The filter operates independently on each channel of interleaved PCM audio. It
+//! supports `s16` and `f32` samples and can process audio in place.
+//!
+//! The sample rate, center frequency, or Q factor can be changed by reinitializing
+//! the filter while preserving its internal state. The sample format and channel count
+//! cannot be changed after initialization.
 use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;

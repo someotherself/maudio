@@ -1,3 +1,19 @@
+//! A general-purpose second-order filter
+//!
+//! The biquad filter forms the basis of several higher-level filters, including low-pass,
+//! high-pass, band-pass, notch, peaking EQ, and shelving filters.
+//!
+//! Unlike those filters, a biquad is configured directly using the numerator coefficients
+//! b0, b1, and b2, and the denominator coefficients a0, a1, and a2.
+//! The coefficients must include a0; they must not be normalized beforehand.
+//!
+//! The filter supports interleaved s16 and f32 PCM frames and can process audio
+//! in place. s16 processing uses fixed-point arithmetic, while f32 processing uses
+//! floating-point arithmetic.
+//!
+//! The coefficients can be changed with reinit without clearing the filter’s internal state.
+//! This helps avoid discontinuities when changing the filter during playback.
+//! The sample format and channel count cannot be changed after initialization.
 use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;

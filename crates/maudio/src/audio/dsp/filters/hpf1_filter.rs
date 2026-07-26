@@ -1,3 +1,24 @@
+//! First-order high-pass filtering.
+//!
+//! A high-pass filter allows frequencies above its cutoff frequency to pass while
+//! progressively attenuating frequencies below it. The cutoff is the beginning
+//! of this transition, rather than a hard boundary between passed and removed
+//! frequencies.
+//!
+//! [`Hpf1`] provides the gentlest of the available high-pass responses. Below the
+//! cutoff, attenuation increases by approximately 6 dB per octave as frequency
+//! decreases. It is also the lightest-weight option, making it suitable for
+//! gradually reducing low-frequency content, rumble, or DC offset.
+//!
+//! Use [`Hpf2`](crate::audio::dsp) for a steeper response and control over the Q factor. Use [`Hpf`](crate::audio::dsp)
+//! for a configurable-order Butterworth response.
+//!
+//! The filter operates independently on each channel of interleaved PCM audio.
+//! It supports `s16` and `f32` samples and can process audio in place.
+//!
+//! The sample rate or cutoff frequency can be changed by reinitializing the
+//! filter while preserving its internal state. The sample format and channel count
+//! cannot be changed after initialization.
 use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;

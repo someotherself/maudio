@@ -1,3 +1,26 @@
+//! Second-order peaking EQ filtering.
+//!
+//! A peaking EQ filter boosts or attenuates a range of frequencies around a center
+//! frequency while leaving frequencies outside that range mostly unchanged. It is
+//! useful for emphasizing or reducing a particular part of the frequency spectrum.
+//!
+//! The gain determines the amount of adjustment in decibels. A positive gain boosts
+//! the selected frequencies, while a negative gain attenuates them. A gain of zero
+//! leaves the signal unchanged.
+//!
+//! The Q factor controls the width of the affected range. A higher Q produces a
+//! narrower and more selective adjustment around the center frequency, while a
+//! lower Q affects a wider range of frequencies.
+//!
+//! [`Peak2`] is implemented using a biquad. Multiple filters can be chained to form
+//! a multi-band parametric equalizer.
+//!
+//! The filter operates independently on each channel of interleaved PCM audio. It
+//! supports `s16` and `f32` samples and can process audio in place.
+//!
+//! The sample rate, center frequency, gain, or Q factor can be changed by
+//! reinitializing the filter while preserving its internal state. The sample
+//! format and channel count cannot be changed after initialization.
 use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;

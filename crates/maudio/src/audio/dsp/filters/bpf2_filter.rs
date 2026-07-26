@@ -1,3 +1,23 @@
+//! Second-order band-pass filtering.
+//!
+//! A band-pass filter allows frequencies around its cutoff frequency to pass while
+//! attenuating frequencies both below and above it. Despite the name “cutoff,” this
+//! value acts as the center of the passed frequency range rather than one edge of it.
+//!
+//! [`Bpf2`] exposes a Q factor that controls the width of the passband. A higher Q
+//! produces a narrower, more resonant response around the cutoff frequency, while a
+//! lower Q allows a wider range of frequencies to pass.
+//!
+//! Use [`Bpf2`] when direct control over the passband width is required. Use [`Bpf`](crate::audio::dsp)
+//! when stronger attenuation away from the cutoff frequency is needed and selecting
+//! a filter order is more useful than controlling Q directly.
+//!
+//! The filter operates independently on each channel of interleaved PCM audio. It
+//! supports `s16` and `f32` samples and can process audio in place.
+//!
+//! The sample rate, cutoff frequency, or Q factor can be changed by reinitializing
+//! the filter while preserving its internal state. The sample format and
+//! channel count cannot be changed after initialization.
 use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;

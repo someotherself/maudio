@@ -1,3 +1,30 @@
+//! Configurable-order Butterworth high-pass filtering.
+//!
+//! A high-pass filter allows frequencies above its cutoff frequency to pass while
+//! progressively attenuating frequencies below it. [`Hpf`] provides a
+//! configurable-order Butterworth response with a flat passband and attenuation
+//! below the cutoff that becomes steeper as the order increases.
+//!
+//! Each order contributes approximately 6 dB per octave of attenuation. For
+//! example, below the cutoff an order-two filter attenuates frequencies at
+//! approximately 12 dB per octave, while an order-four filter attenuates them at
+//! approximately 24 dB per octave. Orders up to [`MAX_FILTER_ORDER`] are
+//! supported.
+//!
+//! Internally, the filter is constructed by chaining first- and second-order
+//! stages. The stages are configured automatically to form the requested
+//! Butterworth response.
+//!
+//! Use [`Hpf1`](crate::audio::dsp) when only a first-order response is needed, as it is lighter
+//! weight. Use [`Hpf2`](crate::audio::dsp) when only a second-order response is needed or when
+//! direct control over the Q factor is required.
+//!
+//! The filter operates independently on each channel of interleaved PCM audio.
+//! It supports `s16` and `f32` samples and can process audio in place.
+//!
+//! The sample rate or cutoff frequency can be changed by reinitializing the
+//! filter while preserving its internal state. The sample format and channel count
+//! cannot be changed after initialization.
 use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;

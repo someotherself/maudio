@@ -1,3 +1,26 @@
+//! Second-order high-pass filtering.
+//!
+//! A high-pass filter allows frequencies above its cutoff frequency to pass while
+//! progressively attenuating frequencies below it. Below the cutoff, [`Hpf2`]
+//! attenuates frequencies by approximately 12 dB per octave, providing stronger
+//! low-frequency attenuation than [`Hpf1`].
+//!
+//! The Q factor controls the response around the cutoff frequency. A higher Q
+//! produces a more pronounced peak near the cutoff, while a lower Q produces a
+//! more damped response. This makes [`Hpf2`] useful when direct control over the
+//! shape of the transition is required.
+//!
+//! Unlike an order-two [`Hpf`](crate::audio::dsp), which configures its stages to produce a
+//! Butterworth response, [`Hpf2`] allows the Q factor to be selected directly.
+//! Use [`Hpf1`](crate::audio::dsp) for a gentler and less expensive filter, or [`Hpf`](crate::audio::dsp) when a
+//! higher-order Butterworth response is needed.
+//!
+//! The filter operates independently on each channel of interleaved PCM audio.
+//! It supports `s16` and `f32` samples and can process audio in place.
+//!
+//! The sample rate, cutoff frequency, or Q factor can be changed by
+//! reinitializing the filter while preserving its internal state. The sample
+//! format and channel count cannot be changed after initialization.
 use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;

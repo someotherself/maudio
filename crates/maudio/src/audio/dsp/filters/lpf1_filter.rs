@@ -1,3 +1,24 @@
+//! First-order low-pass filtering.
+//!
+//! A low-pass filter allows frequencies below its cutoff frequency to pass while
+//! progressively attenuating frequencies above it. The cutoff is the beginning
+//! of this transition, rather than a hard boundary between passed and removed
+//! frequencies.
+//!
+//! [`Lpf1`] provides the gentlest of the available low-pass responses, with a
+//! roll-off of approximately 6 dB per octave. It is also the lightest-weight
+//! option, making it suitable when only gradual high-frequency attenuation is
+//! required.
+//!
+//! Use [`Lpf2`](crate::audio::dsp) for a steeper response and control over the Q factor. Use [`Lpf`](crate::audio::dsp)
+//! for a configurable-order Butterworth response.
+//!
+//! The filter operates independently on each channel of interleaved PCM audio.
+//! It supports `s16` and `f32` samples and can process audio in place.
+//!
+//! The sample rate or cutoff frequency can be changed by reinitializing the
+//! filter while preserving its internal state. The sample format and channel count
+//! cannot be changed after initialization.
 use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;
