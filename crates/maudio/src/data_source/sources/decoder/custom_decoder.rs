@@ -1,3 +1,42 @@
+//! Support for custom decoder backends.
+//!
+//! Miniaudio includes built-in support for decoding WAV, FLAC, MP3, and
+//! Ogg Vorbis. This module allows applications to support additional formats
+//! by integrating a third-party decoder with miniaudio's decoder interface.
+//!
+//! Maudio does not choose or provide additional decoding libraries. Instead,
+//! users implement [`DecodingBackend`] using the decoder library that best
+//! suits their application.
+//!
+//! Complete implementations can be found in the examples folder.
+//!
+//! # How custom decoding works
+//!
+//! A custom decoder consists of two parts:
+//!
+//! - A [DecodingBackend] implementation initializes the third-party decoder
+//!   and reports the PCM format it produces.
+//! - The decoder returned by the backend implements
+//!   PcmSource, allowing
+//!   miniaudio to read and seek through the decoded PCM frames.
+//!
+//! Call [CustomDecoderBuilder::backend] to add one or more decoding backends.
+//! When multiple decoding backends are added, miniaudio will try them in the order they were added.
+//! If the initialization fails for one backend, for any reason, it will try to the next one.
+//! If none were able to be initialized, miniaudio will also try the built in decoding backend.
+//!
+//! When initialization begins, the backend receives a [DecoderStream](crate::data_source) for
+//! reading and seeking through the encoded input. The backend uses this stream
+//! to create its decoder and returns an object implementing [PcmSource](crate::data_source).
+//!
+//! [DecodingBackend::input_data_format] describes the native PCM output of
+//! that object, including its sample format, channel count, sample rate, and
+//! channel map. This is the input format seen by miniaudio.
+//!
+//! The format passed to [CustomDecoderBuilder] instead describes the PCM
+//! output requested by the application. When the backend's native format
+//! differs from the requested output format, miniaudio performs the necessary
+//! sample-format conversion, channel conversion, and resampling.
 use std::{marker::PhantomData, mem::MaybeUninit, path::Path, sync::Arc};
 
 use crate::{
@@ -115,7 +154,7 @@ impl<F: PcmFormat, S> AsDecoderPtr for CustomDecoder<F, S> {
     }
 }
 
-// Allows Decoder to pass as a DataSource
+// Allows CustomDecoder to pass as a DataSource
 #[doc(hidden)]
 impl<F: PcmFormat, S> AsSourcePtr for CustomDecoder<F, S> {
     type Format = F;
@@ -290,6 +329,13 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
     }
 }
 
+/// Builder for a `CustomDecoder`.
+///
+/// When initialized, the channel count and sample rate of the output are expected.
+/// They do not need to match the native format produced by the decoding backend.
+///
+/// When necessary, miniaudio converts the backend's output to the configured
+/// channel count and map, and resamples it to the configured sample rate.
 pub struct CustomDecoderBuilder<F = Unknown> {
     inner: sys::ma_decoder_config,
     vtables: Vec<*const sys::ma_decoding_backend_vtable>,
@@ -297,7 +343,6 @@ pub struct CustomDecoderBuilder<F = Unknown> {
     channels: u32,
     format: Format,
     channel_map: Vec<RawChannel>,
-    // user_data: Option<U>,
     _format: PhantomData<F>,
 }
 
@@ -414,7 +459,12 @@ impl<F: PcmFormat> CustomDecoderBuilder<F> {
         ptr
     }
 
-    pub fn channel_map<I>(mut self, channel_map: I) -> Self
+    /// Set the channel map of the output.
+    /// This map may differ from the input channel map, as the decoder implements a channel converter.
+    ///
+    /// Also sets the channel count to the length of the channel map
+    /// If not set, miniaudio will generate a standard channel map for the channel count.
+    pub fn set_out_channel_map<I>(mut self, channel_map: I) -> Self
     where
         I: IntoIterator<Item = Channel>,
     {
@@ -473,6 +523,9 @@ impl<F: PcmFormat> CustomDecoderBuilder<F> {
         Ok(map)
     }
 
+    /// Add a decoding backend to the `CustomDecoder`.
+    ///
+    /// Can be called multiple times to add multipe backends.
     pub fn backend<B: DecodingBackend<Format = F>>(&mut self) -> &mut Self {
         let vtable = decoder_vtable::<F, B>();
         self.vtables.push(vtable);
@@ -676,7 +729,7 @@ mod test {
         let avail0 = dec.available_frames().unwrap();
         assert_eq!(avail0 as usize, frames_total);
 
-        let df = dec.data_format().unwrap();
+        let df = dec.output_data_format().unwrap();
         assert_eq!(df.channels, 1);
         assert_eq!(df.sample_rate, SampleRate::Sr48000);
         assert_eq!(df.format, Format::F32);

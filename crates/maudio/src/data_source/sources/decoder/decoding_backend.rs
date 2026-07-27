@@ -1,3 +1,4 @@
+//! Integration point for a third-party decoding backend.
 use std::io::{Read, Seek};
 use std::{
     fs::File,
@@ -9,29 +10,105 @@ use crate::{data_source::pcm_source::PcmSource, pcm_frames::PcmFormat, MaResult}
 
 use maudio_sys::ffi as sys;
 
+/// Implement this trait for a backend type that initializes a decoder from an
+/// encoded [`DecoderStream`]. The initialized decoder must implement
+/// [`PcmSource`] so that miniaudio can read decoded PCM frames from it.
+///
+/// # Backend selection
+///
+/// Add backends to a [`CustomDecoderBuilder`](crate::data_source) by
+/// calling [`CustomDecoderBuilder::backend`](crate::data_source).
+/// When more than one backend is registered, miniaudio tries them in the order they were added.
+///
+/// Returning an error from [`Self::init_decoder`] rejects the input for that
+/// backend. Miniaudio then tries the next backend. If none were able to be initialized,
+/// miniaudio will also try the built in decoding backend.
+///
+/// This fallback only applies during initialization. An error returned later
+/// while reading or seeking is reported as a decoding error; it does not cause
+/// miniaudio to select another backend.
+///
+/// # PCM format
+///
+/// [`Self::input_data_format`] must describe the PCM frames produced by the
+/// initialized decoder. This is the input format used by miniaudio for sample
+/// conversion, channel conversion, and resampling.
+///
+/// The reported format describes decoded PCM output, not the format of the
+/// encoded input or the output format requested from `CustomDecoderBuilder`.
 pub trait DecodingBackend: Send {
+    /// Sample type produced by the backend decoder.
+    ///
+    /// This must agree with the sample format reported by [`Self::input_data_format`].
     type Format: PcmFormat;
 
+    /// Decoder initialized for a particular input stream.
+    ///
+    /// The decoder may borrow from the supplied [`DecoderStream`] and therefore
+    /// cannot outlive that stream.
     type Decoder<'stream>: PcmSource<Self::Format> + 'stream
     where
         Self: 'stream;
 
+    /// Initializes the backend decoder from an encoded input stream.
+    ///
+    /// `ctx` provides context about the miniaudio decoder being initialized.
+    ///
+    /// Returning an error causes miniaudio to try the next registered backend.
     fn init_decoder<'stream>(
         stream: DecoderStream<'stream>,
         ctx: DrBackendContext,
     ) -> MaResult<Self::Decoder<'stream>>;
 
+    /// Returns the native PCM format produced by `Decoder`.
+    ///
+    /// The sample format, channel count, sample rate, and channel map must match
+    /// the frames written by [`PcmSource::fill_pcm_frames`].
+    ///
+    /// Miniaudio uses this information to convert the backend's PCM output to
+    /// the output format requested from `CustomDecoderBuilder`.
+    ///
+    /// If the channel map is left empty, miniaudio will generate a default
+    /// channel map for the channel count.
     fn input_data_format<'stream>(ds: &Self::Decoder<'stream>) -> DataFormat;
 }
 
+/// Context information used by [`DecodingBackend::init_decoder`]
+///
+/// The output_format field reprerents the data format added to the `CustomDecoderBuilder`
 pub struct DrBackendContext {
     pub output_format: DataFormat,
 }
 
+/// Encoded input stream passed to a custom decoding backend.
+///
+/// A [`DecodingBackend`] reads the encoded audio data from this stream while
+/// initializing and operating its decoder. The stream may be retained by the
+/// decoder returned from [`DecodingBackend::init_decoder`], but it cannot outlive
+/// the original decoder input.
+///
+/// `DecoderStream` implements [`Read`] and [`Seek`] by forwarding operations to
+/// the underlying input stream.
+///
+/// Not every input source supports seeking. Use
+/// [`DecoderStreamImpl::is_seekable`] to determine whether seek operations are
+/// expected to succeed.
 pub struct DecoderStream<'stream>(pub(crate) Box<dyn DecoderStreamImpl + 'stream>);
 
+/// Interface for an encoded decoder input stream.
+///
+/// This trait extends [`Read`] and [`Seek`] with convenience methods commonly
+/// required by third-party decoding libraries.
+///
+/// All lengths reported by this trait are measured in encoded bytes, not decoded
+/// PCM frames.
 pub trait DecoderStreamImpl: Read + Seek + Send + Sync {
+    /// Returns whether the underlying input supports seeking.
     fn is_seekable(&self) -> bool;
+
+    /// Returns the total length of the encoded input in bytes, if known.
+    ///
+    /// Returns `None` when the length cannot be determined.
     fn byte_len(&self) -> Option<u64>;
 }
 
