@@ -23,7 +23,7 @@ use crate::{
 
 pub mod data_source_builder;
 pub mod data_source_chain;
-pub mod data_source_vtable;
+pub(crate) mod data_source_vtable;
 pub mod pcm_source;
 pub mod sources;
 
