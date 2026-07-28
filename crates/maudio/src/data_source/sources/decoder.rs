@@ -426,7 +426,13 @@ pub trait DecoderOps: AsDecoderPtr + AsSourcePtr {
         decoder_ffi::ma_decoder_seek_to_pcm_frame(self, frame_index)
     }
 
-    /// Returns the PCM format of the decoder.
+    /// Returns the output PCM format of the underlying source source.
+    /// This may differ from the output format, as the decoder incorporates a sample rate and channelc converter.
+    fn backend_data_format(&self) -> MaResult<DataFormat> {
+        decoder_ffi::ma_decode_get_backend_data_format(self)
+    }
+
+    /// Returns the output PCM format of the decoder.
     fn data_format(&self) -> MaResult<DataFormat> {
         decoder_ffi::ma_decoder_get_data_format(self)
     }
@@ -479,6 +485,7 @@ pub(crate) mod decoder_ffi {
 
     use crate::audio::channels::Channel;
     use crate::audio::formats::SampleBuffer;
+    use crate::audio::sample_rate::SampleRate;
     use crate::data_source::{
         sources::decoder::{private_decoder, AsDecoderPtr},
         DataFormat,
@@ -629,6 +636,35 @@ pub(crate) mod decoder_ffi {
             sys::ma_decoder_seek_to_pcm_frame(private_decoder::decoder_ptr(decoder), frame_index)
         };
         MaudioError::check(res)
+    }
+
+    #[inline]
+    pub fn ma_decode_get_backend_data_format<D: AsDecoderPtr + ?Sized>(
+        decoder: &D,
+    ) -> MaResult<DataFormat> {
+        let ptr = private_decoder::decoder_ptr(decoder);
+        debug_assert!(!ptr.is_null());
+        let decoder = unsafe { &*ptr };
+        let format_raw = decoder.outputFormat;
+        let channels = decoder.converter.channelConverter.channelsIn;
+        let sample_rate: SampleRate = decoder.converter.sampleRateIn.try_into()?;
+        let raw_map = decoder.converter.channelConverter.pChannelMapIn;
+        let channel_map: Vec<Channel> = if !raw_map.is_null() {
+            let mut map = Vec::new();
+            let slice = unsafe { std::slice::from_raw_parts(raw_map, channels as usize) };
+            for &entry in slice.iter() {
+                map.push(Channel::try_from(entry)?);
+            }
+            map
+        } else {
+            Vec::new()
+        };
+        Ok(DataFormat {
+            format: format_raw.try_into()?,
+            channels,
+            sample_rate,
+            channel_map,
+        })
     }
 
     #[inline]
@@ -896,9 +932,12 @@ impl<F: PcmFormat> DecoderBuilder<F> {
 
 #[cfg(test)]
 mod tests {
-    use crate::test_assets::{
-        temp_file::{unique_tmp_path, TempFileGuard},
-        wav_i16_le,
+    use crate::{
+        audio::channels::Channel,
+        test_assets::{
+            temp_file::{unique_tmp_path, TempFileGuard},
+            wav_i16_le,
+        },
     };
 
     use super::*;
@@ -909,6 +948,24 @@ mod tests {
             samples.push(((i as i32 * 300) % i16::MAX as i32) as i16);
         }
         wav_i16_le(1, SampleRate::Sr48000, &samples)
+    }
+
+    #[test]
+    fn test_decoder_from_memory_f32_get_input_data_format() {
+        let frames_total: usize = 64;
+        let wav = tiny_test_wav_mono(frames_total);
+
+        let builder = DecoderBuilder::new_f32(1, SampleRate::Sr48000);
+
+        let dec = builder.copy_memory(wav).unwrap();
+
+        let res = dec.backend_data_format();
+        assert!(res.is_ok());
+        let df = res.unwrap();
+        assert_eq!(df.format, Format::F32);
+        assert_eq!(df.sample_rate, SampleRate::Sr48000);
+        assert_eq!(df.channels, 1);
+        assert_eq!(df.channel_map, [Channel::Mono]);
     }
 
     #[test]

@@ -65,11 +65,7 @@ use maudio_sys::ffi as sys;
 pub struct CustomDecoder<F: PcmFormat, S> {
     inner: *mut sys::ma_decoder,
     channels: u32,
-    #[allow(unused)]
-    sample_rate: SampleRate,
     format: Format,
-    #[allow(unused)]
-    channel_map: Vec<Channel>,
     user_data: Option<DecoderUserDataDestructor>,
     backend_reg: *mut BackendRegistration<F>,
     _source_data: S,                                                 // keep alive
@@ -170,7 +166,6 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
     fn new(
         inner: *mut sys::ma_decoder,
         config: &CustomDecoderBuilder<F>,
-        channel_map: Vec<Channel>,
         format: Format,
         vtables: Box<[*const sys::ma_decoding_backend_vtable]>,
         reg: *mut BackendRegistration<F>,
@@ -179,9 +174,7 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
         Self {
             inner,
             channels: config.channels,
-            sample_rate: config.sample_rate,
             format,
-            channel_map,
             user_data: None,
             backend_reg: reg,
             _source_data: source_data,
@@ -206,7 +199,6 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
         Ok(CustomDecoder::new(
             inner,
             config,
-            map,
             config.format,
             vtables,
             reg,
@@ -263,7 +255,7 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
         }
 
         let inner: *mut sys::ma_decoder = Box::into_raw(mem) as *mut sys::ma_decoder;
-        let mut decoder = CustomDecoder::new(inner, config, map, config.format, vtables, reg, Cb);
+        let mut decoder = CustomDecoder::new(inner, config, config.format, vtables, reg, Cb);
         decoder.user_data = Some((user_data_ptr, encoder_user_data_drop::<R>));
 
         Ok(decoder)
@@ -290,7 +282,6 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
         Ok(CustomDecoder::new(
             inner,
             config,
-            map,
             config.format,
             vtables,
             reg,
@@ -320,7 +311,6 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
         Ok(CustomDecoder::new(
             inner,
             config,
-            map,
             config.format,
             vtables,
             reg,
@@ -523,6 +513,16 @@ impl<F: PcmFormat> CustomDecoderBuilder<F> {
         Ok(map)
     }
 
+    // pub fn output_channels(&mut self, channels: u32) -> &mut Self {
+    //     self.channels = Some(channels);
+    //     self
+    // }
+
+    // pub fn output_sample_rate(&mut self, channels: u32) -> &mut Self {
+    //     self.channels = Some(channels);
+    //     self
+    // }
+
     /// Add a decoding backend to the `CustomDecoder`.
     ///
     /// Can be called multiple times to add multipe backends.
@@ -712,6 +712,24 @@ mod test {
     }
 
     #[test]
+    fn test_custom_decoder_from_memory_f32_get_input_data_format() {
+        let frames_total: usize = 64;
+        let wav = tiny_test_wav_mono(frames_total);
+
+        let mut builder = CustomDecoderBuilder::new_f32(1, SampleRate::Sr48000);
+
+        let dec = builder.backend::<TestCbDecoder>().copy_memory(wav).unwrap();
+
+        let res = dec.backend_data_format();
+        assert!(res.is_ok());
+        let df = res.unwrap();
+        assert_eq!(df.format, Format::F32);
+        assert_eq!(df.sample_rate, SampleRate::Sr48000);
+        assert_eq!(df.channels, 1);
+        assert_eq!(df.channel_map, [Channel::Mono]);
+    }
+
+    #[test]
     fn test_custom_decoder_from_memory_f32_read_seek_cursor_length_available() {
         let frames_total: usize = 64;
         let wav = tiny_test_wav_mono(frames_total);
@@ -729,7 +747,7 @@ mod test {
         let avail0 = dec.available_frames().unwrap();
         assert_eq!(avail0 as usize, frames_total);
 
-        let df = dec.output_data_format().unwrap();
+        let df = dec.data_format().unwrap();
         assert_eq!(df.channels, 1);
         assert_eq!(df.sample_rate, SampleRate::Sr48000);
         assert_eq!(df.format, Format::F32);

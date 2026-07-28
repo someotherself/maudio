@@ -239,7 +239,7 @@ fn create_data_source<'stream, F: PcmFormat, D: DecodingBackend<Format = F> + 's
     registration: &BackendRegistration<F>,
 ) -> MaResult<*mut BackendDataSource<'stream, F, D>> {
     // output data format
-    let df: DataFormat = DataFormat {
+    let out_df: DataFormat = DataFormat {
         format: registration.format,
         channels: registration.channels,
         sample_rate: registration.sample_rate,
@@ -248,7 +248,7 @@ fn create_data_source<'stream, F: PcmFormat, D: DecodingBackend<Format = F> + 's
     let decoder = D::init_decoder(
         DecoderStream(Box::new(decoder_stream)),
         DrBackendContext {
-            output_format: df.clone(),
+            output_format: out_df.clone(),
         },
     )?;
 
