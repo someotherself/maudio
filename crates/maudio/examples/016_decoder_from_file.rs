@@ -15,7 +15,10 @@ fn main() -> MaResult<()> {
 
     let file = std::fs::File::open(&path).unwrap();
 
-    let decoder = DecoderBuilder::new_f32(2, SampleRate::Sr44100).from_reader(file)?;
+    let decoder = DecoderBuilder::new_f32()
+        .channels(2)
+        .sample_rate(SampleRate::Sr44100)
+        .from_reader(file)?;
 
     let mut sound = engine.new_sound_from_source(&decoder)?;
 

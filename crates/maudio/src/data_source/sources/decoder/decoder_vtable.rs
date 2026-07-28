@@ -17,7 +17,7 @@ use crate::{
                 DecodingBackend, DrBackendContext, ReaderStream,
             },
         },
-        DataFormat, SourceContext,
+        SourceContext,
     },
     pcm_frames::PcmFormat,
     MaResult, MaudioError,
@@ -165,13 +165,12 @@ unsafe extern "C" fn decoder_on_init_file_w<F: PcmFormat, D: DecodingBackend<For
 
         let file = OpenOptions::new().read(true).open(&path)?;
 
-        let decoder_stream = DecoderFileStream { file };
+        let decoder_stream = DecoderFileStream(file);
 
         let registration: &BackendRegistration<F> =
             unsafe { &*backend_user_data.cast::<BackendRegistration<F>>() };
 
-        let inner_ptr =
-            create_data_source::<F, D, DecoderFileStream>(decoder_stream, registration)?;
+        let inner_ptr = create_data_source::<F, D>(decoder_stream, registration)?;
 
         backend.write(inner_ptr.cast::<sys::ma_data_source>());
 
@@ -239,18 +238,12 @@ fn create_data_source<'stream, F: PcmFormat, D: DecodingBackend<Format = F> + 's
     registration: &BackendRegistration<F>,
 ) -> MaResult<*mut BackendDataSource<'stream, F, D>> {
     // output data format
-    let out_df: DataFormat = DataFormat {
-        format: registration.format,
-        channels: registration.channels,
-        sample_rate: registration.sample_rate,
+    let dr_ctx: DrBackendContext = DrBackendContext {
+        output_channels: registration.channels,
+        output_sample_rate: registration.sample_rate,
         channel_map: registration.channel_map.clone(),
     };
-    let decoder = D::init_decoder(
-        DecoderStream(Box::new(decoder_stream)),
-        DrBackendContext {
-            output_format: out_df.clone(),
-        },
-    )?;
+    let decoder = D::init_decoder(DecoderStream(Box::new(decoder_stream)), dr_ctx)?;
 
     let input_df = <D as DecodingBackend>::input_data_format(&decoder);
 

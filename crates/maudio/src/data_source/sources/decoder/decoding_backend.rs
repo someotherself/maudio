@@ -5,6 +5,8 @@ use std::{
     io::{Cursor, SeekFrom},
 };
 
+use crate::audio::channels::Channel;
+use crate::audio::sample_rate::SampleRate;
 use crate::data_source::DataFormat;
 use crate::{data_source::pcm_source::PcmSource, pcm_frames::PcmFormat, MaResult};
 
@@ -77,7 +79,9 @@ pub trait DecodingBackend: Send {
 ///
 /// The output_format field reprerents the data format added to the `CustomDecoderBuilder`
 pub struct DrBackendContext {
-    pub output_format: DataFormat,
+    pub output_channels: Option<u32>,
+    pub output_sample_rate: Option<SampleRate>,
+    pub channel_map: Vec<Channel>,
 }
 
 /// Encoded input stream passed to a custom decoding backend.

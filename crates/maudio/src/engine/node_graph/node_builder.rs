@@ -175,7 +175,7 @@ impl CustomSourceNodeBuilder {
     }
 
     // TODO: Causes a null ptr dereference in miniaudio.
-    // Do not enable until fixed
+    // Do not enable until fixed in 0.11.26
     /// Enables passthrough behavior for the source node.
     ///
     /// This allows the node graph to treat the node as passthrough where that

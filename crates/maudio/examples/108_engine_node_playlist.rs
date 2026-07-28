@@ -73,8 +73,10 @@ impl PlayList {
             return Ok(());
         };
 
-        let decoder =
-            DecoderBuilder::new_f32(graph.channels(), SampleRate::Sr44100).from_file(&path)?;
+        let decoder = DecoderBuilder::new_f32()
+            .channels(graph.channels())
+            .sample_rate(SampleRate::Sr44100)
+            .from_file(&path)?;
         let mut node = AttachedSourceNodeBuilder::new(graph, decoder).build()?;
         let mut endpoint = graph.endpoint();
         node.attach_output_bus(0, &mut endpoint, 0)?;

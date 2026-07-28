@@ -27,7 +27,10 @@ const MUSIC_FILE: &[u8] = include_bytes!(concat!(
 fn main() -> MaResult<()> {
     // Decode into f32 because most DSP processing works naturally with floating
     // point samples.
-    let mut decoder = DecoderBuilder::new_f32(2, SampleRate::Sr48000).from_memory(MUSIC_FILE)?;
+    let mut decoder = DecoderBuilder::new_f32()
+        .channels(2)
+        .sample_rate(SampleRate::Sr48000)
+        .from_memory(MUSIC_FILE)?;
     let df = decoder.data_format()?;
 
     // Create a low-pass filter (or any dsp primitive)

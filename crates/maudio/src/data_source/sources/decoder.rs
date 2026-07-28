@@ -14,6 +14,7 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     audio::{
+        channels::{Channel, RawChannel},
         formats::{Format, SampleBuffer},
         sample_rate::SampleRate,
     },
@@ -70,7 +71,7 @@ pub mod decoding_backend;
 /// # fn main() -> MaResult<()> {
 /// let file = File::open("audio.flac").unwrap();
 ///
-/// let decoder = DecoderBuilder::new_f32(2, SampleRate::Sr44100)
+/// let decoder = DecoderBuilder::new_f32()
 ///     .from_reader(file)?;
 /// # let _ = decoder;
 /// # Ok(())
@@ -86,7 +87,7 @@ pub mod decoding_backend;
 /// # fn main() -> MaResult<()> {
 /// let path = PathBuf::from("audio.wav");
 ///
-/// let decoder = DecoderBuilder::new_f32(2, SampleRate::Sr44100)
+/// let decoder = DecoderBuilder::new_f32()
 ///     .from_file(&path)?;
 /// # let _ = decoder;
 /// # Ok(())
@@ -101,7 +102,7 @@ pub mod decoding_backend;
 /// # fn main() -> MaResult<()> {
 /// let bytes: &[u8] = &[];
 ///
-/// let decoder = DecoderBuilder::new_f32(2, SampleRate::Sr44100)
+/// let decoder = DecoderBuilder::new_f32()
 ///     .from_memory(bytes)?;
 /// # let _ = decoder;
 /// # Ok(())
@@ -111,7 +112,7 @@ pub mod decoding_backend;
 pub struct Decoder<F: PcmFormat, S> {
     inner: *mut sys::ma_decoder,
     channels: u32,
-    sample_rate: SampleRate,
+    // sample_rate: SampleRate,
     format: Format,
     user_data: Option<DecoderUserDataDestructor>,
     _sample_format: PhantomData<F>,
@@ -144,16 +145,14 @@ impl<F: PcmFormat, S> Binding for Decoder<F, S> {
 
 impl<F: PcmFormat, S> Decoder<F, S> {
     #[inline]
-    fn new(
-        inner: *mut sys::ma_decoder,
-        config: &DecoderBuilder<F>,
-        format: Format,
-        source_data: S,
-    ) -> Self {
+    fn new(inner: *mut sys::ma_decoder, format: Format, source_data: S) -> Self {
+        let ptr = unsafe { &*inner };
+        let channels = ptr.converter.channelConverter.channelsOut;
+        // let sample_rate = ptr.converter.sampleRateOut;
         Self {
             inner,
-            channels: config.channels,
-            sample_rate: config.sample_rate,
+            channels,
+            // sample_rate: config.sample_rate,
             format,
             user_data: None,
             _sample_format: PhantomData,
@@ -163,7 +162,7 @@ impl<F: PcmFormat, S> Decoder<F, S> {
 
     fn init_from_memory<'a>(
         data: &'a [u8],
-        config: &DecoderBuilder<F>,
+        config: &mut DecoderBuilder<F>,
     ) -> MaResult<Decoder<F, Borrowed<'a>>> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
 
@@ -175,12 +174,12 @@ impl<F: PcmFormat, S> Decoder<F, S> {
         )?;
 
         let inner: *mut sys::ma_decoder = Box::into_raw(mem) as *mut sys::ma_decoder;
-        Ok(Decoder::new(inner, config, config.format, Borrowed(data)))
+        Ok(Decoder::new(inner, config.format, Borrowed(data)))
     }
 
     fn init_copy<D: Into<Arc<[u8]>>>(
         data: D,
-        config: &DecoderBuilder<F>,
+        config: &mut DecoderBuilder<F>,
     ) -> MaResult<Decoder<F, Owned>> {
         let data_arc = data.into();
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
@@ -193,21 +192,21 @@ impl<F: PcmFormat, S> Decoder<F, S> {
         )?;
 
         let inner: *mut sys::ma_decoder = Box::into_raw(mem) as *mut sys::ma_decoder;
-        Ok(Decoder::new(inner, config, config.format, Owned(data_arc)))
+        Ok(Decoder::new(inner, config.format, Owned(data_arc)))
     }
 
-    fn init_file(path: &Path, config: &DecoderBuilder<F>) -> MaResult<Decoder<F, Fs>> {
+    fn init_file(path: &Path, config: &mut DecoderBuilder<F>) -> MaResult<Decoder<F, Fs>> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
 
         Decoder::<F, S>::init_from_file_internal(path, config, mem.as_mut_ptr())?;
 
         let inner: *mut sys::ma_decoder = Box::into_raw(mem) as *mut sys::ma_decoder;
-        Ok(Decoder::new(inner, config, config.format, Fs))
+        Ok(Decoder::new(inner, config.format, Fs))
     }
 
     fn init_from_reader<R: SeekRead>(
         reader: R,
-        config: &DecoderBuilder<F>,
+        config: &mut DecoderBuilder<F>,
     ) -> MaResult<Decoder<F, Cb>> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
 
@@ -226,7 +225,7 @@ impl<F: PcmFormat, S> Decoder<F, S> {
         }
 
         let inner: *mut sys::ma_decoder = Box::into_raw(mem) as *mut sys::ma_decoder;
-        let mut decoder = Decoder::new(inner, config, config.format, Cb);
+        let mut decoder = Decoder::new(inner, config.format, Cb);
         decoder.user_data = Some((user_data_ptr, encoder_user_data_drop::<R>));
 
         Ok(decoder)
@@ -645,20 +644,27 @@ pub(crate) mod decoder_ffi {
         let ptr = private_decoder::decoder_ptr(decoder);
         debug_assert!(!ptr.is_null());
         let decoder = unsafe { &*ptr };
-        let format_raw = decoder.outputFormat;
+        let format_raw = decoder.outputFormat; // format conversion is not possible in maudio yet
         let channels = decoder.converter.channelConverter.channelsIn;
         let sample_rate: SampleRate = decoder.converter.sampleRateIn.try_into()?;
-        let raw_map = decoder.converter.channelConverter.pChannelMapIn;
-        let channel_map: Vec<Channel> = if !raw_map.is_null() {
-            let mut map = Vec::new();
-            let slice = unsafe { std::slice::from_raw_parts(raw_map, channels as usize) };
-            for &entry in slice.iter() {
-                map.push(Channel::try_from(entry)?);
-            }
-            map
-        } else {
-            Vec::new()
+
+        let mut channel_map_raw = vec![0 as sys::ma_channel; sys::MA_MAX_CHANNELS as usize];
+
+        let res = unsafe {
+            sys::ma_channel_converter_get_input_channel_map(
+                &decoder.converter.channelConverter as *const _,
+                channel_map_raw.as_mut_ptr(),
+                channels as usize,
+            )
         };
+        MaudioError::check(res)?;
+
+        let mut channel_map: Vec<Channel> = Vec::new();
+        for c in channel_map_raw {
+            channel_map.push(Channel::try_from(c)?);
+        }
+        channel_map.truncate(channels as usize);
+
         Ok(DataFormat {
             format: format_raw.try_into()?,
             channels,
@@ -671,25 +677,24 @@ pub(crate) mod decoder_ffi {
     pub fn ma_decoder_get_data_format<D: AsDecoderPtr + ?Sized>(
         decoder: &D,
     ) -> MaResult<DataFormat> {
-        let mut format_raw: sys::ma_format = sys::ma_format_ma_format_unknown;
-        let mut channels: sys::ma_uint32 = 0;
-        let mut sample_rate: sys::ma_uint32 = 0;
+        let ptr = private_decoder::decoder_ptr(decoder);
+        debug_assert!(!ptr.is_null());
+        let decoder = unsafe { &*ptr };
+        let format_raw = decoder.outputFormat;
+        let channels = decoder.converter.channelConverter.channelsOut;
+        let sample_rate: SampleRate = decoder.converter.sampleRateOut.try_into()?;
 
         let mut channel_map_raw = vec![0 as sys::ma_channel; sys::MA_MAX_CHANNELS as usize];
 
         let res = unsafe {
-            sys::ma_decoder_get_data_format(
-                private_decoder::decoder_ptr(decoder),
-                &mut format_raw,
-                &mut channels,
-                &mut sample_rate,
+            sys::ma_channel_converter_get_output_channel_map(
+                &decoder.converter.channelConverter as *const _,
                 channel_map_raw.as_mut_ptr(),
-                channel_map_raw.len(),
+                channels as usize,
             )
         };
         MaudioError::check(res)?;
 
-        // Could maybe cast when passing the ptr to miniaudio, but copying should be fine here
         let mut channel_map: Vec<Channel> = Vec::new();
         for c in channel_map_raw {
             channel_map.push(Channel::try_from(c)?);
@@ -699,9 +704,42 @@ pub(crate) mod decoder_ffi {
         Ok(DataFormat {
             format: format_raw.try_into()?,
             channels,
-            sample_rate: sample_rate.try_into()?,
+            sample_rate,
             channel_map,
         })
+
+        // TODO: Change this back when 0.11.26 fixes the bug in the data converter
+        // let mut format_raw: sys::ma_format = sys::ma_format_ma_format_unknown;
+        // let mut channels: sys::ma_uint32 = 0;
+        // let mut sample_rate: sys::ma_uint32 = 0;
+
+        // let mut channel_map_raw = vec![0 as sys::ma_channel; sys::MA_MAX_CHANNELS as usize];
+
+        // let res = unsafe {
+        //     sys::ma_decoder_get_data_format(
+        //         private_decoder::decoder_ptr(decoder),
+        //         &mut format_raw,
+        //         &mut channels,
+        //         &mut sample_rate,
+        //         channel_map_raw.as_mut_ptr(),
+        //         channel_map_raw.len(),
+        //     )
+        // };
+        // MaudioError::check(res)?;
+
+        // // Could maybe cast when passing the ptr to miniaudio, but copying should be fine here
+        // let mut channel_map: Vec<Channel> = Vec::new();
+        // for c in channel_map_raw {
+        //     channel_map.push(Channel::try_from(c)?);
+        // }
+        // channel_map.truncate(channels as usize);
+
+        // Ok(DataFormat {
+        //     format: format_raw.try_into()?,
+        //     channels,
+        //     sample_rate: sample_rate.try_into()?,
+        //     channel_map,
+        // })
     }
 
     pub fn ma_decoder_get_cursor_in_pcm_frames<D: AsDecoderPtr + ?Sized>(
@@ -781,10 +819,11 @@ impl<F: PcmFormat, S> Drop for Decoder<F, S> {
 }
 
 pub struct DecoderBuilder<F = Unknown> {
-    inner: sys::ma_decoder_config,
+    config: sys::ma_decoder_config,
     format: Format,
-    channels: u32,
-    sample_rate: SampleRate,
+    channels: Option<u32>,
+    channel_map: Vec<RawChannel>,
+    sample_rate: Option<SampleRate>,
     _format: PhantomData<F>,
 }
 
@@ -792,79 +831,91 @@ impl<F: PcmFormat> AsRawRef for DecoderBuilder<F> {
     type Raw = sys::ma_decoder_config;
 
     fn as_raw(&self) -> &Self::Raw {
-        &self.inner
+        &self.config
     }
 }
 
 impl DecoderBuilder<Unknown> {
-    fn new_inner(
-        out_channels: u32,
-        out_sample_rate: SampleRate,
-        format: Format,
-    ) -> sys::ma_decoder_config {
-        unsafe { sys::ma_decoder_config_init(format.into(), out_channels, out_sample_rate.into()) }
-    }
-
-    pub fn new_u8(out_channels: u32, out_sample_rate: SampleRate) -> DecoderBuilder<u8> {
-        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate, Format::U8);
+    #[inline]
+    fn build<F: PcmFormat>(format: Format) -> DecoderBuilder<F> {
+        let mut config = unsafe { sys::ma_decoder_config_init_default() };
+        config.resampling = unsafe {
+            sys::ma_resampler_config_init(
+                format.into(),
+                0,
+                0,
+                0,
+                sys::ma_resample_algorithm_ma_resample_algorithm_linear,
+            )
+        };
+        config.format = format.into();
         DecoderBuilder {
-            inner,
-            format: Format::U8,
-            channels: out_channels,
-            sample_rate: out_sample_rate,
+            config,
+            format,
+            channels: None,
+            channel_map: Vec::new(),
+            sample_rate: None,
             _format: PhantomData,
         }
     }
 
-    pub fn new_i16(out_channels: u32, out_sample_rate: SampleRate) -> DecoderBuilder<i16> {
-        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate, Format::S16);
-        DecoderBuilder {
-            inner,
-            format: Format::S16,
-            channels: out_channels,
-            sample_rate: out_sample_rate,
-            _format: PhantomData,
-        }
+    pub fn new_u8() -> DecoderBuilder<u8> {
+        Self::build(Format::U8)
     }
 
-    pub fn new_i32(out_channels: u32, out_sample_rate: SampleRate) -> DecoderBuilder<i32> {
-        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate, Format::S32);
-        DecoderBuilder {
-            inner,
-            format: Format::S32,
-            channels: out_channels,
-            sample_rate: out_sample_rate,
-            _format: PhantomData,
-        }
+    pub fn new_i16() -> DecoderBuilder<i16> {
+        Self::build(Format::S16)
     }
 
-    pub fn new_s24_packed(
-        out_channels: u32,
-        out_sample_rate: SampleRate,
-    ) -> DecoderBuilder<S24Packed> {
-        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate, Format::S24Packed);
-        DecoderBuilder {
-            inner,
-            format: Format::S24Packed,
-            channels: out_channels,
-            sample_rate: out_sample_rate,
-            _format: PhantomData,
-        }
+    pub fn new_i32() -> DecoderBuilder<i32> {
+        Self::build(Format::S32)
     }
 
-    pub fn new_f32(out_channels: u32, out_sample_rate: SampleRate) -> DecoderBuilder<f32> {
-        let inner = DecoderBuilder::new_inner(out_channels, out_sample_rate, Format::F32);
-        DecoderBuilder {
-            inner,
-            format: Format::F32,
-            channels: out_channels,
-            sample_rate: out_sample_rate,
-            _format: PhantomData,
-        }
+    pub fn new_s24_packed() -> DecoderBuilder<S24Packed> {
+        Self::build(Format::S24Packed)
+    }
+
+    pub fn new_f32() -> DecoderBuilder<f32> {
+        Self::build(Format::F32)
     }
 }
 
 impl<F: PcmFormat> DecoderBuilder<F> {
+    /// Select the output channel count for the decoder
+    ///
+    /// If not set, it will output the native channel count of the source
+    /// If a channel map is not provided, a standard channel map will be generated.
+    pub fn channels(&mut self, channels: u32) -> &mut Self {
+        self.channels = Some(channels);
+        self.config.channels = channels;
+        self
+    }
+
+    /// Select the output sample rate for the decoder
+    ///
+    /// If not set, it will output the native sample rate of the source
+    pub fn sample_rate(&mut self, sample_rate: SampleRate) -> &mut Self {
+        self.sample_rate = Some(sample_rate);
+        self.config.sampleRate = sample_rate.into();
+        self
+    }
+
+    /// Set the channel map of the output.
+    /// This map may differ from the input channel map, as the decoder implements a channel converter.
+    ///
+    /// Also sets the channel count to the length of the channel map
+    /// If not set, miniaudio will generate a standard channel map for the channel count.
+    pub fn set_channel_map<I>(mut self, channel_map: I) -> Self
+    where
+        I: IntoIterator<Item = Channel>,
+    {
+        self.channel_map = channel_map.into_iter().map(RawChannel::from).collect();
+        self.config.channels = self.channel_map.len() as u32;
+        self.channels = Some(self.config.channels);
+        self.config.pChannelMap = self.channel_map.as_mut_ptr() as *mut _;
+        self
+    }
+
     /// Creates a decoder from borrowed in-memory audio data.
     ///
     /// This uses `ma_decoder_init_memory`.
@@ -874,7 +925,7 @@ impl<F: PcmFormat> DecoderBuilder<F> {
     ///
     /// This is the most direct in-memory constructor when you already have the
     /// full encoded audio data available and can keep it alive externally.
-    pub fn from_memory<'a>(&self, data: &'a [u8]) -> MaResult<Decoder<F, Borrowed<'a>>> {
+    pub fn from_memory<'a>(&mut self, data: &'a [u8]) -> MaResult<Decoder<F, Borrowed<'a>>> {
         Decoder::<F, Borrowed<'a>>::init_from_memory(data, self)
     }
 
@@ -885,7 +936,7 @@ impl<F: PcmFormat> DecoderBuilder<F> {
     ///
     /// Use this when you want the decoder to own backing memory
     /// instead of borrowing it from the caller.
-    pub fn copy_memory<D: Into<Arc<[u8]>>>(&self, data: D) -> MaResult<Decoder<F, Owned>> {
+    pub fn copy_memory<D: Into<Arc<[u8]>>>(&mut self, data: D) -> MaResult<Decoder<F, Owned>> {
         Decoder::<F, Owned>::init_copy(data, self)
     }
 
@@ -896,7 +947,7 @@ impl<F: PcmFormat> DecoderBuilder<F> {
     ///
     /// This is usually the most convenient option when decoding from a normal
     /// file on disk.
-    pub fn from_file(&self, path: &Path) -> MaResult<Decoder<F, Fs>> {
+    pub fn from_file(&mut self, path: &Path) -> MaResult<Decoder<F, Fs>> {
         Decoder::<F, Fs>::init_file(path, self)
     }
 
@@ -925,7 +976,7 @@ impl<F: PcmFormat> DecoderBuilder<F> {
     /// If the source behaves like a stream and may temporarily provide fewer
     /// bytes than requested, this will be treated as EOF,
     /// and decoding will stop instead of waiting for more data.
-    pub fn from_reader<R: SeekRead>(&self, reader: R) -> MaResult<Decoder<F, Cb>> {
+    pub fn from_reader<R: SeekRead>(&mut self, reader: R) -> MaResult<Decoder<F, Cb>> {
         Decoder::<F, Cb>::init_from_reader(reader, self)
     }
 }
@@ -951,13 +1002,57 @@ mod tests {
     }
 
     #[test]
+    fn test_decoder_from_memory_f32_passthrough_data_format() {
+        let frames_total: usize = 64;
+        let wav = tiny_test_wav_mono(frames_total);
+
+        let dec = DecoderBuilder::new_f32().copy_memory(wav).unwrap();
+
+        let flag = unsafe { &*dec.inner }.converter.isPassthrough;
+        assert!(flag == 1);
+        let res = dec.data_format();
+        assert!(res.is_ok());
+        let df = res.unwrap();
+        assert_eq!(df.format, Format::F32);
+        assert_eq!(df.sample_rate, SampleRate::Sr48000);
+        assert_eq!(df.channels, 1);
+        assert_eq!(df.channel_map, [Channel::Mono]);
+    }
+
+    #[test]
+    fn test_decoder_from_memory_f32_change_data_format() {
+        let frames_total: usize = 120;
+        let wav = tiny_test_wav_mono(frames_total);
+
+        let dec = DecoderBuilder::new_f32()
+            .channels(2)
+            .sample_rate(SampleRate::Sr44100)
+            .copy_memory(wav)
+            .unwrap();
+
+        let flag = unsafe { &*dec.inner }.converter.isPassthrough;
+        assert!(flag == 0);
+        let has_ch_conv = unsafe { &*dec.inner }.converter.hasChannelConverter;
+        assert!(has_ch_conv == 1);
+        let res = dec.data_format();
+        assert!(res.is_ok());
+        let df = res.unwrap();
+        assert_eq!(df.format, Format::F32);
+        assert_eq!(df.sample_rate, SampleRate::Sr44100);
+        assert_eq!(df.channels, 2);
+        assert_eq!(df.channel_map, [Channel::FrontLeft, Channel::FrontRight]);
+    }
+
+    #[test]
     fn test_decoder_from_memory_f32_get_input_data_format() {
         let frames_total: usize = 64;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let builder = DecoderBuilder::new_f32(1, SampleRate::Sr48000);
-
-        let dec = builder.copy_memory(wav).unwrap();
+        let dec = DecoderBuilder::new_f32()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
+            .copy_memory(wav)
+            .unwrap();
 
         let res = dec.backend_data_format();
         assert!(res.is_ok());
@@ -969,13 +1064,42 @@ mod tests {
     }
 
     #[test]
+    fn test_decoder_from_memory_f32_change_channel_map() {
+        let frames_total: usize = 64;
+        let wav = tiny_test_wav_mono(frames_total);
+
+        let map = [
+            Channel::TopBackLeft,
+            Channel::TopBackLeft,
+            Channel::TopFrontLeft,
+            Channel::TopFrontRight,
+        ];
+
+        let dec = DecoderBuilder::new_f32()
+            .set_channel_map(map)
+            // .sample_rate(SampleRate::Sr48000)
+            .copy_memory(wav)
+            .unwrap();
+
+        let res = dec.data_format();
+        assert!(res.is_ok());
+        let df = res.unwrap();
+        assert_eq!(df.format, Format::F32);
+        assert_eq!(df.sample_rate, SampleRate::Sr48000);
+        assert_eq!(df.channels, 4);
+        assert_eq!(df.channel_map, map);
+    }
+
+    #[test]
     fn test_decoder_from_memory_f32_read_seek_cursor_length_available() {
         let frames_total: usize = 64;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let builder = DecoderBuilder::new_f32(1, SampleRate::Sr48000);
-
-        let mut dec = builder.copy_memory(wav).unwrap();
+        let mut dec = DecoderBuilder::new_f32()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
+            .copy_memory(wav)
+            .unwrap();
 
         let len = dec.length_pcm().unwrap();
         assert_eq!(len as usize, frames_total);
@@ -1016,9 +1140,11 @@ mod tests {
         let frames_total: usize = 32;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let builder = DecoderBuilder::new_f32(1, SampleRate::Sr48000);
-
-        let mut dec_ref = builder.from_memory(&wav).unwrap();
+        let mut dec_ref = DecoderBuilder::new_f32()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
+            .from_memory(&wav)
+            .unwrap();
 
         let buf = dec_ref.read_pcm_frames(12).unwrap();
         let read = buf.frames();
@@ -1034,9 +1160,11 @@ mod tests {
         let guard = TempFileGuard::new(unique_tmp_path("wav"));
         std::fs::write(guard.path(), &wav).unwrap();
 
-        let builder = DecoderBuilder::new_f32(1, SampleRate::Sr48000);
-
-        let mut dec = builder.from_file(guard.path()).unwrap();
+        let mut dec = DecoderBuilder::new_f32()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
+            .from_file(guard.path())
+            .unwrap();
 
         assert_eq!(dec.length_pcm().unwrap() as usize, frames_total);
         assert_eq!(dec.cursor_pcm().unwrap(), 0);
@@ -1050,7 +1178,9 @@ mod tests {
         let frames_total: usize = 16;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let mut dec = DecoderBuilder::new_u8(1, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_u8()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
             .from_memory(&wav)
             .unwrap();
 
@@ -1064,7 +1194,9 @@ mod tests {
         let frames_total: usize = 16;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let mut dec = DecoderBuilder::new_i16(1, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_i16()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
             .from_memory(&wav)
             .unwrap();
 
@@ -1078,7 +1210,9 @@ mod tests {
         let frames_total: usize = 16;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let mut dec = DecoderBuilder::new_i32(1, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_i32()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
             .from_memory(&wav)
             .unwrap();
 
@@ -1092,7 +1226,9 @@ mod tests {
         let frames_total: usize = 16;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let mut dec = DecoderBuilder::new_s24_packed(1, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_s24_packed()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
             .from_memory(&wav)
             .unwrap();
 
@@ -1106,7 +1242,9 @@ mod tests {
         let frames_total: usize = 16;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let mut dec = DecoderBuilder::new_f32(1, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_f32()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
             .from_memory(&wav)
             .unwrap();
 
@@ -1121,7 +1259,9 @@ mod tests {
         let wav = tiny_test_wav_mono(frames_total);
         let wav: Arc<[u8]> = wav.into();
 
-        let mut dec = DecoderBuilder::new_u8(1, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_f32()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
             .copy_memory(wav.clone())
             .unwrap();
 
@@ -1136,7 +1276,9 @@ mod tests {
         let wav = tiny_test_wav_mono(frames_total);
         let wav: Arc<[u8]> = wav.into();
 
-        let mut dec = DecoderBuilder::new_i16(1, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_i16()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
             .copy_memory(wav.clone())
             .unwrap();
 
@@ -1151,7 +1293,9 @@ mod tests {
         let wav = tiny_test_wav_mono(frames_total);
         let wav: Arc<[u8]> = wav.into();
 
-        let mut dec = DecoderBuilder::new_i32(1, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_i32()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
             .copy_memory(wav.clone())
             .unwrap();
 
@@ -1166,7 +1310,9 @@ mod tests {
         let wav = tiny_test_wav_mono(frames_total);
         let wav: Arc<[u8]> = wav.into();
 
-        let mut dec = DecoderBuilder::new_s24_packed(1, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_s24_packed()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
             .copy_memory(wav.clone())
             .unwrap();
 
@@ -1181,7 +1327,9 @@ mod tests {
         let wav = tiny_test_wav_mono(frames_total);
         let wav: Arc<[u8]> = wav.into();
 
-        let mut dec = DecoderBuilder::new_f32(1, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_f32()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
             .copy_memory(wav.clone())
             .unwrap();
 
@@ -1198,7 +1346,9 @@ mod tests {
         let guard = TempFileGuard::new(unique_tmp_path("wav"));
         std::fs::write(guard.path(), &wav).unwrap();
 
-        let mut dec = DecoderBuilder::new_u8(1, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_u8()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
             .from_file(guard.path())
             .unwrap();
 
@@ -1215,7 +1365,9 @@ mod tests {
         let guard = TempFileGuard::new(unique_tmp_path("wav"));
         std::fs::write(guard.path(), &wav).unwrap();
 
-        let mut dec = DecoderBuilder::new_i16(1, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_i16()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
             .from_file(guard.path())
             .unwrap();
 
@@ -1232,7 +1384,9 @@ mod tests {
         let guard = TempFileGuard::new(unique_tmp_path("wav"));
         std::fs::write(guard.path(), &wav).unwrap();
 
-        let mut dec = DecoderBuilder::new_i32(1, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_i32()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
             .from_file(guard.path())
             .unwrap();
 
@@ -1249,7 +1403,9 @@ mod tests {
         let guard = TempFileGuard::new(unique_tmp_path("wav"));
         std::fs::write(guard.path(), &wav).unwrap();
 
-        let mut dec = DecoderBuilder::new_s24_packed(1, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_s24_packed()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
             .from_file(guard.path())
             .unwrap();
 
@@ -1266,7 +1422,9 @@ mod tests {
         let guard = TempFileGuard::new(unique_tmp_path("wav"));
         std::fs::write(guard.path(), &wav).unwrap();
 
-        let mut dec = DecoderBuilder::new_f32(1, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_f32()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
             .from_file(guard.path())
             .unwrap();
 
@@ -1284,7 +1442,9 @@ mod tests {
         std::fs::write(guard.path(), &wav).unwrap();
         let file = std::fs::File::open(guard.path()).unwrap();
 
-        let mut dec = DecoderBuilder::new_u8(1, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_u8()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
             .from_reader(file)
             .unwrap();
 
@@ -1302,7 +1462,9 @@ mod tests {
         std::fs::write(guard.path(), &wav).unwrap();
         let file = std::fs::File::open(guard.path()).unwrap();
 
-        let mut dec = DecoderBuilder::new_i16(1, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_i16()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
             .from_reader(file)
             .unwrap();
 
@@ -1320,7 +1482,9 @@ mod tests {
         std::fs::write(guard.path(), &wav).unwrap();
         let file = std::fs::File::open(guard.path()).unwrap();
 
-        let mut dec = DecoderBuilder::new_i32(1, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_i32()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
             .from_reader(file)
             .unwrap();
 
@@ -1338,7 +1502,9 @@ mod tests {
         std::fs::write(guard.path(), &wav).unwrap();
         let file = std::fs::File::open(guard.path()).unwrap();
 
-        let mut dec = DecoderBuilder::new_s24_packed(1, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_s24_packed()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
             .from_reader(file)
             .unwrap();
 
@@ -1356,7 +1522,9 @@ mod tests {
         std::fs::write(guard.path(), &wav).unwrap();
         let file = std::fs::File::open(guard.path()).unwrap();
 
-        let mut dec = DecoderBuilder::new_f32(1, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_f32()
+            .channels(1)
+            .sample_rate(SampleRate::Sr48000)
             .from_reader(file)
             .unwrap();
 

@@ -614,7 +614,9 @@ mod test {
 
         assert_eq!(frames_total, written as usize);
 
-        let mut dec = DecoderBuilder::new_u8(2, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_u8()
+            .channels(2)
+            .sample_rate(SampleRate::Sr48000)
             .from_file(guard.path())
             .unwrap();
 
@@ -641,7 +643,9 @@ mod test {
 
         assert_eq!(frames_total, written as usize);
 
-        let mut dec = DecoderBuilder::new_i16(2, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_i16()
+            .channels(2)
+            .sample_rate(SampleRate::Sr48000)
             .from_file(guard.path())
             .unwrap();
 
@@ -668,7 +672,9 @@ mod test {
 
         assert_eq!(frames_total, written as usize);
 
-        let mut dec = DecoderBuilder::new_i32(2, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_i32()
+            .channels(2)
+            .sample_rate(SampleRate::Sr48000)
             .from_file(guard.path())
             .unwrap();
 
@@ -695,7 +701,9 @@ mod test {
 
         assert_eq!(frames_total, written as usize);
 
-        let mut dec = DecoderBuilder::new_s24_packed(2, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_s24_packed()
+            .channels(2)
+            .sample_rate(SampleRate::Sr48000)
             .from_file(guard.path())
             .unwrap();
 
@@ -722,7 +730,9 @@ mod test {
 
         assert_eq!(frames_total, written as usize);
 
-        let mut dec = DecoderBuilder::new_f32(2, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_f32()
+            .channels(2)
+            .sample_rate(SampleRate::Sr48000)
             .from_file(guard.path())
             .unwrap();
 
@@ -750,7 +760,9 @@ mod test {
 
         assert_eq!(frames_total, written as usize);
 
-        let mut dec = DecoderBuilder::new_u8(2, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_u8()
+            .channels(2)
+            .sample_rate(SampleRate::Sr48000)
             .from_file(guard.path())
             .unwrap();
 
@@ -778,7 +790,9 @@ mod test {
 
         assert_eq!(frames_total, written as usize);
 
-        let mut dec = DecoderBuilder::new_i16(2, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_i16()
+            .channels(2)
+            .sample_rate(SampleRate::Sr48000)
             .from_file(guard.path())
             .unwrap();
 
@@ -806,7 +820,9 @@ mod test {
 
         assert_eq!(frames_total, written as usize);
 
-        let mut dec = DecoderBuilder::new_i32(2, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_i32()
+            .channels(2)
+            .sample_rate(SampleRate::Sr48000)
             .from_file(guard.path())
             .unwrap();
 
@@ -834,7 +850,9 @@ mod test {
 
         assert_eq!(frames_total, written as usize);
 
-        let mut dec = DecoderBuilder::new_s24_packed(2, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_s24_packed()
+            .channels(2)
+            .sample_rate(SampleRate::Sr48000)
             .from_file(guard.path())
             .unwrap();
 
@@ -862,7 +880,9 @@ mod test {
 
         assert_eq!(frames_total, written as usize);
 
-        let mut dec = DecoderBuilder::new_f32(2, SampleRate::Sr48000)
+        let mut dec = DecoderBuilder::new_f32()
+            .channels(2)
+            .sample_rate(SampleRate::Sr48000)
             .from_file(guard.path())
             .unwrap();
 

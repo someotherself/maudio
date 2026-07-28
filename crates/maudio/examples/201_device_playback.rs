@@ -28,7 +28,10 @@ fn main() -> MaResult<()> {
         println!("Run using: cargo run --features vorbis --example 201_device_playback.rs.rs.rs");
         return Ok(());
     }
-    let mut decoder = DecoderBuilder::new_i16(2, SampleRate::Sr44100).from_memory(MUSIC_FILE)?;
+    let mut decoder = DecoderBuilder::new_i16()
+        .channels(2)
+        .sample_rate(SampleRate::Sr44100)
+        .from_memory(MUSIC_FILE)?;
 
     // We get the data format info from the encoder to ensure they are the same as the device
     // This step may be optional in some cases, especially if they are both left as default.

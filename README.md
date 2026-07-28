@@ -181,7 +181,7 @@ Playback device
 A playback device exposes a `&mut out` slice where we pass in pcm frames for playback.
 
 ```rust
-    let mut decoder = DecoderBuilder::new_f32(2, SampleRate::Sr44100).from_file(&path)?;
+    let mut decoder = DecoderBuilder::new_f32().channels(2).sample_rate(SampleRate::Sr44100).from_file(&path)?;
 
     let mut device = DeviceBuilder::playback()
         .f16()
