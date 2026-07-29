@@ -67,7 +67,7 @@
 //! # use maudio::engine::engine_builder::EngineBuilder;
 //! # use maudio::engine::resource::rm_builder::ResourceManagerBuilder;
 //! # fn main() -> maudio::MaResult<()> {
-//! let rm = ResourceManagerBuilder::new().build_f32()?;
+//! let rm = ResourceManagerBuilder::new_f32().build()?;
 //! let engine = EngineBuilder::new()
 //!     .resource_manager(&rm)
 //!     .build()?;
@@ -92,7 +92,9 @@ use crate::{
         formats::{Format, SampleBuffer},
         sample_rate::SampleRate,
     },
-    data_source::{AsSourcePtr, SharedSource},
+    data_source::{
+        sources::decoder::custom_decoder::BackendRegistration, AsSourcePtr, SharedSource,
+    },
     engine::resource::{
         rm_buffer::{ResourceManagerBuffer, ResourceManagerBufferBuilder},
         rm_builder::ResourceManagerBuilder,
@@ -217,6 +219,10 @@ pub(crate) struct InnerResourceManager<F: PcmFormat> {
     inner: *mut sys::ma_resource_manager,
     #[allow(unused)]
     channels: Option<u32>,
+    #[allow(unused)]
+    format: Format,
+    backend_reg: Option<*mut BackendRegistration<F>>,
+    _decoder_vtables: Box<[*const sys::ma_decoding_backend_vtable]>, // keep alive
     _format: PhantomData<F>,
 }
 
@@ -980,7 +986,15 @@ pub trait RmOps: AsRmPtr {
 }
 
 impl<F: PcmFormat> ResourceManager<F> {
-    fn new_with_config(config: &ResourceManagerBuilder) -> MaResult<Self> {
+    fn new_with_config(config: &mut ResourceManagerBuilder<F>) -> MaResult<Self> {
+        let (vtables, backend_reg) = if !config.vtables.is_empty() {
+            let vtables = config.set_backend_vtables()?;
+            let reg = config.set_backend_registration();
+            (vtables, Some(reg))
+        } else {
+            (Box::default(), None)
+        };
+
         let mut mem: Box<MaybeUninit<sys::ma_resource_manager>> = Box::new(MaybeUninit::uninit());
 
         resource_ffi::ma_resource_manager_init(config.as_raw_ptr(), mem.as_mut_ptr())?;
@@ -991,7 +1005,10 @@ impl<F: PcmFormat> ResourceManager<F> {
         Ok(Self {
             inner: Arc::new(InnerResourceManager {
                 inner,
-                channels: None,
+                channels: config.channels,
+                format: config.format,
+                backend_reg,
+                _decoder_vtables: vtables,
                 _format: PhantomData,
             }),
         })
@@ -2139,6 +2156,12 @@ pub(crate) mod resource_ffi {
 impl<F: PcmFormat> Drop for InnerResourceManager<F> {
     fn drop(&mut self) {
         resource_ffi::ma_resource_manager_uninit(self);
+        for vtable in self._decoder_vtables.iter() {
+            drop(unsafe { Box::from_raw(*vtable as *mut sys::ma_decoding_backend_vtable) });
+        }
+        if let Some(backend_reg) = self.backend_reg {
+            drop(unsafe { Box::from_raw(backend_reg) });
+        }
         drop(unsafe { Box::from_raw(self.inner) });
     }
 }
@@ -2170,24 +2193,24 @@ mod test {
 
     #[test]
     fn test_resource_man_basic_init() {
-        let rm = ResourceManagerBuilder::new().build_f32().unwrap();
+        let rm = ResourceManagerBuilder::new_f32().build().unwrap();
         drop(rm);
     }
 
     #[test]
     fn test_resource_man_basic_init_2() {
-        let rm = ResourceManagerBuilder::new()
+        let rm = ResourceManagerBuilder::new_f32()
             .job_thread_count(1)
             .channels(2)
             .sample_rate(crate::audio::sample_rate::SampleRate::Sr11025)
-            .build_f32()
+            .build()
             .unwrap();
         drop(rm);
     }
 
     #[test]
     fn test_resource_man_basic_register_file() {
-        let rm = ResourceManagerBuilder::new().build_f32().unwrap();
+        let rm = ResourceManagerBuilder::new_f32().build().unwrap();
         let wav = tiny_test_wav_mono(20);
         let path_guard = TempFileGuard::new(unique_tmp_path("wav"));
         std::fs::write(path_guard.path(), &wav).unwrap();
@@ -2201,7 +2224,7 @@ mod test {
 
     #[test]
     fn test_resource_man_basic_register_encoded_data() {
-        let rm = ResourceManagerBuilder::new().build_f32().unwrap();
+        let rm = ResourceManagerBuilder::new_f32().build().unwrap();
         let wav: Vec<u8> = tiny_test_wav_mono(20);
         let guard = rm.register_encoded("test:wav", &wav).unwrap();
         let _buf = guard.build_buffer(RmSourceFlags::NONE).unwrap();
@@ -2210,7 +2233,7 @@ mod test {
 
     #[test]
     fn test_resource_man_decoded_u8() {
-        let rm = ResourceManagerBuilder::new().build_f32().unwrap();
+        let rm = ResourceManagerBuilder::new_f32().build().unwrap();
         let data = asset_interleaved_u8(2, 100, 1);
         let guard = rm
             .register_decoded_u8(
@@ -2226,7 +2249,7 @@ mod test {
 
     #[test]
     fn test_resource_man_decoded_i16() {
-        let rm = ResourceManagerBuilder::new().build_f32().unwrap();
+        let rm = ResourceManagerBuilder::new_f32().build().unwrap();
         let data = asset_interleaved_i16(2, 100, 1);
         let guard = rm
             .register_decoded_i16(
@@ -2242,7 +2265,7 @@ mod test {
 
     #[test]
     fn test_resource_man_decoded_i32() {
-        let rm = ResourceManagerBuilder::new().build_f32().unwrap();
+        let rm = ResourceManagerBuilder::new_f32().build().unwrap();
         let data = asset_interleaved_i32(2, 100, 1);
         let guard = rm
             .register_decoded_i32(
@@ -2258,7 +2281,7 @@ mod test {
 
     #[test]
     fn test_resource_man_decoded_f32() {
-        let rm = ResourceManagerBuilder::new().build_f32().unwrap();
+        let rm = ResourceManagerBuilder::new_f32().build().unwrap();
         let data = asset_interleaved_f32(2, 100, 1.0);
         let guard = rm
             .register_decoded_f32(
@@ -2276,7 +2299,7 @@ mod test {
 
     #[test]
     fn test_resource_man_decoded_s24_packed() {
-        let rm = ResourceManagerBuilder::new().build_f32().unwrap();
+        let rm = ResourceManagerBuilder::new_f32().build().unwrap();
         let data = asset_interleaved_s24_packed_le(2, 100, 1);
         let guard = rm
             .register_decoded_s24_packed(
@@ -2292,7 +2315,7 @@ mod test {
 
     #[test]
     fn test_resource_man_decoded_s24() {
-        let rm = ResourceManagerBuilder::new().build_f32().unwrap();
+        let rm = ResourceManagerBuilder::new_f32().build().unwrap();
         let data = asset_interleaved_s24_i32(2, 100, 1);
         let guard = rm
             .register_decoded_s24(
@@ -2308,7 +2331,7 @@ mod test {
 
     #[test]
     fn test_resource_man_async_without_fence() {
-        let rm = ResourceManagerBuilder::new().build_f32().unwrap();
+        let rm = ResourceManagerBuilder::new_f32().build().unwrap();
 
         let wav = tiny_test_wav_mono(200);
         let path_guard = TempFileGuard::new(unique_tmp_path("wav"));
@@ -2340,7 +2363,7 @@ mod test {
 
     #[test]
     fn test_resource_man_moving_to_thread() {
-        let rm = ResourceManagerBuilder::new().build_f32().unwrap();
+        let rm = ResourceManagerBuilder::new_f32().build().unwrap();
 
         let wav = tiny_test_wav_mono(20);
         let path_guard = TempFileGuard::new(unique_tmp_path("wav"));

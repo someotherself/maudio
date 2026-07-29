@@ -545,7 +545,7 @@ mod test {
 
     #[test]
     fn test_engine_builder_with_resource_manager() {
-        let rm = ResourceManagerBuilder::new().build_f32().unwrap();
+        let rm = ResourceManagerBuilder::new_f32().build().unwrap();
         let engine = EngineBuilder::new()
             .resource_manager(&rm)
             .build_for_tests()
@@ -555,7 +555,7 @@ mod test {
 
     #[test]
     fn test_engine_builder_many_with_one_resource_manager() {
-        let rm = ResourceManagerBuilder::new().build_f32().unwrap();
+        let rm = ResourceManagerBuilder::new_f32().build().unwrap();
         let engine1 = EngineBuilder::new()
             .resource_manager(&rm)
             .build_for_tests()

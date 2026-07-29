@@ -88,7 +88,7 @@ where
     pub(crate) channels: Option<u32>,
     pub(crate) sample_rate: Option<SampleRate>,
     pub(crate) channel_map: Vec<Channel>,
-    _format: PhantomData<F>,
+    pub(crate) _format: PhantomData<F>,
 }
 
 /// The Data Source create inside the onInit

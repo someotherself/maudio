@@ -9,8 +9,10 @@ pub struct RmFlags(RmFlagsRaw);
 
 impl RmFlags {
     pub const NONE: Self = Self(0);
+    /// Only valid when the job thread count is 0
     pub const NON_BLOCKING: Self =
         Self(sys::ma_resource_manager_flags_MA_RESOURCE_MANAGER_FLAG_NON_BLOCKING);
+    /// Disables any kind of multithreading. Implicitly enables NON_BLOCKING.
     pub const NO_THREADING: Self =
         Self(sys::ma_resource_manager_flags_MA_RESOURCE_MANAGER_FLAG_NO_THREADING);
 

@@ -273,7 +273,7 @@ mod test {
 
     #[test]
     fn test_res_man_data_source_builder_basic_init() {
-        let rm = ResourceManagerBuilder::new().build_f32().unwrap();
+        let rm = ResourceManagerBuilder::new_f32().build().unwrap();
 
         let wav = tiny_test_wav_mono(20);
         let path_guard = TempFileGuard::new(unique_tmp_path("wav"));

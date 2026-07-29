@@ -25,7 +25,7 @@ use crate::{
 };
 
 pub mod custom_decoder;
-mod decoder_vtable;
+pub(crate) mod decoder_vtable;
 pub mod decoding_backend;
 
 /// Streaming audio decoder.
@@ -112,7 +112,6 @@ pub mod decoding_backend;
 pub struct Decoder<F: PcmFormat, S> {
     inner: *mut sys::ma_decoder,
     channels: u32,
-    // sample_rate: SampleRate,
     format: Format,
     user_data: Option<DecoderUserDataDestructor>,
     _sample_format: PhantomData<F>,
@@ -148,11 +147,9 @@ impl<F: PcmFormat, S> Decoder<F, S> {
     fn new(inner: *mut sys::ma_decoder, format: Format, source_data: S) -> Self {
         let ptr = unsafe { &*inner };
         let channels = ptr.converter.channelConverter.channelsOut;
-        // let sample_rate = ptr.converter.sampleRateOut;
         Self {
             inner,
             channels,
-            // sample_rate: config.sample_rate,
             format,
             user_data: None,
             _sample_format: PhantomData,
