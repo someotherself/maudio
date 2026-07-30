@@ -75,7 +75,7 @@ fn link_user_supplied_miniaudio() {
     println!("cargo:rustc-link-lib=static=miniaudio");
 }
 
-#[cfg(not(feature = "generate-bindings"))]
+#[cfg(not(feature = "supplybin"))]
 fn backend_features(builder: &mut cc::Build) {
     if cfg!(feature = "no-wasapi") {
         builder.define("MA_NO_WASAPI", "1");
