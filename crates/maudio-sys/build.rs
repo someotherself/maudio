@@ -1,8 +1,6 @@
 use std::env;
 use std::path::PathBuf;
 
-use cc::Build;
-
 #[cfg(feature = "generate-bindings")]
 fn write_bindings(out_bindings: &std::path::Path) {
     let mut builder = bindgen::Builder::default()
@@ -34,7 +32,51 @@ fn write_bindings(out_bindings: &std::path::Path) {
         .expect("Failed to copy pre-generated bindings to OUT_DIR");
 }
 
-fn backend_features(builder: &mut Build) {
+#[cfg(feature = "supplybin")]
+fn link_user_supplied_miniaudio() {
+    const LIB_ROOT: &str = "MAUDIO_EXTERNAL_LIB_DIR";
+
+    println!("cargo:rerun-if-env-changed={LIB_ROOT}");
+
+    let root = PathBuf::from(env::var_os(LIB_ROOT).expect(
+        "`supplybin` requires MAUDIO_EXTERNAL_LIB_DIR to point \
+         to the root directory containing the precompiled libraries",
+    ));
+
+    let target = env::var("TARGET").expect("Cargo did not provide the TARGET environment variable");
+
+    let lib_dir = root.join(&target);
+
+    let filename = if target.contains("windows-msvc") {
+        "miniaudio.lib"
+    } else {
+        "libminiaudio.a"
+    };
+
+    let library = lib_dir.join(filename);
+
+    if !library.is_file() {
+        panic!(
+            "could not find the precompiled miniaudio library for target \
+            `{target}` at `{}`",
+            library.display()
+        );
+    }
+
+    if !lib_dir.is_dir() {
+        panic!(
+            "no precompiled miniaudio library was supplied for target `{target}`; \
+             expected directory `{}`",
+            lib_dir.display()
+        );
+    }
+
+    println!("cargo:rustc-link-search=native={}", lib_dir.display());
+    println!("cargo:rustc-link-lib=static=miniaudio");
+}
+
+#[cfg(not(feature = "generate-bindings"))]
+fn backend_features(builder: &mut cc::Build) {
     if cfg!(feature = "no-wasapi") {
         builder.define("MA_NO_WASAPI", "1");
     }
@@ -84,34 +126,41 @@ fn main() {
         }
     }
 
-    println!("cargo:rerun-if-changed=native/miniaudio.c");
-    println!("cargo:rerun-if-changed=native/miniaudio/miniaudio.h");
-    println!("cargo:rerun-if-changed=native/miniaudio/extras/stb_vorbis.c");
     #[cfg(windows)]
     println!("cargo:rerun-if-changed=src/pregen_bindings/windows.rs");
     #[cfg(unix)]
     println!("cargo:rerun-if-changed=src/pregen_bindings/unix.rs");
 
-    let mut cc_builder = cc::Build::new();
+    #[cfg(feature = "supplybin")]
+    link_user_supplied_miniaudio();
 
-    if cfg!(feature = "vorbis") {
-        // stb_vorbis.c is added by miniaudio.c
-        cc_builder.define("MAUDIO_ENABLE_VORBIS", "1");
-    } else {
-        cc_builder.define("MA_NO_VORBIS", "1");
+    #[cfg(not(feature = "supplybin"))]
+    {
+        println!("cargo:rerun-if-changed=native/miniaudio.c");
+        println!("cargo:rerun-if-changed=native/miniaudio/miniaudio.h");
+        println!("cargo:rerun-if-changed=native/miniaudio/extras/stb_vorbis.c");
+
+        let mut cc_builder = cc::Build::new();
+
+        if cfg!(feature = "vorbis") {
+            // stb_vorbis.c is added by miniaudio.c
+            cc_builder.define("MAUDIO_ENABLE_VORBIS", "1");
+        } else {
+            cc_builder.define("MA_NO_VORBIS", "1");
+        }
+
+        // backend features
+        backend_features(&mut cc_builder);
+
+        cc_builder
+            .file("native/miniaudio_version_check.c")
+            .file("native/miniaudio.c")
+            .include("native")
+            .flag_if_supported("-Wno-maybe-uninitialized")
+            .flag_if_supported("-Wno-unused-parameter")
+            .flag_if_supported("-Wno-unused-function")
+            .compile("miniaudio");
     }
-
-    // backend features
-    backend_features(&mut cc_builder);
-
-    cc_builder
-        .file("native/miniaudio_version_check.c")
-        .file("native/miniaudio.c")
-        .include("native")
-        .flag_if_supported("-Wno-maybe-uninitialized")
-        .flag_if_supported("-Wno-unused-parameter")
-        .flag_if_supported("-Wno-unused-function")
-        .compile("miniaudio");
 
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
     let out_bindings = out_path.join("bindings.rs");
