@@ -25,13 +25,16 @@ use symphonia::{
 };
 
 // This example uses a decoder implementation identical to `203_decoder_symphonia`
+// See that example file for more information about how to create a custom decoder.
 //
 // Instead, this example uses that implementation in the high level API,
 // by adding the custom decoder to a resource manager.
 //
+// In the Engine, the Resource Manager is responsible for decoding sounds
+// added using the `Sound` or by loading them into the resource manager directly.
 //
-//
-//
+// Adding a custom decoding backend to a Resource Manager makes it the default
+// decoder for the Engine (or multiple Engines) extending the list supported formats.
 
 fn main() -> MaResult<()> {
     // Replace this with your example file
