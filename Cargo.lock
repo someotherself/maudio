@@ -150,16 +150,8 @@ checksum = "0ceec5bc11778974d1bcb055b18002eba7f4b3518b6a0081b3af5f21666da9ad"
 name = "maudio"
 version = "0.1.6"
 dependencies = [
- "maudio-sys 0.1.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "maudio-sys 0.1.3",
  "symphonia",
-]
-
-[[package]]
-name = "maudio-sys"
-version = "0.1.3"
-dependencies = [
- "bindgen",
- "cc",
 ]
 
 [[package]]
@@ -167,6 +159,14 @@ name = "maudio-sys"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f00ae1969d0a389937161b834623e5cba2d8449752a0970d71382cf9a905bb35"
+dependencies = [
+ "bindgen",
+ "cc",
+]
+
+[[package]]
+name = "maudio-sys"
+version = "0.1.4"
 dependencies = [
  "bindgen",
  "cc",
