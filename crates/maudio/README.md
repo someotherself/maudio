@@ -5,6 +5,8 @@
 # Miniaudio version
 - The crate is currently locked to miniaudio version **0.11.23**
 
+miniaudio does not guarantee a stable ABI, even between minor releases. The same applies to maudio.
+
 # Building
 
 ### Compiling
@@ -23,29 +25,76 @@ The minimum supported Rust version depends on how the crate is built.
 - Pre-generated bindings exist for Windows and Linux.
 - On MacOS, `--generate-bindings` feature must be used for now.
 
+### Status of cross-platform compatibility
+| Platform | Pregen bindings exist | Passed tests | Precompiled binary exists
+|-------|--------|--------|--------|
+| `windows` | Yes | Yes | No |
+| `linux` | Yes | Yes | No |
+| `macOS` | No | Yes | No |
+| `BSD family` | No | No | No |
+| `iOS` | No | No | No |
+| `Android` | No | No | No |
+| `Web` | No | No | No |
+
+## How to use
+
+See [Examples](./crates/maudio/examples/) for a tutorial style introduction into `maudio`
+
 # Description
 
-Currently, `maudio` offers a high level audio interface accessed via an Engine.
+`maudio` offers access to bit the high level audio and low level API's from miniaudio.
 
-While exposing a very easy-to-use interface, the Engine only allows playback and does not support recording, loopback, or duplex operation, and lacks the flexibility and complexity of the low-level API (work in progress).
+While exposing a very easy-to-use interface, the Engine only allows playback and does not support recording, loopback, or duplex operation, and lacks the flexibility and complexity of the low-level API.
 
-An Engine contains a NodeGraph, which represents a directed graph of audio processing units called Nodes. Nodes can be audio sources (such as sounds or waveforms), processing units (DSP, filters, splitters), or endpoints. Audio data flows through the graph from source nodes, through optional processing nodes, and finally into the endpoint.
+## High Level API
 
-By default, sounds created from an Engine are automatically attached to the graph’s endpoint and played in a push-based manner. This means audio is produced and mixed internally by the engine, and the user does not need to manually pull or read audio data.
+The high level API is built around an audio **Engine**. Under the hood, the engine consists of:
+- **ResourceManager**: It is responsible for loading sounds into memory or streaming them. It is also responsible for refence counting them to avoid loading sounds into memory multiple times.
+It also has a **Decoder** and can decode audio either before or after it is loaded into memory.
+- **NodeGraph**: It is a directed graph of audio processing units called Nodes. Nodes can be audio sources (such as sounds or waveforms), processing units (DSP, filters, splitters), or endpoints. Audio data flows through the graph from source nodes, through optional processing nodes, and finally into the endpoint.
+- **Device**: An abstraction of a physical device. Represents the audio playback device and is responsible for driving the engine. Internally, it runs a callback on a dedicated audio thread, which continuously requests (pulls) audio frames from the engine. The engine, in turn, processes the node graph to produce the requested audio data.
+
+By default, `Sounds` created from an Engine are automatically attached to the graph’s endpoint. This means audio is produced and mixed internally by the engine, and the user does not need to manually pull or read audio data. Other source nodes nodes will need to be manually connected.
 
 While simple playback can be achieved without interacting directly with the NodeGraph, more advanced setups allow nodes to be manually connected, reordered, or routed through custom processing chains.
 
 Almost all types in maudio are initialized using a builder pattern, allowing additional configuration at creation time while keeping default usage simple.
 
+## Low Level API
+
+In addition to the high level `Engine` API, `maudio` exposes a low level interface for working directly with the core audio building blocks.
+While the high level API provides a ready-to-use playback system, the low level API gives you the components needed to build your own. This includes manual control over devices, audio graphs, data sources, decoding, and resource management.
+
+The two APIs are closely related: the high level engine is built using many of the same concepts exposed by the low level API, but organizes them into a simpler, playback-focused workflow.
+
+The low level API includes:
+
+- **Context** for initializing the audio backend and enumerating devices.
+- **Device** for creating playback, capture, loopback, or duplex streams with direct control over the audio callback.
+- **Decoder** for reading audio from encoded formats (mp3, flac, wav and ogg).
+- **Encoder** for saving PCM frames into an encoded format (wav supported).
+- **Data sources** as a unified interface for producing PCM frames.
+- **Audio buffers** for working with decoded PCM data in memory.
+- **Utility primitives** such as ring buffers, fences, and notification systems for real-time and asynchronous coordination.
+
+## Custom types
+- **Custom nodes**: Allows creating nodes with functionality beyond what already exists in miniaudio. This includes sources, passthrough (for inspecting frames), transformers (for dsp) or resampling nodes
+- **Custom audio sources**: Allows exposing any source of PCM frames through miniaudio’s standard data-source interface. Custom sources can support operations such as reading, seeking, looping, and querying their format, and can be used anywhere another data source—such as a decoder—would be accepted.
+- **Custom decoders**: Allows using any decoding library to create a decoder that integrates seamlessly with the rest of the library. This can extend the supported formats beyond mp3, flac, wav and ogg (for example adding symphonia to maudio).
+
+Use the low level API when you need full control over how audio is generated, processed, or delivered, or when building abstractions on top of `maudio`.
+
 ### Supported (native) PCM formats:
 - u8, i16, i24 (3-byte packed LE), i32, and f32.
 
-24-bit audio can be used either as packed 3-byte samples (native) or as i32 (automatic conversion done by maudio).
+24-bit audio can be used either as packed 3-byte samples (native) or as i32 (automatic conversion done by maudio, only supported for the high level API).
 
-# Examples
+# Examples using the High Level API
 
 ```rust
     let engine = Engine::new().unwrap();
+    // A Sound cannot be initialized without an existing engine.
+    // However, the other Nodes only need a NodeGraph.
     let mut sound = engine.new_sound_from_file(&path).unwrap();
     sound.play_sound().unwrap();
     // block thread while music plays
@@ -124,4 +173,149 @@ fn main() {
     let mut sound = engine.new_sound_from_source(&decoder).unwrap();
     // Play sound...
 }
+```
+# Examples using the Low Level API
+
+Playback device
+
+A playback device exposes a `&mut out` slice where we pass in pcm frames for playback.
+
+```rust
+    let mut decoder = DecoderBuilder::new_f32().channels(2).sample_rate(SampleRate::Sr44100).from_file(&path)?;
+
+    let mut device = DeviceBuilder::playback()
+        .f16()
+        .playback_channels(2)
+        .sample_rate(SampleRate::Sr44100)
+        .with_callback(move |_, out| {
+            let frames_read = decoder.read_pcm_frames_into(out).unwrap_or(0);
+
+            let samples_read = frames_read * data_format.channels as usize;
+
+            if samples_read < out.len() {
+                out[samples_read..].fill(0);
+            }
+        })?;
+
+    device.device_start()?;
+```
+
+Capture device
+
+A playback device exposes a `&input` slice where we pass in pcm frames for playback.
+
+```rust
+    let mut encoder = EncoderBuilder::new_f32(2, SampleRate::Sr44100)
+        .wav()
+        .build_path(&dst_path)?;
+
+    let mut device = DeviceBuilder::capture()
+        .f16()
+        .capture_channels(2)
+        .sample_rate(SampleRate::Sr44100)
+        .with_callback(move |_, input| {
+              let Ok(_) = encoder.write_pcm_frames(input) else {
+                  return;
+              };
+    })?;
+
+    device.device_start()?;
+```
+
+Playback device with a node graph for advanced dsp
+
+```rust
+    // When initializing a node graph, we must pick the channels count of the endpoint
+    let node_graph = NodeGraphBuilder::new(2).build()?;
+    let mut reader = node_graph.try_acquire_reader()?;
+
+    let mut device = DeviceBuilder::playback()
+        .f16()
+        .playback_channels(2)
+        .sample_rate(SampleRate::Sr44100)
+        .with_callback(move |_, out| {
+            // We read directly from the node_graph's endpoint into the device
+            // The node graph always outputs silence if there are no sources
+            // and always satisfies the device's requested frame count
+            let _ = reader.read_pcm_frames_into(out);
+        })?;
+
+    // Use the node_graph to create other nodes such as sources or dsp
+
+    device.device_start()?;
+```
+
+Capture device with a node graph 
+
+It is also possible to use a capture device in combination with a Node Graph.
+This may be useful when doing dsp, or mixing the capture audio with other sounds.
+
+In this scenario, the capture device is not connected to the endpoint. Instead, it is connected as a source. In this example, we are not adding any dsp, or other source.
+
+A more robust version of this can use the `PcmRingBuffer`.
+
+```rust
+    // We will request 1000 frames at a time from the engine
+    // For consistency purposes. Can be adjusted.
+    let frames: usize = 1000; 
+
+    let node_graph = NodeGraphBuilder::new(channels).build()?;
+    let mut reader = node_graph.try_acquire_reader()?;
+    let mut endpoint = node_graph.endpoint();
+
+    // This gives us an audio buffer that does not have a source
+    // Later, we can bind it to the input buffer of the device callback
+    let buffer_base = AudioBufferBuilder::base_ref_f32(channels, frames as u64)?;
+
+    // Add the AudioBuffer to a Source Node and connect it to the endpoint input bus
+    let mut src_node = AttachedSourceNodeBuilder::new(&node_graph, buffer_base).build()?;
+
+    // The source node must live in the callback. Connect it to a splitter and store that in the Store
+    let mut splitter = SplitterNodeBuilder::new(&node_graph, channels).build()?;
+    src_node.attach_output_bus(0, &mut splitter, 0)?;
+    splitter.attach_output_bus(0, &mut endpoint, 0)?;
+
+    // The splitter can now be moved and store somewhere if needed
+
+    let mut encoder = EncoderBuilder::new_f32(channels, sample_rate)
+        .wav()
+        .build_path(path)?;
+
+    // We need an intermediary buffer between the endpoint and the encoder
+    // We should make sure we can fit all 900 frames (1800 samples)
+    // Allocations inside the device callback should be avoided
+    let mut out_buff = vec![0.0; frames * channels as usize];
+
+    let device = builder
+        .capture_channels(channels)
+        .sample_rate(sample_rate)
+        .period_size_frames(frames as u32)
+        .fixed_callback_size(true)
+        .with_callback(move |_, input: &[f32]| {
+            // Bind the Audio Buffer to the input buffer each time the callback runs
+            let Ok(_bound_buffer) = src_node.source_mut().bind(input) else {
+                eprintln!("Failed to bind capture buffer");
+                return;
+            };
+
+            let output = &mut out_buff[..input.len()];
+
+            // Pull frames from the node graph into the temporary buffer
+            let frames_read = match reader.read_pcm_frames_into(output) {
+                Ok(frames_read) => frames_read,
+                Err(err) => {
+                    eprintln!("Node graph read failed: {err:?}");
+                    return;
+                }
+            };
+
+            let samples_read = frames_read * channels as usize;
+
+            // Finally, the encode writes to file
+            if let Err(err) = encoder.write_pcm_frames(&output[..samples_read]) {
+                eprintln!("Encoder write failed: {err:?}");
+            }
+        })?;
+
+    device.device_start()?;
 ```

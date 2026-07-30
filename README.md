@@ -244,3 +244,78 @@ Playback device with a node graph for advanced dsp
 
     device.device_start()?;
 ```
+
+Capture device with a node graph 
+
+It is also possible to use a capture device in combination with a Node Graph.
+This may be useful when doing dsp, or mixing the capture audio with other sounds.
+
+In this scenario, the capture device is not connected to the endpoint. Instead, it is connected as a source. In this example, we are not adding any dsp, or other source.
+
+A more robust version of this can use the `PcmRingBuffer`.
+
+```rust
+    // We will request 1000 frames at a time from the engine
+    // For consistency purposes. Can be adjusted.
+    let frames: usize = 1000; 
+
+    let node_graph = NodeGraphBuilder::new(channels).build()?;
+    let mut reader = node_graph.try_acquire_reader()?;
+    let mut endpoint = node_graph.endpoint();
+
+    // This gives us an audio buffer that does not have a source
+    // Later, we can bind it to the input buffer of the device callback
+    let buffer_base = AudioBufferBuilder::base_ref_f32(channels, frames as u64)?;
+
+    // Add the AudioBuffer to a Source Node and connect it to the endpoint input bus
+    let mut src_node = AttachedSourceNodeBuilder::new(&node_graph, buffer_base).build()?;
+
+    // The source node must live in the callback. Connect it to a splitter and store that in the Store
+    let mut splitter = SplitterNodeBuilder::new(&node_graph, channels).build()?;
+    src_node.attach_output_bus(0, &mut splitter, 0)?;
+    splitter.attach_output_bus(0, &mut endpoint, 0)?;
+
+    // The splitter can now be moved and store somewhere if needed
+
+    let mut encoder = EncoderBuilder::new_f32(channels, sample_rate)
+        .wav()
+        .build_path(path)?;
+
+    // We need an intermediary buffer between the endpoint and the encoder
+    // We should make sure we can fit all 900 frames (1800 samples)
+    // Allocations inside the device callback should be avoided
+    let mut out_buff = vec![0.0; frames * channels as usize];
+
+    let device = builder
+        .capture_channels(channels)
+        .sample_rate(sample_rate)
+        .period_size_frames(frames as u32)
+        .fixed_callback_size(true)
+        .with_callback(move |_, input: &[f32]| {
+            // Bind the Audio Buffer to the input buffer each time the callback runs
+            let Ok(_bound_buffer) = src_node.source_mut().bind(input) else {
+                eprintln!("Failed to bind capture buffer");
+                return;
+            };
+
+            let output = &mut out_buff[..input.len()];
+
+            // Pull frames from the node graph into the temporary buffer
+            let frames_read = match reader.read_pcm_frames_into(output) {
+                Ok(frames_read) => frames_read,
+                Err(err) => {
+                    eprintln!("Node graph read failed: {err:?}");
+                    return;
+                }
+            };
+
+            let samples_read = frames_read * channels as usize;
+
+            // Finally, the encode writes to file
+            if let Err(err) = encoder.write_pcm_frames(&output[..samples_read]) {
+                eprintln!("Encoder write failed: {err:?}");
+            }
+        })?;
+
+    device.device_start()?;
+```
