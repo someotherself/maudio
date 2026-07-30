@@ -33,8 +33,10 @@ If you already cloned it without submodules, run:
 - 108_engine_node_playlist    - Create a simple playlist using SourceNodes and manually polling
 - 109_splitter_node           - Create a very basic splitter node using custom node interface
 - 110_gain_node               - Create a custom gain node and connect it to an Engine
+- 111_decoder_symphonia       - Custom decoder implementation using symphonia with a resource manager
 
 -> Examples using the low level API
 - 201_device_playback         - Use a device and decoder for playback
 - 202_device_dsp              - Using a dsp primitive (lpf) inside the device callback
 - 203_device_record           - Record a 3 second sound and then play it back
+- 204_decoder_symphonia       - Custom decoder implementation using symphonia
