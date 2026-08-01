@@ -6,6 +6,22 @@ By default, maudio-sys compiles the bundled miniaudio source during the build.
 This can be changed by the following feature:
 - `supplybin`: Link with a user-supplied, precompiled static miniaudio library.
 
+## Pregenerated bindings
+
+Generation of raw bindings (with Binden) can be forced using the "generate-bindings" feature.
+Altough, this is mainly used for development work.
+
+The default branch will try to find and use existing pregenerated bindings, and if they don't exist, will generate them.
+Pregenerated bindings exist for the following targets:
+- x86_64-unknown-linux-gnu
+- x86_64-pc-windows-msvc
+- x86_64-pc-windows-gnu
+- x86_64-apple-darwin
+- aarch64-unknown-linux-musl
+- aarch64-unknown-linux-gnu
+- aarch64-pc-windows-msvc
+- aarch64-apple-darwin
+
 ## How to compile and create static miniaudio libraries
 
 The supplybin feature can be used when you want to compile miniaudio separately instead of requiring maudio-sys to compile it during the Cargo build.
@@ -62,7 +78,7 @@ mkdir -p native-libs/{x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu,x86_64-
 Compile the source into an object file and place it in a static archive:
 
 ```bash
-gcc -std=c89 -O2 -fPIC \
+gcc -std=c99 -O2 -fPIC \
     -DMA_NO_VORBIS=1 \
     -c miniaudio.c \
     -o miniaudio.o
@@ -92,7 +108,7 @@ The resulting miniaudio.lib is suitable for the x86_64-pc-windows-msvc Rust targ
 From a MinGW-w64 environment, run:
 ```bash
 
-x86_64-w64-mingw32-gcc -std=c89 -O2 \
+x86_64-w64-mingw32-gcc -std=c00 -O2 \
     -DMA_NO_VORBIS=1 \
     -c miniaudio.c \
     -o miniaudio.o
@@ -106,7 +122,7 @@ This library is suitable for the corresponding Windows GNU Rust target, such as 
 
 Compile the source with Clang and create the archive with libtool:
 ```bash
-clang -std=c89 -O2 \
+clang -std=c00 -O2 \
     -DMA_NO_VORBIS=1 \
     -c miniaudio.c \
     -o miniaudio.o

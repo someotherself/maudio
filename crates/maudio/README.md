@@ -16,21 +16,19 @@ LLVM / Clang
 - Required to compile the C library and to generate Rust bindings; on Windows, this means installing LLVM (clang) in addition to Visual Studio.
 
 ### Minimum Supported Rust Version (MSRV)
-The minimum supported Rust version depends on how the crate is built.
-- Normal build (default, without --generate-bindings): **1.64**
-- Generating bindings (with --generate-bindings enabled): **1.70**
+The minimum supported Rust version is **1.70**
 
 ### Platforms / Bindings
 - Building and testing has only been done on Windows/Linux/MacOS. While miniaudio offers compatibility with Windows, macOS, Linux, BSD, iOS, Android and Web, more testing is needed to ensure `maudio` compatibility with all of them.
-- Pre-generated bindings exist for Windows and Linux.
-- On MacOS, `--generate-bindings` feature must be used for now.
+- List of existing pre-generated bindings can be found in the table below.
+- By default, maudio-sys will try to use existing bindings and if they don't exist, will try to generate them.
 
 ### Status of cross-platform compatibility
 | Platform | Pregen bindings exist | Passed tests | Precompiled binary exists
 |-------|--------|--------|--------|
-| `windows` | Yes | Yes | No |
-| `linux` | Yes | Yes | No |
-| `macOS` | No | Yes | No |
+| `windows` | `x86_64-pc-windows-msvc` <br> `x86_64-pc-windows-gnu` <br> `aarch64-pc-windows-msvc` | Yes | No |
+| `linux` | `x86_64-unknown-linux-gnu` <br> `aarch64-unknown-linux-musl` <br> `aarch64-unknown-linux-gnu` | Yes | No |
+| `macOS` | `aarch64-apple-darwin` <br> `x86_64-apple-darwin` | Yes | No |
 | `BSD family` | No | No | No |
 | `iOS` | No | No | No |
 | `Android` | No | No | No |
@@ -282,7 +280,7 @@ A more robust version of this can use the `PcmRingBuffer`.
         .build_path(path)?;
 
     // We need an intermediary buffer between the endpoint and the encoder
-    // We should make sure we can fit all 900 frames (1800 samples)
+    // We should make sure we can fit all 1000 frames (2000 samples)
     // Allocations inside the device callback should be avoided
     let mut out_buff = vec![0.0; frames * channels as usize];
 
