@@ -1,0 +1,89 @@
+name: Generate Windows ARM64 bindings
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    name: aarch64-pc-windows-msvc
+    runs-on: windows-11-arm
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify miniaudio submodule
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "crates/maudio-sys/native/miniaudio/miniaudio.h")) {
+              throw "miniaudio.h was not found"
+          }
+
+          git submodule status --recursive
+
+      - name: Configure Rust
+        shell: pwsh
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+          rustup target add aarch64-pc-windows-msvc
+
+      - name: Show build environment
+        shell: pwsh
+        run: |
+          Write-Host "Processor: $env:PROCESSOR_ARCHITECTURE"
+          rustc -vV
+          cargo -V
+          clang --version
+          cl
+
+          if ($env:PROCESSOR_ARCHITECTURE -ne "ARM64") {
+              throw "Expected a native ARM64 runner"
+          }
+
+      - name: Generate bindings
+        shell: pwsh
+        env:
+          CARGO_TARGET_DIR: target/bindgen-aarch64-pc-windows-msvc
+        run: |
+          cargo build `
+            -p maudio-sys `
+            --target aarch64-pc-windows-msvc `
+            --features generate-bindings
+
+      - name: Collect bindings
+        shell: pwsh
+        run: |
+          $bindingFile = Get-ChildItem `
+              -Path "target/bindgen-aarch64-pc-windows-msvc" `
+              -Recurse `
+              -Filter "bindings.rs" |
+            Where-Object {
+              $_.FullName -match '[\\/]build[\\/]maudio-sys-[^\\/]+[\\/]out[\\/]bindings\.rs$'
+            } |
+            Select-Object -First 1
+
+          if (-not $bindingFile) {
+              throw "Generated bindings.rs was not found"
+          }
+
+          New-Item -ItemType Directory `
+            -Path "generated-bindings" `
+            -Force | Out-Null
+
+          Copy-Item `
+            $bindingFile.FullName `
+            "generated-bindings/aarch64-pc-windows-msvc.rs"
+
+      - name: Upload bindings
+        uses: actions/upload-artifact@v4
+        with:
+          name: bindings-aarch64-pc-windows-msvc
+          path: generated-bindings/aarch64-pc-windows-msvc.rs
+          if-no-files-found: error
