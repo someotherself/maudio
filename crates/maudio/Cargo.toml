@@ -30,7 +30,7 @@ no-opensl = ["maudio-sys/no-opensl"]
 no-webaudio = ["maudio-sys/no-webaudio"]
 
 [dependencies]
-maudio-sys = { path = "../maudio-sys", version = "0.1.4" }
+maudio-sys = { path = "../maudio-sys", version = "0.1.5" }
 
 [dev-dependencies]
 symphonia = { version = "0.6.0", features = ["all"] }
