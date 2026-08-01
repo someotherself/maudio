@@ -1,0 +1,102 @@
+name: Generate ARM64 Linux bindings
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    name: ${{ matrix.target }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - aarch64-unknown-linux-gnu
+          - aarch64-unknown-linux-musl
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify miniaudio submodule
+        run: |
+          test -f crates/maudio-sys/native/miniaudio/miniaudio.h
+          git submodule status --recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install bindgen dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang libclang-dev
+
+      - name: Install musl toolchain
+        if: matrix.target == 'aarch64-unknown-linux-musl'
+        run: |
+          sudo apt-get install -y musl-tools musl-dev
+
+          test -x "$(command -v musl-gcc)"
+          test -d /usr/include/aarch64-linux-musl
+
+      - name: Configure musl toolchain
+        if: matrix.target == 'aarch64-unknown-linux-musl'
+        run: |
+          echo "CC_aarch64_unknown_linux_musl=musl-gcc" >> "$GITHUB_ENV"
+          echo "AR_aarch64_unknown_linux_musl=ar" >> "$GITHUB_ENV"
+          echo "BINDGEN_EXTRA_CLANG_ARGS=--target=aarch64-unknown-linux-musl -isystem /usr/include/aarch64-linux-musl" >> "$GITHUB_ENV"
+
+      - name: Inspect musl header selection
+        if: matrix.target == 'aarch64-unknown-linux-musl'
+        run: |
+          echo '#include <features.h>' |
+            clang $BINDGEN_EXTRA_CLANG_ARGS -E -dM -x c - |
+            sort |
+            grep -E 'GLIBC|MUSL|GNU_SOURCE|BSD_SOURCE|XOPEN_SOURCE|POSIX_C_SOURCE' || true
+
+          echo '#include <time.h>' |
+            clang $BINDGEN_EXTRA_CLANG_ARGS -E -H -x c - \
+            >/dev/null
+
+      - name: Generate bindings
+        env:
+          CARGO_TARGET_DIR: target/bindgen-${{ matrix.target }}
+        run: |
+          cargo build \
+            -p maudio-sys \
+            --target "${{ matrix.target }}" \
+            --features generate-bindings
+
+      - name: Collect bindings
+        shell: bash
+        run: |
+          binding_file="$(
+            find "target/bindgen-${{ matrix.target }}" \
+              -path "*/build/maudio-sys-*/out/bindings.rs" \
+              -print \
+              -quit
+          )"
+
+          if [[ -z "$binding_file" ]]; then
+            echo "Generated bindings.rs was not found."
+            exit 1
+          fi
+
+          mkdir -p generated-bindings
+          cp "$binding_file" "generated-bindings/${{ matrix.target }}.rs"
+
+      - name: Upload bindings
+        uses: actions/upload-artifact@v4
+        with:
+          name: bindings-${{ matrix.target }}
+          path: generated-bindings/${{ matrix.target }}.rs
+          if-no-files-found: error

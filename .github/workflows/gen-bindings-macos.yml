@@ -1,4 +1,4 @@
-name: Generate ARM64 Linux bindings
+name: Generate macOS bindings
 
 on:
   workflow_dispatch:
@@ -9,15 +9,18 @@ permissions:
 jobs:
   generate:
     name: ${{ matrix.target }}
-    runs-on: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
 
     strategy:
       fail-fast: false
       matrix:
-        target:
-          - aarch64-unknown-linux-gnu
-          - aarch64-unknown-linux-musl
+        include:
+          - target: x86_64-apple-darwin
+            runner: macos-15-intel
+
+          - target: aarch64-apple-darwin
+            runner: macos-15
 
     steps:
       - name: Check out repository
@@ -35,25 +38,28 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Install bindgen dependencies
+      - name: Show build environment
         run: |
-          sudo apt-get update
-          sudo apt-get install -y clang libclang-dev
+          uname -m
+          sw_vers
+          xcodebuild -version
+          clang --version
+          rustc -vV
 
-      - name: Install musl toolchain
-        if: matrix.target == 'aarch64-unknown-linux-musl'
+      - name: Verify runner architecture
         run: |
-          sudo apt-get install -y musl-tools musl-dev
-
-          test -x "$(command -v musl-gcc)"
-          test -d /usr/include/aarch64-linux-musl
-
-      - name: Configure musl toolchain
-        if: matrix.target == 'aarch64-unknown-linux-musl'
-        run: |
-          echo "CC_aarch64_unknown_linux_musl=musl-gcc" >> "$GITHUB_ENV"
-          echo "AR_aarch64_unknown_linux_musl=ar" >> "$GITHUB_ENV"
-          echo "BINDGEN_EXTRA_CLANG_ARGS=--target=aarch64-unknown-linux-musl -isystem /usr/include/aarch64-linux-musl" >> "$GITHUB_ENV"
+          case "${{ matrix.target }}" in
+            x86_64-apple-darwin)
+              test "$(uname -m)" = "x86_64"
+              ;;
+            aarch64-apple-darwin)
+              test "$(uname -m)" = "arm64"
+              ;;
+            *)
+              echo "Unexpected target: ${{ matrix.target }}"
+              exit 1
+              ;;
+          esac
 
       - name: Generate bindings
         env:
@@ -65,7 +71,6 @@ jobs:
             --features generate-bindings
 
       - name: Collect bindings
-        shell: bash
         run: |
           binding_file="$(
             find "target/bindgen-${{ matrix.target }}" \
@@ -80,7 +85,8 @@ jobs:
           fi
 
           mkdir -p generated-bindings
-          cp "$binding_file" "generated-bindings/${{ matrix.target }}.rs"
+          cp "$binding_file" \
+            "generated-bindings/${{ matrix.target }}.rs"
 
       - name: Upload bindings
         uses: actions/upload-artifact@v4
