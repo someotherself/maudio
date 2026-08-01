@@ -1,4 +1,4 @@
-name: Generate ARM64 Linux bindings
+name: Generate Linux ARM64 bindings
 
 on:
   workflow_dispatch:

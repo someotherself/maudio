@@ -52,6 +52,36 @@ jobs:
         env:
           CARGO_TARGET_DIR: target/bindgen-aarch64-pc-windows-msvc
         run: |
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+
+          $vsPath = & $vswhere `
+            -latest `
+            -products * `
+            -requires Microsoft.VisualStudio.Component.VC.Tools.ARM64 `
+            -property installationPath
+
+          if (-not $vsPath) {
+              throw "Visual Studio with the ARM64 C++ toolchain was not found"
+          }
+
+          Import-Module "$vsPath\Common7\Tools\Microsoft.VisualStudio.DevShell.dll"
+
+          Enter-VsDevShell `
+            -VsInstallPath $vsPath `
+            -SkipAutomaticLocation `
+            -DevCmdArguments "-arch=arm64 -host_arch=arm64"
+
+          Write-Host "Processor: $env:PROCESSOR_ARCHITECTURE"
+          Write-Host "Visual Studio: $vsPath"
+
+          rustc -vV
+          cargo -V
+          clang --version
+
+          $cl = Get-Command cl.exe -ErrorAction Stop
+          Write-Host "MSVC compiler: $($cl.Source)"
+          cl 2>&1 | Select-Object -First 3
+
           cargo build `
             -p maudio-sys `
             --target aarch64-pc-windows-msvc `
