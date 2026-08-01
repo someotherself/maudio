@@ -22,6 +22,13 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify miniaudio submodule
+        run: |
+          test -f crates/maudio-sys/native/miniaudio/miniaudio.h
+          git submodule status --recursive
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
