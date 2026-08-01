@@ -72,7 +72,7 @@ impl PlayList {
             if self
                 .current_notifier
                 .as_ref()
-                .map_or(false, |notif| notif.take())
+                .is_some_and(|notif| notif.take())
             {
                 self.play_next(engine)?;
             }
