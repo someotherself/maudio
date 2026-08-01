@@ -34,19 +34,6 @@ jobs:
           rustup default stable
           rustup target add aarch64-pc-windows-msvc
 
-      - name: Show build environment
-        shell: pwsh
-        run: |
-          Write-Host "Processor: $env:PROCESSOR_ARCHITECTURE"
-          rustc -vV
-          cargo -V
-          clang --version
-          cl
-
-          if ($env:PROCESSOR_ARCHITECTURE -ne "ARM64") {
-              throw "Expected a native ARM64 runner"
-          }
-
       - name: Generate bindings
         shell: pwsh
         env:
