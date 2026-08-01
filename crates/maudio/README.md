@@ -10,7 +10,9 @@ miniaudio does not guarantee a stable ABI, even between minor releases. The same
 # Building
 
 ### Compiling
-To build this crate, the underlying C library must be compiled (and optionally bindings generated).
+
+By default this crate tries to compile the underlying C library and requires a C compiler on the target machine.
+The `supplybin` feature overrides this behaviour by using user-supplied static libraries. For more information see [README](../maudio-sys/README.md) on maudio-sys.
 
 LLVM / Clang
 - Required to compile the C library and to generate Rust bindings; on Windows, this means installing LLVM (clang) in addition to Visual Studio.
@@ -24,7 +26,7 @@ The minimum supported Rust version is **1.70**
 - By default, maudio-sys will try to use existing bindings and if they don't exist, will try to generate them.
 
 ### Status of cross-platform compatibility
-| Platform | Pregen bindings exist | Passed tests | Precompiled binary exists
+| Platform | Pregen bindings exist | Passed tests | Precompiled binary exists |
 |-------|--------|--------|--------|
 | `windows` | `x86_64-pc-windows-msvc` <br> `x86_64-pc-windows-gnu` <br> `aarch64-pc-windows-msvc` | Yes | No |
 | `linux` | `x86_64-unknown-linux-gnu` <br> `aarch64-unknown-linux-musl` <br> `aarch64-unknown-linux-gnu` | Yes | No |

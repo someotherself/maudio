@@ -58,20 +58,24 @@ The following example covers common 64-bit Linux, Windows, and macOS targets. It
 Other targets can be used by creating a directory whose name exactly matches Cargo’s target triple and supplying a compatible library.
 See Rust [Platform Support](https://doc.rust-lang.org/rustc/platform-support.html) domentation for more info.
 
-An example folder struct would be:
+The folder structure should follow this structure:
 ```text
 native-libs/
-├── x86_64-unknown-linux-gnu/
-├── aarch64-unknown-linux-gnu/
-├── x86_64-pc-windows-msvc/
-├── aarch64-pc-windows-msvc/
-├── x86_64-pc-windows-gnu/
-├── x86_64-apple-darwin/
-└── aarch64-apple-darwin/
+└── miniaudio-0.11.23
+    ├── x86_64-unknown-linux-gnu/
+    ├── aarch64-unknown-linux-gnu/
+    ├── x86_64-pc-windows-msvc/
+    ├── aarch64-pc-windows-msvc/
+    ├── x86_64-pc-windows-gnu/
+    ├── x86_64-apple-darwin/
+    └── aarch64-apple-darwin/
 ```
+
+Inside the target folder, maudio expects a folder specific for the current miniaudio version, in the format `miniaudio-{version}`. The libraries must be updated when the miniaudio version changes in maudio, and this folder structure is meant to enforce that.
+
 You can create the folder structure above using:
 ```bash
-mkdir -p native-libs/{x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu,x86_64-pc-windows-msvc,aarch64-pc-windows-msvc,x86_64-pc-windows-gnu,x86_64-apple-darwin,aarch64-apple-darwin}
+mkdir -p native-libs/miniaudio-0.11.23/{x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu,x86_64-pc-windows-msvc,aarch64-pc-windows-msvc,x86_64-pc-windows-gnu,x86_64-apple-darwin,aarch64-apple-darwin}
 ```
 ### Linux
 
@@ -158,7 +162,7 @@ MAUDIO_EXTERNAL_LIB_DIR = {
     relative = true
 }
 ```
-MAUDIO_EXTERNAL_LIB_DIR must point to the root directory containing the target-specific subdirectories. 
+MAUDIO_EXTERNAL_LIB_DIR must point to the root directory containing the target-specific subdirectories.
 During the build, maudio-sys selects the subdirectory matching Cargo’s current target.
 
 The expected filename depends on the target:

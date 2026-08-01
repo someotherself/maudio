@@ -72,7 +72,12 @@ fn link_user_supplied_miniaudio() {
 
     let target = env::var("TARGET").expect("Cargo did not provide the TARGET environment variable");
 
-    let lib_dir = root.join(&target);
+    let ver_folder = root.join(format!("miniaudio-{MINIAUDIO_VERSION}"));
+    if !ver_folder.is_dir() {
+        panic!("no compatible libraries were found for target `{MINIAUDIO_VERSION}`",)
+    }
+
+    let lib_dir = ver_folder.join(&target);
 
     let filename = if target.contains("windows-msvc") {
         "miniaudio.lib"
