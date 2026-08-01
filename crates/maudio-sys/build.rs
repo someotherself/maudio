@@ -1,12 +1,17 @@
 use std::env;
 use std::path::PathBuf;
 
-#[cfg(feature = "generate-bindings")]
-fn write_bindings(out_bindings: &std::path::Path) {
+const MINIAUDIO_VERSION: &str = "0.11.23";
+
+// Generates new bindings and writes them
+// Used either by the "generate-bindigns" flag
+// or when pregenerated bindings don't exist for this target
+fn generate_bindings(out_bindings: &std::path::Path) {
     let mut builder = bindgen::Builder::default()
         .header("native/miniaudio/miniaudio.h")
         .clang_arg("-Inative")
         .clang_arg("-Inative/miniaudio")
+        .clang_arg("-std=c99") // stb_vorbis is C99
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .use_core()
         .ctypes_prefix("core::ffi");
@@ -21,15 +26,37 @@ fn write_bindings(out_bindings: &std::path::Path) {
         .expect("Couldn't write bindings.rs");
 }
 
-#[cfg(not(feature = "generate-bindings"))]
+// Checks the current target and wether pregenerated bindings already exist
 fn write_bindings(out_bindings: &std::path::Path) {
-    eprintln!("Copying bindings");
-    #[cfg(unix)]
-    std::fs::copy("src/pregen_bindings/unix.rs", out_bindings)
-        .expect("Failed to copy pre-generated bindings to OUT_DIR");
-    #[cfg(windows)]
-    std::fs::copy("src/pregen_bindings/windows.rs", out_bindings)
-        .expect("Failed to copy pre-generated bindings to OUT_DIR");
+    if cfg!(feature = "generate-bindings") {
+        generate_bindings(out_bindings);
+        return;
+    }
+
+    let target = env::var("TARGET").expect("Cargo did not provide the TARGET environment variable");
+
+    let ver_folder =
+        PathBuf::from("src/pregen_bindings").join(format!("miniaudio-{MINIAUDIO_VERSION}"));
+    if !ver_folder.is_dir() {
+        panic!("no compatible pregenerated bindings were found for target `{MINIAUDIO_VERSION}`",)
+    }
+    let pregenerated = ver_folder.join(&target).with_extension("rs");
+
+    println!("cargo:rerun-if-changed={}", pregenerated.display());
+
+    if pregenerated.is_file() {
+        eprintln!(
+            "Using pre-generated bindings for target `{target}` from `{}`",
+            pregenerated.display()
+        );
+
+        std::fs::copy(&pregenerated, out_bindings)
+            .expect("Failed to copy pre-generated bindings to OUT_DIR");
+    } else {
+        eprintln!("No pre-generated bindings found for target `{target}`; generating bindings");
+
+        generate_bindings(out_bindings);
+    }
 }
 
 #[cfg(feature = "supplybin")]
@@ -119,13 +146,6 @@ fn backend_features(builder: &mut cc::Build) {
 }
 
 fn main() {
-    if cfg!(feature = "generate-bindings") {
-        let minor = rustc_minor().unwrap_or(0);
-        if minor < 70 {
-            panic!("feature `generate-bindings` requires rustc >= 1.70");
-        }
-    }
-
     #[cfg(windows)]
     println!("cargo:rerun-if-changed=src/pregen_bindings/windows.rs");
     #[cfg(unix)]
@@ -153,6 +173,7 @@ fn main() {
         backend_features(&mut cc_builder);
 
         cc_builder
+            .std("c99") // stb_vorbis is C99
             .file("native/miniaudio_version_check.c")
             .file("native/miniaudio.c")
             .include("native")
@@ -166,21 +187,4 @@ fn main() {
     let out_bindings = out_path.join("bindings.rs");
 
     write_bindings(&out_bindings);
-}
-
-// Checks the rustc version when building with generate-bindings feature.
-fn rustc_minor() -> Option<u32> {
-    let rustc = std::env::var_os("RUSTC").unwrap_or_else(|| "rustc".into());
-    let out = std::process::Command::new(rustc).arg("-vV").output().ok()?;
-    let s = std::string::String::from_utf8(out.stdout).ok()?;
-
-    for line in s.lines() {
-        if let Some(rest) = line.strip_prefix("release: ") {
-            let mut it = rest.split('.');
-            let _major = it.next()?.parse::<u32>().ok()?;
-            let minor = it.next()?.parse::<u32>().ok()?;
-            return Some(minor);
-        }
-    }
-    None
 }

@@ -2,7 +2,7 @@
 name = "maudio-sys"
 version = "0.1.4"
 license = "MIT"
-rust-version = "1.64" # oldest toolchain required by cc 1.2.51. Bindgen 0.72.1 requires 1.70
+rust-version = "1.70" # required by bindgen 0.72.1
 edition = "2021"
 build = "build.rs"
 links = "miniaudio"
@@ -12,7 +12,7 @@ categories = ["multimedia::audio", "multimedia"]
 
 [features]
 default = []
-generate-bindings = ["dep:bindgen"]
+generate-bindings = []
 supplybin = []
 vorbis = []
 
@@ -31,11 +31,8 @@ no-aaudio = []
 no-opensl = []
 no-webaudio = []
 
-[build-dependencies.bindgen]
-version = "0.72.1"
-optional = true
-
 [build-dependencies]
 cc = "1.2.51"
+bindgen = "0.72.1"
 
 [dependencies]

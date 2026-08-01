@@ -4,19 +4,7 @@
 #![allow(dead_code)]
 #![no_std]
 
-#[cfg(feature = "generate-bindings")]
 #[doc(hidden)]
 pub mod ffi {
-    // Check if the version is at least 1.70
     include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-}
-
-#[cfg(not(feature = "generate-bindings"))]
-#[doc(hidden)]
-pub mod ffi {
-    #[cfg(unix)]
-    include!("pregen_bindings/unix.rs");
-
-    #[cfg(windows)]
-    include!("pregen_bindings/windows.rs");
 }
