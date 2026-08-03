@@ -102,7 +102,7 @@ nm --defined-only libminiaudio.a | grep ' ma_'
 Open an x64 Native Tools Command Prompt for Visual Studio and run:
 
 ```bash
-cl /nologo /02 /DMA_NO_VORBIS=1 /O2 /c miniaudio.c /Fominiaudio.obj
+cl /nologo /O2 /DMA_NO_VORBIS=1 /O2 /c miniaudio.c /Fominiaudio.obj
 lib /nologo /OUT:miniaudio.lib miniaudio.obj
 ```
 The resulting miniaudio.lib is suitable for the x86_64-pc-windows-msvc Rust target.
