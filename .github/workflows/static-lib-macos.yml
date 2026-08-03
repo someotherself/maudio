@@ -1,0 +1,111 @@
+name: Build macOS static libraries
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  MINIAUDIO_VERSION: 0.11.23
+  SOURCE_FILE: crates/maudio-sys/native/miniaudio.c
+
+jobs:
+  generate:
+    name: ${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-apple-darwin
+            runner: macos-15-intel
+            runner_arch: x86_64
+            clang_arch: x86_64
+
+          - target: aarch64-apple-darwin
+            runner: macos-15
+            runner_arch: arm64
+            clang_arch: arm64
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify sources
+        run: |
+          test -f "$SOURCE_FILE"
+          test -f crates/maudio-sys/native/miniaudio/miniaudio.h
+          test -f crates/maudio-sys/native/miniaudio/extras/stb_vorbis.c
+          git submodule status --recursive
+
+      - name: Show compiler environment
+        run: |
+          uname -m
+          sw_vers
+          xcodebuild -version
+          clang --version
+          libtool -V || true
+
+      - name: Verify runner architecture
+        run: |
+          actual_arch="$(uname -m)"
+          expected_arch="${{ matrix.runner_arch }}"
+
+          if [[ "$actual_arch" != "$expected_arch" ]]; then
+            echo "Expected runner architecture: $expected_arch"
+            echo "Actual runner architecture:   $actual_arch"
+            exit 1
+          fi
+
+      - name: Build static library
+        run: |
+          output_dir="native-libs/miniaudio-$MINIAUDIO_VERSION/${{ matrix.target }}"
+          mkdir -p "$output_dir"
+
+          clang \
+            -arch "${{ matrix.clang_arch }}" \
+            -std=c99 \
+            -O2 \
+            -DMA_NO_VORBIS=1 \
+            -c "$SOURCE_FILE" \
+            -o miniaudio.o
+
+          libtool \
+            -static \
+            -o "$output_dir/libminiaudio.a" \
+            miniaudio.o
+
+      - name: Verify static library
+        run: |
+          library="native-libs/miniaudio-$MINIAUDIO_VERSION/${{ matrix.target }}/libminiaudio.a"
+
+          test -s "$library"
+
+          echo "Archive contents:"
+          ar -t "$library"
+
+          echo "Archive architecture:"
+          lipo -info "$library"
+
+          echo "Object architecture:"
+          lipo -info miniaudio.o
+
+          echo "Example miniaudio symbols:"
+          nm -gU "$library" \
+            | grep -E ' _ma_[A-Za-z0-9_]+$' \
+            | head -n 20
+
+          expected_arch="${{ matrix.clang_arch }}"
+          lipo -verify_arch "$expected_arch" "$library"
+
+      - name: Upload static library
+        uses: actions/upload-artifact@v4
+        with:
+          name: miniaudio-${{ env.MINIAUDIO_VERSION }}-${{ matrix.target }}
+          path: native-libs/miniaudio-${{ env.MINIAUDIO_VERSION }}/${{ matrix.target }}
+          if-no-files-found: error

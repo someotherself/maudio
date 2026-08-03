@@ -1,0 +1,139 @@
+name: Build ARM64 Linux static libraries
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  MINIAUDIO_VERSION: 0.11.23
+  SOURCE_FILE: crates/maudio-sys/native/miniaudio.c
+
+jobs:
+  build:
+    name: ${{ matrix.target }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-unknown-linux-gnu
+            compiler: gcc
+            archiver: ar
+
+          - target: aarch64-unknown-linux-musl
+            compiler: musl-gcc
+            archiver: ar
+
+    env:
+      TARGET: ${{ matrix.target }}
+      CC: ${{ matrix.compiler }}
+      AR: ${{ matrix.archiver }}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify sources
+        run: |
+          test -f "$SOURCE_FILE"
+          test -f crates/maudio-sys/native/miniaudio/miniaudio.h
+          test -f crates/maudio-sys/native/miniaudio/extras/stb_vorbis.c
+          git submodule status --recursive
+
+      - name: Install musl toolchain
+        if: matrix.target == 'aarch64-unknown-linux-musl'
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes musl-tools
+
+      - name: Show and verify compiler environment
+        run: |
+          echo "Target: $TARGET"
+          echo "Compiler: $CC"
+          echo "Archiver: $AR"
+
+          uname -a
+          uname -m
+          dpkg --print-architecture
+
+          command -v "$CC"
+          command -v "$AR"
+
+          "$CC" --version
+          "$CC" -dumpmachine
+          "$AR" --version
+
+          actual_arch="$(uname -m)"
+
+          if [ "$actual_arch" != "aarch64" ]; then
+            echo "Expected an aarch64 runner, but found: $actual_arch"
+            exit 1
+          fi
+
+      - name: Verify musl compiler configuration
+        if: matrix.target == 'aarch64-unknown-linux-musl'
+        run: |
+          specs_file="$("$CC" -print-file-name=musl-gcc.specs)"
+
+          if [ ! -f "$specs_file" ]; then
+            echo "musl-gcc specs file was not found: $specs_file"
+            exit 1
+          fi
+
+          echo "musl-gcc specs:"
+          grep -E 'ld-musl|musl' "$specs_file"
+
+      - name: Build static library
+        run: |
+          output_dir="native-libs/miniaudio-$MINIAUDIO_VERSION/$TARGET"
+          mkdir -p "$output_dir"
+
+          "$CC" \
+            -std=c99 \
+            -O2 \
+            -fPIC \
+            -DMA_NO_VORBIS=1 \
+            -c "$SOURCE_FILE" \
+            -o miniaudio.o
+
+          "$AR" rcs "$output_dir/libminiaudio.a" miniaudio.o
+
+      - name: Verify static library
+        run: |
+          library="native-libs/miniaudio-$MINIAUDIO_VERSION/$TARGET/libminiaudio.a"
+
+          test -s "$library"
+
+          echo "Archive contents:"
+          "$AR" t "$library"
+
+          echo "Object architecture:"
+          file miniaudio.o
+          readelf -h miniaudio.o
+
+          machine="$(readelf -h miniaudio.o | sed -n 's/^[[:space:]]*Machine:[[:space:]]*//p')"
+
+          if [ "$machine" != "AArch64" ]; then
+            echo "Expected an AArch64 object, but found: $machine"
+            exit 1
+          fi
+
+          echo "Example miniaudio symbols:"
+          nm --defined-only "$library" |
+            grep -m 20 -E ' ma_[A-Za-z0-9_]+$'
+
+          echo "Library information:"
+          file "$library"
+
+      - name: Upload static library
+        uses: actions/upload-artifact@v4
+        with:
+          name: miniaudio-${{ env.MINIAUDIO_VERSION }}-${{ matrix.target }}
+          path: native-libs/miniaudio-${{ env.MINIAUDIO_VERSION }}/${{ matrix.target }}
+          if-no-files-found: error

@@ -1,0 +1,336 @@
+name: Build x86_64 static libraries
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  MINIAUDIO_VERSION: 0.11.23
+  SOURCE_FILE: crates/maudio-sys/native/miniaudio.c
+
+jobs:
+  linux-gnu:
+    name: x86_64-unknown-linux-gnu
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    env:
+      TARGET: x86_64-unknown-linux-gnu
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify sources
+        run: |
+          test -f "$SOURCE_FILE"
+          test -f crates/maudio-sys/native/miniaudio/miniaudio.h
+          test -f crates/maudio-sys/native/miniaudio/extras/stb_vorbis.c
+          git submodule status --recursive
+
+      - name: Show compiler environment
+        run: |
+          uname -a
+          gcc --version
+          ar --version
+
+      - name: Build static library
+        run: |
+          output_dir="native-libs/miniaudio-$MINIAUDIO_VERSION/$TARGET"
+          mkdir -p "$output_dir"
+
+          gcc \
+            -std=c99 \
+            -O2 \
+            -fPIC \
+            -DMA_NO_VORBIS=1 \
+            -c "$SOURCE_FILE" \
+            -o miniaudio.o
+
+          ar rcs "$output_dir/libminiaudio.a" miniaudio.o
+
+      - name: Verify static library
+        run: |
+          library="native-libs/miniaudio-$MINIAUDIO_VERSION/$TARGET/libminiaudio.a"
+
+          test -s "$library"
+
+          echo "Archive contents:"
+          ar t "$library"
+
+          echo "Example miniaudio symbols:"
+          nm --defined-only "$library" |
+            grep -m 20 -E ' ma_[A-Za-z0-9_]+$'
+
+          echo "File information:"
+          file "$library"
+          file miniaudio.o
+
+      - name: Upload static library
+        uses: actions/upload-artifact@v4
+        with:
+          name: miniaudio-${{ env.MINIAUDIO_VERSION }}-${{ env.TARGET }}
+          path: native-libs/miniaudio-${{ env.MINIAUDIO_VERSION }}/${{ env.TARGET }}
+          if-no-files-found: error
+
+  windows-msvc:
+    name: x86_64-pc-windows-msvc
+    runs-on: windows-2022
+    timeout-minutes: 20
+
+    env:
+      TARGET: x86_64-pc-windows-msvc
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify sources
+        shell: pwsh
+        run: |
+          if (-not (Test-Path $env:SOURCE_FILE)) {
+            throw "miniaudio.c was not found at $env:SOURCE_FILE"
+          }
+
+          if (-not (Test-Path "crates/maudio-sys/native/miniaudio/miniaudio.h")) {
+            throw "miniaudio.h was not found"
+          }
+
+          if (-not (Test-Path "crates/maudio-sys/native/miniaudio/extras/stb_vorbis.c")) {
+            throw "stb_vorbis.c was not found"
+          }
+
+          git submodule status --recursive
+
+      - name: Configure MSVC environment
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Show compiler environment
+        shell: pwsh
+        run: |
+          Write-Host "Processor: $env:PROCESSOR_ARCHITECTURE"
+
+          Get-Command cl
+          Get-Command lib
+          Get-Command dumpbin
+
+          cl 2>&1 | Select-Object -First 3
+
+          if ($env:PROCESSOR_ARCHITECTURE -ne "AMD64") {
+            throw "Expected an AMD64 runner"
+          }
+
+      - name: Build static library
+        shell: pwsh
+        run: |
+          $outputDir = "native-libs/miniaudio-$env:MINIAUDIO_VERSION/$env:TARGET"
+
+          New-Item `
+            -ItemType Directory `
+            -Path $outputDir `
+            -Force |
+            Out-Null
+
+          cl `
+            /nologo `
+            /std:c11 `
+            /O2 `
+            /DMA_NO_VORBIS=1 `
+            /c $env:SOURCE_FILE `
+            /Fominiaudio.obj
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "cl failed with exit code $LASTEXITCODE"
+          }
+
+          lib `
+            /nologo `
+            "/OUT:$outputDir/miniaudio.lib" `
+            miniaudio.obj
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "lib failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Verify static library
+        shell: pwsh
+        run: |
+          $library = "native-libs/miniaudio-$env:MINIAUDIO_VERSION/$env:TARGET/miniaudio.lib"
+
+          if (-not (Test-Path $library)) {
+            throw "Static library was not created"
+          }
+
+          if ((Get-Item $library).Length -eq 0) {
+            throw "Static library is empty"
+          }
+
+          Write-Host "Archive contents:"
+          lib /nologo /list $library
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Unable to inspect the static library"
+          }
+
+          Write-Host "Object architecture:"
+          $headers = dumpbin /headers miniaudio.obj
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Unable to inspect miniaudio.obj"
+          }
+
+          $headers | Select-String "machine"
+
+          if ($headers -notmatch "8664 machine") {
+            throw "miniaudio.obj is not an x64 COFF object"
+          }
+
+          Write-Host "Example miniaudio symbols:"
+          dumpbin /symbols $library |
+            Select-String '\bma_[A-Za-z0-9_]+\b' |
+            Select-Object -First 20
+
+      - name: Upload static library
+        uses: actions/upload-artifact@v4
+        with:
+          name: miniaudio-${{ env.MINIAUDIO_VERSION }}-${{ env.TARGET }}
+          path: native-libs/miniaudio-${{ env.MINIAUDIO_VERSION }}/${{ env.TARGET }}
+          if-no-files-found: error
+
+  windows-gnu:
+    name: x86_64-pc-windows-gnu
+    runs-on: windows-2022
+    timeout-minutes: 20
+
+    env:
+      TARGET: x86_64-pc-windows-gnu
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify sources
+        shell: pwsh
+        run: |
+          if (-not (Test-Path $env:SOURCE_FILE)) {
+            throw "miniaudio.c was not found at $env:SOURCE_FILE"
+          }
+
+          if (-not (Test-Path "crates/maudio-sys/native/miniaudio/miniaudio.h")) {
+            throw "miniaudio.h was not found"
+          }
+
+          if (-not (Test-Path "crates/maudio-sys/native/miniaudio/extras/stb_vorbis.c")) {
+            throw "stb_vorbis.c was not found"
+          }
+
+          git submodule status --recursive
+
+      - name: Add MinGW-w64 to PATH
+        shell: pwsh
+        run: |
+          "C:\msys64\mingw64\bin" |
+            Out-File `
+              -FilePath $env:GITHUB_PATH `
+              -Encoding utf8 `
+              -Append
+
+      - name: Show and verify compiler environment
+        shell: pwsh
+        run: |
+          Write-Host "Processor: $env:PROCESSOR_ARCHITECTURE"
+
+          where.exe gcc
+          where.exe ar
+          where.exe nm
+          where.exe objdump
+
+          gcc --version
+          ar --version
+
+          $compilerTarget = (gcc -dumpmachine).Trim()
+          Write-Host "GCC target: $compilerTarget"
+
+          if ($compilerTarget -notmatch "^x86_64-w64-mingw32") {
+            throw "Unexpected GCC target: $compilerTarget"
+          }
+
+          if ($env:PROCESSOR_ARCHITECTURE -ne "AMD64") {
+            throw "Expected an AMD64 runner"
+          }
+
+      - name: Build static library
+        shell: pwsh
+        run: |
+          $outputDir = "native-libs/miniaudio-$env:MINIAUDIO_VERSION/$env:TARGET"
+
+          New-Item `
+            -ItemType Directory `
+            -Path $outputDir `
+            -Force | Out-Null
+
+          gcc `
+            -std=c99 `
+            -O2 `
+            -DMA_NO_VORBIS=1 `
+            -c $env:SOURCE_FILE `
+            -o miniaudio.o
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "GCC failed with exit code $LASTEXITCODE"
+          }
+
+          ar rcs "$outputDir/libminiaudio.a" miniaudio.o
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "ar failed with exit code $LASTEXITCODE"
+          }
+
+      - name: Verify static library
+        shell: pwsh
+        run: |
+          $library = "native-libs/miniaudio-$env:MINIAUDIO_VERSION/$env:TARGET/libminiaudio.a"
+
+          if (-not (Test-Path $library)) {
+            throw "Static library was not created"
+          }
+
+          if ((Get-Item $library).Length -eq 0) {
+            throw "Static library is empty"
+          }
+
+          Write-Host "Archive contents:"
+          ar t $library
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Unable to inspect the static library"
+          }
+
+          Write-Host "Object architecture:"
+          objdump -f miniaudio.o
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Unable to inspect miniaudio.o"
+          }
+
+          Write-Host "Example miniaudio symbols:"
+          nm --defined-only $library |
+            Select-String '\bma_[A-Za-z0-9_]+\b' |
+            Select-Object -First 20
+
+      - name: Upload static library
+        uses: actions/upload-artifact@v4
+        with:
+          name: miniaudio-${{ env.MINIAUDIO_VERSION }}-${{ env.TARGET }}
+          path: native-libs/miniaudio-${{ env.MINIAUDIO_VERSION }}/${{ env.TARGET }}
+          if-no-files-found: error
