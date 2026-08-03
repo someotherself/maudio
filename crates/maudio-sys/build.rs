@@ -6,6 +6,7 @@ const MINIAUDIO_VERSION: &str = "0.11.23";
 // Generates new bindings and writes them
 // Used either by the "generate-bindigns" flag
 // or when pregenerated bindings don't exist for this target
+#[cfg(feature = "generate-bindings")]
 fn generate_bindings(out_bindings: &std::path::Path) {
     let mut builder = bindgen::Builder::default()
         .header("native/miniaudio/miniaudio.h")
@@ -28,7 +29,8 @@ fn generate_bindings(out_bindings: &std::path::Path) {
 
 // Checks the current target and wether pregenerated bindings already exist
 fn write_bindings(out_bindings: &std::path::Path) {
-    if cfg!(feature = "generate-bindings") {
+    #[cfg(feature = "generate-bindings")]
+    {
         generate_bindings(out_bindings);
         return;
     }
@@ -53,9 +55,7 @@ fn write_bindings(out_bindings: &std::path::Path) {
         std::fs::copy(&pregenerated, out_bindings)
             .expect("Failed to copy pre-generated bindings to OUT_DIR");
     } else {
-        eprintln!("No pre-generated bindings found for target `{target}`; generating bindings");
-
-        generate_bindings(out_bindings);
+        panic!("No pre-generated bindings found for target `{target}`; generating bindings. Use the generate-bindings feature");
     }
 }
 
@@ -151,11 +151,6 @@ fn backend_features(builder: &mut cc::Build) {
 }
 
 fn main() {
-    #[cfg(windows)]
-    println!("cargo:rerun-if-changed=src/pregen_bindings/windows.rs");
-    #[cfg(unix)]
-    println!("cargo:rerun-if-changed=src/pregen_bindings/unix.rs");
-
     #[cfg(feature = "supplybin")]
     link_user_supplied_miniaudio();
 
