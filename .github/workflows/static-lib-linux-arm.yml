@@ -1,4 +1,4 @@
-name: Build ARM64 Linux static libraries
+name: Build static libs ARM64 Linux
 
 on:
   workflow_dispatch:
@@ -79,15 +79,19 @@ jobs:
       - name: Verify musl compiler configuration
         if: matrix.target == 'aarch64-unknown-linux-musl'
         run: |
-          specs_file="$("$CC" -print-file-name=musl-gcc.specs)"
+          printf 'int main(void) { return 0; }\n' > musl-test.c
+          "$CC" musl-test.c -o musl-test
 
-          if [ ! -f "$specs_file" ]; then
-            echo "musl-gcc specs file was not found: $specs_file"
-            exit 1
-          fi
+          echo "Test executable:"
+          file musl-test
 
-          echo "musl-gcc specs:"
-          grep -E 'ld-musl|musl' "$specs_file"
+          echo "Program interpreter:"
+          readelf -l musl-test |
+            grep -E 'Requesting program interpreter: .*/ld-musl-aarch64\.so\.1'
+
+          echo "Compiler configuration:"
+          "$CC" -v -E -x c /dev/null 2>&1 |
+            grep -E 'Reading specs from .*musl-gcc\.specs'
 
       - name: Build static library
         run: |

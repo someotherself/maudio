@@ -1,4 +1,4 @@
-name: Build Windows ARM64 static library
+name: Build static libs ARM64 Windows
 
 on:
   workflow_dispatch:
@@ -114,7 +114,7 @@ jobs:
           $headers = dumpbin /headers miniaudio.obj
           $headers | Select-String "machine"
 
-          if ($headers -notmatch "AA64 machine") {
+          if (-not ($headers -match 'AA64 machine \(ARM64\)')) {
               throw "miniaudio.obj is not an ARM64 COFF object"
           }
 

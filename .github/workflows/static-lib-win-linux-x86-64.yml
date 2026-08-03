@@ -1,4 +1,4 @@
-name: Build x86_64 static libraries
+name: Build static libs x86_64 win-linux
 
 on:
   workflow_dispatch:
@@ -190,6 +190,7 @@ jobs:
           $headers | Select-String "machine"
 
           if ($headers -notmatch "8664 machine") {
+          if (-not ($headers -match '8664 machine \(x64\)')) {
             throw "miniaudio.obj is not an x64 COFF object"
           }
 

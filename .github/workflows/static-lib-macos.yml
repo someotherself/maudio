@@ -1,4 +1,4 @@
-name: Build macOS static libraries
+name: Build static libs macOS
 
 on:
   workflow_dispatch:
@@ -83,6 +83,7 @@ jobs:
       - name: Verify static library
         run: |
           library="native-libs/miniaudio-$MINIAUDIO_VERSION/${{ matrix.target }}/libminiaudio.a"
+          expected_arch="${{ matrix.clang_arch }}"
 
           test -s "$library"
 
@@ -95,13 +96,31 @@ jobs:
           echo "Object architecture:"
           lipo -info miniaudio.o
 
-          echo "Example miniaudio symbols:"
-          nm -gU "$library" \
-            | grep -E ' _ma_[A-Za-z0-9_]+$' \
-            | head -n 20
+          actual_arch="$(lipo -archs "$library")"
 
-          expected_arch="${{ matrix.clang_arch }}"
-          lipo -verify_arch "$expected_arch" "$library"
+          echo "Expected architecture: $expected_arch"
+          echo "Actual architecture:   $actual_arch"
+
+          if [ "$actual_arch" != "$expected_arch" ]; then
+            echo "Unexpected archive architecture"
+            exit 1
+          fi
+
+          echo "Example miniaudio symbols:"
+          nm -gU "$library" |
+            awk '
+              / _ma_[A-Za-z0-9_]+$/ {
+                if (count < 20) {
+                  print
+                }
+                count++
+              }
+              END {
+                if (count == 0) {
+                  exit 1
+                }
+              }
+            '
 
       - name: Upload static library
         uses: actions/upload-artifact@v4
