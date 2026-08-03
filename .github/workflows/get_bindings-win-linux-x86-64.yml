@@ -1,0 +1,271 @@
+name: Generate x86_64 bindings
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-gnu:
+    name: x86_64-unknown-linux-gnu
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    env:
+      TARGET: x86_64-unknown-linux-gnu
+      CARGO_TARGET_DIR: target/bindgen-x86_64-unknown-linux-gnu
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify miniaudio submodule
+        run: |
+          test -f crates/maudio-sys/native/miniaudio/miniaudio.h
+          git submodule status --recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu
+
+      - name: Install bindgen dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes clang libclang-dev
+
+      - name: Show build environment
+        run: |
+          uname -a
+          gcc --version
+          clang --version
+          rustc -vV
+
+      - name: Verify runner architecture
+        run: |
+          test "$(uname -m)" = "x86_64"
+          test "$(rustc -vV | sed -n 's/^host: //p')" = "x86_64-unknown-linux-gnu"
+
+      - name: Generate bindings
+        run: |
+          cargo build \
+            -p maudio-sys \
+            --target "$TARGET" \
+            --features generate-bindings
+
+      - name: Collect bindings
+        run: |
+          binding_file="$(
+            find "$CARGO_TARGET_DIR" \
+              -path "*/build/maudio-sys-*/out/bindings.rs" \
+              -print \
+              -quit
+          )"
+
+          if [[ -z "$binding_file" ]]; then
+            echo "Generated bindings.rs was not found."
+            exit 1
+          fi
+
+          mkdir -p generated-bindings
+          cp "$binding_file" "generated-bindings/$TARGET.rs"
+
+      - name: Upload bindings
+        uses: actions/upload-artifact@v4
+        with:
+          name: bindings-x86_64-unknown-linux-gnu
+          path: generated-bindings/x86_64-unknown-linux-gnu.rs
+          if-no-files-found: error
+
+  windows-msvc:
+    name: x86_64-pc-windows-msvc
+    runs-on: windows-2022
+    timeout-minutes: 20
+
+    env:
+      TARGET: x86_64-pc-windows-msvc
+      CARGO_TARGET_DIR: target/bindgen-x86_64-pc-windows-msvc
+      LIBCLANG_PATH: C:\Program Files\LLVM\bin
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify miniaudio submodule
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "crates/maudio-sys/native/miniaudio/miniaudio.h")) {
+              throw "miniaudio.h was not found"
+          }
+
+          git submodule status --recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Show build environment
+        shell: pwsh
+        run: |
+          Write-Host "Processor: $env:PROCESSOR_ARCHITECTURE"
+          clang --version
+          rustc -vV
+          cargo -V
+
+      - name: Verify runner architecture
+        shell: pwsh
+        run: |
+          if ($env:PROCESSOR_ARCHITECTURE -ne "AMD64") {
+              throw "Expected an AMD64 runner"
+          }
+
+          $hostTriple = rustc -vV |
+              Select-String "^host: " |
+              ForEach-Object { $_.Line.Substring(6) }
+
+          if ($hostTriple -ne "x86_64-pc-windows-msvc") {
+              throw "Unexpected Rust host: $hostTriple"
+          }
+
+      - name: Generate bindings
+        shell: pwsh
+        run: |
+          cargo build `
+            -p maudio-sys `
+            --target $env:TARGET `
+            --features generate-bindings
+
+      - name: Collect bindings
+        shell: pwsh
+        run: |
+          $bindingFile = Get-ChildItem `
+              -Path $env:CARGO_TARGET_DIR `
+              -Filter bindings.rs `
+              -Recurse |
+            Where-Object {
+              $_.FullName -match '[\\/]build[\\/]maudio-sys-[^\\/]+[\\/]out[\\/]bindings\.rs$'
+            } |
+            Select-Object -First 1
+
+          if (-not $bindingFile) {
+              throw "Generated bindings.rs was not found."
+          }
+
+          New-Item -ItemType Directory `
+            -Path generated-bindings `
+            -Force | Out-Null
+
+          Copy-Item `
+            $bindingFile.FullName `
+            "generated-bindings/$env:TARGET.rs"
+
+      - name: Upload bindings
+        uses: actions/upload-artifact@v4
+        with:
+          name: bindings-x86_64-pc-windows-msvc
+          path: generated-bindings/x86_64-pc-windows-msvc.rs
+          if-no-files-found: error
+
+  windows-gnu:
+    name: x86_64-pc-windows-gnu
+    runs-on: windows-2022
+    timeout-minutes: 20
+
+    env:
+      TARGET: x86_64-pc-windows-gnu
+      CARGO_TARGET_DIR: target/bindgen-x86_64-pc-windows-gnu
+      LIBCLANG_PATH: C:\Program Files\LLVM\bin
+      CC_x86_64_pc_windows_gnu: gcc
+      AR_x86_64_pc_windows_gnu: ar
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Verify miniaudio submodule
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "crates/maudio-sys/native/miniaudio/miniaudio.h")) {
+              throw "miniaudio.h was not found"
+          }
+
+          git submodule status --recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-gnu
+
+      - name: Add MinGW-w64 to PATH
+        shell: pwsh
+        run: |
+          "C:\msys64\mingw64\bin" |
+            Out-File `
+              -FilePath $env:GITHUB_PATH `
+              -Encoding utf8 `
+              -Append
+
+      - name: Show build environment
+        shell: pwsh
+        run: |
+          Write-Host "Processor: $env:PROCESSOR_ARCHITECTURE"
+          gcc --version
+          ar --version
+          clang --version
+          rustc -vV
+
+      - name: Verify compiler target
+        shell: pwsh
+        run: |
+          $gccTarget = gcc -dumpmachine
+
+          if ($gccTarget -notmatch "^x86_64-w64-mingw32") {
+              throw "Unexpected GCC target: $gccTarget"
+          }
+
+      - name: Generate bindings
+        shell: pwsh
+        run: |
+          cargo build `
+            -p maudio-sys `
+            --target $env:TARGET `
+            --features generate-bindings
+
+      - name: Collect bindings
+        shell: pwsh
+        run: |
+          $bindingFile = Get-ChildItem `
+              -Path $env:CARGO_TARGET_DIR `
+              -Filter bindings.rs `
+              -Recurse |
+            Where-Object {
+              $_.FullName -match '[\\/]build[\\/]maudio-sys-[^\\/]+[\\/]out[\\/]bindings\.rs$'
+            } |
+            Select-Object -First 1
+
+          if (-not $bindingFile) {
+              throw "Generated bindings.rs was not found."
+          }
+
+          New-Item -ItemType Directory `
+            -Path generated-bindings `
+            -Force | Out-Null
+
+          Copy-Item `
+            $bindingFile.FullName `
+            "generated-bindings/$env:TARGET.rs"
+
+      - name: Upload bindings
+        uses: actions/upload-artifact@v4
+        with:
+          name: bindings-x86_64-pc-windows-gnu
+          path: generated-bindings/x86_64-pc-windows-gnu.rs
+          if-no-files-found: error
