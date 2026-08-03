@@ -23,7 +23,6 @@ The minimum supported Rust version is **1.70**
 ### Platforms / Bindings
 - Building and testing has only been done on Windows/Linux/MacOS. While miniaudio offers compatibility with Windows, macOS, Linux, BSD, iOS, Android and Web, more testing is needed to ensure `maudio` compatibility with all of them.
 - List of existing pre-generated bindings can be found in the table below.
-- By default, maudio-sys will try to use existing bindings and if they don't exist, will try to generate them.
 
 ### Status of cross-platform compatibility
 | Platform | Pregen bindings exist | Passed tests | Precompiled binary exists |
