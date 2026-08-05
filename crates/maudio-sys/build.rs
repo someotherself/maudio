@@ -7,7 +7,7 @@ const MINIAUDIO_VERSION: &str = "0.11.23";
 // Used either by the "generate-bindigns" flag
 // or when pregenerated bindings don't exist for this target
 #[cfg(feature = "generate-bindings")]
-fn generate_bindings(out_bindings: &std::path::Path) {
+fn write_bindings(out_bindings: &std::path::Path) {
     let mut builder = bindgen::Builder::default()
         .header("native/miniaudio/miniaudio.h")
         .clang_arg("-Inative")
@@ -25,13 +25,6 @@ fn generate_bindings(out_bindings: &std::path::Path) {
     bindings
         .write_to_file(out_bindings)
         .expect("Couldn't write bindings.rs");
-}
-
-// Generates new bindings
-#[cfg(feature = "generate-bindings")]
-fn write_bindings(out_bindings: &std::path::Path) {
-    generate_bindings(out_bindings);
-    return;
 }
 
 // Checks the current target and if pregenerated bindings already exist
