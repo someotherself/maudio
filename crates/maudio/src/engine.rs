@@ -1325,7 +1325,8 @@ mod test {
         let sr = u32::from(sr);
 
         assert!(ch >= 1, "channels must be >= 1");
-        assert!(sr >= 8000, "sample rate looks wrong: {sr}");
+        // freebsd initializes an engine with 4000 sample rate
+        assert!(sr >= 4000, "sample rate looks wrong: {sr}"); 
     }
 
     #[test]
