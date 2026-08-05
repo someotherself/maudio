@@ -33,4 +33,4 @@ no-webaudio = ["maudio-sys/no-webaudio"]
 maudio-sys = { path = "../maudio-sys", version = "0.1.6" }
 
 [dev-dependencies]
-symphonia = { version = "0.6.0", features = ["all"] }
+symphonia = { version = "0.6.0", features = ["aac"] }
