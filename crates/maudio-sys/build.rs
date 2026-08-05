@@ -27,14 +27,17 @@ fn generate_bindings(out_bindings: &std::path::Path) {
         .expect("Couldn't write bindings.rs");
 }
 
-// Checks the current target and wether pregenerated bindings already exist
-fn write_bindings(out_bindings: &std::path::Path) {
-    #[cfg(feature = "generate-bindings")]
-    {
-        generate_bindings(out_bindings);
-        return;
-    }
 
+// Generates new bindings
+#[cfg(feature = "generate-bindings")]
+fn write_bindings(out_bindings: &std::path::Path) {
+    generate_bindings(out_bindings);
+    return;
+}
+
+// Checks the current target and if pregenerated bindings already exist
+#[cfg(not(feature = "generate-bindings"))]
+fn write_bindings(out_bindings: &std::path::Path) {
     let target = env::var("TARGET").expect("Cargo did not provide the TARGET environment variable");
 
     let ver_folder =
