@@ -27,7 +27,6 @@ fn generate_bindings(out_bindings: &std::path::Path) {
         .expect("Couldn't write bindings.rs");
 }
 
-
 // Generates new bindings
 #[cfg(feature = "generate-bindings")]
 fn write_bindings(out_bindings: &std::path::Path) {
