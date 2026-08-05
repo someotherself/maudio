@@ -1326,7 +1326,7 @@ mod test {
 
         assert!(ch >= 1, "channels must be >= 1");
         // freebsd initializes an engine with 4000 sample rate
-        assert!(sr >= 4000, "sample rate looks wrong: {sr}"); 
+        assert!(sr >= 4000, "sample rate looks wrong: {sr}");
     }
 
     #[test]
