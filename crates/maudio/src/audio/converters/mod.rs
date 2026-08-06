@@ -1,1 +1,2 @@
-mod resampler; // not implemented
+pub mod channel_converter;
+pub mod resampler;
