@@ -34,7 +34,7 @@ The list below contains specific targets that have been tested, and have binding
 | `aarch64-apple-darwin` <br> `x86_64-apple-darwin` | Yes | Yes | Yes |
 | `x86_64-unknown-openbsd` <br> `x86_64-unknown-freebsd` <br> `x86_64-unknown-netbsd` <br> `x86_64-unknown-dragonfly` | Yes | Yes | Yes |
 | `iOS` | No | No | No |
-| `Android` | No | No | No |
+| `aarch64-linux-android` | Yes | No | No |
 | `Web` | No | No | No |
 
 ## How to use
