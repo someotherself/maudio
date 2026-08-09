@@ -4,9 +4,8 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     audio::{formats::Format, sample_rate::SampleRate},
-    engine::AllocationCallbacks,
     pcm_frames::PcmFormat,
-    AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
+    AllocationCallbacks, AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -143,9 +142,8 @@ mod resampler_ffi {
             converters::resampler::{Resampler, ResamplerBuilder, ResamplerOutput},
             sample_rate::SampleRate,
         },
-        engine::AllocationCallbacks,
         pcm_frames::PcmFormat,
-        AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
+        AllocationCallbacks, AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
     };
 
     #[inline]

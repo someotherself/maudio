@@ -9,9 +9,9 @@ use crate::{
             nodes::{node_ffi, private_node::PeakNodeProvider, AsNodePtr, NodeRef},
             private_node_graph, AsNodeGraphPtr, GraphOwner, NodeGraph, NodeGraphRef,
         },
-        AllocationCallbacks, Engine,
+        Engine,
     },
-    AsRawRef, Binding, MaResult,
+    AllocationCallbacks, AsRawRef, Binding, MaResult,
 };
 
 /// A node that applies a **peaking EQ (bell filter)** to an audio signal.

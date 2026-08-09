@@ -130,7 +130,7 @@ pub(crate) mod bpf2_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        audio::dsp::filters::bpf2_filter::Bpf2, engine::AllocationCallbacks, pcm_frames::PcmFormat,
+        audio::dsp::filters::bpf2_filter::Bpf2, pcm_frames::PcmFormat, AllocationCallbacks,
         AsRawRef, Binding, MaResult, MaudioError,
     };
 

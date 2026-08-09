@@ -105,7 +105,7 @@ use crate::{
         Sound,
     },
     util::{device_notif::DeviceStateNotifier, fence::Fence, proc_notif::ProcFramesNotif},
-    AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
+    Binding, ErrorKinds, MaResult, MaudioError,
 };
 
 use maudio_sys::ffi as sys;
@@ -702,27 +702,6 @@ pub(crate) fn wide_null_terminated_name(name: &str) -> Vec<u16> {
         .encode_wide()
         .chain(std::iter::once(0))
         .collect()
-}
-/// Custom memory allocation callbacks for miniaudio.
-///
-/// Miniaudio allows callers to override how heap memory is allocated and freed
-/// by providing a `ma_allocation_callbacks` struct (malloc/realloc/free + user data).
-///
-/// Types such as `NodeGraph` may accept these callbacks at initialization time.
-/// If callbacks are not provided, miniaudio uses its default allocator
-/// (typically the system allocator).
-///
-/// Custom allocators are currently not implemented.
-pub(crate) struct AllocationCallbacks {
-    inner: sys::ma_allocation_callbacks,
-}
-
-impl AsRawRef for AllocationCallbacks {
-    type Raw = sys::ma_allocation_callbacks;
-
-    fn as_raw(&self) -> &Self::Raw {
-        &self.inner
-    }
 }
 
 pub(crate) mod engine_ffi {

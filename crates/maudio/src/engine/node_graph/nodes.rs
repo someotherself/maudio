@@ -665,14 +665,11 @@ pub(super) mod node_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        engine::{
-            node_graph::{
-                nodes::{private_node, AsNodePtr, Node, NodeState},
-                private_node_graph, AsNodeGraphPtr, NodeGraph,
-            },
-            AllocationCallbacks,
+        engine::node_graph::{
+            nodes::{private_node, AsNodePtr, Node, NodeState},
+            private_node_graph, AsNodeGraphPtr, NodeGraph,
         },
-        AsRawRef, Binding, MaResult, MaudioError,
+        AllocationCallbacks, AsRawRef, Binding, MaResult, MaudioError,
     };
 
     // Do not expose to public API. Used internally by ma_node_init

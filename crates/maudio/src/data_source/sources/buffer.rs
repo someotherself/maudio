@@ -11,9 +11,8 @@ use maudio_sys::ffi as sys;
 use crate::{
     audio::formats::{Format, SampleBuffer},
     data_source::{private_data_source, AsSourcePtr, DataSourceRef},
-    engine::AllocationCallbacks,
     pcm_frames::{PcmFormat, PcmFormatInternal, S24Packed, S24},
-    AsRawRef, Binding, MaResult,
+    AllocationCallbacks, AsRawRef, Binding, MaResult,
 };
 
 /// Owned in-memory PCM audio buffer.

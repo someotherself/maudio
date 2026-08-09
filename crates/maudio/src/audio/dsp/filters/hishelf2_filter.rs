@@ -148,8 +148,8 @@ pub(crate) mod hishelf2_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        audio::dsp::filters::hishelf2_filter::HiShelf2, engine::AllocationCallbacks,
-        pcm_frames::PcmFormat, AsRawRef, Binding, MaResult, MaudioError,
+        audio::dsp::filters::hishelf2_filter::HiShelf2, pcm_frames::PcmFormat, AllocationCallbacks,
+        AsRawRef, Binding, MaResult, MaudioError,
     };
 
     #[inline]

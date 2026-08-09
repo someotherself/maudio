@@ -476,6 +476,28 @@ pub struct MaudioError {
 
 pub type MaResult<T> = std::result::Result<T, MaudioError>;
 
+/// Custom memory allocation callbacks for miniaudio.
+///
+/// Miniaudio allows callers to override how heap memory is allocated and freed
+/// by providing a `ma_allocation_callbacks` struct (malloc/realloc/free + user data).
+///
+/// Types such as `NodeGraph` may accept these callbacks at initialization time.
+/// If callbacks are not provided, miniaudio uses its default allocator
+/// (typically the system allocator).
+///
+/// Custom allocators are currently not implemented.
+pub(crate) struct AllocationCallbacks {
+    inner: sys::ma_allocation_callbacks,
+}
+
+impl AsRawRef for AllocationCallbacks {
+    type Raw = sys::ma_allocation_callbacks;
+
+    fn as_raw(&self) -> &Self::Raw {
+        &self.inner
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::MaudioError;

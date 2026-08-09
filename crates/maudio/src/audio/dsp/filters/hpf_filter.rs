@@ -130,8 +130,8 @@ pub(crate) mod hpf_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        audio::dsp::filters::hpf_filter::Hpf, engine::AllocationCallbacks, pcm_frames::PcmFormat,
-        AsRawRef, Binding, MaResult, MaudioError,
+        audio::dsp::filters::hpf_filter::Hpf, pcm_frames::PcmFormat, AllocationCallbacks, AsRawRef,
+        Binding, MaResult, MaudioError,
     };
 
     #[inline]

@@ -7,9 +7,8 @@ use crate::{
         channels::{Channel, ChannelMixMode, RawChannel},
         formats::Format,
     },
-    engine::AllocationCallbacks,
     pcm_frames::{PcmFormat, S24Packed},
-    AsRawRef, Binding, MaResult,
+    AllocationCallbacks, AsRawRef, Binding, MaResult,
 };
 
 pub struct ChannelConverter<F: PcmFormat> {
@@ -176,9 +175,8 @@ mod channel_converter_ffi {
             channels::{Channel, RawChannel},
             converters::channel_converter::{ChannelConverter, ChannelConverterBuilder},
         },
-        engine::AllocationCallbacks,
         pcm_frames::PcmFormat,
-        AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
+        AllocationCallbacks, AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
     };
     use maudio_sys::ffi as sys;
 

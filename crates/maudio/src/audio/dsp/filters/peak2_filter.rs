@@ -151,8 +151,8 @@ pub(crate) mod peak2_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        audio::dsp::filters::peak2_filter::Peak2, engine::AllocationCallbacks,
-        pcm_frames::PcmFormat, AsRawRef, Binding, MaResult, MaudioError,
+        audio::dsp::filters::peak2_filter::Peak2, pcm_frames::PcmFormat, AllocationCallbacks,
+        AsRawRef, Binding, MaResult, MaudioError,
     };
 
     #[inline]

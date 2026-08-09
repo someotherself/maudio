@@ -137,8 +137,8 @@ mod loshelf2_ffi {
     use std::sync::Arc;
 
     use crate::{
-        audio::dsp::filters::loshelf2_filter::LoShelf2, engine::AllocationCallbacks,
-        pcm_frames::PcmFormat, AsRawRef, Binding, MaResult, MaudioError,
+        audio::dsp::filters::loshelf2_filter::LoShelf2, pcm_frames::PcmFormat, AllocationCallbacks,
+        AsRawRef, Binding, MaResult, MaudioError,
     };
     use maudio_sys::ffi as sys;
 

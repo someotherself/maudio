@@ -9,9 +9,9 @@ use crate::{
             nodes::{node_ffi, private_node::HiShelfNodeProvider, AsNodePtr, NodeRef},
             private_node_graph, AsNodeGraphPtr, GraphOwner, NodeGraph, NodeGraphRef,
         },
-        AllocationCallbacks, Engine,
+        Engine,
     },
-    AsRawRef, Binding, MaResult,
+    AllocationCallbacks, AsRawRef, Binding, MaResult,
 };
 
 /// A node that applies a **high-shelf EQ** to an audio signal.

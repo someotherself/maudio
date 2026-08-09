@@ -6,9 +6,8 @@ use maudio_sys::ffi as sys;
 use crate::{
     audio::formats::{Format, SampleBuffer},
     data_source::{private_data_source, AsSourcePtr, DataSourceRef},
-    engine::AllocationCallbacks,
     pcm_frames::{PcmFormat, S24Packed, S24},
-    AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
+    AllocationCallbacks, AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
 };
 
 pub struct Noise<F: PcmFormat> {
@@ -77,9 +76,8 @@ mod noise_ffi {
     use crate::{
         audio::formats::SampleBuffer,
         data_source::sources::noise::{Noise, NoiseBuilder},
-        engine::AllocationCallbacks,
         pcm_frames::{PcmFormat, PcmFormatInternal},
-        AsRawRef, Binding, MaResult, MaudioError,
+        AllocationCallbacks, AsRawRef, Binding, MaResult, MaudioError,
     };
 
     // Only used for custom allocators (when alloc is done by rust)

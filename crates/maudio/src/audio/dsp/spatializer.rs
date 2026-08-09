@@ -204,9 +204,8 @@ mod spatializer_ffi {
             math::vec3::Vec3,
             spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
         },
-        engine::AllocationCallbacks,
         pcm_frames::PcmFormat,
-        AsRawRef, Binding, MaResult, MaudioError,
+        AllocationCallbacks, AsRawRef, Binding, MaResult, MaudioError,
     };
 
     #[inline]
@@ -646,9 +645,8 @@ mod sp_listener_ffi {
         audio::{
             channels::Channel, dsp::spatializer::Listener, math::vec3::Vec3, spatial::cone::Cone,
         },
-        engine::AllocationCallbacks,
         pcm_frames::PcmFormat,
-        AsRawRef, Binding, MaResult, MaudioError,
+        AllocationCallbacks, AsRawRef, Binding, MaResult, MaudioError,
     };
 
     #[inline]

@@ -84,9 +84,8 @@ use crate::{
         },
         AsSourcePtr, DataSourceRef,
     },
-    engine::AllocationCallbacks,
     pcm_frames::{PcmFormat, PcmFormatInternal, S24Packed, S24},
-    MaResult,
+    AllocationCallbacks, MaResult,
 };
 
 /// Type for creating a typed single-producer / single-consumer PCM ring buffer.
@@ -732,8 +731,7 @@ mod pcm_rb_ffi {
     use crate::{
         audio::{formats::Format, sample_rate::SampleRate},
         data_source::sources::pcm_ring_buffer::{private_pcm_db, AsPcmRbPtr, PcmRbInner},
-        engine::AllocationCallbacks,
-        AsRawRef, MaResult, MaudioError,
+        AllocationCallbacks, AsRawRef, MaResult, MaudioError,
     };
 
     pub fn new_raw_ex(

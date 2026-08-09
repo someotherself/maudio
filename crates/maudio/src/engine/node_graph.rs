@@ -20,9 +20,9 @@ use crate::{
     audio::formats::SampleBuffer,
     engine::{
         node_graph::{node_graph_builder::NodeGraphBuilder, nodes::NodeRef},
-        AllocationCallbacks, Engine, EngineInner,
+        Engine, EngineInner,
     },
-    AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
+    AllocationCallbacks, AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
 };
 
 /// `NodeGraph` is the root of miniaudio’s node-based audio system. It owns an
@@ -350,13 +350,10 @@ mod graph_ffi {
 
     use crate::{
         audio::formats::SampleBuffer,
-        engine::{
-            node_graph::{
-                nodes::NodeRef, private_node_graph, AsNodeGraphPtr, GraphInner, NodeGraphOps,
-            },
-            AllocationCallbacks,
+        engine::node_graph::{
+            nodes::NodeRef, private_node_graph, AsNodeGraphPtr, GraphInner, NodeGraphOps,
         },
-        AsRawRef, Binding, MaResult, MaudioError,
+        AllocationCallbacks, AsRawRef, Binding, MaResult, MaudioError,
     };
 
     #[inline]

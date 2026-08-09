@@ -78,8 +78,8 @@ mod gainer_ffi {
     use std::sync::Arc;
 
     use crate::{
-        audio::dsp::volume_gainer::Gainer, engine::AllocationCallbacks, pcm_frames::PcmFormat,
-        AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
+        audio::dsp::volume_gainer::Gainer, pcm_frames::PcmFormat, AllocationCallbacks, AsRawRef,
+        Binding, ErrorKinds, MaResult, MaudioError,
     };
     use maudio_sys::ffi as sys;
 

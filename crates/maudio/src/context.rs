@@ -45,8 +45,7 @@ use crate::{
         device_info::{DeviceBasicInfo, DeviceInfo, Devices},
         device_type::DeviceType,
     },
-    engine::AllocationCallbacks,
-    AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
+    AllocationCallbacks, AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
 };
 
 /// An owning handle to a miniaudio context.

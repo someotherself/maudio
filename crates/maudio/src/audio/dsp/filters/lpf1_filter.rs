@@ -120,7 +120,7 @@ pub(crate) mod lpf1_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        audio::dsp::filters::lpf1_filter::Lpf1, engine::AllocationCallbacks, pcm_frames::PcmFormat,
+        audio::dsp::filters::lpf1_filter::Lpf1, pcm_frames::PcmFormat, AllocationCallbacks,
         AsRawRef, Binding, MaResult, MaudioError,
     };
 
