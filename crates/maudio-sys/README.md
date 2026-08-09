@@ -165,6 +165,12 @@ MAUDIO_EXTERNAL_LIB_DIR = {
 MAUDIO_EXTERNAL_LIB_DIR must point to the root directory containing the target-specific subdirectories.
 During the build, maudio-sys selects the subdirectory matching Cargo’s current target.
 
+One some targets with older toolchains (like Dragonfly), you may need to use this instead:
+```toml
+[env.MAUDIO_EXTERNAL_LIB_DIR]
+value = "../native-libs/"
+relative = true
+```
 The expected filename depends on the target:
 
 | Target toolchain	| Expected filename |

@@ -20,25 +20,26 @@ LLVM / Clang
 ### Minimum Supported Rust Version (MSRV)
 The minimum supported Rust version is **1.70**
 
-### Platforms / Bindings
-- Building and testing has only been done on Windows/Linux/MacOS. While miniaudio offers compatibility with Windows, macOS, Linux, BSD, iOS, Android and Web, more testing is needed to ensure `maudio` compatibility with all of them.
-- List of existing pre-generated bindings can be found in the table below.
-- By default, maudio-sys will try to use existing bindings and if they don't exist, will try to generate them.
-
 ### Status of cross-platform compatibility
-| Platform | Pregen bindings exist | Passed tests | Precompiled binary exists |
-|-------|--------|--------|--------|
-| `windows` | `x86_64-pc-windows-msvc` <br> `x86_64-pc-windows-gnu` <br> `aarch64-pc-windows-msvc` | Yes | No |
-| `linux` | `x86_64-unknown-linux-gnu` <br> `aarch64-unknown-linux-musl` <br> `aarch64-unknown-linux-gnu` | Yes | No |
-| `macOS` | `aarch64-apple-darwin` <br> `x86_64-apple-darwin` | Yes | No |
-| `BSD family` | No | No | No |
+
+`maudio` is assumed compatible with all 32 and 64 bit Unix and Windows targets as long as they can pregenerate bindings
+and compile the `miniaudio` C library.
+
+The list below contains specific targets that have been tested, and have bindings and static libraries available.
+
+| Targets | Pregen bindings exist | Tested | Static library exists |
+| ------- | ------- | ------- | ------- |
+|`x86_64-pc-windows-msvc` <br> `x86_64-pc-windows-gnu` <br> `aarch64-pc-windows-msvc` | Yes | Yes | Yes |
+|`x86_64-unknown-linux-gnu` <br> `aarch64-unknown-linux-musl` <br> `aarch64-unknown-linux-gnu` <br> `i686-unknown-linux-gnu` | Yes | Yes | Yes |
+| `aarch64-apple-darwin` <br> `x86_64-apple-darwin` | Yes | Yes | Yes |
+| `x86_64-unknown-openbsd` <br> `x86_64-unknown-freebsd` <br> `x86_64-unknown-netbsd` <br> `x86_64-unknown-dragonfly` | Yes | Yes | Yes |
 | `iOS` | No | No | No |
 | `Android` | No | No | No |
 | `Web` | No | No | No |
 
 ## How to use
 
-See [Examples](./crates/maudio/examples/) for a tutorial style introduction into `maudio`
+See [Examples](/crates/maudio/examples/) for a tutorial style introduction into `maudio`
 
 # Description
 
@@ -184,7 +185,7 @@ A playback device exposes a `&mut out` slice where we pass in pcm frames for pla
     let mut decoder = DecoderBuilder::new_f32().channels(2).sample_rate(SampleRate::Sr44100).from_file(&path)?;
 
     let mut device = DeviceBuilder::playback()
-        .f16()
+        .f32()
         .playback_channels(2)
         .sample_rate(SampleRate::Sr44100)
         .with_callback(move |_, out| {
@@ -210,7 +211,7 @@ A playback device exposes a `&input` slice where we pass in pcm frames for playb
         .build_path(&dst_path)?;
 
     let mut device = DeviceBuilder::capture()
-        .f16()
+        .f32()
         .capture_channels(2)
         .sample_rate(SampleRate::Sr44100)
         .with_callback(move |_, input| {
@@ -230,7 +231,7 @@ Playback device with a node graph for advanced dsp
     let mut reader = node_graph.try_acquire_reader()?;
 
     let mut device = DeviceBuilder::playback()
-        .f16()
+        .f32()
         .playback_channels(2)
         .sample_rate(SampleRate::Sr44100)
         .with_callback(move |_, out| {
