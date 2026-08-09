@@ -1,6 +1,6 @@
 Most of the examples use the audio files from the miniaudio repository
 Make sure to clone the repo locally using:
-`git clone --recursive [[URL]()](https://github.com/someotherself/maudio.git)`.
+`git clone --recursive https://github.com/someotherself/maudio.git`.
 If you already cloned it without submodules, run:
 `git submodule update --init --recursive`
 
