@@ -1,6 +1,6 @@
 use std::{
-    ffi::CStr, fs::OpenOptions, io::Cursor, marker::PhantomData, mem::MaybeUninit,
-    panic::AssertUnwindSafe, path::PathBuf,
+    fs::OpenOptions, io::Cursor, marker::PhantomData, mem::MaybeUninit, panic::AssertUnwindSafe,
+    path::PathBuf,
 };
 
 use maudio_sys::ffi as sys;
@@ -110,7 +110,7 @@ unsafe extern "C" fn decoder_on_init_file<F: PcmFormat, D: DecodingBackend<Forma
     }
 
     let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
-        let path = unsafe { CStr::from_ptr(path) };
+        let path = unsafe { std::ffi::CStr::from_ptr(path) };
         let path = PathBuf::from(path.to_str().unwrap_or(""));
 
         let file = OpenOptions::new().read(true).open(&path)?;

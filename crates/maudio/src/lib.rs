@@ -484,7 +484,7 @@ pub(crate) fn cstring_from_path(path: &std::path::Path) -> MaResult<std::ffi::CS
 }
 
 #[cfg(windows)]
-pub(crate) fn wide_null_terminated(path: &Path) -> Vec<u16> {
+pub(crate) fn wide_null_terminated(path: &std::path::Path) -> Vec<u16> {
     use std::os::windows::ffi::OsStrExt;
 
     path.as_os_str()
