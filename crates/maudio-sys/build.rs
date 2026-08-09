@@ -1,6 +1,7 @@
 use std::env;
 use std::path::PathBuf;
 
+#[allow(unused)]
 const MINIAUDIO_VERSION: &str = "0.11.23";
 
 // Generates new bindings and writes them
@@ -35,7 +36,10 @@ fn write_bindings(out_bindings: &std::path::Path) {
     let ver_folder =
         PathBuf::from("src/pregen_bindings").join(format!("miniaudio-{MINIAUDIO_VERSION}"));
     if !ver_folder.is_dir() {
-        panic!("no compatible pregenerated bindings were found for target `{MINIAUDIO_VERSION}`",)
+        panic!(
+            "no compatible pregenerated bindings were found for version `{}`",
+            ver_folder.display()
+        )
     }
     let pregenerated = ver_folder.join(&target).with_extension("rs");
 
@@ -69,7 +73,10 @@ fn link_user_supplied_miniaudio() {
 
     let ver_folder = root.join(format!("miniaudio-{MINIAUDIO_VERSION}"));
     if !ver_folder.is_dir() {
-        panic!("no compatible libraries were found for target `{MINIAUDIO_VERSION}`",)
+        panic!(
+            "no compatible libraries were found for version `{}`",
+            ver_folder.display()
+        )
     }
 
     let lib_dir = ver_folder.join(&target);
