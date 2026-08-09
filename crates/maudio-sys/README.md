@@ -21,6 +21,11 @@ Pregenerated bindings exist for the following targets:
 - aarch64-unknown-linux-gnu
 - aarch64-pc-windows-msvc
 - aarch64-apple-darwin
+- x86_64-unknown-dragonfly
+- x86_64-unknown-netbsd
+- x86_64-unknown-freebsd
+- x86_64-unknown-openbsd
+- i686-unknown-linux-gnu
 
 ## How to compile and create static miniaudio libraries
 
