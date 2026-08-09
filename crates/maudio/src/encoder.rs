@@ -199,7 +199,7 @@ impl<F: PcmFormat, E: CodecFormat, D> Encoder<F, E, D> {
     ) -> MaResult<()> {
         #[cfg(unix)]
         {
-            use crate::engine::cstring_from_path;
+            use crate::cstring_from_path;
 
             let path = cstring_from_path(path)?;
             encoder_ffi::ma_encoder_init_file(path, config, encoder)?;
@@ -208,7 +208,7 @@ impl<F: PcmFormat, E: CodecFormat, D> Encoder<F, E, D> {
 
         #[cfg(windows)]
         {
-            use crate::engine::wide_null_terminated;
+            use crate::wide_null_terminated;
 
             let path = wide_null_terminated(path);
 

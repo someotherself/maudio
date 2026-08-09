@@ -476,6 +476,33 @@ pub struct MaudioError {
 
 pub type MaResult<T> = std::result::Result<T, MaudioError>;
 
+#[cfg(unix)]
+pub(crate) fn cstring_from_path(path: &std::path::Path) -> MaResult<std::ffi::CString> {
+    use std::os::unix::ffi::OsStrExt;
+    std::ffi::CString::new(path.as_os_str().as_bytes())
+        .map_err(|_| crate::MaudioError::new_ma_error(crate::ErrorKinds::InvalidCString))
+}
+
+#[cfg(windows)]
+pub(crate) fn wide_null_terminated(path: &Path) -> Vec<u16> {
+    use std::os::windows::ffi::OsStrExt;
+
+    path.as_os_str()
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect()
+}
+
+#[cfg(windows)]
+pub(crate) fn wide_null_terminated_name(name: &str) -> Vec<u16> {
+    use std::os::windows::prelude::OsStrExt;
+
+    std::ffi::OsStr::new(name)
+        .encode_wide()
+        .chain(std::iter::once(0))
+        .collect()
+}
+
 /// Custom memory allocation callbacks for miniaudio.
 ///
 /// Miniaudio allows callers to override how heap memory is allocated and freed

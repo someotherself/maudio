@@ -644,14 +644,14 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
             }
             #[cfg(unix)]
             SoundSource::FileUtf8(ref p) => {
-                let cstring = crate::engine::cstring_from_path(p)?;
+                let cstring = crate::cstring_from_path(p)?;
                 null_fields(self);
                 self.inner.pFilePath = cstring.as_ptr();
                 self.owned_path = OwnedPathBuf::Utf8(cstring); // keep the pointer alive
             }
             #[cfg(windows)]
             SoundSource::FileWide(ref p) => {
-                let wide_path = crate::engine::wide_null_terminated(p);
+                let wide_path = crate::wide_null_terminated(p);
                 null_fields(self);
                 self.inner.pFilePathW = wide_path.as_ptr();
                 self.owned_path = OwnedPathBuf::Wide(wide_path); // keep the pointer alive

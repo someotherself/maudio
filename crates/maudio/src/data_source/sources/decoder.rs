@@ -235,7 +235,7 @@ impl<F: PcmFormat, S> Decoder<F, S> {
     ) -> MaResult<()> {
         #[cfg(unix)]
         {
-            use crate::engine::cstring_from_path;
+            use crate::cstring_from_path;
 
             let path = cstring_from_path(path)?;
             decoder_ffi::ma_decoder_init_file(path, config.as_raw_ptr(), decoder)
@@ -243,7 +243,7 @@ impl<F: PcmFormat, S> Decoder<F, S> {
 
         #[cfg(windows)]
         {
-            use crate::engine::wide_null_terminated;
+            use crate::wide_null_terminated;
 
             let path = wide_null_terminated(path);
 

@@ -521,14 +521,14 @@ impl Sound {
     ) -> MaResult<()> {
         #[cfg(unix)]
         {
-            use crate::engine::cstring_from_path;
+            use crate::cstring_from_path;
 
             let path = cstring_from_path(path)?;
             sound_ffi::ma_sound_init_from_file(engine, path, flags, sound_group, fence, sound)
         }
         #[cfg(windows)]
         {
-            use crate::engine::wide_null_terminated;
+            use crate::wide_null_terminated;
 
             let path = wide_null_terminated(path);
             sound_ffi::ma_sound_init_from_file_w(engine, &path, flags, sound_group, fence, sound)
