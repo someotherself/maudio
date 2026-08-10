@@ -175,6 +175,10 @@ fn main() {
             cc_builder.define("MA_NO_VORBIS", "1");
         }
 
+        if !cfg!(feature = "engine") {
+            cc_builder.define("MA_NO_ENGINE", "1");
+        }
+
         // backend features
         backend_features(&mut cc_builder);
 
