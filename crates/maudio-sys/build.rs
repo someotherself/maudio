@@ -10,7 +10,7 @@ const MINIAUDIO_VERSION: &str = "0.11.23";
 #[cfg(feature = "generate-bindings")]
 fn write_bindings(out_bindings: &std::path::Path) {
     let mut builder = bindgen::Builder::default()
-        .header("native/miniaudio/miniaudio.h")
+        .header("native/miniaudio.h"o / miniaudi)
         .clang_arg("-Inative")
         .clang_arg("-Inative/miniaudio")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
@@ -29,7 +29,9 @@ fn write_bindings(out_bindings: &std::path::Path) {
             .clang_arg("-iwithsysroot/include/compat")
             .clang_arg("-fvisibility=default")
             .blocklist_type("max_align_t");
-    } else if !target.contains("apple-ios") {
+    } else if target.contains("apple-ios") {
+        builder = builder.clang_arg("-x").clang_arg("objective-c");
+    } else {
         builder = builder.clang_arg("-std=c99"); // stb_vorbis is c99
     }
 
@@ -216,7 +218,9 @@ fn main() {
                 .flag("-fwasm-exceptions")
                 .flag("-fvisibility=default")
                 .flag(format!("--sysroot={}", sysroot.display()));
-        } else if !target.contains("apple-ios") {
+        } else if target.contains("apple-ios") {
+            cc_builder.flag("-x").flag("objective-c");
+        } else {
             cc_builder.std("c99"); // stb_vorbis is c99
         }
 
