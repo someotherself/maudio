@@ -10,7 +10,7 @@ const MINIAUDIO_VERSION: &str = "0.11.23";
 #[cfg(feature = "generate-bindings")]
 fn write_bindings(out_bindings: &std::path::Path) {
     let mut builder = bindgen::Builder::default()
-        .header("native/miniaudio.h")
+        .header("native/miniaudio/miniaudio.h")
         .clang_arg("-Inative")
         .clang_arg("-Inative/miniaudio")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
