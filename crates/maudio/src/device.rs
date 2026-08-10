@@ -90,6 +90,7 @@ impl Binding for DeviceRef<'_> {
 }
 
 impl<'a> DeviceRef<'a> {
+    #[allow(unused)]
     pub(crate) fn from_ptr(ptr: *mut sys::ma_device) -> Self {
         Self {
             inner: ptr,

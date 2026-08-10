@@ -11,8 +11,9 @@ description = "Raw miniaudio bindings for the maudio crate"
 categories = ["multimedia::audio", "multimedia"]
 
 [features]
-default = []
+default = ["engine"]
 generate-bindings = ["dep:bindgen"]
+engine = []
 supplybin = []
 vorbis = []
 

@@ -27,6 +27,8 @@ and compile the `miniaudio` C library.
 
 The list below contains specific targets that have been tested, and have bindings and static libraries available.
 
+Prebuilt static libraries can be found in the `Release` section on the Github repository.
+
 | Targets | Pregen bindings exist | Tested | Static library exists |
 | ------- | ------- | ------- | ------- |
 |`x86_64-pc-windows-msvc` <br> `x86_64-pc-windows-gnu` <br> `aarch64-pc-windows-msvc` | Yes | Yes | Yes |
@@ -34,7 +36,7 @@ The list below contains specific targets that have been tested, and have binding
 | `aarch64-apple-darwin` <br> `x86_64-apple-darwin` | Yes | Yes | Yes |
 | `x86_64-unknown-openbsd` <br> `x86_64-unknown-freebsd` <br> `x86_64-unknown-netbsd` <br> `x86_64-unknown-dragonfly` | Yes | Yes | Yes |
 | `iOS` | No | No | No |
-| `aarch64-linux-android` | No | No | No |
+| `aarch64-linux-android` | Yes | No | No |
 | `Web` | No | No | No |
 
 ## How to use
@@ -167,8 +169,10 @@ const MUSIC_FILE: &[u8] = include_bytes!("path/to/file.mp3");
 fn main() {
     let engine = Engine::new().unwrap();
 
-    let decoder = DecoderBuilder::new(Format::F32, 2, SampleRate::Sr44100)
-        .ref_from_memory(MUSIC_FILE)
+    let decoder = DecoderBuilder::new_f32()
+        .channels(2)
+        .sample_rate(SampleRate::Sr44100)
+        .from_memory(MUSIC_FILE)
         .unwrap();
 
     let mut sound = engine.new_sound_from_source(&decoder).unwrap();

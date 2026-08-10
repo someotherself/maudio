@@ -213,7 +213,7 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
 
         #[cfg(windows)]
         {
-            use crate::wide_null_terminated;
+            use crate::engine::wide_null_terminated;
 
             let path = wide_null_terminated(path);
 

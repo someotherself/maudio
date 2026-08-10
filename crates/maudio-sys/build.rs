@@ -22,6 +22,10 @@ fn write_bindings(out_bindings: &std::path::Path) {
         builder = builder.clang_arg("-DMA_NO_VORBIS=1");
     }
 
+    if !cfg!(feature = "engine") {
+        builder = builder.clang_arg("-DMA_NO_ENGINE=1");
+    }
+
     let bindings = builder.generate().expect("Unable to generate bindings");
     bindings
         .write_to_file(out_bindings)
@@ -175,7 +179,6 @@ fn main() {
         backend_features(&mut cc_builder);
 
         cc_builder
-            .std("c99") // stb_vorbis is C99
             .file("native/miniaudio_version_check.c")
             .file("native/miniaudio.c")
             .include("native")
@@ -185,7 +188,9 @@ fn main() {
             .compile("miniaudio");
     }
 
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let out_path = PathBuf::from(
+        env::var("OUT_DIR").expect("Cargo did not provide the OUT_DIR environment variable"),
+    );
     let out_bindings = out_path.join("bindings.rs");
 
     write_bindings(&out_bindings);

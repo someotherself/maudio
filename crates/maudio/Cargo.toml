@@ -9,8 +9,10 @@ description = "All-in-one audio crate for Rust."
 categories = ["multimedia::audio", "multimedia"]
 
 [features]
+default = ["engine"]
 ci-tests = [] # disable the backend for the github CI
 vorbis = ["maudio-sys/vorbis"]
+engine = ["maudio-sys/engine"]
 generate-bindings = ["maudio-sys/generate-bindings"]
 supplybin = ["maudio-sys/supplybin"]
 
@@ -34,3 +36,111 @@ maudio-sys = { path = "../maudio-sys", version = "0.1.6" }
 
 [dev-dependencies]
 symphonia = { version = "0.6.0", features = ["aac"] }
+
+[[example]]
+name = "001_play_sound"
+required-features = ["engine"]
+
+[[example]]
+name = "002_sound_engine_builder"
+required-features = ["engine"]
+
+[[example]]
+name = "003_sound_builder"
+required-features = ["engine"]
+
+[[example]]
+name = "004_multiple_sounds"
+required-features = ["engine"]
+
+[[example]]
+name = "005_set_start_stop"
+required-features = ["engine"]
+
+[[example]]
+name = "006_embed_file"
+required-features = ["engine"]
+
+[[example]]
+name = "007_sound_end_notif"
+required-features = ["engine"]
+
+[[example]]
+name = "008_node_to_graph"
+required-features = ["engine"]
+
+[[example]]
+name = "009_play_waveform"
+required-features = ["engine"]
+
+[[example]]
+name = "010_sound_async_fence"
+required-features = ["engine"]
+
+[[example]]
+name = "011_sound_seek"
+required-features = ["engine"]
+
+[[example]]
+name = "012_play_sound_group"
+required-features = ["engine"]
+
+[[example]]
+name = "013_simple_sound_spatialization"
+required-features = ["engine"]
+
+[[example]]
+name = "014_sound_group_mixing"
+required-features = ["engine"]
+
+[[example]]
+name = "015_sound_pool"
+required-features = ["engine"]
+
+[[example]]
+name = "016_decoder_from_file"
+required-features = ["engine"]
+
+[[example]]
+name = "101_engine_state_cb"
+required-features = ["engine"]
+
+[[example]]
+name = "102_engine_proc_notif"
+required-features = ["engine"]
+
+[[example]]
+name = "103_engine_proc_cb"
+required-features = ["engine"]
+
+[[example]]
+name = "104_VU_meter"
+required-features = ["engine"]
+
+[[example]]
+name = "105_read_pcm_frames"
+required-features = ["engine"]
+
+[[example]]
+name = "106_engine_record_to_file"
+required-features = ["engine"]
+
+[[example]]
+name = "107_engine_sound_playlist"
+required-features = ["engine"]
+
+[[example]]
+name = "108_engine_node_playlist"
+required-features = ["engine"]
+
+[[example]]
+name = "109_splitter_node"
+required-features = ["engine"]
+
+[[example]]
+name = "110_gain_node"
+required-features = ["engine"]
+
+[[example]]
+name = "111_decoder_symphonia"
+required-features = ["engine"]

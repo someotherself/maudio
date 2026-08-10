@@ -13,12 +13,14 @@ use crate::{
         sample_rate::SampleRate,
     },
     data_source::pcm_source::PcmSource,
-    engine::resource::{
-        rm_buffer::ResourceManagerBuffer, rm_source::ResourceManagerSource,
-        rm_stream::ResourceManagerStream, AsRmPtr,
-    },
     pcm_frames::PcmFormat,
     AsRawRef, Binding, MaResult, MaudioError,
+};
+
+#[cfg(feature = "engine")]
+use crate::engine::resource::{
+    rm_buffer::ResourceManagerBuffer, rm_source::ResourceManagerSource,
+    rm_stream::ResourceManagerStream, AsRmPtr,
 };
 
 pub mod data_source_builder;
@@ -205,13 +207,13 @@ pub(crate) mod private_data_source {
                 waveform::{WaveForm, WaveFormOps},
             },
         },
-        engine::{
-            node_graph::nodes::source::source_node::AttachedSourceNode,
-            resource::{
-                rm_source::ResourceManagerSource, rm_stream::ResourceManagerStream, AsRmPtr,
-            },
-        },
         pcm_frames::PcmFormat,
+    };
+
+    #[cfg(feature = "engine")]
+    use crate::engine::{
+        node_graph::nodes::source::source_node::AttachedSourceNode,
+        resource::{rm_source::ResourceManagerSource, rm_stream::ResourceManagerStream, AsRmPtr},
     };
 
     use super::*;
@@ -231,9 +233,13 @@ pub(crate) mod private_data_source {
     pub struct PulseWaveProvider;
     pub struct WaveFormProvider;
     pub struct NoiseProvider;
+    #[cfg(feature = "engine")]
     pub struct AttachedSourceNodeProvider;
+    #[cfg(feature = "engine")]
     pub struct ResourceManagerSourceProvider;
+    #[cfg(feature = "engine")]
     pub struct ResourceManagerBufferProvider;
+    #[cfg(feature = "engine")]
     pub struct ResourceManagerStreamProvider;
     pub struct ChainSourceProvider;
 
@@ -307,6 +313,7 @@ pub(crate) mod private_data_source {
         }
     }
 
+    #[cfg(feature = "engine")]
     impl<S: AsSourcePtr> DataSourcePtrProvider<AttachedSourceNode<S>> for AttachedSourceNodeProvider {
         #[inline]
         fn as_source_ptr(t: &AttachedSourceNode<S>) -> *mut sys::ma_data_source {
@@ -314,6 +321,7 @@ pub(crate) mod private_data_source {
         }
     }
 
+    #[cfg(feature = "engine")]
     impl<R: AsRmPtr> DataSourcePtrProvider<ResourceManagerSource<'_, R>>
         for ResourceManagerSourceProvider
     {
@@ -323,6 +331,7 @@ pub(crate) mod private_data_source {
         }
     }
 
+    #[cfg(feature = "engine")]
     impl<R: AsRmPtr> DataSourcePtrProvider<ResourceManagerBuffer<'_, R>>
         for ResourceManagerBufferProvider
     {
@@ -332,6 +341,7 @@ pub(crate) mod private_data_source {
         }
     }
 
+    #[cfg(feature = "engine")]
     impl<R: AsRmPtr> DataSourcePtrProvider<ResourceManagerStream<'_, R>>
         for ResourceManagerStreamProvider
     {
@@ -372,22 +382,29 @@ impl<'a, F: PcmFormat> AsSourcePtr for DataSourceRef<'a, F> {
 }
 
 mod sealed {
+    #[cfg(feature = "engine")]
     use crate::engine::resource::{
         rm_buffer::ResourceManagerBuffer, rm_source::ResourceManagerSource,
         rm_stream::ResourceManagerStream, AsRmPtr,
     };
 
     pub trait Sealed {}
+    #[cfg(feature = "engine")]
     impl<R: AsRmPtr> Sealed for ResourceManagerBuffer<'_, R> {}
+    #[cfg(feature = "engine")]
     impl<R: AsRmPtr> Sealed for ResourceManagerSource<'_, R> {}
+    #[cfg(feature = "engine")]
     impl<R: AsRmPtr> Sealed for ResourceManagerStream<'_, R> {}
 }
 /// Carries for [`PcmFormat`] for data sources implementing [`DataSourceOps`]
 pub trait SharedSource: sealed::Sealed {}
 
 // The types that DataSourceOps is implemented for are listed here.
+#[cfg(feature = "engine")]
 impl<R: AsRmPtr> DataSourceOps for ResourceManagerSource<'_, R> {}
+#[cfg(feature = "engine")]
 impl<R: AsRmPtr> DataSourceOps for ResourceManagerBuffer<'_, R> {}
+#[cfg(feature = "engine")]
 impl<R: AsRmPtr> DataSourceOps for ResourceManagerStream<'_, R> {}
 
 pub trait DataSourceOps: AsSourcePtr + SharedSource {

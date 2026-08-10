@@ -27,6 +27,8 @@ and compile the `miniaudio` C library.
 
 The list below contains specific targets that have been tested, and have bindings and static libraries available.
 
+Prebuilt static libraries can be found in the `Release` section on the Github repository.
+
 | Targets | Pregen bindings exist | Tested | Static library exists |
 | ------- | ------- | ------- | ------- |
 |`x86_64-pc-windows-msvc` <br> `x86_64-pc-windows-gnu` <br> `aarch64-pc-windows-msvc` | Yes | Yes | Yes |

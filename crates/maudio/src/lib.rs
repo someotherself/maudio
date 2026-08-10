@@ -78,6 +78,22 @@
 //!
 //! By default **all backends are enabled** unless explicitly disabled.
 //!
+//! ## Engine
+//!
+//! The Engine (and the high level API) is enabled by default. It can be disabled when building the crate
+//! with `--no-default-features`, or when importing the library using
+//! `default-features = false`:
+//!
+//! ```toml
+//! maudio = { version = "...", default-features = false }
+//! ```
+//!
+//! Disabling the Engine can reduce binary size and memory usage on platforms
+//! where the Engine is not needed.
+//!
+//! When supplying your own static libraries (via the `supplybin` feature),
+//! this should be paired with the `MA_NO_ENGINE` compile-time flag.
+//!
 //! ## `vorbis`
 //! Enables Ogg/Vorbis decoding by compiling the `stb_vorbis` implementation into the miniaudio
 //! translation unit.
@@ -87,7 +103,6 @@
 //! ## `generate-bindings`
 //! Generates bindings at build time using `bindgen`.
 //!
-//! - Required on MacOS
 //! - Intended for maintainers when updating the vendored miniaudio version.
 //! - Regular users should prefer the pre-generated bindings shipped with the crate.
 //! - Adds a build dependency on via `bindgen`.
@@ -98,8 +113,10 @@ pub mod context;
 pub mod data_source;
 pub mod device;
 pub mod encoder;
+#[cfg(feature = "engine")]
 pub mod engine;
 pub mod pcm_frames;
+#[cfg(feature = "engine")]
 pub mod sound;
 pub(crate) mod test_assets;
 pub mod util;

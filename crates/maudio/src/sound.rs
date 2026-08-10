@@ -528,7 +528,7 @@ impl Sound {
         }
         #[cfg(windows)]
         {
-            use crate::wide_null_terminated;
+            use crate::engine::wide_null_terminated;
 
             let path = wide_null_terminated(path);
             sound_ffi::ma_sound_init_from_file_w(engine, &path, flags, sound_group, fence, sound)

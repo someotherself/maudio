@@ -11,7 +11,7 @@ This can be changed by the following feature:
 Generation of raw bindings (with Binden) can be forced using the "generate-bindings" feature.
 Altough, this is mainly used for development work.
 
-The default branch will try to find and use existing pregenerated bindings, and if they don't exist, will generate them.
+The default branch will try to find and use existing pregenerated bindings. If they do not exist, `generate-bindings` feature must be used.
 Pregenerated bindings exist for the following targets:
 - x86_64-unknown-linux-gnu
 - x86_64-pc-windows-msvc

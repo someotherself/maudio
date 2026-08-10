@@ -8,10 +8,13 @@
 //!
 //! ## Example:
 //! ```no_run
+//! # #[cfg(feature = "engine")]
 //! # use maudio::engine::Engine;
 //! # use std::path::Path;
 //! # use maudio::util::fence::Fence;
+//! # #[cfg(feature = "engine")]
 //! # use maudio::sound::sound_flags::SoundFlags;
+//! # #[cfg(feature = "engine")]
 //! # fn new_sound(path: &Path) -> maudio::MaResult<()> {
 //! let engine = Engine::new()?;
 //! let fence = Fence::new()?;
