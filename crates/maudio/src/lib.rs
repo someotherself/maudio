@@ -106,6 +106,14 @@
 //! - Intended for maintainers when updating the vendored miniaudio version.
 //! - Regular users should prefer the pre-generated bindings shipped with the crate.
 //! - Adds a build dependency on via `bindgen`.
+//!
+//! ## `worklet` (Audioworklet - emscripten)
+//!
+//! The worklets feature enables AudioWorklet support when building for Emscripten.
+//! AudioWorklets allow audio processing to run in a dedicated audio thread,
+//! which can provide more reliable, low-latency audio processing in the browser.
+//!
+//! Only works for target `wasm32-unknown-emscripten`.
 
 pub mod audio;
 pub mod backend;

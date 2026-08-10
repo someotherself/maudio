@@ -16,6 +16,7 @@ generate-bindings = ["dep:bindgen"]
 engine = []
 supplybin = []
 vorbis = []
+worklet = []
 
 # Disable specific backends
 no-wasapi = []

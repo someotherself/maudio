@@ -35,9 +35,11 @@ Prebuilt static libraries can be found in the `Release` section on the Github re
 |`x86_64-unknown-linux-gnu` <br> `aarch64-unknown-linux-musl` <br> `aarch64-unknown-linux-gnu` <br> `i686-unknown-linux-gnu` | Yes | Yes | Yes |
 | `aarch64-apple-darwin` <br> `x86_64-apple-darwin` | Yes | Yes | Yes |
 | `x86_64-unknown-openbsd` <br> `x86_64-unknown-freebsd` <br> `x86_64-unknown-netbsd` <br> `x86_64-unknown-dragonfly` | Yes | Yes | Yes |
-| `iOS` | No | No | No |
-| `aarch64-linux-android` | Yes | No | No |
-| `Web` | No | No | No |
+| `iOS` | No | No | - |
+| `aarch64-linux-android` | Yes | No | - |
+| `wasm32-unknown-emscripten` | Yes | Runtime <br>tested* | - |
+
+*requires Emscripten 3.1.68 and nightly for Zbuild.
 
 ## How to use
 

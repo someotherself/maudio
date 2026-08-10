@@ -13,10 +13,25 @@ fn write_bindings(out_bindings: &std::path::Path) {
         .header("native/miniaudio/miniaudio.h")
         .clang_arg("-Inative")
         .clang_arg("-Inative/miniaudio")
-        .clang_arg("-std=c99") // stb_vorbis is C99
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .use_core()
         .ctypes_prefix("core::ffi");
+
+    let target = std::env::var("TARGET").unwrap();
+
+    if target == "wasm32-unknown-emscripten" {
+        let emsdk = std::env::var("EMSDK").expect("EMSDK must be set");
+        let sysroot = std::path::Path::new(&emsdk).join("upstream/emscripten/cache/sysroot");
+
+        builder = builder
+            .clang_arg(format!("--sysroot={}", sysroot.display()))
+            .clang_arg("-iwithsysroot/include/fakesdl")
+            .clang_arg("-iwithsysroot/include/compat")
+            .clang_arg("-fvisibility=default")
+            .blocklist_type("max_align_t");
+    } else {
+        builder = builder.clang_arg("-std=c99"); // stb_vorbis is c99
+    }
 
     if !cfg!(feature = "vorbis") {
         builder = builder.clang_arg("-DMA_NO_VORBIS=1");
@@ -181,6 +196,29 @@ fn main() {
 
         // backend features
         backend_features(&mut cc_builder);
+
+        let target =
+            env::var("TARGET").expect("Cargo did not provide the TARGET environment variable");
+
+        if target == "wasm32-unknown-emscripten" {
+            if cfg!(feature = "worklet") {
+                cc_builder.define("MA_ENABLE_AUDIO_WORKLETS", "1");
+
+                println!("cargo:rustc-link-arg=-sAUDIO_WORKLET=1");
+                println!("cargo:rustc-link-arg=-sWASM_WORKERS=1");
+                println!("cargo:rustc-link-arg=-sASYNCIFY");
+            }
+
+            let emsdk = env::var("EMSDK").expect("EMSDK must be set");
+            let sysroot = std::path::Path::new(&emsdk).join("upstream/emscripten/cache/sysroot");
+
+            cc_builder
+                .flag("-fwasm-exceptions")
+                .flag("-fvisibility=default")
+                .flag(format!("--sysroot={}", sysroot.display()));
+        } else {
+            cc_builder.std("c99"); // stb_vorbis is c99
+        }
 
         cc_builder
             .file("native/miniaudio_version_check.c")
