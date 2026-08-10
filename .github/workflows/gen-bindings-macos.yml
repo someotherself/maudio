@@ -22,6 +22,12 @@ jobs:
           - target: aarch64-apple-darwin
             runner: macos-15
 
+          - target: aarch64-apple-ios
+            runner: macos-15
+
+          - target: aarch64-apple-ios-sim
+            runner: macos-15
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -48,15 +54,15 @@ jobs:
 
       - name: Verify runner architecture
         run: |
-          case "${{ matrix.target }}" in
-            x86_64-apple-darwin)
+          case "${{ matrix.runner }}" in
+            macos-15-intel)
               test "$(uname -m)" = "x86_64"
               ;;
-            aarch64-apple-darwin)
+            macos-15)
               test "$(uname -m)" = "arm64"
               ;;
             *)
-              echo "Unexpected target: ${{ matrix.target }}"
+              echo "Unexpected runner: ${{ matrix.runner }}"
               exit 1
               ;;
           esac
