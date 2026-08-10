@@ -29,7 +29,7 @@ fn write_bindings(out_bindings: &std::path::Path) {
             .clang_arg("-iwithsysroot/include/compat")
             .clang_arg("-fvisibility=default")
             .blocklist_type("max_align_t");
-    } else {
+    } else if !target.contains("apple-ios") {
         builder = builder.clang_arg("-std=c99"); // stb_vorbis is c99
     }
 
@@ -216,7 +216,7 @@ fn main() {
                 .flag("-fwasm-exceptions")
                 .flag("-fvisibility=default")
                 .flag(format!("--sysroot={}", sysroot.display()));
-        } else {
+        } else if !target.contains("apple-ios") {
             cc_builder.std("c99"); // stb_vorbis is c99
         }
 
