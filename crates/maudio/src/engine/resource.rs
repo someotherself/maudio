@@ -757,7 +757,7 @@ pub trait RmOps: AsRmPtr {
 
         #[cfg(windows)]
         {
-            use crate::engine::wide_null_terminated;
+            use crate::wide_null_terminated;
 
             let c_path = wide_null_terminated(path);
 
@@ -1155,7 +1155,7 @@ pub(crate) mod resource_ffi {
         }
         #[cfg(windows)]
         {
-            use crate::engine::wide_null_terminated_name;
+            use crate::wide_null_terminated_name;
 
             let name = wide_null_terminated_name(name);
             ma_resource_manager_register_decoded_data_w(
@@ -1243,7 +1243,7 @@ pub(crate) mod resource_ffi {
         }
         #[cfg(windows)]
         {
-            use crate::engine::wide_null_terminated_name;
+            use crate::wide_null_terminated_name;
 
             let name = wide_null_terminated_name(name);
             ma_resource_manager_register_encoded_data_w(
@@ -1306,7 +1306,7 @@ pub(crate) mod resource_ffi {
         }
         #[cfg(windows)]
         {
-            use crate::engine::wide_null_terminated;
+            use crate::wide_null_terminated;
 
             let c_path = wide_null_terminated(path);
             ma_resource_manager_unregister_file_w(rm, &c_path)
@@ -1355,7 +1355,7 @@ pub(crate) mod resource_ffi {
         }
         #[cfg(windows)]
         {
-            use crate::engine::wide_null_terminated_name;
+            use crate::wide_null_terminated_name;
 
             let name = wide_null_terminated_name(name);
             ma_resource_manager_unregister_data_w(rm, &name)

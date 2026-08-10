@@ -243,7 +243,7 @@ impl<F: PcmFormat, S> Decoder<F, S> {
 
         #[cfg(windows)]
         {
-            use crate::engine::wide_null_terminated;
+            use crate::wide_null_terminated;
 
             let path = wide_null_terminated(path);
 
