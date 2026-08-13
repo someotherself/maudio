@@ -831,7 +831,7 @@ pub trait RmOps: AsRmPtr {
 
         #[cfg(windows)]
         {
-            let name = crate::wide_null_terminated_name(name);
+            let name = crate::wide_null_terminated_name(path);
             resource_ffi::ma_resource_manager_register_encoded_data_w(
                 rm,
                 &name,
@@ -845,7 +845,7 @@ pub trait RmOps: AsRmPtr {
             // if the name doesn't already exist in the binary tree
             let _ = guard.build_source(RmSourceFlags::ASYNC, None)?;
 
-            sOk(guard)
+            Ok(guard)
         }
 
         #[cfg(not(any(unix, windows)))]
@@ -887,7 +887,7 @@ pub trait RmOps: AsRmPtr {
             let c_path = wide_null_terminated(path);
 
             resource_ffi::ma_resource_manager_register_file_w(self, &c_path, flags)?;
-            Ok(ResourceGuard::<Self::Format>::from_path::<Self>(self, path))
+            Ok(ResourceGuard::<Self::Format, Unknown>::from_path::<Self>(self, path))
         }
 
         #[cfg(not(any(unix, windows)))]
