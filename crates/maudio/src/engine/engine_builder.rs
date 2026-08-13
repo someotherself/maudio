@@ -550,7 +550,7 @@ mod test {
             .resource_manager(&rm)
             .build_for_tests()
             .unwrap();
-        let _rm_ref = engine.resource_manager().unwrap();
+        let _rm_ref = engine.resource_manager();
     }
 
     #[test]
@@ -580,13 +580,13 @@ mod test {
             .resource_manager(&rm)
             .build_for_tests()
             .unwrap();
-        let _rm_ref = engine1.resource_manager().unwrap();
-        let _rm_ref = engine1.resource_manager().unwrap();
-        let _rm_ref = engine2.resource_manager().unwrap();
-        let _rm_ref = engine3.resource_manager().unwrap();
-        let _rm_ref = engine4.resource_manager().unwrap();
-        let _rm_ref = engine5.resource_manager().unwrap();
-        let _rm_ref = engine6.resource_manager().unwrap();
+        let _rm_ref = engine1.resource_manager();
+        let _rm_ref = engine1.resource_manager();
+        let _rm_ref = engine2.resource_manager();
+        let _rm_ref = engine3.resource_manager();
+        let _rm_ref = engine4.resource_manager();
+        let _rm_ref = engine5.resource_manager();
+        let _rm_ref = engine6.resource_manager();
         drop(rm); // safe
     }
 }

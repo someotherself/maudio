@@ -4,20 +4,45 @@
 //! It is designed to be used from **multiple threads**: internally it uses a
 //! multi-producer / multi-consumer job queue plus background worker threads.
 //!
+//! ## Relationship to the Engine
+//!
+//! An [`Engine`](crate::engine) will always have an underlying resource manager.
+//!
+//! The API exposed by the resource manager directly offers functionality that is not 100%
+//! matching how the engine may use a resource manager.
+//!
+//! Primarily, the `Engine` uses the it with sounds that are not already loaded in memory, and
+//! reference counts them if they are used multiple times.
+//!
+//! When working through the engine, [`ResourceGuard`] and explicit resource
+//! registration are not necessary. The engine handles acquiring and
+//! releasing resources internally.
+//!
+//! The resource manager can also be used independently of the engine through
+//! the low-level API. In this case, it can be used as a general-purpose store
+//! for registering and loading resources, including resources already held in
+//! memory, and for sharing those resources across threads.
+//!
 //! In `maudio`, the resource manager is exposed in two forms:
 //!
-//! - [`ResourceManager`]: an owned, reference-counted handle (`Arc`) that is
-//!   cheap to clone and can be shared across threads.
-//! - [`ResourceManagerRef`]: a non-owning reference tied to a lifetime,
-//!   primarily returned by other objects (e.g. the engine).
+//! - [`ResourceManager`]: an owned, reference-counted handle that can be cloned.
+//! - [`ResourceManagerRef`]: a non-owning reference primarily returned by other objects (e.g. the engine).
 //!
 //! ### PCM format choice
 //!
-//! Miniaudio’s resource manager can operate in different “native” PCM formats.
-//! However, for various reasons, `maudio` requires selecting a concrete PCM format up-front
-//! (most users should pick `f32`). The selected format becomes part of the type
-//! (`ResourceManager<f32>`, `ResourceManager<i16>`, etc.) and all APIs can then
-//! remain strongly typed.
+//! A resource mananger contains a decoder with a format converted, resampler and channel converter.
+//! When building a resource manager you are asked to select the `output` format.
+//!
+//! Sounds loaded into the resource manager will be converted to this outpuf format if it differs.
+//! A [`ResourceGuard`] can show both input (native) and output format if both are known.
+//! A decoded, i16 sound loaded into an f32 ResourceManager will show:
+//! ```ignore
+//! ResourceGuard<f32, i16>
+//! ```
+//! If you are loading an encoded sound, it will simply show:
+//! ```ignore
+//! ResourceGuard<f32, Unknown>
+//! ```
 //!
 //! ## What is the resource manager (in Miniaudio)?
 //!
@@ -40,6 +65,7 @@
 //! - share one loader/decoder across many sounds,
 //! - keep decoding/loading work off the audio callback thread,
 //! - and unify “load from file / load from memory” behind the same typed API.
+//! - loading a sound in a thread, and retrieving a data source for it in another
 //!
 //! ### Sharing a resource manager between multiple engines
 //!
@@ -88,21 +114,23 @@ use std::{
 use maudio_sys::ffi as sys;
 
 use crate::{
-    audio::{
-        formats::{Format, SampleBuffer},
-        sample_rate::SampleRate,
-    },
+    audio::{formats::Format, sample_rate::SampleRate},
     data_source::{
         sources::decoder::custom_decoder::BackendRegistration, AsSourcePtr, SharedSource,
     },
-    engine::resource::{
-        rm_buffer::{ResourceManagerBuffer, ResourceManagerBufferBuilder},
-        rm_builder::ResourceManagerBuilder,
-        rm_source::{ResourceManagerSource, ResourceManagerSourceBuilder},
-        rm_source_flags::RmSourceFlags,
-        rm_stream::{ResourceManagerStream, ResourceManagerStreamBuilder},
+    device::device_builder::Unknown,
+    engine::{
+        resource::{
+            rm_buffer::{ResourceManagerBuffer, ResourceManagerBufferBuilder},
+            rm_builder::ResourceManagerBuilder,
+            rm_notif::NotificationPipeline,
+            rm_source::{ResourceManagerSource, ResourceManagerSourceBuilder},
+            rm_source_flags::RmSourceFlags,
+            rm_stream::{ResourceManagerStream, ResourceManagerStreamBuilder},
+        },
+        EngineInner,
     },
-    pcm_frames::{PcmFormat, PcmFormatInternal, S24Packed, S24},
+    pcm_frames::{PcmFormat, S24Packed},
     test_assets::wav_i16_le,
     AsRawRef, Binding, MaResult, MaudioError,
 };
@@ -122,84 +150,55 @@ pub mod rm_stream;
 /// resource-backed data sources (buffer/stream/source) using Miniaudio’s internal cache
 /// and job system.
 ///
-/// ## Two Ways to Create Resource-Backed Audio
+/// ## How to create resource-backed audio
 ///
-/// `maudio` supports two distinct workflows for creating resource-backed audio.
-/// The difference is primarily about **who owns the backing data** and
-/// whether you want **explicit lifetime control**.
+/// A sound is added to the ResourceManager via a registration.
+/// The registration process returns a guard that keeps that registration alive.
+/// When all guards for this sound are dropped, the sound is removed from the
+/// ResourceManager and can no longer be used.
 ///
-/// ---------------------------------------------------------------------------
+/// You get the biggest benefit out of the resource manager when you are registering
+/// sounds that are not already in memory.
 ///
-/// ## 1) Register First - Explicit Ownership Model
+/// However, the ResourceManager does support the following ways to register sounds:
+/// ```text
+/// register_file                 - takes &Path
+/// register_encoded              - in memory, raw bytes
+/// register_decoded_u8           - in memory, u8 native decoded
+/// register_decoded_i16          - in memory, i16 native decoded
+/// register_decoded_i32          - in memory, i32 native decoded
+/// register_decoded_s24_packed   - in memory, 3-byte packed native decoded
+/// register_decoded_f32          - in memory, f32 native decoded
+///```
 ///
-/// Use `register_*()` when:
-/// - You already have audio data in memory (encoded or decoded),
-/// - You want explicit control over the lifetime of a resource,
-/// - You want to share a single registered asset across multiple sounds,
-/// - You want to ensure caching behavior is clearly scoped.
+/// When registering sounds, the ResourceManager acts similarly to a key-value store.
+/// Each registration also requirs a name for that resource. For file backed registration,
+/// the path provided becomes the name.
 ///
-/// Registering returns a [`ResourceGuard`]. While the guard is alive,
-/// the resource remains registered inside the resource manager.
-///
-/// ### What gets registered?
-///
-/// - `register_file()`  
-///   Registers a file path under the resource manager. The file itself is not
-///   immediately loaded unless required, but the name is reserved and tracked.
-///
-/// - `register_decoded_*()`  
-///   Registers already-decoded PCM frames.  
-///   The memory remains owned by the caller. The resource manager will not copy
-///   or free it. The caller must ensure it stays valid for the duration of use.
-///
-/// - `register_encoded()`  
-///   Registers encoded/compressed bytes (e.g. mp3/ogg/flac).  
-///   The memory remains caller-owned.
+/// After the registration, maudio exposes 2 functions which also return a `ResourceGuard`:
+/// ```text
+/// load_name()
+/// load_path()
+/// ```
+/// These functions will fail with `MA_INVALID_ARGS`, if the name or path has not been registered.
+/// Since the ResourceManager is thread safe, this makes it easy to register sounds in a thread,
+/// and load a data source for that sound in another thread.
 ///
 /// From the returned guard you can build:
-/// - [`ResourceManagerBuffer`]  (fully buffered, typically decoded into memory)
-/// - [`ResourceManagerStream`]  (streamed decode / read-ahead)
-/// - [`ResourceManagerSource`]  (generic data source)
-///
-/// Dropping the guard unregisters the resource (after all active users are gone).
-///
-/// This workflow is recommended when:
-/// - You manage your own assets,
-/// - You want predictable lifetime semantics,
-/// - You want to preload or alias resources explicitly.
-///
-/// ---------------------------------------------------------------------------
-///
-/// ## 2) Build Directly - Resource Manager Managed
-///
-/// You can also construct buffers/streams/sources directly from a file path
-/// without calling `register_*()` first.
-///
-/// In this case:
-/// - The resource manager opens and reads the file itself.
-/// - For non-streaming buffers, the data may be cached internally and shared
-///   across multiple builds of the same path.
-/// - The resource manager owns and frees the loaded data.
-///
-/// This workflow is convenient for:
-/// - One-off playback,
-/// - Quick loading without explicit lifetime management.
-///
-/// Limitations:
-/// - Cannot be used for audio already loaded in memory.
-/// - Lifetime is implicit and resources are kept alive internally by reference counting.
+/// - [`ResourceManagerBuffer`]: fully buffered, typically decoded into memory.
+/// - [`ResourceManagerStream`]: streamed decode / read-ahead. Cannot be used for in memory sounds.
+/// - [`ResourceManagerSource`]: generic data source.
 ///
 /// ### Thread safety
 ///
-/// `ResourceManager<F>` is cheap to clone and intended to be shared across threads.
+/// The following types are Send + Sync:
+/// - [`ResourceManager`]
+/// - [`ResourceManagerRef`]
+/// - [`ResourceGuard`]
 ///
 /// Miniaudio documents `ma_resource_manager` as safe to use from multiple threads:
 /// it uses a multi-producer/multi-consumer job queue and background job threads.
 ///
-/// ### Format parameter
-///
-/// `F` is the resource manager’s native PCM format. This is chosen when building
-/// the resource manager. Most applications, especially when used with an engine, should use `f32`.
 ///
 /// ### Multiple engine support
 ///
@@ -209,13 +208,12 @@ pub mod rm_stream;
 /// and asset cache.
 ///
 /// Use [`ResourceManagerBuilder`] to initialize.
-#[derive(Clone, Debug)]
-pub struct ResourceManager<F: PcmFormat> {
-    inner: Arc<InnerResourceManager<F>>,
-}
+#[derive(Clone)]
+pub struct ResourceManager<F: PcmFormat>(Arc<ResourceManagerInner<F>>);
 
+#[doc(hidden)]
 #[derive(Debug)]
-pub(crate) struct InnerResourceManager<F: PcmFormat> {
+pub struct ResourceManagerInner<F: PcmFormat> {
     inner: *mut sys::ma_resource_manager,
     #[allow(unused)]
     channels: Option<u32>,
@@ -226,9 +224,6 @@ pub(crate) struct InnerResourceManager<F: PcmFormat> {
     _format: PhantomData<F>,
 }
 
-// ma_resource_manager is intended to be used from multiple threads
-// it uses a multi-producer/multi-consumer job queue and background job threads
-// NOTE: Everything else added to the Rust struct needs to be Send and Sync!!!
 unsafe impl<F: PcmFormat> Send for ResourceManager<F> {}
 unsafe impl<F: PcmFormat> Sync for ResourceManager<F> {}
 
@@ -236,7 +231,7 @@ impl<F: PcmFormat> Binding for ResourceManager<F> {
     type Raw = *mut sys::ma_resource_manager;
 
     fn to_raw(&self) -> Self::Raw {
-        self.inner.inner
+        self.0.inner
     }
 }
 
@@ -245,22 +240,16 @@ impl<F: PcmFormat> Binding for ResourceManager<F> {
 /// This is a lightweight non-owning view into an existing resource manager.
 /// It is primarily returned by other objects (for example `Engine::resource_manager()`).
 ///
-/// You typically do not construct this directly. If you need an owned handle that
-/// can be cloned and moved between threads, use [`ResourceManager<F>`] instead.
-///
-/// The lifetime `'a` ties this reference to the owner that produced it.
-///
-/// ### Format parameter
-///
-/// `F` matches the native PCM format of the underlying resource manager.
-/// In practice, this is determined by how the original resource manager was created.
-pub struct ResourceManagerRef<'a, F: PcmFormat> {
-    inner: *mut sys::ma_resource_manager,
-    _format: PhantomData<F>,
-    _marker: PhantomData<&'a ()>,
+pub struct ResourceManagerRef<F: PcmFormat> {
+    pub(crate) inner: *mut sys::ma_resource_manager,
+    pub(crate) _format: PhantomData<F>,
+    pub(crate) owner: RmOwner<F>,
 }
 
-impl<F: PcmFormat> Binding for ResourceManagerRef<'_, F> {
+unsafe impl<F: PcmFormat> Send for ResourceManagerRef<F> {}
+unsafe impl<F: PcmFormat> Sync for ResourceManagerRef<F> {}
+
+impl<F: PcmFormat> Binding for ResourceManagerRef<F> {
     type Raw = *mut sys::ma_resource_manager;
 
     fn to_raw(&self) -> Self::Raw {
@@ -268,47 +257,50 @@ impl<F: PcmFormat> Binding for ResourceManagerRef<'_, F> {
     }
 }
 
-impl<'a, F: PcmFormat> ResourceManagerRef<'a, F> {
-    pub(crate) fn from_ptr(ptr: *mut sys::ma_resource_manager) -> Self {
-        Self {
-            inner: ptr,
-            _format: PhantomData,
-            _marker: PhantomData,
-        }
-    }
-}
-
 pub(crate) mod private_rm {
     use super::*;
     use maudio_sys::ffi as sys;
 
-    pub trait RmPtrProvider<T: ?Sized> {
+    pub trait RmPtrProvider<F: PcmFormat, T: ?Sized> {
         fn as_rm_ptr(t: &T) -> *mut sys::ma_resource_manager;
+        fn clone_owner(t: &T) -> RmOwner<F>;
     }
 
     pub struct RmProvider;
     pub struct RmRefProvider;
 
-    impl<F: PcmFormat> RmPtrProvider<ResourceManager<F>> for RmProvider {
+    impl<F: PcmFormat> RmPtrProvider<F, ResourceManager<F>> for RmProvider {
         fn as_rm_ptr(t: &ResourceManager<F>) -> *mut sys::ma_resource_manager {
             t.to_raw()
         }
+
+        fn clone_owner(t: &ResourceManager<F>) -> RmOwner<F> {
+            RmOwner::Rm(t.0.clone())
+        }
     }
 
-    impl<F: PcmFormat> RmPtrProvider<ResourceManagerRef<'_, F>> for RmRefProvider {
-        fn as_rm_ptr(t: &ResourceManagerRef<'_, F>) -> *mut sys::ma_resource_manager {
+    impl<F: PcmFormat> RmPtrProvider<F, ResourceManagerRef<F>> for RmRefProvider {
+        fn as_rm_ptr(t: &ResourceManagerRef<F>) -> *mut sys::ma_resource_manager {
             t.to_raw()
+        }
+
+        fn clone_owner(t: &ResourceManagerRef<F>) -> RmOwner<F> {
+            t.owner.clone()
         }
     }
 
     pub fn rm_ptr<T: AsRmPtr + ?Sized>(t: &T) -> *mut sys::ma_resource_manager {
         <T as AsRmPtr>::__PtrProvider::as_rm_ptr(t)
     }
+
+    pub fn clone_owner<T: AsRmPtr + ?Sized>(t: &T) -> RmOwner<<T as AsRmPtr>::Format> {
+        <T as AsRmPtr>::__PtrProvider::clone_owner(t)
+    }
 }
 
 #[doc(hidden)]
 pub trait AsRmPtr {
-    type __PtrProvider: private_rm::RmPtrProvider<Self>;
+    type __PtrProvider: private_rm::RmPtrProvider<Self::Format, Self>;
     type Format: PcmFormat;
 }
 
@@ -317,9 +309,24 @@ impl<F: PcmFormat> AsRmPtr for ResourceManager<F> {
     type Format = F;
 }
 
-impl<F: PcmFormat> AsRmPtr for ResourceManagerRef<'_, F> {
+impl<F: PcmFormat> AsRmPtr for ResourceManagerRef<F> {
     type __PtrProvider = private_rm::RmRefProvider;
     type Format = F;
+}
+
+#[doc(hidden)]
+pub enum RmOwner<F: PcmFormat> {
+    Engine(Arc<EngineInner>),
+    Rm(Arc<ResourceManagerInner<F>>),
+}
+
+impl<F: PcmFormat> Clone for RmOwner<F> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Engine(e) => RmOwner::Engine(e.clone()),
+            Self::Rm(r) => RmOwner::Rm(r.clone()),
+        }
+    }
 }
 
 /// Keeps a resource manager registration alive.
@@ -335,31 +342,45 @@ impl<F: PcmFormat> AsRmPtr for ResourceManagerRef<'_, F> {
 ///
 /// The guard may also hold ownership of the underlying bytes (for conversions done by maudio).
 ///
-/// # Typical workflow
-///
-/// 1. Register data with `register_*()`.
-/// 2. Keep the returned `ResourceGuard` alive.
-/// 3. Build buffers, streams, or sources from the guard.
-///
 /// Dropping the guard unregisters the resource once it is no longer in active use.
-#[allow(dead_code)]
-pub struct ResourceGuard<'a, R: AsRmPtr + ?Sized> {
-    rm: &'a R,
-    data_name: RegisteredDataType,
-    data_store: Option<Arc<[u8]>>,
-    _data_marker: PhantomData<&'a [u8]>,
+///
+/// A guard can show both the native and the output format of the backing audio.
+/// A decoded, i16 sound loaded into an f32 ResourceManager will show:
+/// ```ignore
+/// ResourceGuard<f32, i16>
+/// ```
+/// If you are loading an encoded sound, it will simply show:
+/// ```ignore
+/// ResourceGuard<f32, Unknown>
+/// ```
+#[derive(Clone)]
+pub struct ResourceGuard<F: PcmFormat, I>(pub(crate) Arc<ResourceGuardInner<F, I>>);
+
+pub(crate) struct ResourceGuardInner<F: PcmFormat, I> {
+    rm: *mut sys::ma_resource_manager,
+    data_name: RegisteredDataName,
+    _data_store: Option<RegisteredData<I>>,
+    owner: RmOwner<F>,
 }
 
+unsafe impl<F: PcmFormat, I> Send for ResourceGuard<F, I> {}
+unsafe impl<F: PcmFormat, I> Sync for ResourceGuard<F, I> {}
+
 // Builders for registered resources
-impl<'a, R: AsRmPtr> ResourceGuard<'a, R> {
+impl<F: PcmFormat, I> ResourceGuard<F, I> {
+    /// Returns the reference to the resource manager.
+    pub fn resource_manager(&self) -> ResourceManagerRef<F> {
+        ResourceManagerRef {
+            inner: self.0.rm,
+            _format: PhantomData,
+            owner: self.0.owner.clone(),
+        }
+    }
+
     /// Builds a [`ResourceManagerBuffer`] from a previously registered file path or
-    /// resource.
+    /// in memory resource.
     ///
-    /// This builder is intended for direct resource-manager loading from a path,
-    /// or for creating a buffer from a resource that was already registered with
-    /// `ResourceManager::register_*()`.
-    ///
-    /// It does not itself register raw in-memory audio data. For memory-backed
+    /// This does not itself register raw in-memory audio data. For memory-backed
     /// resources, register them first and then use [`ResourceGuard::build_buffer`].
     /// ## Flags:
     ///
@@ -371,18 +392,25 @@ impl<'a, R: AsRmPtr> ResourceGuard<'a, R> {
     ///   Initialize and prefill the stream asynchronously using the resource manager’s worker threads.
     /// - [`RmSourceFlags::STREAM`] flag is ignored by maudio
     pub fn build_buffer(
-        &'a self,
+        &self,
         flags: RmSourceFlags,
-    ) -> MaResult<PendingResource<ResourceManagerBuffer<'a, R>>> {
-        let mut builder = ResourceManagerBufferBuilder::new(self.rm);
+        notif: Option<NotificationPipeline>,
+    ) -> MaResult<PendingResource<ResourceManagerBuffer<F, I>>> {
+        let mut builder = ResourceManagerBufferBuilder::new(self);
+
         let mut flags_check = flags;
         if flags_check.intersects(RmSourceFlags::STREAM) {
             flags_check.remove(RmSourceFlags::STREAM);
         }
         builder.flags(flags_check);
-        match &self.data_name {
-            RegisteredDataType::RegisteredPath { path } => builder.file_path(path),
-            RegisteredDataType::RegisteredData { name } => builder.file_path(Path::new(name)),
+
+        if let Some(notif) = notif {
+            builder.notification(notif);
+        }
+
+        match &self.0.data_name {
+            RegisteredDataName::RegisteredPath { path } => builder.file_path(path),
+            RegisteredDataName::RegisteredData { name } => builder.file_path(Path::new(name)),
         };
         let resource = builder.build_internal()?;
         if flags_check.intersects(RmSourceFlags::ASYNC) {
@@ -395,7 +423,7 @@ impl<'a, R: AsRmPtr> ResourceGuard<'a, R> {
 
     /// Builds a [`ResourceManagerStream`] for streaming a file-backed resource.
     ///
-    /// This builder creates a stream from a file path, or from a resource that was
+    /// This builder creates a stream from a resource that was
     /// previously registered from a file-backed input.
     ///
     /// Streaming is intended for resources that can be read on demand by the
@@ -403,7 +431,7 @@ impl<'a, R: AsRmPtr> ResourceGuard<'a, R> {
     ///
     /// In-memory registrations are not suitable for streaming. If a resource was
     /// registered from in-memory data (decoded or encoded), [`ResourceGuard::build_stream`]
-    /// is not supported and will return an error.
+    /// is not supported and will return a `MA_DOES_NOT_EXIST` error.
     ///
     /// ## Flags:
     ///
@@ -415,18 +443,24 @@ impl<'a, R: AsRmPtr> ResourceGuard<'a, R> {
     ///   Initialize and prefill the stream asynchronously using the resource manager’s worker threads.
     /// - [`RmSourceFlags::STREAM`] flag is ignored by maudio
     pub fn build_stream(
-        &'a self,
+        &self,
         flags: RmSourceFlags,
-    ) -> MaResult<PendingResource<ResourceManagerStream<'a, R>>> {
-        let mut builder = ResourceManagerStreamBuilder::new(self.rm);
+        notif: Option<NotificationPipeline>,
+    ) -> MaResult<PendingResource<ResourceManagerStream<F, I>>> {
+        let mut builder = ResourceManagerStreamBuilder::new(self);
         let mut flags_check = flags;
         if !flags_check.intersects(RmSourceFlags::STREAM) {
             flags_check.insert(RmSourceFlags::STREAM);
         }
         builder.flags(flags_check);
-        match &self.data_name {
-            RegisteredDataType::RegisteredPath { path } => builder.file_path(path),
-            RegisteredDataType::RegisteredData { name } => builder.file_path(Path::new(name)),
+
+        if let Some(notif) = notif {
+            builder.notification(notif);
+        }
+
+        match &self.0.data_name {
+            RegisteredDataName::RegisteredPath { path } => builder.file_path(path),
+            RegisteredDataName::RegisteredData { name } => builder.file_path(Path::new(name)),
         };
         let resource = builder.build_internal()?;
         if flags_check.intersects(RmSourceFlags::ASYNC) {
@@ -438,13 +472,9 @@ impl<'a, R: AsRmPtr> ResourceGuard<'a, R> {
     }
 
     /// Builds a [`ResourceManagerSource`] from a previously registered file path or
-    /// resource.
+    /// in memory resource.
     ///
-    /// This builder is intended for direct resource-manager loading from a path,
-    /// or for creating a source from a resource that was already registered with
-    /// `ResourceManager::register_*()`.
-    ///
-    /// It does not itself register raw in-memory audio data. For memory-backed
+    /// This does not itself register raw in-memory audio data. For memory-backed
     /// resources, register them first and then use [`ResourceGuard::build_source`].
     /// ## Flags:
     /// Under the hood, this type is either `ResourceManagerBuffer` or `ResourceManagerStream`.
@@ -461,15 +491,21 @@ impl<'a, R: AsRmPtr> ResourceGuard<'a, R> {
     ///   If this flag is passed, this source will be initialized as a `ResourceManagerStream`.
     ///   Without this flag, it be initialized as a `ResourceManagerBuffer`
     pub fn build_source(
-        &'a self,
+        &self,
         flags: RmSourceFlags,
-    ) -> MaResult<PendingResource<ResourceManagerSource<'a, R>>> {
-        let mut builder = ResourceManagerSourceBuilder::new(self.rm);
+        notif: Option<NotificationPipeline>,
+    ) -> MaResult<PendingResource<ResourceManagerSource<F, I>>> {
+        let mut builder = ResourceManagerSourceBuilder::new(self);
 
         builder.flags(flags);
-        match &self.data_name {
-            RegisteredDataType::RegisteredPath { path } => builder.file_path(path),
-            RegisteredDataType::RegisteredData { name } => builder.file_path(Path::new(name)),
+
+        if let Some(notif) = notif {
+            builder.notification(notif);
+        }
+
+        match &self.0.data_name {
+            RegisteredDataName::RegisteredPath { path } => builder.file_path(path),
+            RegisteredDataName::RegisteredData { name } => builder.file_path(Path::new(name)),
         };
         let resource = builder.build_internal()?;
         if flags.intersects(RmSourceFlags::ASYNC) {
@@ -482,44 +518,74 @@ impl<'a, R: AsRmPtr> ResourceGuard<'a, R> {
 }
 
 // Private methods
-impl<'a, R: AsRmPtr + ?Sized> ResourceGuard<'a, R> {
-    pub(crate) fn from_path(rm: &'a R, path: &Path) -> Self {
-        Self {
-            rm,
-            data_name: RegisteredDataType::RegisteredPath {
+impl<F: PcmFormat, I> ResourceGuard<F, I> {
+    #[inline]
+    pub(crate) fn from_path<R: AsRmPtr<Format = F> + ?Sized>(
+        rm: &R,
+        path: &Path,
+    ) -> ResourceGuard<F, I> {
+        ResourceGuard(Arc::new(ResourceGuardInner {
+            rm: private_rm::rm_ptr(rm),
+            data_name: RegisteredDataName::RegisteredPath {
                 path: path.to_path_buf(),
             },
-            data_store: None,
-            _data_marker: PhantomData,
-        }
+            _data_store: None,
+            owner: private_rm::clone_owner::<R>(rm),
+        }))
     }
 
-    pub(crate) fn from_data(rm: &'a R, name: &str, data: Option<Arc<[u8]>>) -> Self {
-        Self {
-            rm,
-            data_name: RegisteredDataType::RegisteredData {
+    pub(crate) fn from_encoded_data<R: AsRmPtr<Format = F> + ?Sized>(
+        rm: &R,
+        name: &str,
+        data: impl Into<Arc<[u8]>>,
+    ) -> ResourceGuard<F, I> {
+        ResourceGuard(Arc::new(ResourceGuardInner {
+            rm: private_rm::rm_ptr(rm),
+            data_name: RegisteredDataName::RegisteredData {
                 name: name.to_string(),
             },
-            data_store: data,
-            _data_marker: PhantomData,
-        }
+            _data_store: Some(RegisteredData::Encoded(data.into())),
+            owner: private_rm::clone_owner::<R>(rm),
+        }))
+    }
+
+    pub(crate) fn from_decoded_data<R: AsRmPtr<Format = F> + ?Sized>(
+        rm: &R,
+        name: &str,
+        data: impl Into<Arc<[I]>>,
+    ) -> ResourceGuard<F, I> {
+        ResourceGuard(Arc::new(ResourceGuardInner {
+            rm: private_rm::rm_ptr(rm),
+            data_name: RegisteredDataName::RegisteredData {
+                name: name.to_string(),
+            },
+            _data_store: Some(RegisteredData::<I>::Decoded(data.into())),
+            owner: private_rm::clone_owner::<R>(rm),
+        }))
     }
 }
 
-impl<R: AsRmPtr + ?Sized> Drop for ResourceGuard<'_, R> {
+impl<F: PcmFormat, I> Drop for ResourceGuardInner<F, I> {
     fn drop(&mut self) {
         match &self.data_name {
-            RegisteredDataType::RegisteredData { name } => {
+            RegisteredDataName::RegisteredData { name } => {
                 let _ = resource_ffi::ma_resource_manager_unregister_data_internal(self.rm, name);
             }
-            RegisteredDataType::RegisteredPath { path } => {
+            RegisteredDataName::RegisteredPath { path } => {
                 let _ = resource_ffi::ma_resource_manager_unregister_file_internal(self.rm, path);
             }
         }
     }
 }
 
-enum RegisteredDataType {
+// We never read this. It simply keeps the data alive.
+#[allow(dead_code)]
+enum RegisteredData<I> {
+    Encoded(Arc<[u8]>),
+    Decoded(Arc<[I]>),
+}
+
+enum RegisteredDataName {
     RegisteredPath { path: PathBuf },
     RegisteredData { name: String },
 }
@@ -557,7 +623,7 @@ enum RegisteredDataType {
 ///
 /// ## 2. Fence-based notification
 ///
-/// Instead of polling, you can attach a [`NotificationPipeline`](crate::engine::resource::rm_notif::NotificationPipeline) with a [`Fence`](crate::util::fence::Fence)
+/// Instead of polling, you can attach a [`NotificationPipeline`] with a [`Fence`](crate::util::fence::Fence)
 /// to be notified when the resource finishes loading.
 ///
 /// This avoids repeated polling and allows integration with your own
@@ -584,7 +650,7 @@ enum RegisteredDataType {
 /// # Notes
 ///
 /// - [`PendingResource`] is the Rust-side state wrapper for the resource.
-/// - [`NotificationPipeline`](crate::engine::resource::rm_notif::NotificationPipeline) is an optional signaling mechanism.
+/// - [`NotificationPipeline`] is an optional signaling mechanism.
 /// - These can be used independently or together.
 /// - In most cases, users should use a fence on the `done` stage to detect
 ///   when the resource is fully ready.
@@ -598,7 +664,6 @@ pub enum PendingResource<B: AsAsyncSource> {
 }
 
 // TODO: Derive PartialEq for PendingResource?
-
 impl<B: AsAsyncSource> std::fmt::Debug for PendingResource<B> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -617,7 +682,7 @@ impl<B: AsAsyncSource> PendingResource<B> {
     /// - **Ok(false)** => resource pending (BUSY)
     /// - **Err(e)** => Failed (and cached)
     ///
-    /// **Do not spin loop. Use [`NotificationPipeline`](crate::engine::resource::rm_notif::NotificationPipeline) instead.**
+    /// **Do not spin loop. Use [`NotificationPipeline`] instead.**
     pub fn poll_ready(&mut self) -> MaResult<bool> {
         match self {
             PendingResource::Ready { inner: _ } => Ok(true),
@@ -659,7 +724,7 @@ impl<B: AsAsyncSource> PendingResource<B> {
     }
 
     /// Returns a mutable reference to the resource, if ready. **Does not poll**.
-    pub fn as_read_mut(&mut self) -> Option<&mut B> {
+    pub fn as_ready_mut(&mut self) -> Option<&mut B> {
         match self {
             PendingResource::Ready { inner } => Some(inner),
             _ => None,
@@ -686,20 +751,20 @@ mod private_async_src {
     pub struct BufferCheckProvider;
     pub struct StreamCheckProvider;
 
-    impl<'a, R: AsRmPtr> AsyncCheckProvider<ResourceManagerSource<'a, R>> for SourceCheckProvider {
-        fn as_result_check(t: &ResourceManagerSource<'a, R>) -> MaResult<()> {
+    impl<F: PcmFormat, I> AsyncCheckProvider<ResourceManagerSource<F, I>> for SourceCheckProvider {
+        fn as_result_check(t: &ResourceManagerSource<F, I>) -> MaResult<()> {
             resource_ffi::ma_resource_manager_data_source_result(t)
         }
     }
 
-    impl<'a, R: AsRmPtr> AsyncCheckProvider<ResourceManagerBuffer<'a, R>> for BufferCheckProvider {
-        fn as_result_check(t: &ResourceManagerBuffer<'a, R>) -> MaResult<()> {
+    impl<F: PcmFormat, I> AsyncCheckProvider<ResourceManagerBuffer<F, I>> for BufferCheckProvider {
+        fn as_result_check(t: &ResourceManagerBuffer<F, I>) -> MaResult<()> {
             resource_ffi::ma_resource_manager_data_buffer_result(t)
         }
     }
 
-    impl<'a, R: AsRmPtr> AsyncCheckProvider<ResourceManagerStream<'a, R>> for StreamCheckProvider {
-        fn as_result_check(t: &ResourceManagerStream<'a, R>) -> MaResult<()> {
+    impl<F: PcmFormat, I> AsyncCheckProvider<ResourceManagerStream<F, I>> for StreamCheckProvider {
+        fn as_result_check(t: &ResourceManagerStream<F, I>) -> MaResult<()> {
             resource_ffi::ma_resource_manager_data_stream_result(t)
         }
     }
@@ -714,21 +779,79 @@ pub trait AsAsyncSource: AsSourcePtr + SharedSource {
     type __ResultProvider: private_async_src::AsyncCheckProvider<Self>;
 }
 
-impl<'a, R: AsRmPtr> AsAsyncSource for ResourceManagerSource<'a, R> {
+impl<F: PcmFormat, I> AsAsyncSource for ResourceManagerSource<F, I> {
     type __ResultProvider = private_async_src::SourceCheckProvider;
 }
-impl<'a, R: AsRmPtr> AsAsyncSource for ResourceManagerBuffer<'a, R> {
+impl<F: PcmFormat, I> AsAsyncSource for ResourceManagerBuffer<F, I> {
     type __ResultProvider = private_async_src::BufferCheckProvider;
 }
-impl<'a, R: AsRmPtr> AsAsyncSource for ResourceManagerStream<'a, R> {
+impl<F: PcmFormat, I> AsAsyncSource for ResourceManagerStream<F, I> {
     type __ResultProvider = private_async_src::StreamCheckProvider;
 }
 
 impl<F: PcmFormat> RmOps for ResourceManager<F> {}
-impl<F: PcmFormat> RmOps for ResourceManagerRef<'_, F> {}
+impl<F: PcmFormat> RmOps for ResourceManagerRef<F> {}
 
 /// Methods shared between [`ResourceManager`] and [`ResourceManagerRef`]
 pub trait RmOps: AsRmPtr {
+    fn load_name(&self, name: &str) -> MaResult<ResourceGuard<<Self as AsRmPtr>::Format, Unknown>> {
+        resource_ffi::ma_resource_manager_register_encoded_data_internal(self, name, &[])?;
+        let guard = ResourceGuard::<Self::Format, Unknown>::from_encoded_data(self, name, []);
+
+        // If the name is not correct, miniaudio will assume this is a different source
+        // Since we are not passing real data, this will error with INVALID_ARGS
+        // if the name doesn't already exist in the binary tree
+        let _ = guard.build_source(RmSourceFlags::ASYNC, None)?;
+
+        Ok(guard)
+    }
+
+    fn load_path(
+        &self,
+        path: &Path,
+    ) -> MaResult<ResourceGuard<<Self as AsRmPtr>::Format, Unknown>> {
+        #[cfg(unix)]
+        {
+            let c_path = crate::cstring_from_path(path)?;
+            resource_ffi::ma_resource_manager_register_encoded_data(
+                self,
+                c_path.as_ptr(),
+                &[] as *const _,
+                0,
+            )?;
+            let guard = ResourceGuard::<Self::Format, Unknown>::from_path(self, path);
+
+            // If the name is not correct, miniaudio will assume this is a different source
+            // Since we are not passing real data, this will error with INVALID_ARGS
+            // if the name doesn't already exist in the binary tree
+            let _ = guard.build_source(RmSourceFlags::ASYNC, None)?;
+
+            Ok(guard)
+        }
+
+        #[cfg(windows)]
+        {
+            let name = crate::wide_null_terminated_name(name);
+            resource_ffi::ma_resource_manager_register_encoded_data_w(
+                rm,
+                &name,
+                &[] as *const _,
+                0,
+            )?;
+            let guard = ResourceGuard::<Self::Format, Unknown>::from_path(self, path);
+
+            // If the name is not correct, miniaudio will assume this is a different source
+            // Since we are not passing real data, this will error with INVALID_ARGS
+            // if the name doesn't already exist in the binary tree
+            let _ = guard.build_source(RmSourceFlags::ASYNC, None)?;
+
+            sOk(guard)
+        }
+
+        #[cfg(not(any(unix, windows)))]
+        compile_error!("only supported on unix and windows");
+    }
+
     /// The [`RmSourceFlags`] used are:
     /// - [`RmSourceFlags::WAIT_INIT`] -
     ///   Only meaningful with [`RmSourceFlags::ASYNC`]. When set, blocks until the
@@ -741,18 +864,20 @@ pub trait RmOps: AsRmPtr {
     /// - [`RmSourceFlags::DECODE`] -
     ///   Decode and cache PCM during registration instead of deferring
     ///   decoding until the resource is initialized or read.
-    fn register_file<'a>(
-        &'a self,
+    fn register_file(
+        &self,
         path: &Path,
         flags: RmSourceFlags,
-    ) -> MaResult<ResourceGuard<'a, Self>> {
+    ) -> MaResult<ResourceGuard<<Self as AsRmPtr>::Format, Unknown>> {
         #[cfg(unix)]
         {
             use crate::cstring_from_path;
 
             let c_path = cstring_from_path(path)?;
             resource_ffi::ma_resource_manager_register_file(self, c_path, flags)?;
-            Ok(ResourceGuard::from_path(self, path))
+            Ok(ResourceGuard::<Self::Format, Unknown>::from_path::<Self>(
+                self, path,
+            ))
         }
 
         #[cfg(windows)]
@@ -762,7 +887,7 @@ pub trait RmOps: AsRmPtr {
             let c_path = wide_null_terminated(path);
 
             resource_ffi::ma_resource_manager_register_file_w(self, &c_path, flags)?;
-            Ok(ResourceGuard::from_path(self, path))
+            Ok(ResourceGuard::<Self::Format>::from_path::<Self>(self, path))
         }
 
         #[cfg(not(any(unix, windows)))]
@@ -781,13 +906,13 @@ pub trait RmOps: AsRmPtr {
     /// - [`RmSourceFlags::DECODE`] -
     ///   Decode and cache PCM during registration instead of deferring
     ///   decoding until the resource is initialized or read.
-    fn register_decoded_u8<'a>(
-        &'a self,
+    fn register_decoded_u8(
+        &self,
         name: &str,
-        data: &'a [u8],
+        data: &[u8],
         channels: u32,
         sample_rate: SampleRate,
-    ) -> MaResult<ResourceGuard<'a, Self>> {
+    ) -> MaResult<ResourceGuard<Self::Format, u8>> {
         resource_ffi::ma_resource_manager_register_decoded_data_internal::<u8, Self>(
             self,
             name,
@@ -796,7 +921,7 @@ pub trait RmOps: AsRmPtr {
             channels,
             sample_rate,
         )?;
-        Ok(ResourceGuard::from_data(self, name, None))
+        Ok(ResourceGuard::<Self::Format, u8>::from_decoded_data::<Self>(self, name, data))
     }
 
     /// The [`RmSourceFlags`] used are:
@@ -811,13 +936,13 @@ pub trait RmOps: AsRmPtr {
     /// - [`RmSourceFlags::DECODE`] -
     ///   Decode and cache PCM during registration instead of deferring
     ///   decoding until the resource is initialized or read.
-    fn register_decoded_i16<'a>(
-        &'a self,
+    fn register_decoded_i16(
+        &self,
         name: &str,
-        data: &'a [i16],
+        data: &[i16],
         channels: u32,
         sample_rate: SampleRate,
-    ) -> MaResult<ResourceGuard<'a, Self>> {
+    ) -> MaResult<ResourceGuard<Self::Format, i16>> {
         resource_ffi::ma_resource_manager_register_decoded_data_internal::<i16, Self>(
             self,
             name,
@@ -826,7 +951,7 @@ pub trait RmOps: AsRmPtr {
             channels,
             sample_rate,
         )?;
-        Ok(ResourceGuard::from_data(self, name, None))
+        Ok(ResourceGuard::<Self::Format, i16>::from_decoded_data::<Self>(self, name, data))
     }
 
     /// The [`RmSourceFlags`] used are:
@@ -841,13 +966,13 @@ pub trait RmOps: AsRmPtr {
     /// - [`RmSourceFlags::DECODE`] -
     ///   Decode and cache PCM during registration instead of deferring
     ///   decoding until the resource is initialized or read.
-    fn register_decoded_i32<'a>(
-        &'a self,
+    fn register_decoded_i32(
+        &self,
         name: &str,
-        data: &'a [i32],
+        data: &[i32],
         channels: u32,
         sample_rate: SampleRate,
-    ) -> MaResult<ResourceGuard<'a, Self>> {
+    ) -> MaResult<ResourceGuard<Self::Format, i32>> {
         resource_ffi::ma_resource_manager_register_decoded_data_internal::<i32, Self>(
             self,
             name,
@@ -856,7 +981,7 @@ pub trait RmOps: AsRmPtr {
             channels,
             sample_rate,
         )?;
-        Ok(ResourceGuard::from_data(self, name, None))
+        Ok(ResourceGuard::<Self::Format, i32>::from_decoded_data::<Self>(self, name, data))
     }
 
     /// The [`RmSourceFlags`] used are:
@@ -871,13 +996,13 @@ pub trait RmOps: AsRmPtr {
     /// - [`RmSourceFlags::DECODE`] -
     ///   Decode and cache PCM during registration instead of deferring
     ///   decoding until the resource is initialized or read.
-    fn register_decoded_s24_packed<'a>(
-        &'a self,
+    fn register_decoded_s24_packed(
+        &self,
         name: &str,
-        data: &'a [u8],
+        data: &[u8],
         channels: u32,
         sample_rate: SampleRate,
-    ) -> MaResult<ResourceGuard<'a, Self>> {
+    ) -> MaResult<ResourceGuard<Self::Format, u8>> {
         resource_ffi::ma_resource_manager_register_decoded_data_internal::<S24Packed, Self>(
             self,
             name,
@@ -886,7 +1011,7 @@ pub trait RmOps: AsRmPtr {
             channels,
             sample_rate,
         )?;
-        Ok(ResourceGuard::from_data(self, name, None))
+        Ok(ResourceGuard::<Self::Format, u8>::from_decoded_data::<Self>(self, name, data))
     }
 
     /// The [`RmSourceFlags`] used are:
@@ -901,64 +1026,13 @@ pub trait RmOps: AsRmPtr {
     /// - [`RmSourceFlags::DECODE`] -
     ///   Decode and cache PCM during registration instead of deferring
     ///   decoding until the resource is initialized or read.
-    fn register_decoded_s24<'a>(
-        &'a self,
+    fn register_decoded_f32(
+        &self,
         name: &str,
-        data: &[i32],
+        data: &[f32],
         channels: u32,
         sample_rate: SampleRate,
-    ) -> MaResult<ResourceGuard<'a, Self>> {
-        if channels == 0 {
-            return Err(crate::MaudioError::from_ma_result(
-                sys::ma_result_MA_INVALID_ARGS,
-            ));
-        }
-
-        let data_len = data.len();
-        if data_len % channels as usize != 0 {
-            return Err(crate::MaudioError::new_ma_error(
-                crate::ErrorKinds::InvalidDecodedDataLength,
-            ));
-        }
-
-        let frames = data_len / channels as usize;
-        let mut dst = SampleBuffer::<S24>::new_zeroed(frames, channels)?;
-        <S24 as PcmFormatInternal>::write_to_storage_internal(
-            &mut dst,
-            data,
-            frames,
-            channels as usize,
-        )?;
-        resource_ffi::ma_resource_manager_register_decoded_data_internal::<S24Packed, Self>(
-            self,
-            name,
-            &dst,
-            Format::S24Packed,
-            channels,
-            sample_rate,
-        )?;
-        Ok(ResourceGuard::from_data(self, name, Some(dst.into())))
-    }
-
-    /// The [`RmSourceFlags`] used are:
-    /// - [`RmSourceFlags::WAIT_INIT`] -
-    ///   Only meaningful with [`RmSourceFlags::ASYNC`]. When set, blocks until the
-    ///   async initialization step has completed before returning.
-    ///   This does not necessarily wait for the entire file to be decoded.
-    /// - [`RmSourceFlags::ASYNC`] -
-    ///   Perform loading/decoding work on the resource manager’s background threads.
-    ///   Without this flag, registration performs the work synchronously.
-    ///   (If the resource manager has threading disabled, this flag is ignored.)
-    /// - [`RmSourceFlags::DECODE`] -
-    ///   Decode and cache PCM during registration instead of deferring
-    ///   decoding until the resource is initialized or read.
-    fn register_decoded_f32<'a>(
-        &'a self,
-        name: &str,
-        data: &'a [f32],
-        channels: u32,
-        sample_rate: SampleRate,
-    ) -> MaResult<ResourceGuard<'a, Self>> {
+    ) -> MaResult<ResourceGuard<Self::Format, f32>> {
         resource_ffi::ma_resource_manager_register_decoded_data_internal::<f32, Self>(
             self,
             name,
@@ -967,7 +1041,7 @@ pub trait RmOps: AsRmPtr {
             channels,
             sample_rate,
         )?;
-        Ok(ResourceGuard::from_data(self, name, None))
+        Ok(ResourceGuard::<Self::Format, f32>::from_decoded_data::<Self>(self, name, data))
     }
 
     /// Registers encoded/compressed audio bytes under a name.
@@ -975,13 +1049,15 @@ pub trait RmOps: AsRmPtr {
     /// This only stores the provided bytes in the resource manager under `name`.
     /// No [`RmSourceFlags`] are applied at registration time because the underlying
     /// Miniaudio API does not accept flags for this operation.
-    fn register_encoded<'a>(
-        &'a self,
+    fn register_encoded(
+        &self,
         name: &str,
-        data: &'a [u8],
-    ) -> MaResult<ResourceGuard<'a, Self>> {
+        data: &[u8],
+    ) -> MaResult<ResourceGuard<Self::Format, Unknown>> {
         resource_ffi::ma_resource_manager_register_encoded_data_internal(self, name, data)?;
-        Ok(ResourceGuard::from_data(self, name, None))
+        Ok(ResourceGuard::<Self::Format, Unknown>::from_encoded_data(
+            self, name, data,
+        ))
     }
 }
 
@@ -1002,16 +1078,14 @@ impl<F: PcmFormat> ResourceManager<F> {
         let inner: *mut sys::ma_resource_manager =
             Box::into_raw(mem) as *mut sys::ma_resource_manager;
 
-        Ok(Self {
-            inner: Arc::new(InnerResourceManager {
-                inner,
-                channels: config.channels,
-                format: config.format,
-                backend_reg,
-                _decoder_vtables: vtables,
-                _format: PhantomData,
-            }),
-        })
+        Ok(Self(Arc::new(ResourceManagerInner {
+            inner,
+            channels: config.channels,
+            format: config.format,
+            backend_reg,
+            _decoder_vtables: vtables,
+            _format: PhantomData,
+        })))
     }
 }
 
@@ -1031,7 +1105,7 @@ pub(crate) mod resource_ffi {
             rm_source::{ResourceManagerSource, ResourceManagerSourceBuilder},
             rm_source_flags::RmSourceFlags,
             rm_stream::{ResourceManagerStream, ResourceManagerStreamBuilder},
-            AsRmPtr, InnerResourceManager, ResourceManager,
+            AsRmPtr, ResourceManager, ResourceManagerInner,
         },
         pcm_frames::PcmFormat,
         Binding, MaResult, MaudioError,
@@ -1051,7 +1125,7 @@ pub(crate) mod resource_ffi {
     }
 
     #[inline]
-    pub fn ma_resource_manager_uninit<F: PcmFormat>(rm: &mut InnerResourceManager<F>) {
+    pub fn ma_resource_manager_uninit<F: PcmFormat>(rm: &mut ResourceManagerInner<F>) {
         unsafe {
             sys::ma_resource_manager_uninit(rm.inner);
         }
@@ -1260,7 +1334,7 @@ pub(crate) mod resource_ffi {
 
     #[inline]
     #[cfg(unix)]
-    fn ma_resource_manager_register_encoded_data<R: AsRmPtr + ?Sized>(
+    pub fn ma_resource_manager_register_encoded_data<R: AsRmPtr + ?Sized>(
         rm: &R,
         name: *const core::ffi::c_char,
         data: *const core::ffi::c_void,
@@ -1275,7 +1349,7 @@ pub(crate) mod resource_ffi {
 
     #[inline]
     #[cfg(windows)]
-    fn ma_resource_manager_register_encoded_data_w<R: AsRmPtr + ?Sized>(
+    pub fn ma_resource_manager_register_encoded_data_w<R: AsRmPtr + ?Sized>(
         rm: &R,
         name: &[u16],
         data: *const core::ffi::c_void,
@@ -1293,22 +1367,18 @@ pub(crate) mod resource_ffi {
         Ok(())
     }
 
-    pub fn ma_resource_manager_unregister_file_internal<R: AsRmPtr + ?Sized>(
-        rm: &R,
+    pub fn ma_resource_manager_unregister_file_internal(
+        rm: *mut sys::ma_resource_manager,
         path: &Path,
     ) -> MaResult<()> {
         #[cfg(unix)]
         {
-            use crate::cstring_from_path;
-
-            let c_path = cstring_from_path(path)?;
+            let c_path = crate::cstring_from_path(path)?;
             ma_resource_manager_unregister_file(rm, c_path)
         }
         #[cfg(windows)]
         {
-            use crate::wide_null_terminated;
-
-            let c_path = wide_null_terminated(path);
+            let c_path = crate::wide_null_terminated(path);
             ma_resource_manager_unregister_file_w(rm, &c_path)
         }
 
@@ -1318,32 +1388,28 @@ pub(crate) mod resource_ffi {
 
     #[inline]
     #[cfg(unix)]
-    fn ma_resource_manager_unregister_file<R: AsRmPtr + ?Sized>(
-        rm: &R,
+    fn ma_resource_manager_unregister_file(
+        rm: *mut sys::ma_resource_manager,
         path: std::ffi::CString,
     ) -> MaResult<()> {
-        let res = unsafe {
-            sys::ma_resource_manager_unregister_file(private_rm::rm_ptr(rm), path.as_ptr())
-        };
+        let res = unsafe { sys::ma_resource_manager_unregister_file(rm, path.as_ptr()) };
         MaudioError::check(res)?;
         Ok(())
     }
 
     #[inline]
     #[cfg(windows)]
-    fn ma_resource_manager_unregister_file_w<R: AsRmPtr + ?Sized>(
-        rm: &R,
+    fn ma_resource_manager_unregister_file_w(
+        rm: *mut sys::ma_resource_manager,
         path: &[u16],
     ) -> MaResult<()> {
-        let res = unsafe {
-            sys::ma_resource_manager_unregister_file_w(private_rm::rm_ptr(rm), path.as_ptr())
-        };
+        let res = unsafe { sys::ma_resource_manager_unregister_file_w(rm, path.as_ptr()) };
         MaudioError::check(res)?;
         Ok(())
     }
 
-    pub fn ma_resource_manager_unregister_data_internal<R: AsRmPtr + ?Sized>(
-        rm: &R,
+    pub fn ma_resource_manager_unregister_data_internal(
+        rm: *mut sys::ma_resource_manager,
         name: &str,
     ) -> MaResult<()> {
         #[cfg(unix)]
@@ -1367,24 +1433,22 @@ pub(crate) mod resource_ffi {
 
     #[inline]
     #[cfg(unix)]
-    fn ma_resource_manager_unregister_data<R: AsRmPtr + ?Sized>(
-        rm: &R,
+    fn ma_resource_manager_unregister_data(
+        rm: *mut sys::ma_resource_manager,
         name: *const core::ffi::c_char,
     ) -> MaResult<()> {
-        let res = unsafe { sys::ma_resource_manager_unregister_data(private_rm::rm_ptr(rm), name) };
+        let res = unsafe { sys::ma_resource_manager_unregister_data(rm, name) };
         MaudioError::check(res)?;
         Ok(())
     }
 
     #[inline]
     #[cfg(windows)]
-    fn ma_resource_manager_unregister_data_w<R: AsRmPtr + ?Sized>(
-        rm: &R,
+    fn ma_resource_manager_unregister_data_w(
+        rm: *mut sys::ma_resource_manager,
         name: &[u16],
     ) -> MaResult<()> {
-        let res = unsafe {
-            sys::ma_resource_manager_unregister_data_w(private_rm::rm_ptr(rm), name.as_ptr())
-        };
+        let res = unsafe { sys::ma_resource_manager_unregister_data_w(rm, name.as_ptr()) };
         MaudioError::check(res)?;
         Ok(())
     }
@@ -1392,17 +1456,13 @@ pub(crate) mod resource_ffi {
     // DATA BUFFERS
 
     #[inline]
-    pub fn ma_resource_manager_data_buffer_init_ex<R: AsRmPtr + ?Sized>(
-        rm: &R,
-        config: &ResourceManagerBufferBuilder<'_, R>,
+    pub fn ma_resource_manager_data_buffer_init_ex<F: PcmFormat, I>(
+        rm: *mut sys::ma_resource_manager,
+        config: &ResourceManagerBufferBuilder<'_, F, I>,
         data_buffer: *mut sys::ma_resource_manager_data_buffer,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_resource_manager_data_buffer_init_ex(
-                private_rm::rm_ptr(rm),
-                config.as_raw_ptr(),
-                data_buffer,
-            )
+            sys::ma_resource_manager_data_buffer_init_ex(rm, config.as_raw_ptr(), data_buffer)
         };
         MaudioError::check(res)
     }
@@ -1410,21 +1470,15 @@ pub(crate) mod resource_ffi {
     #[inline]
     #[cfg(unix)]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_buffer_init<R: AsRmPtr + ?Sized>(
-        rm: &R,
+    pub fn ma_resource_manager_data_buffer_init(
+        rm: *mut sys::ma_resource_manager,
         path: std::ffi::CString,
         flags: u32,
         notif: *const sys::ma_resource_manager_pipeline_notifications,
         data_buffer: *mut sys::ma_resource_manager_data_buffer,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_resource_manager_data_buffer_init(
-                private_rm::rm_ptr(rm),
-                path.as_ptr(),
-                flags,
-                notif,
-                data_buffer,
-            )
+            sys::ma_resource_manager_data_buffer_init(rm, path.as_ptr(), flags, notif, data_buffer)
         };
         MaudioError::check(res)?;
         Ok(())
@@ -1433,8 +1487,8 @@ pub(crate) mod resource_ffi {
     #[inline]
     #[cfg(windows)]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_buffer_init_w<R: AsRmPtr + ?Sized>(
-        rm: &R,
+    pub fn ma_resource_manager_data_buffer_init_w<F: PcmFormat>(
+        rm: *mut sys::ma_resource_manager,
         path: &[u16],
         flags: u32,
         notif: *const sys::ma_resource_manager_pipeline_notifications,
@@ -1442,7 +1496,7 @@ pub(crate) mod resource_ffi {
     ) -> MaResult<()> {
         let res = unsafe {
             sys::ma_resource_manager_data_buffer_init_w(
-                private_rm::rm_ptr(rm),
+                rm,
                 path.as_ptr(),
                 flags,
                 notif,
@@ -1454,25 +1508,22 @@ pub(crate) mod resource_ffi {
     }
 
     #[inline]
-    pub fn ma_resource_manager_data_buffer_init_copy<R: AsRmPtr + ?Sized>(
-        rm: &R,
-        existing: &ResourceManagerBuffer<'_, R>,
+    #[allow(unused)]
+    pub fn ma_resource_manager_data_buffer_init_copy<F: PcmFormat, I>(
+        rm: *mut sys::ma_resource_manager,
+        existing: &ResourceManagerBuffer<F, I>,
         data_buffer: *mut sys::ma_resource_manager_data_buffer,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_resource_manager_data_buffer_init_copy(
-                private_rm::rm_ptr(rm),
-                existing.to_raw(),
-                data_buffer,
-            )
+            sys::ma_resource_manager_data_buffer_init_copy(rm, existing.to_raw(), data_buffer)
         };
         MaudioError::check(res)?;
         Ok(())
     }
 
     #[inline]
-    pub fn ma_resource_manager_data_buffer_uninit<R: AsRmPtr + ?Sized>(
-        data_buffer: &ResourceManagerBuffer<'_, R>,
+    pub fn ma_resource_manager_data_buffer_uninit<F: PcmFormat, I>(
+        data_buffer: &mut ResourceManagerBuffer<F, I>,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_resource_manager_data_buffer_uninit(data_buffer.to_raw()) };
         MaudioError::check(res)?;
@@ -1480,8 +1531,8 @@ pub(crate) mod resource_ffi {
     }
 
     #[allow(unused)]
-    pub fn ma_resource_manager_data_buffer_read_pcm_frames<'a, R: AsRmPtr>(
-        data_buffer: &mut ResourceManagerBuffer<'a, R>,
+    pub fn ma_resource_manager_data_buffer_read_pcm_frames<R: AsRmPtr, I>(
+        data_buffer: &mut ResourceManagerBuffer<R::Format, I>,
         frame_count: u64,
     ) -> MaResult<SampleBuffer<R::Format>> {
         let channels = data_buffer.data_format()?.channels;
@@ -1490,7 +1541,7 @@ pub(crate) mod resource_ffi {
         }
         let mut buffer = SampleBuffer::<R::Format>::new_zeroed(frame_count as usize, channels)?;
 
-        let frames_read = ma_resource_manager_data_buffer_read_pcm_frames_internal::<R>(
+        let frames_read = ma_resource_manager_data_buffer_read_pcm_frames_internal::<R, I>(
             data_buffer,
             frame_count,
             buffer.as_mut_ptr() as *mut core::ffi::c_void,
@@ -1501,8 +1552,8 @@ pub(crate) mod resource_ffi {
 
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_buffer_read_pcm_frames_internal<'a, R: AsRmPtr>(
-        data_buffer: &mut ResourceManagerBuffer<'a, R>,
+    pub fn ma_resource_manager_data_buffer_read_pcm_frames_internal<R: AsRmPtr, I>(
+        data_buffer: &mut ResourceManagerBuffer<R::Format, I>,
         frame_count: u64,
         buffer: *mut core::ffi::c_void,
     ) -> MaResult<u64> {
@@ -1521,8 +1572,8 @@ pub(crate) mod resource_ffi {
 
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_buffer_seek_to_pcm_frame<R: AsRmPtr>(
-        data_buffer: &ResourceManagerBuffer<'_, R>,
+    pub fn ma_resource_manager_data_buffer_seek_to_pcm_frame<R: AsRmPtr, I>(
+        data_buffer: &ResourceManagerBuffer<R::Format, I>,
         frame_index: u64,
     ) -> MaResult<()> {
         let res = unsafe {
@@ -1537,8 +1588,8 @@ pub(crate) mod resource_ffi {
 
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_buffer_get_data_format<R: AsRmPtr>(
-        data_buffer: &ResourceManagerBuffer<'_, R>,
+    pub fn ma_resource_manager_data_buffer_get_data_format<R: AsRmPtr, I>(
+        data_buffer: &ResourceManagerBuffer<R::Format, I>,
         format: *mut sys::ma_format,
         channels: *mut u32,
         sample_rate: *mut u32,
@@ -1561,8 +1612,8 @@ pub(crate) mod resource_ffi {
 
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_buffer_get_cursor_in_pcm_frames<R: AsRmPtr>(
-        data_buffer: &ResourceManagerBuffer<'_, R>,
+    pub fn ma_resource_manager_data_buffer_get_cursor_in_pcm_frames<R: AsRmPtr, I>(
+        data_buffer: &ResourceManagerBuffer<R::Format, I>,
     ) -> MaResult<u64> {
         let mut cursor: u64 = 0;
         let res = unsafe {
@@ -1577,8 +1628,8 @@ pub(crate) mod resource_ffi {
 
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_buffer_get_length_in_pcm_frames<R: AsRmPtr>(
-        data_buffer: &ResourceManagerBuffer<'_, R>,
+    pub fn ma_resource_manager_data_buffer_get_length_in_pcm_frames<R: AsRmPtr, I>(
+        data_buffer: &ResourceManagerBuffer<R::Format, I>,
     ) -> MaResult<u64> {
         let mut length: u64 = 0;
         let res = unsafe {
@@ -1592,8 +1643,8 @@ pub(crate) mod resource_ffi {
     }
 
     #[inline]
-    pub fn ma_resource_manager_data_buffer_result<R: AsRmPtr>(
-        data_buffer: &ResourceManagerBuffer<'_, R>,
+    pub fn ma_resource_manager_data_buffer_result<F: PcmFormat, I>(
+        data_buffer: &ResourceManagerBuffer<F, I>,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_resource_manager_data_buffer_result(data_buffer.to_raw()) };
         MaudioError::check(res)
@@ -1602,8 +1653,8 @@ pub(crate) mod resource_ffi {
     // Not used. Already available on DataSourceOps
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_buffer_set_looping<R: AsRmPtr>(
-        data_buffer: &ResourceManagerBuffer<'_, R>,
+    pub fn ma_resource_manager_data_buffer_set_looping<R: AsRmPtr, I>(
+        data_buffer: &ResourceManagerBuffer<R::Format, I>,
         is_looping: bool,
     ) -> MaResult<()> {
         let is_looping = is_looping as u32;
@@ -1616,8 +1667,8 @@ pub(crate) mod resource_ffi {
     // Not used. Already available on DataSourceOps
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_buffer_is_looping<R: AsRmPtr>(
-        data_buffer: &ResourceManagerBuffer<'_, R>,
+    pub fn ma_resource_manager_data_buffer_is_looping<R: AsRmPtr, I>(
+        data_buffer: &ResourceManagerBuffer<R::Format, I>,
     ) -> bool {
         let res = unsafe { sys::ma_resource_manager_data_buffer_is_looping(data_buffer.to_raw()) };
         res == 1
@@ -1625,8 +1676,8 @@ pub(crate) mod resource_ffi {
 
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_buffer_get_available_frames<R: AsRmPtr>(
-        data_buffer: &ResourceManagerBuffer<'_, R>,
+    pub fn ma_resource_manager_data_buffer_get_available_frames<R: AsRmPtr, I>(
+        data_buffer: &ResourceManagerBuffer<R::Format, I>,
     ) -> MaResult<u64> {
         let mut frames = 0;
         let res = unsafe {
@@ -1642,17 +1693,13 @@ pub(crate) mod resource_ffi {
     // DATA SOURCES
 
     #[inline]
-    pub fn ma_resource_manager_data_source_init_ex<R: AsRmPtr + ?Sized>(
-        rm: &R,
-        config: &ResourceManagerSourceBuilder<'_, R>,
+    pub fn ma_resource_manager_data_source_init_ex<F: PcmFormat, I>(
+        rm: *mut sys::ma_resource_manager,
+        config: &ResourceManagerSourceBuilder<'_, F, I>,
         data_source: *mut sys::ma_resource_manager_data_source,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_resource_manager_data_source_init_ex(
-                private_rm::rm_ptr(rm),
-                config.as_raw_ptr(),
-                data_source,
-            )
+            sys::ma_resource_manager_data_source_init_ex(rm, config.as_raw_ptr(), data_source)
         };
         MaudioError::check(res)
     }
@@ -1680,25 +1727,22 @@ pub(crate) mod resource_ffi {
     }
 
     #[inline]
-    pub fn ma_resource_manager_data_source_init_copy<R: AsRmPtr + ?Sized>(
-        rm: &R,
-        existing: &ResourceManagerSource<'_, R>,
+    #[allow(unused)]
+    pub fn ma_resource_manager_data_source_init_copy<F: PcmFormat, I>(
+        rm: *mut sys::ma_resource_manager,
+        existing: &ResourceManagerSource<F, I>,
         data_source: *mut sys::ma_resource_manager_data_source,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_resource_manager_data_source_init_copy(
-                private_rm::rm_ptr(rm),
-                existing.to_raw(),
-                data_source,
-            )
+            sys::ma_resource_manager_data_source_init_copy(rm, existing.to_raw(), data_source)
         };
         MaudioError::check(res)?;
         Ok(())
     }
 
     #[inline]
-    pub fn ma_resource_manager_data_source_uninit<R: AsRmPtr + ?Sized>(
-        data_source: &ResourceManagerSource<'_, R>,
+    pub fn ma_resource_manager_data_source_uninit<F: PcmFormat, I>(
+        data_source: &ResourceManagerSource<F, I>,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_resource_manager_data_source_uninit(data_source.to_raw()) };
         MaudioError::check(res)?;
@@ -1707,30 +1751,30 @@ pub(crate) mod resource_ffi {
 
     // Not used. Already available on DataSourceOps
     #[allow(unused)]
-    pub fn ma_resource_manager_data_source_read_pcm_frames<R: AsRmPtr>(
-        data_source: &mut ResourceManagerSource<'_, R>,
+    pub fn ma_resource_manager_data_source_read_pcm_frames<F: PcmFormat, I>(
+        data_source: &mut ResourceManagerSource<F, I>,
         frame_count: u64,
-    ) -> MaResult<SampleBuffer<R::Format>> {
+    ) -> MaResult<SampleBuffer<F>> {
         let channels = data_source.data_format()?.channels;
         if channels == 0 {
             return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
         }
-        let mut buffer = SampleBuffer::<R::Format>::new_zeroed(frame_count as usize, channels)?;
+        let mut buffer = SampleBuffer::<F>::new_zeroed(frame_count as usize, channels)?;
 
-        let frames_read = ma_resource_manager_data_source_read_pcm_frames_internal::<R>(
+        let frames_read = ma_resource_manager_data_source_read_pcm_frames_internal::<F, I>(
             data_source,
             frame_count,
             buffer.as_mut_ptr() as *mut core::ffi::c_void,
         )?;
 
-        SampleBuffer::<R::Format>::from_storage(buffer, frames_read as usize, channels)
+        SampleBuffer::<F>::from_storage(buffer, frames_read as usize, channels)
     }
 
     // Not used. Already available on DataSourceOps
     #[inline]
     #[allow(unused)]
-    fn ma_resource_manager_data_source_read_pcm_frames_internal<R: AsRmPtr>(
-        data_source: &mut ResourceManagerSource<'_, R>,
+    fn ma_resource_manager_data_source_read_pcm_frames_internal<F: PcmFormat, I>(
+        data_source: &mut ResourceManagerSource<F, I>,
         frame_count: u64,
         buffer: *mut core::ffi::c_void,
     ) -> MaResult<u64> {
@@ -1750,8 +1794,8 @@ pub(crate) mod resource_ffi {
     // Not used. Already available on DataSourceOps
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_source_seek_to_pcm_frame<R: AsRmPtr>(
-        data_source: &mut ResourceManagerSource<'_, R>,
+    pub fn ma_resource_manager_data_source_seek_to_pcm_frame<F: PcmFormat, I>(
+        data_source: &mut ResourceManagerSource<F, I>,
         frame: u64,
     ) -> MaResult<()> {
         let res = unsafe {
@@ -1763,8 +1807,8 @@ pub(crate) mod resource_ffi {
     // Not used. Already available on DataSourceOps
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_source_get_data_format<R: AsRmPtr>(
-        data_source: &ResourceManagerSource<'_, R>,
+    pub fn ma_resource_manager_data_source_get_data_format<F: PcmFormat, I>(
+        data_source: &ResourceManagerSource<F, I>,
     ) -> MaResult<DataFormat> {
         let mut format_raw: sys::ma_format = sys::ma_format_ma_format_unknown;
         let mut channels: u32 = 0;
@@ -1799,8 +1843,8 @@ pub(crate) mod resource_ffi {
     // Not used. Already available on DataSourceOps
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_source_get_cursor_in_pcm_frames<R: AsRmPtr>(
-        data_source: &ResourceManagerSource<'_, R>,
+    pub fn ma_resource_manager_data_source_get_cursor_in_pcm_frames<F: PcmFormat, I>(
+        data_source: &ResourceManagerSource<F, I>,
     ) -> MaResult<u64> {
         let mut cursor = 0;
         let res = unsafe {
@@ -1816,8 +1860,8 @@ pub(crate) mod resource_ffi {
     // Not used. Already available on DataSourceOps
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_source_get_length_in_pcm_frames<R: AsRmPtr>(
-        data_source: &ResourceManagerSource<'_, R>,
+    pub fn ma_resource_manager_data_source_get_length_in_pcm_frames<F: PcmFormat, I>(
+        data_source: &ResourceManagerSource<F, I>,
     ) -> MaResult<u64> {
         let mut length: u64 = 0;
         let res = unsafe {
@@ -1831,8 +1875,8 @@ pub(crate) mod resource_ffi {
     }
 
     #[inline]
-    pub fn ma_resource_manager_data_source_result<R: AsRmPtr>(
-        data_source: &ResourceManagerSource<'_, R>,
+    pub fn ma_resource_manager_data_source_result<F: PcmFormat, I>(
+        data_source: &ResourceManagerSource<F, I>,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_resource_manager_data_source_result(data_source.to_raw()) };
         MaudioError::check(res)
@@ -1841,8 +1885,8 @@ pub(crate) mod resource_ffi {
     // Not used. Already available on DataSourceOps
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_source_set_looping<R: AsRmPtr>(
-        data_source: &ResourceManagerSource<'_, R>,
+    pub fn ma_resource_manager_data_source_set_looping<F: PcmFormat, I>(
+        data_source: &ResourceManagerSource<F, I>,
         is_looping: bool,
     ) -> MaResult<()> {
         let is_looping = is_looping as u32;
@@ -1855,8 +1899,8 @@ pub(crate) mod resource_ffi {
     // Not used. Already available on DataSourceOps
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_source_is_looping<R: AsRmPtr>(
-        data_source: &ResourceManagerSource<'_, R>,
+    pub fn ma_resource_manager_data_source_is_looping<F: PcmFormat, I>(
+        data_source: &ResourceManagerSource<F, I>,
     ) -> bool {
         let res = unsafe { sys::ma_resource_manager_data_source_is_looping(data_source.to_raw()) };
         res == 1
@@ -1864,8 +1908,8 @@ pub(crate) mod resource_ffi {
 
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_source_get_available_frames<R: AsRmPtr>(
-        data_source: &ResourceManagerSource<'_, R>,
+    pub fn ma_resource_manager_data_source_get_available_frames<F: PcmFormat, I>(
+        data_source: &ResourceManagerSource<F, I>,
     ) -> MaResult<u64> {
         let mut frames: u64 = 0;
         let res = unsafe {
@@ -1881,17 +1925,13 @@ pub(crate) mod resource_ffi {
     // DATA STREAM
 
     #[inline]
-    pub fn ma_resource_manager_data_stream_init_ex<R: AsRmPtr + ?Sized>(
-        rm: &R,
-        config: &ResourceManagerStreamBuilder<'_, R>,
+    pub fn ma_resource_manager_data_stream_init_ex<F: PcmFormat, I>(
+        rm: *mut sys::ma_resource_manager,
+        config: &ResourceManagerStreamBuilder<'_, F, I>,
         data_stream: *mut sys::ma_resource_manager_data_stream,
     ) -> MaResult<()> {
         let res = unsafe {
-            sys::ma_resource_manager_data_stream_init_ex(
-                private_rm::rm_ptr(rm),
-                config.as_raw_ptr(),
-                data_stream,
-            )
+            sys::ma_resource_manager_data_stream_init_ex(rm, config.as_raw_ptr(), data_stream)
         };
         MaudioError::check(res)
     }
@@ -1941,8 +1981,8 @@ pub(crate) mod resource_ffi {
     }
 
     #[inline]
-    pub fn ma_resource_manager_data_stream_uninit<R: AsRmPtr + ?Sized>(
-        data_stream: &mut ResourceManagerStream<'_, R>,
+    pub fn ma_resource_manager_data_stream_uninit<F: PcmFormat, I>(
+        data_stream: &mut ResourceManagerStream<F, I>,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_resource_manager_data_stream_uninit(data_stream.to_raw()) };
         MaudioError::check(res)
@@ -1950,30 +1990,30 @@ pub(crate) mod resource_ffi {
 
     // Not used. Already available on DataSourceOps
     #[allow(unused)]
-    pub fn ma_resource_manager_data_stream_read_pcm_frames<R: AsRmPtr>(
-        data_stream: &mut ResourceManagerStream<'_, R>,
+    pub fn ma_resource_manager_data_stream_read_pcm_frames<F: PcmFormat, I>(
+        data_stream: &mut ResourceManagerStream<F, I>,
         frame_count: u64,
-    ) -> MaResult<SampleBuffer<R::Format>> {
+    ) -> MaResult<SampleBuffer<F>> {
         let channels = data_stream.data_format()?.channels;
         if channels == 0 {
             return Err(MaudioError::from_ma_result(sys::ma_result_MA_INVALID_ARGS));
         }
-        let mut buffer = SampleBuffer::<R::Format>::new_zeroed(frame_count as usize, channels)?;
+        let mut buffer = SampleBuffer::<F>::new_zeroed(frame_count as usize, channels)?;
 
-        let frames_read = ma_resource_manager_data_stream_read_pcm_frames_internal::<R>(
+        let frames_read = ma_resource_manager_data_stream_read_pcm_frames_internal::<F, I>(
             data_stream,
             frame_count,
             buffer.as_mut_ptr() as *mut core::ffi::c_void,
         )?;
 
-        SampleBuffer::<R::Format>::from_storage(buffer, frames_read as usize, channels)
+        SampleBuffer::<F>::from_storage(buffer, frames_read as usize, channels)
     }
 
     // Not used. Already available on DataSourceOps
     #[inline]
     #[allow(unused)]
-    fn ma_resource_manager_data_stream_read_pcm_frames_internal<R: AsRmPtr>(
-        data_stream: &mut ResourceManagerStream<'_, R>,
+    fn ma_resource_manager_data_stream_read_pcm_frames_internal<F: PcmFormat, I>(
+        data_stream: &mut ResourceManagerStream<F, I>,
         frame_count: u64,
         buffer: *mut core::ffi::c_void,
     ) -> MaResult<u64> {
@@ -1993,8 +2033,8 @@ pub(crate) mod resource_ffi {
     // Not used. Already available on DataSourceOps
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_stream_seek_to_pcm_frame<R: AsRmPtr>(
-        data_stream: &mut ResourceManagerStream<'_, R>,
+    pub fn ma_resource_manager_data_stream_seek_to_pcm_frame<F: PcmFormat, I>(
+        data_stream: &mut ResourceManagerStream<F, I>,
         frame: u64,
     ) -> MaResult<()> {
         let res = unsafe {
@@ -2006,8 +2046,8 @@ pub(crate) mod resource_ffi {
     // Not used. Already available on DataSourceOps
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_stream_get_data_format<R: AsRmPtr>(
-        data_stream: &ResourceManagerStream<'_, R>,
+    pub fn ma_resource_manager_data_stream_get_data_format<F: PcmFormat, I>(
+        data_stream: &ResourceManagerStream<F, I>,
     ) -> MaResult<DataFormat> {
         let mut format_raw: sys::ma_format = sys::ma_format_ma_format_unknown;
         let mut channels: u32 = 0;
@@ -2042,8 +2082,8 @@ pub(crate) mod resource_ffi {
     // Not used. Already available on DataSourceOps
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_stream_get_cursor_in_pcm_frames<R: AsRmPtr>(
-        data_stream: &ResourceManagerStream<'_, R>,
+    pub fn ma_resource_manager_data_stream_get_cursor_in_pcm_frames<F: PcmFormat, I>(
+        data_stream: &ResourceManagerStream<F, I>,
     ) -> MaResult<u64> {
         let mut cursor = 0;
         let res = unsafe {
@@ -2059,8 +2099,8 @@ pub(crate) mod resource_ffi {
     // Not used. Already available on DataSourceOps
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_stream_get_length_in_pcm_frames<R: AsRmPtr>(
-        data_stream: &ResourceManagerStream<'_, R>,
+    pub fn ma_resource_manager_data_stream_get_length_in_pcm_frames<F: PcmFormat, I>(
+        data_stream: &ResourceManagerStream<F, I>,
     ) -> MaResult<u64> {
         let mut length: u64 = 0;
         let res = unsafe {
@@ -2074,8 +2114,8 @@ pub(crate) mod resource_ffi {
     }
 
     #[inline]
-    pub fn ma_resource_manager_data_stream_result<R: AsRmPtr>(
-        data_stream: &ResourceManagerStream<'_, R>,
+    pub fn ma_resource_manager_data_stream_result<F: PcmFormat, I>(
+        data_stream: &ResourceManagerStream<F, I>,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_resource_manager_data_stream_result(data_stream.to_raw()) };
         MaudioError::check(res)
@@ -2084,8 +2124,8 @@ pub(crate) mod resource_ffi {
     // Not used. Already available on DataSourceOps
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_stream_set_looping<R: AsRmPtr>(
-        data_stream: &ResourceManagerStream<'_, R>,
+    pub fn ma_resource_manager_data_stream_set_looping<F: PcmFormat, I>(
+        data_stream: &ResourceManagerStream<F, I>,
         is_looping: bool,
     ) -> MaResult<()> {
         let is_looping = is_looping as u32;
@@ -2098,8 +2138,8 @@ pub(crate) mod resource_ffi {
     // Not used. Already available on DataSourceOps
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_stream_is_looping<R: AsRmPtr>(
-        data_stream: &ResourceManagerStream<'_, R>,
+    pub fn ma_resource_manager_data_stream_is_looping<F: PcmFormat, I>(
+        data_stream: &ResourceManagerStream<F, I>,
     ) -> bool {
         let res = unsafe { sys::ma_resource_manager_data_stream_is_looping(data_stream.to_raw()) };
         res == 1
@@ -2107,8 +2147,8 @@ pub(crate) mod resource_ffi {
 
     #[inline]
     #[allow(unused)]
-    pub fn ma_resource_manager_data_stream_get_available_frames<R: AsRmPtr>(
-        data_stream: &ResourceManagerStream<'_, R>,
+    pub fn ma_resource_manager_data_stream_get_available_frames<F: PcmFormat, I>(
+        data_stream: &ResourceManagerStream<F, I>,
     ) -> MaResult<u64> {
         let mut frames: u64 = 0;
         let res = unsafe {
@@ -2153,7 +2193,7 @@ pub(crate) mod resource_ffi {
     }
 }
 
-impl<F: PcmFormat> Drop for InnerResourceManager<F> {
+impl<F: PcmFormat> Drop for ResourceManagerInner<F> {
     fn drop(&mut self) {
         resource_ffi::ma_resource_manager_uninit(self);
         for vtable in self._decoder_vtables.iter() {
@@ -2179,13 +2219,13 @@ fn tiny_test_wav_mono(frames: usize) -> Vec<u8> {
 mod test {
     use crate::{
         engine::resource::{
-            rm_builder::ResourceManagerBuilder, rm_source::ResourceManagerSourceBuilder,
-            rm_source_flags::RmSourceFlags, tiny_test_wav_mono, RmOps,
+            rm_builder::ResourceManagerBuilder, rm_source_flags::RmSourceFlags, tiny_test_wav_mono,
+            RmOps,
         },
         test_assets::{
             decoded_data::{
                 asset_interleaved_f32, asset_interleaved_i16, asset_interleaved_i32,
-                asset_interleaved_s24_i32, asset_interleaved_s24_packed_le, asset_interleaved_u8,
+                asset_interleaved_s24_packed_le, asset_interleaved_u8,
             },
             temp_file::{unique_tmp_path, TempFileGuard},
         },
@@ -2217,9 +2257,9 @@ mod test {
         let guard = rm
             .register_file(path_guard.path(), RmSourceFlags::NONE)
             .unwrap();
-        let _buf = guard.build_buffer(RmSourceFlags::NONE).unwrap();
-        let _src = guard.build_source(RmSourceFlags::NONE).unwrap();
-        let _strm = guard.build_stream(RmSourceFlags::NONE).unwrap();
+        let _buf = guard.build_buffer(RmSourceFlags::NONE, None).unwrap();
+        let _src = guard.build_source(RmSourceFlags::NONE, None).unwrap();
+        let _strm = guard.build_stream(RmSourceFlags::NONE, None).unwrap();
     }
 
     #[test]
@@ -2227,8 +2267,8 @@ mod test {
         let rm = ResourceManagerBuilder::new_f32().build().unwrap();
         let wav: Vec<u8> = tiny_test_wav_mono(20);
         let guard = rm.register_encoded("test:wav", &wav).unwrap();
-        let _buf = guard.build_buffer(RmSourceFlags::NONE).unwrap();
-        let _src = guard.build_source(RmSourceFlags::NONE).unwrap();
+        let _buf = guard.build_buffer(RmSourceFlags::NONE, None).unwrap();
+        let _src = guard.build_source(RmSourceFlags::NONE, None).unwrap();
     }
 
     #[test]
@@ -2243,8 +2283,8 @@ mod test {
                 crate::audio::sample_rate::SampleRate::Sr48000,
             )
             .unwrap();
-        let _buf = guard.build_buffer(RmSourceFlags::NONE).unwrap();
-        let _src = guard.build_source(RmSourceFlags::NONE).unwrap();
+        let _buf = guard.build_buffer(RmSourceFlags::NONE, None).unwrap();
+        let _src = guard.build_source(RmSourceFlags::NONE, None).unwrap();
     }
 
     #[test]
@@ -2259,8 +2299,8 @@ mod test {
                 crate::audio::sample_rate::SampleRate::Sr48000,
             )
             .unwrap();
-        let _buf = guard.build_buffer(RmSourceFlags::NONE).unwrap();
-        let _src = guard.build_source(RmSourceFlags::NONE).unwrap();
+        let _buf = guard.build_buffer(RmSourceFlags::NONE, None).unwrap();
+        let _src = guard.build_source(RmSourceFlags::NONE, None).unwrap();
     }
 
     #[test]
@@ -2275,8 +2315,8 @@ mod test {
                 crate::audio::sample_rate::SampleRate::Sr48000,
             )
             .unwrap();
-        let _buf = guard.build_buffer(RmSourceFlags::NONE).unwrap();
-        let _src = guard.build_source(RmSourceFlags::NONE).unwrap();
+        let _buf = guard.build_buffer(RmSourceFlags::NONE, None).unwrap();
+        let _src = guard.build_source(RmSourceFlags::NONE, None).unwrap();
     }
 
     #[test]
@@ -2291,9 +2331,9 @@ mod test {
                 crate::audio::sample_rate::SampleRate::Sr48000,
             )
             .unwrap();
-        let buf = guard.build_buffer(RmSourceFlags::NONE).unwrap();
+        let buf = guard.build_buffer(RmSourceFlags::NONE, None).unwrap();
         drop(buf);
-        let src = guard.build_source(RmSourceFlags::NONE).unwrap();
+        let src = guard.build_source(RmSourceFlags::NONE, None).unwrap();
         drop(src);
     }
 
@@ -2309,24 +2349,8 @@ mod test {
                 crate::audio::sample_rate::SampleRate::Sr48000,
             )
             .unwrap();
-        let _buf = guard.build_buffer(RmSourceFlags::NONE).unwrap();
-        let _src = guard.build_source(RmSourceFlags::NONE).unwrap();
-    }
-
-    #[test]
-    fn test_resource_man_decoded_s24() {
-        let rm = ResourceManagerBuilder::new_f32().build().unwrap();
-        let data = asset_interleaved_s24_i32(2, 100, 1);
-        let guard = rm
-            .register_decoded_s24(
-                "data",
-                &data,
-                2,
-                crate::audio::sample_rate::SampleRate::Sr48000,
-            )
-            .unwrap();
-        let _buf = guard.build_buffer(RmSourceFlags::NONE).unwrap();
-        let _src = guard.build_source(RmSourceFlags::NONE).unwrap();
+        let _buf = guard.build_buffer(RmSourceFlags::NONE, None).unwrap();
+        let _src = guard.build_source(RmSourceFlags::NONE, None).unwrap();
     }
 
     #[test]
@@ -2339,7 +2363,7 @@ mod test {
         std::fs::write(&path, &wav).unwrap();
 
         let guard = rm.register_file(&path, RmSourceFlags::ASYNC).unwrap();
-        let mut buffer = guard.build_buffer(RmSourceFlags::ASYNC).unwrap();
+        let mut buffer = guard.build_buffer(RmSourceFlags::ASYNC, None).unwrap();
         let now = std::time::Instant::now();
         let mut elapsed: std::time::Duration;
         let mut loops: usize = 0;
@@ -2359,31 +2383,5 @@ mod test {
             loops += 1;
             std::thread::sleep(std::time::Duration::from_micros(5));
         }
-    }
-
-    #[test]
-    fn test_resource_man_moving_to_thread() {
-        let rm = ResourceManagerBuilder::new_f32().build().unwrap();
-
-        let wav = tiny_test_wav_mono(20);
-        let path_guard = TempFileGuard::new(unique_tmp_path("wav"));
-        let path = path_guard.path().to_path_buf();
-        std::fs::write(&path, &wav).unwrap();
-
-        let moved_rm = rm.clone();
-        let moved_path = path.clone();
-
-        let handle = std::thread::spawn(move || {
-            let _data_source = ResourceManagerSourceBuilder::new(&moved_rm)
-                .file_path(&moved_path)
-                .build()
-                .unwrap();
-        });
-        handle.join().unwrap();
-
-        let _data_source = ResourceManagerSourceBuilder::new(&rm)
-            .file_path(&path)
-            .build()
-            .unwrap();
     }
 }

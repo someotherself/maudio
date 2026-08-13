@@ -120,6 +120,7 @@ impl<F: PcmFormat> ResourceManagerBuilder<F> {
         self.channels = Some(channels);
         self
     }
+
     pub(crate) fn set_backend_registration(&mut self) -> *mut BackendRegistration<F> {
         let registration: BackendRegistration<F> = BackendRegistration {
             channels: self.channels,
@@ -131,6 +132,7 @@ impl<F: PcmFormat> ResourceManagerBuilder<F> {
         self.config.pCustomDecodingBackendUserData = ptr.cast();
         ptr
     }
+
     pub(crate) fn set_backend_vtables(
         &mut self,
     ) -> MaResult<Box<[*const sys::ma_decoding_backend_vtable]>> {
@@ -312,7 +314,7 @@ mod test {
 
         let src_guard = rm.register_encoded("wav", &wav).unwrap();
         let src = src_guard
-            .build_source(RmSourceFlags::NONE)
+            .build_source(RmSourceFlags::NONE, None)
             .unwrap()
             .into_ready()
             .unwrap();
@@ -341,7 +343,7 @@ mod test {
 
         let src_guard = rm.register_encoded("wav", &wav).unwrap();
         let src = src_guard
-            .build_source(RmSourceFlags::NONE)
+            .build_source(RmSourceFlags::NONE, None)
             .unwrap()
             .into_ready()
             .unwrap();
@@ -370,7 +372,7 @@ mod test {
 
         let src_guard = rm.register_encoded("wav", &wav).unwrap();
         let src = src_guard
-            .build_source(RmSourceFlags::NONE)
+            .build_source(RmSourceFlags::NONE, None)
             .unwrap()
             .into_ready()
             .unwrap();
@@ -399,7 +401,7 @@ mod test {
 
         let src_guard = rm.register_encoded("wav", &wav).unwrap();
         let src = src_guard
-            .build_source(RmSourceFlags::NONE)
+            .build_source(RmSourceFlags::NONE, None)
             .unwrap()
             .into_ready()
             .unwrap();

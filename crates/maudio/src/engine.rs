@@ -511,7 +511,7 @@ impl Engine {
     }
 
     /// Returns the engine's internal resource manager, if available.
-    pub fn resource_manager(&self) -> Option<ResourceManagerRef<'_, f32>> {
+    pub fn resource_manager(&self) -> ResourceManagerRef<f32> {
         engine_ffi::ma_engine_get_resource_manager(self)
     }
 
@@ -678,6 +678,8 @@ impl Drop for EngineReader {
 }
 
 pub(crate) mod engine_ffi {
+    use std::marker::PhantomData;
+
     use maudio_sys::ffi as sys;
 
     use crate::{
@@ -688,7 +690,7 @@ pub(crate) mod engine_ffi {
             engine_ffi,
             node_graph::{nodes::NodeRef, GraphOwner, NodeGraphRef},
             private_engine,
-            resource::ResourceManagerRef,
+            resource::{ResourceManagerRef, RmOwner},
             AsEnginePtr, Binding, Engine, EngineInner, EngineReader,
         },
         AsRawRef, MaResult, MaudioError,
@@ -771,14 +773,12 @@ pub(crate) mod engine_ffi {
     }
 
     #[inline]
-    pub fn ma_engine_get_resource_manager<'a>(
-        engine: &'a Engine,
-    ) -> Option<ResourceManagerRef<'a, f32>> {
+    pub fn ma_engine_get_resource_manager(engine: &Engine) -> ResourceManagerRef<f32> {
         let ptr = unsafe { sys::ma_engine_get_resource_manager(engine.to_raw()) };
-        if ptr.is_null() {
-            None
-        } else {
-            Some(ResourceManagerRef::from_ptr(ptr))
+        ResourceManagerRef {
+            inner: ptr,
+            _format: PhantomData,
+            owner: RmOwner::Engine(engine.0.clone()),
         }
     }
 

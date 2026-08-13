@@ -20,7 +20,7 @@ use crate::{
 #[cfg(feature = "engine")]
 use crate::engine::resource::{
     rm_buffer::ResourceManagerBuffer, rm_source::ResourceManagerSource,
-    rm_stream::ResourceManagerStream, AsRmPtr,
+    rm_stream::ResourceManagerStream,
 };
 
 pub mod data_source_builder;
@@ -213,7 +213,7 @@ pub(crate) mod private_data_source {
     #[cfg(feature = "engine")]
     use crate::engine::{
         node_graph::nodes::source::source_node::AttachedSourceNode,
-        resource::{rm_source::ResourceManagerSource, rm_stream::ResourceManagerStream, AsRmPtr},
+        resource::{rm_source::ResourceManagerSource, rm_stream::ResourceManagerStream},
     };
 
     use super::*;
@@ -322,31 +322,31 @@ pub(crate) mod private_data_source {
     }
 
     #[cfg(feature = "engine")]
-    impl<R: AsRmPtr> DataSourcePtrProvider<ResourceManagerSource<'_, R>>
+    impl<F: PcmFormat, I> DataSourcePtrProvider<ResourceManagerSource<F, I>>
         for ResourceManagerSourceProvider
     {
         #[inline]
-        fn as_source_ptr(t: &ResourceManagerSource<'_, R>) -> *mut sys::ma_data_source {
+        fn as_source_ptr(t: &ResourceManagerSource<F, I>) -> *mut sys::ma_data_source {
             t.as_source_ref().to_raw()
         }
     }
 
     #[cfg(feature = "engine")]
-    impl<R: AsRmPtr> DataSourcePtrProvider<ResourceManagerBuffer<'_, R>>
+    impl<F: PcmFormat, I> DataSourcePtrProvider<ResourceManagerBuffer<F, I>>
         for ResourceManagerBufferProvider
     {
         #[inline]
-        fn as_source_ptr(t: &ResourceManagerBuffer<'_, R>) -> *mut sys::ma_data_source {
+        fn as_source_ptr(t: &ResourceManagerBuffer<F, I>) -> *mut sys::ma_data_source {
             t.as_source_ref().to_raw()
         }
     }
 
     #[cfg(feature = "engine")]
-    impl<R: AsRmPtr> DataSourcePtrProvider<ResourceManagerStream<'_, R>>
+    impl<F: PcmFormat, I> DataSourcePtrProvider<ResourceManagerStream<F, I>>
         for ResourceManagerStreamProvider
     {
         #[inline]
-        fn as_source_ptr(t: &ResourceManagerStream<'_, R>) -> *mut sys::ma_data_source {
+        fn as_source_ptr(t: &ResourceManagerStream<F, I>) -> *mut sys::ma_data_source {
             t.as_source_ref().to_raw()
         }
     }
@@ -383,29 +383,32 @@ impl<'a, F: PcmFormat> AsSourcePtr for DataSourceRef<'a, F> {
 
 mod sealed {
     #[cfg(feature = "engine")]
-    use crate::engine::resource::{
-        rm_buffer::ResourceManagerBuffer, rm_source::ResourceManagerSource,
-        rm_stream::ResourceManagerStream, AsRmPtr,
+    use crate::{
+        engine::resource::{
+            rm_buffer::ResourceManagerBuffer, rm_source::ResourceManagerSource,
+            rm_stream::ResourceManagerStream,
+        },
+        pcm_frames::PcmFormat,
     };
 
     pub trait Sealed {}
     #[cfg(feature = "engine")]
-    impl<R: AsRmPtr> Sealed for ResourceManagerBuffer<'_, R> {}
+    impl<F: PcmFormat, I> Sealed for ResourceManagerBuffer<F, I> {}
     #[cfg(feature = "engine")]
-    impl<R: AsRmPtr> Sealed for ResourceManagerSource<'_, R> {}
+    impl<F: PcmFormat, I> Sealed for ResourceManagerSource<F, I> {}
     #[cfg(feature = "engine")]
-    impl<R: AsRmPtr> Sealed for ResourceManagerStream<'_, R> {}
+    impl<F: PcmFormat, I> Sealed for ResourceManagerStream<F, I> {}
 }
 /// Carries for [`PcmFormat`] for data sources implementing [`DataSourceOps`]
 pub trait SharedSource: sealed::Sealed {}
 
 // The types that DataSourceOps is implemented for are listed here.
 #[cfg(feature = "engine")]
-impl<R: AsRmPtr> DataSourceOps for ResourceManagerSource<'_, R> {}
+impl<F: PcmFormat, I> DataSourceOps for ResourceManagerSource<F, I> {}
 #[cfg(feature = "engine")]
-impl<R: AsRmPtr> DataSourceOps for ResourceManagerBuffer<'_, R> {}
+impl<F: PcmFormat, I> DataSourceOps for ResourceManagerBuffer<F, I> {}
 #[cfg(feature = "engine")]
-impl<R: AsRmPtr> DataSourceOps for ResourceManagerStream<'_, R> {}
+impl<F: PcmFormat, I> DataSourceOps for ResourceManagerStream<F, I> {}
 
 pub trait DataSourceOps: AsSourcePtr + SharedSource {
     fn read_pcm_frames_into(
