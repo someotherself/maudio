@@ -833,7 +833,7 @@ pub trait RmOps: AsRmPtr {
         {
             let name = crate::wide_null_terminated(path);
             resource_ffi::ma_resource_manager_register_encoded_data_w(
-                rm,
+                self,
                 &name,
                 &[] as *const _,
                 0,
