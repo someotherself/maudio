@@ -794,6 +794,13 @@ impl<F: PcmFormat> RmOps for ResourceManagerRef<F> {}
 
 /// Methods shared between [`ResourceManager`] and [`ResourceManagerRef`]
 pub trait RmOps: AsRmPtr {
+    /// If the resource has not been previously under this name
+    /// this function will fail with `MA_INVALID_ARGS`
+    ///
+    /// This function is offered as a convenience.
+    ///
+    /// Trying to register a second time with the same name, will
+    /// reuse the first registration instead.
     fn load_name(&self, name: &str) -> MaResult<ResourceGuard<<Self as AsRmPtr>::Format, Unknown>> {
         resource_ffi::ma_resource_manager_register_encoded_data_internal(self, name, &[])?;
         let guard = ResourceGuard::<Self::Format, Unknown>::from_encoded_data(self, name, []);
@@ -806,6 +813,13 @@ pub trait RmOps: AsRmPtr {
         Ok(guard)
     }
 
+    /// If the resource has not been previously under this path
+    /// this function will fail with `MA_INVALID_ARGS`
+    ///
+    /// This function is offered as a convenience.
+    ///
+    /// Trying to register a second time with the same path, will
+    /// reuse the first registration instead.
     fn load_path(
         &self,
         path: &Path,
