@@ -51,11 +51,10 @@ use crate::{
             decoder_ffi, decoder_read_proc, decoder_seek_proc, decoder_vtable::decoder_vtable,
             decoding_backend::DecodingBackend, encoder_user_data_drop, private_decoder,
             AsDecoderPtr, Borrowed, Cb, DecoderOps, DecoderUserData, DecoderUserDataDestructor, Fs,
-            Owned, SeekRead,
+            Owned, SeekRead, Unknown,
         },
         AsSourcePtr, SourceContext,
     },
-    device::device_builder::Unknown,
     pcm_frames::{PcmFormat, S24Packed},
     AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
 };

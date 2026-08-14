@@ -19,7 +19,6 @@ use crate::{
         sample_rate::SampleRate,
     },
     data_source::{data_source_ffi, private_data_source, AsSourcePtr, DataFormat, DataSourceRef},
-    device::device_builder::Unknown,
     pcm_frames::{PcmFormat, S24Packed},
     AsRawRef, Binding, MaResult,
 };
@@ -117,6 +116,9 @@ pub struct Decoder<F: PcmFormat, S> {
     _sample_format: PhantomData<F>,
     source_data: S,
 }
+
+/// Marker type for a decoder whose sample format has not been selected yet.
+pub struct Unknown;
 
 unsafe impl<F: PcmFormat, S> Send for Decoder<F, S> {}
 
