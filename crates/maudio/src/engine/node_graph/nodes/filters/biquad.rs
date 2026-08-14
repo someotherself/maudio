@@ -6,7 +6,10 @@ use crate::{
     audio::formats::Format,
     engine::{
         node_graph::{
-            nodes::{node_ffi, private_node::BiquadNodeProvider, AsNodePtr, NodeRef},
+            nodes::{
+                node_ffi, private_node::BiquadNodeProvider, AsNodePtr, NodeBusChannels,
+                NodeBusChannelsConfig, NodeRef,
+            },
             private_node_graph, AsNodeGraphPtr, GraphOwner, NodeGraph, NodeGraphRef,
         },
         Engine,
@@ -51,10 +54,9 @@ pub struct BiquadNode {
     inner: *mut sys::ma_biquad_node,
     alloc_cb: Option<Arc<AllocationCallbacks>>,
     pub(crate) owner: GraphOwner,
-    // Below is needed during a reinit
-    channels: u32,
     // format is hard coded as ma_format_f32 in miniaudio `sys::ma_biquad_node_config_init()`
     // but use value in inner.biquad.format anyway inside new_with_cfg_alloc_internal()
+    _busses: NodeBusChannels, // keep alive
     format: Format,
 }
 
@@ -76,9 +78,16 @@ impl AsNodePtr for BiquadNode {
 impl BiquadNode {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
-        config: &BiquadNodeBuilder<N>,
+        config: &mut BiquadNodeBuilder<N>,
         alloc: Option<Arc<AllocationCallbacks>>,
     ) -> MaResult<Self> {
+        let busses = config.busses.build_nodes(node_graph);
+
+        config.inner.nodeConfig.inputBusCount = busses.inputs.len() as u32;
+        config.inner.nodeConfig.outputBusCount = busses.outputs.len() as u32;
+        config.inner.nodeConfig.pInputChannels = busses.inputs.as_ptr();
+        config.inner.nodeConfig.pOutputChannels = busses.outputs.as_ptr();
+
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
 
@@ -98,7 +107,7 @@ impl BiquadNode {
             inner,
             alloc_cb: alloc,
             owner: private_node_graph::clone_owner(node_graph),
-            channels: config.inner.biquad.channels,
+            _busses: busses,
             format: config.inner.biquad.format.try_into().unwrap_or(Format::F32),
         })
     }
@@ -197,6 +206,7 @@ impl Drop for BiquadNode {
 /// Builder for creating a [`BiquadNode`]
 pub struct BiquadNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     inner: sys::ma_biquad_node_config,
+    busses: NodeBusChannelsConfig,
     node_graph: &'a N,
 }
 
@@ -221,13 +231,45 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> BiquadNodeBuilder<'a, N> {
         a2: f32,
     ) -> Self {
         let ptr = unsafe { sys::ma_biquad_node_config_init(channels, b0, b1, b2, a0, a1, a2) };
+        let busses = NodeBusChannelsConfig::new(1, 1, Some(channels));
         Self {
             inner: ptr,
+            busses,
             node_graph,
         }
     }
 
-    pub fn build(&self) -> MaResult<BiquadNode> {
+    /// This node can only have one input.
+    ///
+    /// This sets the channel count for input bus with the index `0`.
+    ///
+    /// Input and output channel counts may differ. However, it does not always make sense.
+    /// Do not assume that miniaudio automatically performs channel conversion.
+    /// Reinitialization will usually fail if input and output channels are different.
+    ///
+    /// Mixing nodes with different channel counts may result in malformed audio
+    /// or errors when connecting busses.
+    pub fn in_channel_count(&mut self, count: u32) -> &mut Self {
+        self.busses.change_chanels_in(0, count);
+        self
+    }
+
+    /// This node can only have one output.
+    ///
+    /// This sets the channel count for output bus with the index `0`.
+    ///
+    /// Input and output channel counts may differ. However, it does not always make sense.
+    /// Do not assume that miniaudio automatically performs channel conversion.
+    /// Reinitialization will usually fail if input and output channels are different.
+    ///
+    /// Mixing nodes with different channel counts may result in malformed audio
+    /// or errors when connecting busses.
+    pub fn out_channel_count(&mut self, count: u32) -> &mut Self {
+        self.busses.change_chanels_out(0, count);
+        self
+    }
+
+    pub fn build(&mut self) -> MaResult<BiquadNode> {
         if self.inner.biquad.a0 == 0.0 || self.inner.biquad.channels == 0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
@@ -255,7 +297,7 @@ impl BiquadNodeParams {
         let ptr = unsafe {
             sys::ma_biquad_config_init(
                 biquad_node.format.into(),
-                biquad_node.channels,
+                biquad_node._busses.outputs[0],
                 b0,
                 b1,
                 b2,
@@ -271,6 +313,17 @@ impl BiquadNodeParams {
 #[cfg(test)]
 mod test {
     use crate::engine::{node_graph::nodes::filters::biquad::BiquadNodeBuilder, Engine};
+
+    #[test]
+    fn test_biquad_builder_channel_counts() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph();
+        let _node = BiquadNodeBuilder::new(&node_graph, 1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1)
+            .in_channel_count(2)
+            .out_channel_count(4)
+            .build()
+            .unwrap();
+    }
 
     #[test]
     fn test_biquad_builder_basic_init() {

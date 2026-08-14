@@ -6,7 +6,10 @@ use crate::{
     audio::{formats::Format, sample_rate::SampleRate},
     engine::{
         node_graph::{
-            nodes::{node_ffi, private_node::HpfNodeProvider, AsNodePtr, NodeRef},
+            nodes::{
+                node_ffi, private_node::HpfNodeProvider, AsNodePtr, NodeBusChannels,
+                NodeBusChannelsConfig, NodeRef,
+            },
             private_node_graph, AsNodeGraphPtr, GraphOwner, NodeGraph, NodeGraphRef,
         },
         Engine,
@@ -40,8 +43,7 @@ pub struct HpfNode {
     inner: *mut sys::ma_hpf_node,
     alloc_cb: Option<Arc<AllocationCallbacks>>,
     pub(crate) owner: GraphOwner,
-    // Below is needed during a reinit
-    channels: u32,
+    _busses: NodeBusChannels, // keep alive
     // format is hard coded as ma_format_f32 in miniaudio `sys::ma_hpf_node_config_init()`
     // but use value in inner.hpf.format anyway inside new_with_cfg_alloc_internal()
     format: Format,
@@ -66,9 +68,16 @@ impl AsNodePtr for HpfNode {
 impl HpfNode {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
-        config: &HpfNodeBuilder<'_, N>,
+        config: &mut HpfNodeBuilder<'_, N>,
         alloc: Option<Arc<AllocationCallbacks>>,
     ) -> MaResult<Self> {
+        let busses = config.busses.build_nodes(node_graph);
+
+        config.inner.nodeConfig.inputBusCount = busses.inputs.len() as u32;
+        config.inner.nodeConfig.outputBusCount = busses.outputs.len() as u32;
+        config.inner.nodeConfig.pInputChannels = busses.inputs.as_ptr();
+        config.inner.nodeConfig.pOutputChannels = busses.outputs.as_ptr();
+
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
 
@@ -82,7 +91,7 @@ impl HpfNode {
             inner,
             alloc_cb: alloc,
             owner: private_node_graph::clone_owner(node_graph),
-            channels: config.inner.hpf.channels,
+            _busses: busses,
             format: config.inner.hpf.format.try_into().unwrap_or(Format::F32),
             order: config.inner.hpf.order,
         })
@@ -108,12 +117,6 @@ impl HpfNode {
     }
 
     pub fn reinit(&mut self, sample_rate: SampleRate, cutoff_freq: f64) -> MaResult<()> {
-        if self.channels == 0 {
-            return Err(crate::MaudioError::from_ma_result(
-                sys::ma_result_MA_INVALID_ARGS,
-            ));
-        }
-
         if !cutoff_freq.is_finite()
             || cutoff_freq <= 0.0
             || cutoff_freq >= i32::from(sample_rate) as f64 / 2.0
@@ -196,6 +199,7 @@ impl Drop for HpfNode {
 /// Builder for creating a [`HpfNode`]
 pub struct HpfNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     inner: sys::ma_hpf_node_config,
+    busses: NodeBusChannelsConfig,
     node_graph: &'a N,
 }
 
@@ -219,13 +223,45 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> HpfNodeBuilder<'a, N> {
         let ptr = unsafe {
             sys::ma_hpf_node_config_init(channels, sample_rate.into(), cutoff_freq, order)
         };
+        let busses = NodeBusChannelsConfig::new(1, 1, Some(channels));
         HpfNodeBuilder {
             inner: ptr,
+            busses,
             node_graph,
         }
     }
 
-    pub fn build(&self) -> MaResult<HpfNode> {
+    /// This node can only have one input.
+    ///
+    /// This sets the channel count for input bus with the index `0`.
+    ///
+    /// Input and output channel counts may differ. However, it does not always make sense.
+    /// Do not assume that miniaudio automatically performs channel conversion.
+    /// Reinitialization will usually fail if input and output channels are different.
+    ///
+    /// Mixing nodes with different channel counts may result in malformed audio
+    /// or errors when connecting busses.
+    pub fn in_channel_count(&mut self, count: u32) -> &mut Self {
+        self.busses.change_chanels_in(0, count);
+        self
+    }
+
+    /// This node can only have one output.
+    ///
+    /// This sets the channel count for output bus with the index `0`.
+    ///
+    /// Input and output channel counts may differ. However, it does not always make sense.
+    /// Do not assume that miniaudio automatically performs channel conversion.
+    /// Reinitialization will usually fail if input and output channels are different.
+    ///
+    /// Mixing nodes with different channel counts may result in malformed audio
+    /// or errors when connecting busses.
+    pub fn out_channel_count(&mut self, count: u32) -> &mut Self {
+        self.busses.change_chanels_out(0, count);
+        self
+    }
+
+    pub fn build(&mut self) -> MaResult<HpfNode> {
         if self.inner.hpf.channels == 0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
@@ -261,7 +297,7 @@ impl HpfNodeParams {
         let ptr = unsafe {
             sys::ma_hpf_config_init(
                 node.format.into(),
-                node.channels,
+                node._busses.outputs[0],
                 sample_rate.into(),
                 cutoff_freq,
                 node.order,
@@ -277,6 +313,20 @@ mod test {
         audio::sample_rate::SampleRate,
         engine::{node_graph::nodes::filters::hpf::HpfNodeBuilder, Engine},
     };
+
+    #[test]
+    fn test_hpf_builder_channel_count() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph();
+
+        let mut node = HpfNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1000.0, 1)
+            .in_channel_count(2)
+            .out_channel_count(4)
+            .build()
+            .unwrap();
+        let res = node.reinit(SampleRate::Sr44100, 1200.0);
+        assert!(res.is_err());
+    }
 
     #[test]
     fn test_hpf_builder_basic_init() {

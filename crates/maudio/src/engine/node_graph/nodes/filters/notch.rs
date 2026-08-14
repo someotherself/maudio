@@ -6,7 +6,10 @@ use crate::{
     audio::{formats::Format, sample_rate::SampleRate},
     engine::{
         node_graph::{
-            nodes::{node_ffi, private_node::NotchNodeProvider, AsNodePtr, NodeRef},
+            nodes::{
+                node_ffi, private_node::NotchNodeProvider, AsNodePtr, NodeBusChannels,
+                NodeBusChannelsConfig, NodeRef,
+            },
             private_node_graph, AsNodeGraphPtr, GraphOwner, NodeGraph, NodeGraphRef,
         },
         Engine,
@@ -41,8 +44,7 @@ pub struct NotchNode {
     inner: *mut sys::ma_notch_node,
     alloc_cb: Option<Arc<AllocationCallbacks>>,
     pub(crate) owner: GraphOwner,
-    // Below is needed during a reinit
-    channels: u32,
+    _busses: NodeBusChannels, // keep alive
     // format is hard coded as ma_format_f32 in miniaudio `sys::ma_hpf_node_config_init()`
     // but use value in inner.hpf.format anyway inside new_with_cfg_alloc_internal()
     format: Format,
@@ -67,9 +69,16 @@ impl AsNodePtr for NotchNode {
 impl NotchNode {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
-        config: &NotchNodeBuilder<'_, N>,
+        config: &mut NotchNodeBuilder<'_, N>,
         alloc: Option<Arc<AllocationCallbacks>>,
     ) -> MaResult<Self> {
+        let busses = config.busses.build_nodes(node_graph);
+
+        config.inner.nodeConfig.inputBusCount = busses.inputs.len() as u32;
+        config.inner.nodeConfig.outputBusCount = busses.outputs.len() as u32;
+        config.inner.nodeConfig.pInputChannels = busses.inputs.as_ptr();
+        config.inner.nodeConfig.pOutputChannels = busses.outputs.as_ptr();
+
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
 
@@ -90,7 +99,7 @@ impl NotchNode {
             alloc_cb: alloc,
             owner: private_node_graph::clone_owner(node_graph),
             format: config.inner.notch.format.try_into().unwrap_or(Format::F32),
-            channels: config.inner.notch.channels,
+            _busses: busses,
             sample_rate: config.inner.notch.sampleRate.try_into()?,
         })
     }
@@ -211,6 +220,7 @@ impl Drop for NotchNode {
 /// Builder for creating a [`NotchNode`]
 pub struct NotchNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     inner: sys::ma_notch_node_config,
+    busses: NodeBusChannelsConfig,
     node_graph: &'a N,
 }
 
@@ -233,13 +243,45 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> NotchNodeBuilder<'a, N> {
         let ptr = unsafe {
             sys::ma_notch_node_config_init(channels, sample_rate.into(), quality_factor, frequency)
         };
+        let busses = NodeBusChannelsConfig::new(1, 1, Some(channels));
         NotchNodeBuilder {
             inner: ptr,
+            busses,
             node_graph,
         }
     }
 
-    pub fn build(&self) -> MaResult<NotchNode> {
+    /// This node can only have one input.
+    ///
+    /// This sets the channel count for input bus with the index `0`.
+    ///
+    /// Input and output channel counts may differ. However, it does not always make sense.
+    /// Do not assume that miniaudio automatically performs channel conversion.
+    /// Reinitialization will usually fail if input and output channels are different.
+    ///
+    /// Mixing nodes with different channel counts may result in malformed audio
+    /// or errors when connecting busses.
+    pub fn in_channel_count(&mut self, count: u32) -> &mut Self {
+        self.busses.change_chanels_in(0, count);
+        self
+    }
+
+    /// This node can only have one output.
+    ///
+    /// This sets the channel count for output bus with the index `0`.
+    ///
+    /// Input and output channel counts may differ. However, it does not always make sense.
+    /// Do not assume that miniaudio automatically performs channel conversion.
+    /// Reinitialization will usually fail if input and output channels are different.
+    ///
+    /// Mixing nodes with different channel counts may result in malformed audio
+    /// or errors when connecting busses.
+    pub fn out_channel_count(&mut self, count: u32) -> &mut Self {
+        self.busses.change_chanels_out(0, count);
+        self
+    }
+
+    pub fn build(&mut self) -> MaResult<NotchNode> {
         if self.inner.notch.channels == 0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
@@ -275,7 +317,7 @@ impl NotchNodeParams {
         let ptr = unsafe {
             sys::ma_notch2_config_init(
                 node.format.into(),
-                node.channels,
+                node._busses.outputs[0],
                 node.sample_rate.into(),
                 q,
                 frequency,
@@ -291,6 +333,20 @@ mod test {
         audio::sample_rate::SampleRate,
         engine::{node_graph::nodes::filters::notch::NotchNodeBuilder, Engine},
     };
+
+    #[test]
+    fn test_notch_builder_channel_counts() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph();
+
+        let mut node = NotchNodeBuilder::new(&node_graph, 1, SampleRate::Sr44100, 1.0, 2000.0)
+            .in_channel_count(2)
+            .out_channel_count(4)
+            .build()
+            .unwrap();
+        let res = node.reinit(1.0, 3000.0);
+        assert!(res.is_err());
+    }
 
     #[test]
     fn test_notch_builder_basic_init() {

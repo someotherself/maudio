@@ -6,7 +6,10 @@ use crate::{
     audio::{formats::Format, sample_rate::SampleRate},
     engine::{
         node_graph::{
-            nodes::{node_ffi, private_node::HiShelfNodeProvider, AsNodePtr, NodeRef},
+            nodes::{
+                node_ffi, private_node::HiShelfNodeProvider, AsNodePtr, NodeBusChannels,
+                NodeBusChannelsConfig, NodeRef,
+            },
             private_node_graph, AsNodeGraphPtr, GraphOwner, NodeGraph, NodeGraphRef,
         },
         Engine,
@@ -41,8 +44,7 @@ pub struct HiShelfNode {
     inner: *mut sys::ma_hishelf_node,
     alloc_cb: Option<Arc<AllocationCallbacks>>,
     pub(crate) owner: GraphOwner,
-    // Below is needed during a reinit
-    channels: u32,
+    _busses: NodeBusChannels, // keep alive
     // format is hard coded as ma_format_f32 in miniaudio `sys::ma_hishelf_node_config_init()`
     // but use value in inner.hishelf.format anyway inside new_with_cfg_alloc_internal()
     format: Format,
@@ -66,9 +68,16 @@ impl AsNodePtr for HiShelfNode {
 impl HiShelfNode {
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
-        config: &HiShelfNodeBuilder<N>,
+        config: &mut HiShelfNodeBuilder<N>,
         alloc: Option<Arc<AllocationCallbacks>>,
     ) -> MaResult<Self> {
+        let busses = config.busses.build_nodes(node_graph);
+
+        config.inner.nodeConfig.inputBusCount = busses.inputs.len() as u32;
+        config.inner.nodeConfig.outputBusCount = busses.outputs.len() as u32;
+        config.inner.nodeConfig.pInputChannels = busses.inputs.as_ptr();
+        config.inner.nodeConfig.pOutputChannels = busses.outputs.as_ptr();
+
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
 
@@ -88,7 +97,7 @@ impl HiShelfNode {
             inner,
             alloc_cb: alloc,
             owner: private_node_graph::clone_owner(node_graph),
-            channels: config.inner.hishelf.channels,
+            _busses: busses,
             format: config
                 .inner
                 .hishelf
@@ -218,6 +227,7 @@ impl Drop for HiShelfNode {
 /// Builder for creating a [`HiShelfNode`]
 pub struct HiShelfNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     inner: sys::ma_hishelf_node_config,
+    busses: NodeBusChannelsConfig,
     node_graph: &'a N,
 }
 
@@ -247,13 +257,45 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> HiShelfNodeBuilder<'a, N> {
                 frequency,
             )
         };
+        let busses = NodeBusChannelsConfig::new(1, 1, Some(channels));
         HiShelfNodeBuilder {
             inner: ptr,
+            busses,
             node_graph,
         }
     }
 
-    pub fn build(&self) -> MaResult<HiShelfNode> {
+    /// This node can only have one input.
+    ///
+    /// This sets the channel count for input bus with the index `0`.
+    ///
+    /// Input and output channel counts may differ. However, it does not always make sense.
+    /// Do not assume that miniaudio automatically performs channel conversion.
+    /// Reinitialization will usually fail if input and output channels are different.
+    ///
+    /// Mixing nodes with different channel counts may result in malformed audio
+    /// or errors when connecting busses.
+    pub fn in_channel_count(&mut self, count: u32) -> &mut Self {
+        self.busses.change_chanels_in(0, count);
+        self
+    }
+
+    /// This node can only have one output.
+    ///
+    /// This sets the channel count for output bus with the index `0`.
+    ///
+    /// Input and output channel counts may differ. However, it does not always make sense.
+    /// Do not assume that miniaudio automatically performs channel conversion.
+    /// Reinitialization will usually fail if input and output channels are different.
+    ///
+    /// Mixing nodes with different channel counts may result in malformed audio
+    /// or errors when connecting busses.
+    pub fn out_channel_count(&mut self, count: u32) -> &mut Self {
+        self.busses.change_chanels_out(0, count);
+        self
+    }
+
+    pub fn build(&mut self) -> MaResult<HiShelfNode> {
         if self.inner.hishelf.channels == 0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
@@ -299,7 +341,7 @@ impl HiShelfNodeParams {
         let ptr = unsafe {
             sys::ma_hishelf2_config_init(
                 node.format.into(),
-                node.channels,
+                node._busses.outputs[0],
                 sample_rate.into(),
                 gain_db,
                 shelf_slope,
@@ -316,6 +358,22 @@ mod test {
         audio::sample_rate::SampleRate,
         engine::{node_graph::nodes::filters::hishelf::HiShelfNodeBuilder, Engine},
     };
+
+    #[test]
+    fn test_hishelf_builder_channel_counts() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph();
+
+        let mut node =
+            HiShelfNodeBuilder::new(&node_graph, 1, SampleRate::Sr48000, 0.0, 0.1, 1000.0)
+                .in_channel_count(2)
+                .out_channel_count(4)
+                .build()
+                .unwrap();
+
+        let res = node.reinit(SampleRate::Sr48000, 0.0, 0.1, 1200.0);
+        assert!(res.is_err());
+    }
 
     #[test]
     fn test_hishelf_builder_basic_init() {

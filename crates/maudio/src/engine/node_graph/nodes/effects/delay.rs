@@ -6,7 +6,9 @@ use crate::{
     audio::sample_rate::SampleRate,
     engine::{
         node_graph::{
-            nodes::{node_ffi, private_node, AsNodePtr, NodeRef},
+            nodes::{
+                node_ffi, private_node, AsNodePtr, NodeBusChannels, NodeBusChannelsConfig, NodeRef,
+            },
             private_node_graph, AsNodeGraphPtr, GraphOwner, NodeGraph, NodeGraphRef,
         },
         Engine,
@@ -26,6 +28,7 @@ use crate::{
 pub struct DelayNode {
     inner: *mut sys::ma_delay_node,
     alloc_cb: Option<Arc<AllocationCallbacks>>,
+    _busses: NodeBusChannels, // keep alive
     pub(crate) owner: GraphOwner,
 }
 
@@ -122,9 +125,16 @@ impl DelayNode {
 
     fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
-        config: &DelayNodeBuilder<N>,
+        config: &mut DelayNodeBuilder<N>,
         alloc: Option<Arc<AllocationCallbacks>>,
     ) -> MaResult<Self> {
+        let busses = config.busses.build_nodes(node_graph);
+
+        config.inner.nodeConfig.inputBusCount = busses.inputs.len() as u32;
+        config.inner.nodeConfig.outputBusCount = busses.outputs.len() as u32;
+        config.inner.nodeConfig.pInputChannels = busses.inputs.as_ptr();
+        config.inner.nodeConfig.pOutputChannels = busses.outputs.as_ptr();
+
         let alloc_cb: *const sys::ma_allocation_callbacks =
             alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
 
@@ -143,6 +153,7 @@ impl DelayNode {
         Ok(Self {
             inner,
             alloc_cb: alloc,
+            _busses: busses,
             owner: private_node_graph::clone_owner(node_graph),
         })
     }
@@ -230,6 +241,7 @@ impl Drop for DelayNode {
 /// Builder for creating a [`DelayNode`]
 pub struct DelayNodeBuilder<'a, N: AsNodeGraphPtr + ?Sized> {
     inner: sys::ma_delay_node_config,
+    busses: NodeBusChannelsConfig,
     node_graph: &'a N,
 }
 
@@ -252,7 +264,42 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> DelayNodeBuilder<'a, N> {
         let inner = unsafe {
             sys::ma_delay_node_config_init(channels, sample_rate.into(), delay_frames, decay)
         };
-        Self { inner, node_graph }
+        let busses = NodeBusChannelsConfig::new(1, 1, Some(channels));
+        Self {
+            inner,
+            busses,
+            node_graph,
+        }
+    }
+
+    /// This node can only have one input.
+    ///
+    /// This sets the channel count for input bus with the index `0`.
+    ///
+    /// Input and output channel counts may differ. However, it does not always make sense.
+    /// Do not assume that miniaudio automatically performs channel conversion.
+    /// Reinitialization will usually fail if input and output channels are different.
+    ///
+    /// Mixing nodes with different channel counts may result in malformed audio
+    /// or errors when connecting busses.
+    pub fn in_channel_count(&mut self, count: u32) -> &mut Self {
+        self.busses.change_chanels_in(0, count);
+        self
+    }
+
+    /// This node can only have one output.
+    ///
+    /// This sets the channel count for output bus with the index `0`.
+    ///
+    /// Input and output channel counts may differ. However, it does not always make sense.
+    /// Do not assume that miniaudio automatically performs channel conversion.
+    /// Reinitialization will usually fail if input and output channels are different.
+    ///
+    /// Mixing nodes with different channel counts may result in malformed audio
+    /// or errors when connecting busses.
+    pub fn out_channel_count(&mut self, count: u32) -> &mut Self {
+        self.busses.change_chanels_out(0, count);
+        self
     }
 
     /// Sets the gain of the *wet* (delayed) signal.
@@ -333,7 +380,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> DelayNodeBuilder<'a, N> {
         self
     }
 
-    pub fn build(&self) -> MaResult<DelayNode> {
+    pub fn build(&mut self) -> MaResult<DelayNode> {
         if self.inner.delay.channels == 0 {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
@@ -362,6 +409,17 @@ mod test {
             "expected {a} ≈ {b} (eps={eps}), diff={}",
             (a - b).abs()
         );
+    }
+
+    #[test]
+    fn test_delay_node_test_channel_counts() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph();
+        let _delay = DelayNodeBuilder::new(&node_graph, 2, SampleRate::Sr44100, 0, 0.0)
+            .in_channel_count(2)
+            .out_channel_count(4)
+            .build()
+            .unwrap();
     }
 
     #[test]

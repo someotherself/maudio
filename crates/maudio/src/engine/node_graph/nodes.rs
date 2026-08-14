@@ -304,7 +304,10 @@ pub(crate) struct NodeBusChannelsConfig {
 }
 
 impl NodeBusChannelsConfig {
-    pub(crate) fn build_nodes<N: AsNodeGraphPtr>(&self, node_graph: &N) -> NodeBusChannels {
+    pub(crate) fn build_nodes<N: AsNodeGraphPtr + ?Sized>(
+        &self,
+        node_graph: &N,
+    ) -> NodeBusChannels {
         let graph_channels = node_graph.channels();
 
         let inputs: Vec<u32> = self
