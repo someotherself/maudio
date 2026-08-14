@@ -41,6 +41,8 @@ fn write_bindings(out_bindings: &std::path::Path) {
 
     if !cfg!(feature = "engine") {
         builder = builder.clang_arg("-DMA_NO_ENGINE=1");
+        builder = builder.clang_arg("-DMA_NO_NODE_GRAPH=1");
+        builder = builder.clang_arg("-DMA_NO_RESOURCE_MANAGER=1");
     }
 
     let bindings = builder.generate().expect("Unable to generate bindings");
@@ -194,6 +196,8 @@ fn main() {
 
         if !cfg!(feature = "engine") {
             cc_builder.define("MA_NO_ENGINE", "1");
+            cc_builder.define("MA_NO_NODE_GRAPH", "1");
+            cc_builder.define("MA_NO_RESOURCE_MANAGER", "1");
         }
 
         // backend features

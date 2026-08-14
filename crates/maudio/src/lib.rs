@@ -92,7 +92,8 @@
 //! where the Engine is not needed.
 //!
 //! When supplying your own static libraries (via the `supplybin` feature),
-//! this should be paired with the `MA_NO_ENGINE` compile-time flag.
+//! this should be paired with the `MA_NO_ENGINE`, `MA_NO_NODE_GRAPH` and `MA_NO_RESOURCE_MANAGER`
+//! compile-time flags when compiling miniaudio.c
 //!
 //! ## `vorbis`
 //! Enables Ogg/Vorbis decoding by compiling the `stb_vorbis` implementation into the miniaudio
