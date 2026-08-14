@@ -47,7 +47,7 @@ See [Examples](/crates/maudio/examples/) for a tutorial style introduction into 
 
 # Description
 
-`maudio` offers access to bit the high level audio and low level API's from miniaudio.
+`maudio` offers access to both the high level audio and low level API's from miniaudio.
 
 While exposing a very easy-to-use interface, the Engine only allows playback and does not support recording, loopback, or duplex operation, and lacks the flexibility and complexity of the low-level API.
 
@@ -277,7 +277,7 @@ A more robust version of this can use the `PcmRingBuffer`.
     // Add the AudioBuffer to a Source Node and connect it to the endpoint input bus
     let mut src_node = AttachedSourceNodeBuilder::new(&node_graph, buffer_base).build()?;
 
-    // The source node must live in the callback. Connect it to a splitter and store that in the Store
+    // The source node must live in the callback. Connect it to a splitter and store that for later use
     let mut splitter = SplitterNodeBuilder::new(&node_graph, channels).build()?;
     src_node.attach_output_bus(0, &mut splitter, 0)?;
     splitter.attach_output_bus(0, &mut endpoint, 0)?;
