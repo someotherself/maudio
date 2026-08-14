@@ -502,7 +502,7 @@ pub struct MaudioError {
 
 pub type MaResult<T> = std::result::Result<T, MaudioError>;
 
-#[cfg(unix)]
+#[cfg(not(windows))]
 pub(crate) fn cstring_from_path(path: &std::path::Path) -> MaResult<std::ffi::CString> {
     use std::os::unix::ffi::OsStrExt;
     std::ffi::CString::new(path.as_os_str().as_bytes())

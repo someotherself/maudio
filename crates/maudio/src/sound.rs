@@ -37,7 +37,7 @@ pub mod sound_group;
 #[derive(PartialEq)]
 pub enum SoundSource<'a> {
     None,
-    #[cfg(unix)]
+    #[cfg(not(windows))]
     FileUtf8(PathBuf), // Could be better to copy the PathBuf here.
     #[cfg(windows)]
     FileWide(PathBuf), // Could be better to copy the PathBuf here.
@@ -519,23 +519,19 @@ impl Sound {
         sound_group: Option<&SoundGroup>,
         fence: Option<Fence>,
     ) -> MaResult<()> {
-        #[cfg(unix)]
-        {
-            use crate::cstring_from_path;
-
-            let path = cstring_from_path(path)?;
-            sound_ffi::ma_sound_init_from_file(engine, path, flags, sound_group, fence, sound)
-        }
         #[cfg(windows)]
         {
-            use crate::wide_null_terminated;
+            let path = crate::wide_null_terminated(path);
 
-            let path = wide_null_terminated(path);
             sound_ffi::ma_sound_init_from_file_w(engine, &path, flags, sound_group, fence, sound)
         }
 
-        #[cfg(not(any(unix, windows)))]
-        compile_error!("init_sound_from_file is only supported on unix and windows");
+        #[cfg(not(windows))]
+        {
+            let path = crate::cstring_from_path(path)?;
+
+            sound_ffi::ma_sound_init_from_file(engine, path, flags, sound_group, fence, sound)
+        }
     }
 }
 
@@ -590,7 +586,7 @@ pub(crate) mod sound_ffi {
     use crate::{Binding, MaudioError};
 
     #[inline]
-    #[cfg(unix)]
+    #[cfg(not(windows))]
     pub fn ma_sound_init_from_file(
         engine: &Engine,
         path: std::ffi::CString,

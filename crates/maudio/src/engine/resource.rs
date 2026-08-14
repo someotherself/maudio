@@ -829,25 +829,6 @@ pub trait RmOps: AsRmPtr {
         &self,
         path: &Path,
     ) -> MaResult<ResourceGuard<<Self as AsRmPtr>::Format, Unknown>> {
-        #[cfg(unix)]
-        {
-            let c_path = crate::cstring_from_path(path)?;
-            resource_ffi::ma_resource_manager_register_encoded_data(
-                self,
-                c_path.as_ptr(),
-                &[] as *const _,
-                0,
-            )?;
-            let guard = ResourceGuard::<Self::Format, Unknown>::from_path(self, path);
-
-            // If the name is not correct, miniaudio will assume this is a different source
-            // Since we are not passing real data, this will error with INVALID_ARGS
-            // if the name doesn't already exist in the binary tree
-            let _ = guard.build_source(RmSourceFlags::ASYNC, None)?;
-
-            Ok(guard)
-        }
-
         #[cfg(windows)]
         {
             let name = crate::wide_null_terminated(path);
@@ -867,8 +848,24 @@ pub trait RmOps: AsRmPtr {
             Ok(guard)
         }
 
-        #[cfg(not(any(unix, windows)))]
-        compile_error!("only supported on unix and windows");
+        #[cfg(not(windows))]
+        {
+            let c_path = crate::cstring_from_path(path)?;
+            resource_ffi::ma_resource_manager_register_encoded_data(
+                self,
+                c_path.as_ptr(),
+                &[] as *const _,
+                0,
+            )?;
+            let guard = ResourceGuard::<Self::Format, Unknown>::from_path(self, path);
+
+            // If the name is not correct, miniaudio will assume this is a different source
+            // Since we are not passing real data, this will error with INVALID_ARGS
+            // if the name doesn't already exist in the binary tree
+            let _ = guard.build_source(RmSourceFlags::ASYNC, None)?;
+
+            Ok(guard)
+        }
     }
 
     /// The [`RmSourceFlags`] used are:
@@ -888,17 +885,6 @@ pub trait RmOps: AsRmPtr {
         path: &Path,
         flags: RmSourceFlags,
     ) -> MaResult<ResourceGuard<<Self as AsRmPtr>::Format, Unknown>> {
-        #[cfg(unix)]
-        {
-            use crate::cstring_from_path;
-
-            let c_path = cstring_from_path(path)?;
-            resource_ffi::ma_resource_manager_register_file(self, c_path, flags)?;
-            Ok(ResourceGuard::<Self::Format, Unknown>::from_path::<Self>(
-                self, path,
-            ))
-        }
-
         #[cfg(windows)]
         {
             use crate::wide_null_terminated;
@@ -911,8 +897,16 @@ pub trait RmOps: AsRmPtr {
             ))
         }
 
-        #[cfg(not(any(unix, windows)))]
-        compile_error!("init decoder from file is only supported on unix and windows");
+        #[cfg(not(windows))]
+        {
+            use crate::cstring_from_path;
+
+            let c_path = cstring_from_path(path)?;
+            resource_ffi::ma_resource_manager_register_file(self, c_path, flags)?;
+            Ok(ResourceGuard::<Self::Format, Unknown>::from_path::<Self>(
+                self, path,
+            ))
+        }
     }
 
     /// The [`RmSourceFlags`] used are:
@@ -1169,7 +1163,7 @@ pub(crate) mod resource_ffi {
     // REGISTRATION
 
     #[inline]
-    #[cfg(unix)]
+    #[cfg(not(windows))]
     pub fn ma_resource_manager_register_file<R: AsRmPtr + ?Sized>(
         rm: &R,
         path: std::ffi::CString,
@@ -1234,7 +1228,22 @@ pub(crate) mod resource_ffi {
 
         let frame_count = (data_len / units_per_frame) as u64;
 
-        #[cfg(unix)]
+        #[cfg(windows)]
+        {
+            let name = crate::wide_null_terminated_name(name);
+
+            ma_resource_manager_register_decoded_data_w(
+                rm,
+                &name,
+                data.as_ptr() as *const _,
+                frame_count,
+                format,
+                channels,
+                sample_rate,
+            )
+        }
+
+        #[cfg(not(windows))]
         {
             let name = std::ffi::CString::new(name)
                 .map_err(|_| crate::MaudioError::new_ma_error(crate::ErrorKinds::InvalidCString))?;
@@ -1248,28 +1257,10 @@ pub(crate) mod resource_ffi {
                 sample_rate,
             )
         }
-        #[cfg(windows)]
-        {
-            use crate::wide_null_terminated_name;
-
-            let name = wide_null_terminated_name(name);
-            ma_resource_manager_register_decoded_data_w(
-                rm,
-                &name,
-                data.as_ptr() as *const _,
-                frame_count,
-                format,
-                channels,
-                sample_rate,
-            )
-        }
-
-        #[cfg(not(any(unix, windows)))]
-        compile_error!("init decoder from file is only supported on unix and windows");
     }
 
     #[inline]
-    #[cfg(unix)]
+    #[cfg(not(windows))]
     fn ma_resource_manager_register_decoded_data<R: AsRmPtr + ?Sized>(
         rm: &R,
         name: *const core::ffi::c_char,
@@ -1325,7 +1316,19 @@ pub(crate) mod resource_ffi {
         name: &str,
         data: &[u8],
     ) -> MaResult<()> {
-        #[cfg(unix)]
+        #[cfg(windows)]
+        {
+            let name = crate::wide_null_terminated_name(name);
+
+            ma_resource_manager_register_encoded_data_w(
+                rm,
+                &name,
+                data.as_ptr() as *const _,
+                data.len(),
+            )
+        }
+
+        #[cfg(not(windows))]
         {
             let name = std::ffi::CString::new(name)
                 .map_err(|_| crate::MaudioError::new_ma_error(crate::ErrorKinds::InvalidCString))?;
@@ -1336,25 +1339,10 @@ pub(crate) mod resource_ffi {
                 data.len(),
             )
         }
-        #[cfg(windows)]
-        {
-            use crate::wide_null_terminated_name;
-
-            let name = wide_null_terminated_name(name);
-            ma_resource_manager_register_encoded_data_w(
-                rm,
-                &name,
-                data.as_ptr() as *const _,
-                data.len(),
-            )
-        }
-
-        #[cfg(not(any(unix, windows)))]
-        compile_error!("init decoder from file is only supported on unix and windows");
     }
 
     #[inline]
-    #[cfg(unix)]
+    #[cfg(not(windows))]
     pub fn ma_resource_manager_register_encoded_data<R: AsRmPtr + ?Sized>(
         rm: &R,
         name: *const core::ffi::c_char,
@@ -1392,23 +1380,21 @@ pub(crate) mod resource_ffi {
         rm: *mut sys::ma_resource_manager,
         path: &Path,
     ) -> MaResult<()> {
-        #[cfg(unix)]
-        {
-            let c_path = crate::cstring_from_path(path)?;
-            ma_resource_manager_unregister_file(rm, c_path)
-        }
         #[cfg(windows)]
         {
             let c_path = crate::wide_null_terminated(path);
             ma_resource_manager_unregister_file_w(rm, &c_path)
         }
 
-        #[cfg(not(any(unix, windows)))]
-        compile_error!("init decoder from file is only supported on unix and windows");
+        #[cfg(not(windows))]
+        {
+            let c_path = crate::cstring_from_path(path)?;
+            ma_resource_manager_unregister_file(rm, c_path)
+        }
     }
 
     #[inline]
-    #[cfg(unix)]
+    #[cfg(not(windows))]
     fn ma_resource_manager_unregister_file(
         rm: *mut sys::ma_resource_manager,
         path: std::ffi::CString,
@@ -1433,13 +1419,6 @@ pub(crate) mod resource_ffi {
         rm: *mut sys::ma_resource_manager,
         name: &str,
     ) -> MaResult<()> {
-        #[cfg(unix)]
-        {
-            let name = std::ffi::CString::new(name)
-                .map_err(|_| crate::MaudioError::new_ma_error(crate::ErrorKinds::InvalidCString))?;
-
-            ma_resource_manager_unregister_data(rm, name.as_ptr())
-        }
         #[cfg(windows)]
         {
             use crate::wide_null_terminated_name;
@@ -1448,12 +1427,17 @@ pub(crate) mod resource_ffi {
             ma_resource_manager_unregister_data_w(rm, &name)
         }
 
-        #[cfg(not(any(unix, windows)))]
-        compile_error!("init decoder from file is only supported on unix and windows");
+        #[cfg(not(windows))]
+        {
+            let name = std::ffi::CString::new(name)
+                .map_err(|_| crate::MaudioError::new_ma_error(crate::ErrorKinds::InvalidCString))?;
+
+            ma_resource_manager_unregister_data(rm, name.as_ptr())
+        }
     }
 
     #[inline]
-    #[cfg(unix)]
+    #[cfg(not(windows))]
     fn ma_resource_manager_unregister_data(
         rm: *mut sys::ma_resource_manager,
         name: *const core::ffi::c_char,
@@ -1489,7 +1473,7 @@ pub(crate) mod resource_ffi {
     }
 
     #[inline]
-    #[cfg(unix)]
+    #[cfg(not(windows))]
     #[allow(unused)]
     pub fn ma_resource_manager_data_buffer_init(
         rm: *mut sys::ma_resource_manager,
@@ -1957,7 +1941,7 @@ pub(crate) mod resource_ffi {
         MaudioError::check(res)
     }
 
-    #[cfg(unix)]
+    #[cfg(not(windows))]
     #[inline]
     #[allow(unused)]
     pub fn ma_resource_manager_data_stream_init<R: AsRmPtr>(

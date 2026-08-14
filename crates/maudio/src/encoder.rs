@@ -197,27 +197,19 @@ impl<F: PcmFormat, E: CodecFormat, D> Encoder<F, E, D> {
         config: &EncoderBuilder<F, E>,
         encoder: *mut sys::ma_encoder,
     ) -> MaResult<()> {
-        #[cfg(unix)]
-        {
-            use crate::cstring_from_path;
-
-            let path = cstring_from_path(path)?;
-            encoder_ffi::ma_encoder_init_file(path, config, encoder)?;
-            Ok(())
-        }
-
         #[cfg(windows)]
         {
-            use crate::wide_null_terminated;
+            let path = crate::wide_null_terminated(path);
 
-            let path = wide_null_terminated(path);
-
-            encoder_ffi::ma_encoder_init_file_w(&path, config, encoder)?;
-            Ok(())
+            encoder_ffi::ma_encoder_init_file_w(&path, config, encoder)
         }
 
-        #[cfg(not(any(unix, windows)))]
-        compile_error!("init decoder from file is only supported on unix and windows");
+        #[cfg(not(windows))]
+        {
+            let path = crate::cstring_from_path(path)?;
+
+            encoder_ffi::ma_encoder_init_file(path, config, encoder)
+        }
     }
 }
 

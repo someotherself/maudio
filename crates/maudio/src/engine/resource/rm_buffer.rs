@@ -148,7 +148,7 @@ impl<'a, F: PcmFormat, I> ResourceManagerBufferBuilder<'a, F, I> {
 
     pub(crate) fn file_path(&mut self, path: &'a Path) -> &mut Self {
         self.source = SourceBufSource::None;
-        #[cfg(unix)]
+        #[cfg(not(windows))]
         {
             self.source = SourceBufSource::FileUtf8(path);
         }
@@ -173,7 +173,7 @@ impl<'a, F: PcmFormat, I> ResourceManagerBufferBuilder<'a, F, I> {
         };
         match self.source {
             SourceBufSource::None => null_fields(self),
-            #[cfg(unix)]
+            #[cfg(not(windows))]
             SourceBufSource::FileUtf8(p) => {
                 null_fields(self);
                 let cstring = crate::cstring_from_path(p)?;

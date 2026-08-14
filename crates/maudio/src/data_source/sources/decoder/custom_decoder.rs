@@ -202,25 +202,19 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
         config: &CustomDecoderBuilder<F>,
         decoder: *mut sys::ma_decoder,
     ) -> MaResult<()> {
-        #[cfg(unix)]
-        {
-            use crate::cstring_from_path;
-
-            let path = cstring_from_path(path)?;
-            decoder_ffi::ma_decoder_init_file(path, config.as_raw_ptr(), decoder)
-        }
-
         #[cfg(windows)]
         {
-            use crate::wide_null_terminated;
-
-            let path = wide_null_terminated(path);
+            let path = crate::wide_null_terminated(path);
 
             decoder_ffi::ma_decoder_init_file_w(&path, config.as_raw_ptr(), decoder)
         }
 
-        #[cfg(not(any(unix, windows)))]
-        compile_error!("init decoder from file is only supported on unix and windows");
+        #[cfg(not(windows))]
+        {
+            let path = crate::cstring_from_path(path)?;
+
+            decoder_ffi::ma_decoder_init_file(path, config.as_raw_ptr(), decoder)
+        }
     }
     fn init_from_reader<R: SeekRead>(
         reader: R,

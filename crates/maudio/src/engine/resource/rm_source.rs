@@ -115,7 +115,7 @@ impl<'a, F: PcmFormat, I> AsRawRef for ResourceManagerSourceBuilder<'a, F, I> {
 #[derive(PartialEq)]
 pub(crate) enum SourceBufSource<'a> {
     None,
-    #[cfg(unix)]
+    #[cfg(not(windows))]
     FileUtf8(&'a Path),
     #[cfg(windows)]
     FileWide(&'a Path),
@@ -148,7 +148,7 @@ impl<'a, F: PcmFormat, I> ResourceManagerSourceBuilder<'a, F, I> {
 
     pub(crate) fn file_path(&mut self, path: &'a Path) -> &mut Self {
         self.source = SourceBufSource::None;
-        #[cfg(unix)]
+        #[cfg(not(windows))]
         {
             self.source = SourceBufSource::FileUtf8(path);
         }
@@ -172,7 +172,7 @@ impl<'a, F: PcmFormat, I> ResourceManagerSourceBuilder<'a, F, I> {
         };
         match self.source {
             SourceBufSource::None => null_fields(self),
-            #[cfg(unix)]
+            #[cfg(not(windows))]
             SourceBufSource::FileUtf8(p) => {
                 use crate::sound::sound_builder::OwnedPathBuf;
 

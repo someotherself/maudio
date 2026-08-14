@@ -131,7 +131,7 @@ pub(crate) struct SoundState {
 pub(crate) enum OwnedPathBuf {
     #[default]
     None,
-    #[cfg(unix)]
+    #[cfg(not(windows))]
     Utf8(std::ffi::CString),
     #[cfg(windows)]
     Wide(Vec<u16>),
@@ -180,7 +180,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
                 }
                 self.engine.new_sound_with_config_internal(Some(self))?
             }
-            #[cfg(unix)]
+            #[cfg(not(windows))]
             SoundSource::FileUtf8(_) => self.engine.new_sound_with_config_internal(Some(self))?,
             #[cfg(windows)]
             SoundSource::FileWide(_) => self.engine.new_sound_with_config_internal(Some(self))?,
@@ -228,7 +228,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
     /// miniaudio and is only used during sound initialization.
     pub fn file_path(&mut self, path: &Path) -> &mut Self {
         self.source = SoundSource::None;
-        #[cfg(unix)]
+        #[cfg(not(windows))]
         {
             self.source = SoundSource::FileUtf8(path.to_path_buf());
         }
@@ -642,7 +642,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
                 null_fields(self);
                 self.inner.pDataSource = private_data_source::source_ptr(&src);
             }
-            #[cfg(unix)]
+            #[cfg(not(windows))]
             SoundSource::FileUtf8(ref p) => {
                 let cstring = crate::cstring_from_path(p)?;
                 null_fields(self);

@@ -169,7 +169,7 @@ impl core::ops::Not for SoundFlags {
     }
 }
 
-#[cfg(unix)]
+#[cfg(not(windows))]
 impl From<SoundFlags> for u32 {
     #[inline]
     fn from(v: SoundFlags) -> u32 {
