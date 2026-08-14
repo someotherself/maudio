@@ -118,7 +118,6 @@ use crate::{
     data_source::{
         sources::decoder::custom_decoder::BackendRegistration, AsSourcePtr, SharedSource,
     },
-    device::device_builder::Unknown,
     engine::{
         resource::{
             rm_buffer::{ResourceManagerBuffer, ResourceManagerBufferBuilder},
@@ -223,6 +222,12 @@ pub struct ResourceManagerInner<F: PcmFormat> {
     _decoder_vtables: Box<[*const sys::ma_decoding_backend_vtable]>, // keep alive
     _format: PhantomData<F>,
 }
+
+/// Marker for an uknown pcm format
+///
+/// When a registering encoded audio, the native format is not known
+/// the at time of registration.
+pub struct Unknown {}
 
 unsafe impl<F: PcmFormat> Send for ResourceManager<F> {}
 unsafe impl<F: PcmFormat> Sync for ResourceManager<F> {}
