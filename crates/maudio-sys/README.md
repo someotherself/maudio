@@ -5,6 +5,7 @@ By default, maudio-sys compiles the bundled miniaudio source during the build.
 
 This can be changed by the following feature:
 - `supplybin`: Link with a user-supplied, precompiled static miniaudio library.
+Prebuilt static libraries can be found in the `Release` section on the Github repository.
 
 ## Pregenerated bindings
 
@@ -26,6 +27,10 @@ Pregenerated bindings exist for the following targets:
 - x86_64-unknown-freebsd
 - x86_64-unknown-openbsd
 - i686-unknown-linux-gnu
+- aarch64-apple-ios
+- aarch64-apple-ios-sim
+- aarch64-linux-android
+- wasm32-unknown-emscripten
 
 ## How to compile and create static miniaudio libraries
 
