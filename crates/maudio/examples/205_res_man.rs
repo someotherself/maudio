@@ -40,6 +40,10 @@ fn main() -> MaResult<()> {
         // It's possible to move the original guard we created in this thread.
         // We could also move only the final buffer directly.
         // Having access to the resource manager gives us more flexibility.
+
+        // This does not poll the filesystem anymore. It loads the registration we did before.
+        // Registering an in memory sound and loading it by name also works, without having
+        // to move the in memory sound to this thread.
         let worker_guard = rm_worker.load_path(&path).unwrap();
 
         let mut buffer = worker_guard
