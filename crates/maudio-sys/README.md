@@ -3,8 +3,15 @@
 
 By default, maudio-sys compiles the bundled miniaudio source during the build.
 
-This can be changed by the following feature:
-- `supplybin`: Link with a user-supplied, precompiled static miniaudio library.
+There are 2 ways to supply your own static libraries
+
+- `supplybin`
+  If you are building a library, this may not be the right feature. Requires a .cargo/config.toml configuration file.
+- `external-lib`
+  This feature is aimed at libraries, but requires a build.rs file and adding maudio as a build dependency.
+
+For more information on how to implement these features check the [Configuration](#Configuration) section.
+
 Prebuilt static libraries can be found in the `Release` section on the Github repository.
 
 ## Pregenerated bindings
@@ -47,7 +54,7 @@ The supplied libraries must:
 
 Static libraries are target-specific. For example, a library built for x86_64-unknown-linux-gnu cannot be used with x86_64-pc-windows-msvc.
 
-### Create the implementation file
+## Create the implementation file
 
 Create a file named miniaudio.c. Recommended content:
 
@@ -147,7 +154,7 @@ libtool -static \
 ```
 Build separate libraries for x86_64-apple-darwin and aarch64-apple-darwin, unless you deliberately create a universal library containing both architectures.
 
-### Vorbis support
+## Vorbis support
 
 To build with vorbis support, replace the no-vorbis definition with the wrapper definition used by maudio-sys. 
 Replace:
@@ -155,11 +162,16 @@ DMA_NO_VORBIS=1
 with:
 DMAUDIO_ENABLE_VORBIS=1
 
-### Configure Cargo
+# Configuration
 
-Enable the supplybin feature:
+### `supplybin` feature
 
-[dependencies]
+This feature uses a **.cargo/config.toml** to pass the location to the static libraries.
+However, the cargo configuration file is associated with the crate being built. Meaning,
+if a library implements this configuration file, it will not be used when that library is 
+compiled as a dependency of another crate.
+
+Add maudio as a dependency
 ```toml
 [dependencies]
 maudio = { version = "", features = ["supplybin"] }
@@ -181,7 +193,32 @@ One some targets with older toolchains (like Dragonfly), you may need to use thi
 value = "../native-libs/"
 relative = true
 ```
-The expected filename depends on the target:
+
+The library name itself is fixed. MAUDIO_EXTERNAL_LIB_DIR should contain only the directory, not the complete path to the library file.
+
+### `external-lib` feature
+
+This is intended for library crates that distribute their own precompiled maudio libraries.
+
+The library crate should provide a build.rs and use maudio as a build dependency.
+
+```toml
+[dependencies]
+maudio = { version = "", features = ["external-lib"] }
+
+[build-dependencies]
+maudio = { version = "", features = ["external-lib"] }
+```
+
+Add a build.rs file that calls the **link_external_miniaudio** function. The path provided to this function and the contents of the folder are identical to the `supplybin` feature.
+```rust
+fn main() {
+    maudio::build::link_external_miniaudio(".../native-libs/");
+}
+```
+
+
+The expected filename of the static libraries depends on the target:
 
 | Target toolchain	| Expected filename |
 | ------|-------------|
@@ -189,5 +226,3 @@ The expected filename depends on the target:
 | macOS	| libminiaudio.a |
 | Windows GNU	| libminiaudio.a |
 | Windows MSVC	| miniaudio.lib |
-
-The library name itself is fixed. MAUDIO_EXTERNAL_LIB_DIR should contain only the directory, not the complete path to the library file.

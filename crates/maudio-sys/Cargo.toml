@@ -15,6 +15,7 @@ default = ["engine"]
 generate-bindings = ["dep:bindgen"]
 engine = []
 supplybin = []
+external-lib = []
 vorbis = []
 worklet = []
 

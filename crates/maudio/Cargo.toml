@@ -15,6 +15,7 @@ vorbis = ["maudio-sys/vorbis"]
 engine = ["maudio-sys/engine"]
 generate-bindings = ["maudio-sys/generate-bindings"]
 supplybin = ["maudio-sys/supplybin"]
+external-lib = ["maudio-sys/external-lib"]
 worklet = ["maudio-sys/worklet"]
 
 # Disable specific backends
