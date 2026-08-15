@@ -1,6 +1,6 @@
 [package]
 name = "maudio"
-version = "0.1.9"
+version = "0.1.10"
 license = "MIT"
 rust-version = "1.70" # required by bindgen 0.72.1
 edition = "2021"
@@ -15,6 +15,7 @@ vorbis = ["maudio-sys/vorbis"]
 engine = ["maudio-sys/engine"]
 generate-bindings = ["maudio-sys/generate-bindings"]
 supplybin = ["maudio-sys/supplybin"]
+external-lib = ["maudio-sys/external-lib"]
 worklet = ["maudio-sys/worklet"]
 
 # Disable specific backends
@@ -33,7 +34,7 @@ no-opensl = ["maudio-sys/no-opensl"]
 no-webaudio = ["maudio-sys/no-webaudio"]
 
 [dependencies]
-maudio-sys = { path = "../maudio-sys", version = "0.1.7" }
+maudio-sys = { path = "../maudio-sys", version = "0.1.8" }
 
 [dev-dependencies]
 symphonia = { version = "0.6.0", features = ["aac"] }

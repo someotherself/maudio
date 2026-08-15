@@ -12,7 +12,12 @@ miniaudio does not guarantee a stable ABI, even between minor releases. The same
 ### Compiling
 
 By default this crate tries to compile the underlying C library and requires a C compiler on the target machine.
-The `supplybin` feature overrides this behaviour by using user-supplied static libraries. For more information see [README](../maudio-sys/README.md) on maudio-sys.
+
+maudio has 2 ways to override this behaviour. 
+- `supplybin` - simpler, but not suitable for libraries. Supplies static libraries via **.cargo/config.toml**.
+- `external-lib` - requires a **build.rs** file to pass the location to the static libraries to maudio.
+
+For more information see [README](../maudio-sys/README.md) on maudio-sys.
 
 LLVM / Clang
 - Required to compile the C library and to generate Rust bindings; on Windows, this means installing LLVM (clang) in addition to Visual Studio.

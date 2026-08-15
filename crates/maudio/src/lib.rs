@@ -551,6 +551,47 @@ impl AsRawRef for AllocationCallbacks {
     }
 }
 
+#[cfg(feature = "external-lib")]
+pub mod external_build {
+    const MINIAUDIO_VERSION: &str = "0.11.23";
+
+    pub fn link_external(root: impl AsRef<std::path::Path>) {
+        let root = std::path::PathBuf::from(root.as_ref());
+
+        let target =
+            std::env::var("TARGET").expect("Cargo did not provide the TARGET environment variable");
+
+        let ver_folder = root.join(format!("miniaudio-{MINIAUDIO_VERSION}"));
+        if !ver_folder.is_dir() {
+            panic!(
+                "no compatible libraries were found for version `{}`",
+                ver_folder.display()
+            );
+        }
+
+        let lib_dir = ver_folder.join(&target);
+
+        let filename = if target.contains("windows-msvc") {
+            "miniaudio.lib"
+        } else {
+            "libminiaudio.a"
+        };
+
+        let library = lib_dir.join(filename);
+
+        if !library.is_file() {
+            panic!(
+                "could not find the precompiled miniaudio library for target \
+                `{target}` at `{}`",
+                library.display()
+            );
+        }
+
+        println!("cargo:rustc-link-search=native={}", lib_dir.display());
+        println!("cargo:rustc-link-lib=static=miniaudio");
+    }
+}
+
 #[cfg(test)]
 mod test {
     use crate::MaudioError;
