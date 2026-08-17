@@ -437,6 +437,7 @@ pub trait DataSourceOps: AsSourcePtr + SharedSource {
         )
     }
 
+    /// Can only seek forwards. Returns the number of frames seeked.
     fn seek_pcm_frames(&mut self, frame_count: u64) -> MaResult<u64> {
         data_source_ffi::ma_data_source_seek_pcm_frames(self, frame_count)
     }
@@ -445,6 +446,7 @@ pub trait DataSourceOps: AsSourcePtr + SharedSource {
         data_source_ffi::ma_data_source_seek_to_pcm_frame(self, frame_index)
     }
 
+    /// Can only seek forwards. Returns the number of seconds seeked.
     fn seek_seconds(&mut self, seconds: f32) -> MaResult<f32> {
         data_source_ffi::ma_data_source_seek_seconds(self, seconds)
     }

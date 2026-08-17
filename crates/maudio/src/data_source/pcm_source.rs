@@ -84,13 +84,18 @@ pub trait PcmSource<F: PcmFormat> {
     ///   because miniaudio rewinds the next source to frame zero.
     ///
     /// The default implementation returns [`ErrorKinds::NotImplemented`].
-    /// Consequently, operations which require repositioning may return
-    /// `MA_NOT_IMPLEMENTED`, including:
+    /// Consequently, these operations which require repositioning will return
+    /// `MA_NOT_IMPLEMENTED`:
+    ///
+    /// - [`DataSource::seek_to_pcm_frame`](crate::data_source);
+    /// - [`DataSource::seek_to_second`](crate::data_source).
+    ///
+    /// These operations do not modify the cursor directly. Instead, they call
+    /// `PcmSource::fill_pcm_frames` and discard the output until they reach
+    /// the new position. Because of this, they can only seek forwards:
     ///
     /// - [`DataSource::seek_pcm_frames`](crate::data_source);
-    /// - [`DataSource::seek_to_pcm_frame`](crate::data_source);
     /// - [`DataSource::seek_seconds`](crate::data_source);
-    /// - [`DataSource::seek_to_second`](crate::data_source).
     ///
     /// Not implementing this method does not prevent
     /// [`PcmSource::fill_pcm_frames`] from reading sequentially or maintaining

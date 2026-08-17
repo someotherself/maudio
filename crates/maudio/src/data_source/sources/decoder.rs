@@ -413,9 +413,23 @@ pub trait DecoderOps: AsDecoderPtr + AsSourcePtr {
         decoder_ffi::ma_decoder_read_pcm_frames(self, frame_count)
     }
 
+    /// Can only seek forwards. Returns the number of frames seeked.
+    fn seek_pcm_frames(&mut self, frames: u64) -> MaResult<u64> {
+        data_source_ffi::ma_data_source_seek_pcm_frames(self, frames)
+    }
+
     /// Seeks to an absolute PCM frame index.
     fn seek_to_pcm_frame(&mut self, frame_index: u64) -> MaResult<()> {
         decoder_ffi::ma_decoder_seek_to_pcm_frame(self, frame_index)
+    }
+
+    /// Can only seek forwards. Returns the number of seconds seeked.
+    fn seek_seconds(&mut self, seconds: f32) -> MaResult<f32> {
+        data_source_ffi::ma_data_source_seek_seconds(self, seconds)
+    }
+
+    fn seek_to_second(&mut self, seek_point: f32) -> MaResult<()> {
+        data_source_ffi::ma_data_source_seek_to_second(self, seek_point)
     }
 
     /// Returns the output PCM format of the underlying source source.
