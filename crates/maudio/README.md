@@ -46,6 +46,22 @@ Prebuilt static libraries can be found in the `Release` section on the Github re
 
 *requires Emscripten 3.1.68 and nightly for Zbuild.
 
+## Supported audio backends
+
+- WASAPI
+- DirectSound
+- WinMM
+- Core Audio (Apple)
+- ALSA
+- PulseAudio
+- JACK
+- sndio (OpenBSD)
+- audio(4) (NetBSD and OpenBSD)
+- OSS (FreeBSD)
+- AAudio (Android 8.0+)
+- OpenSL|ES (Android only)
+- Web Audio (Emscripten)
+
 ## How to use
 
 See [Examples](/crates/maudio/examples/) for a tutorial style introduction into `maudio`
