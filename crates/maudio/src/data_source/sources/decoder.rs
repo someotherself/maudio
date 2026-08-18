@@ -439,7 +439,7 @@ pub trait DecoderOps: AsDecoderPtr + AsSourcePtr {
 
     /// Returns the current cursor position in PCM frames.
     fn cursor_pcm(&self) -> MaResult<u64> {
-        decoder_ffi::ma_decoder_get_cursor_in_pcm_frames(self)
+        data_source_ffi::ma_data_source_get_cursor_in_pcm_frames(self)
     }
 
     fn cursor_in_seconds(&self) -> MaResult<f32> {
@@ -735,6 +735,9 @@ pub(crate) mod decoder_ffi {
         // })
     }
 
+    // Not used because it does not work for a custom decoder
+    // Using ma_data_source version instead
+    #[allow(unused)]
     pub fn ma_decoder_get_cursor_in_pcm_frames<D: AsDecoderPtr + ?Sized>(
         decoder: &D,
     ) -> MaResult<u64> {

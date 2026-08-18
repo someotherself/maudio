@@ -1,6 +1,6 @@
 [package]
 name = "maudio"
-version = "0.1.10"
+version = "0.1.11"
 license = "MIT"
 rust-version = "1.70" # required by bindgen 0.72.1
 edition = "2021"
@@ -17,21 +17,6 @@ generate-bindings = ["maudio-sys/generate-bindings"]
 supplybin = ["maudio-sys/supplybin"]
 external-lib = ["maudio-sys/external-lib"]
 worklet = ["maudio-sys/worklet"]
-
-# Disable specific backends
-no-wasapi = ["maudio-sys/no-wasapi"]
-no-dsound = ["maudio-sys/no-dsound"]
-no-winmm = ["maudio-sys/no-winmm"]
-no-alsa = ["maudio-sys/no-alsa"]
-no-pulseaudio = ["maudio-sys/no-pulseaudio"]
-no-jack = ["maudio-sys/no-jack"]
-no-coreaudio = ["maudio-sys/no-coreaudio"]
-no-sndio = ["maudio-sys/no-sndio"]
-no-audio4 = ["maudio-sys/no-audio4"]
-no-oss = ["maudio-sys/no-oss"]
-no-aaudio = ["maudio-sys/no-aaudio"]
-no-opensl = ["maudio-sys/no-opensl"]
-no-webaudio = ["maudio-sys/no-webaudio"]
 
 [dependencies]
 maudio-sys = { path = "../maudio-sys", version = "0.1.8" }

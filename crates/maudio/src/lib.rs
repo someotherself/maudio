@@ -57,26 +57,6 @@
 //!
 //! This crate builds and links the vendored **miniaudio** C library and exposes raw FFI bindings.
 //!
-//! ## Backend Features
-//!
-//! These features disable specific miniaudio backends.
-//!
-//! | Feature | Backend |
-//! |-------|--------|
-//! | `no_wasapi` | Windows WASAPI |
-//! | `no_dsound` | Windows DirectSound |
-//! | `no_winmm` | Windows WinMM |
-//! | `no_alsa` | Linux ALSA |
-//! | `no_pulseaudio` | Linux PulseAudio |
-//! | `no_jack` | JACK |
-//! | `no_coreaudio` | macOS/iOS CoreAudio |
-//! | `no_sndio` | OpenBSD sndio |
-//! | `no_audio4` | NetBSD audio |
-//! | `no_oss` | OSS |
-//! | `no_aaudio` | Android AAudio |
-//! | `no_opensl` | Android OpenSL |
-//!
-//! By default **all backends are enabled** unless explicitly disabled.
 //!
 //! ## Engine
 //!

@@ -67,8 +67,6 @@ unsafe extern "C" fn data_source_read_proc<F: PcmFormat, P: PcmSource<F>>(
                 *frames_read = frames as u64;
             }
 
-            ds.context.cursor = ds.context.cursor.saturating_add(frames as u64);
-
             if frames == 0 {
                 sys::ma_result_MA_AT_END
             } else {
