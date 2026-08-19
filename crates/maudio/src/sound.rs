@@ -110,12 +110,12 @@ impl Sound {
     }
 
     /// Stops playback with a fade-out over `fade_frames` PCM frames.
-    pub fn stop_at_with_fade_frames(&self, fade_frames: u64) -> MaResult<()> {
+    pub fn stop_with_fade_frames(&self, fade_frames: u64) -> MaResult<()> {
         sound_ffi::ma_sound_stop_with_fade_in_pcm_frames(self, fade_frames)
     }
 
     /// Stops playback with a fade-out over `fade_milis` milliseconds.
-    pub fn stop_at_with_fade_millis(&self, fade_milis: u64) -> MaResult<()> {
+    pub fn stop_with_fade_millis(&self, fade_milis: u64) -> MaResult<()> {
         sound_ffi::ma_sound_stop_with_fade_in_milis(self, fade_milis)
     }
 
@@ -1331,8 +1331,8 @@ mod test {
 
         sound.play_sound().unwrap();
 
-        sound.stop_at_with_fade_frames(128).unwrap();
-        sound.stop_at_with_fade_millis(10).unwrap();
+        sound.stop_with_fade_frames(128).unwrap();
+        sound.stop_with_fade_millis(10).unwrap();
     }
 
     #[test]
