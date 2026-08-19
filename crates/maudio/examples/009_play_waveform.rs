@@ -47,7 +47,7 @@ fn main() -> MaResult<()> {
     // Starting/stopping this `Sound` only adds/removes this additional source from the mix.
     //
     // If you created the engine with `no_auto_start`, call `engine.start()` first.
-    let mut sound = engine.new_sound_from_source(&wave_src)?;
+    let sound = engine.new_sound_from_source(&wave_src)?;
     sound.play_sound()?;
     println!("Stopping in 5 seconds...");
     thread::sleep(Duration::from_secs(1));

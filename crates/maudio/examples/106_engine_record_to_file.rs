@@ -26,7 +26,7 @@ fn main() -> MaResult<()> {
         .wav()
         .build_path(&dst_path)?;
 
-    let mut sound = SoundBuilder::new(&engine).file_path(&path).build()?;
+    let sound = SoundBuilder::new(&engine).file_path(&path).build()?;
 
     sound.play_sound()?;
 

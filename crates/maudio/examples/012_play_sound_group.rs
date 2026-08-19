@@ -33,12 +33,12 @@ fn main() -> MaResult<()> {
     group.set_volume(0.5);
 
     // Create two sounds and attach them to the same group.
-    let mut sound1 = SoundBuilder::new(&engine)
+    let sound1 = SoundBuilder::new(&engine)
         .sound_group(&group)
         .file_path(&path)
         .build()?;
 
-    let mut sound2 = SoundBuilder::new(&engine)
+    let sound2 = SoundBuilder::new(&engine)
         .sound_group(&group)
         .file_path(&path)
         .build()?;

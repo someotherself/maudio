@@ -45,17 +45,17 @@ fn main() -> MaResult<()> {
     music_group.set_volume(0.3);
     sfx_group.set_volume(1.0);
 
-    let mut music = SoundBuilder::new(&engine)
+    let music = SoundBuilder::new(&engine)
         .sound_group(&music_group)
         .file_path(&music_path)
         .build()?;
 
-    let mut sfx1 = SoundBuilder::new(&engine)
+    let sfx1 = SoundBuilder::new(&engine)
         .sound_group(&sfx_group)
         .file_path(&sfx_path)
         .build()?;
 
-    let mut sfx2 = SoundBuilder::new(&engine)
+    let sfx2 = SoundBuilder::new(&engine)
         .sound_group(&sfx_group)
         .file_path(&sfx_path)
         .build()?;

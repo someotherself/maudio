@@ -31,7 +31,7 @@ fn main() -> MaResult<()> {
     // `SoundBuilder` provides a customizable way to configure a `Sound`
     // before it is created. This is useful when additional options are
     // needed, such as looping behavior, sound groups, or loading flags.
-    let mut sound = SoundBuilder::new(&engine)
+    let sound = SoundBuilder::new(&engine)
         .file_path(&path)
         // Enable looping so the sound will automatically restart when it
         // reaches the end of the file.

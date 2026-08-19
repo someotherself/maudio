@@ -46,7 +46,7 @@ fn main() -> MaResult<()> {
 
     let engine = EngineBuilder::new().resource_manager(&rm).build()?;
 
-    let mut sound = engine.new_sound_from_file(&path)?;
+    let sound = engine.new_sound_from_file(&path)?;
 
     sound.play_sound()?;
 

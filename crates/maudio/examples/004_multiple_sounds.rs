@@ -24,9 +24,9 @@ fn main() -> MaResult<()> {
         "/../maudio-sys/native/miniaudio/data/48000-stereo.ogg"
     ));
     // Create two independent sounds.
-    let mut sound1 = SoundBuilder::new(&engine).file_path(&path1).build()?;
+    let sound1 = SoundBuilder::new(&engine).file_path(&path1).build()?;
 
-    let mut sound2 = SoundBuilder::new(&engine).file_path(&path2).build()?;
+    let sound2 = SoundBuilder::new(&engine).file_path(&path2).build()?;
 
     println!("Playing first sound...");
     sound1.play_sound()?;

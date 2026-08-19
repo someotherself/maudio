@@ -121,7 +121,7 @@ Use the low level API when you need full control over how audio is generated, pr
     let engine = Engine::new().unwrap();
     // A Sound cannot be initialized without an existing engine.
     // However, the other Nodes only need a NodeGraph.
-    let mut sound = engine.new_sound_from_file(&path).unwrap();
+    let sound = engine.new_sound_from_file(&path).unwrap();
     sound.play_sound().unwrap();
     // block thread while music plays
 ```
@@ -142,7 +142,7 @@ Maudio also comes with a variety of custom nodes with the more common functional
     )
     .build_f32() // The engine is f32 natively
     .unwrap();
-    let mut sound = SoundBuilder::new(&engine).data_source(&waveform)
+    let sound = SoundBuilder::new(&engine).data_source(&waveform)
         .start_playing() // equivalent to `sound.play_sound()`
         .build()
         .unwrap();
@@ -198,7 +198,7 @@ fn main() {
         .from_memory(MUSIC_FILE)
         .unwrap();
 
-    let mut sound = engine.new_sound_from_source(&decoder).unwrap();
+    let sound = engine.new_sound_from_source(&decoder).unwrap();
     // Play sound...
 }
 ```

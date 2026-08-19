@@ -21,7 +21,7 @@ fn main() -> MaResult<()> {
         "/../maudio-sys/native/miniaudio/data/16-44100-stereo.flac"
     ));
 
-    let mut sound = SoundBuilder::new(&engine).file_path(&path).build()?;
+    let sound = SoundBuilder::new(&engine).file_path(&path).build()?;
 
     // Enable spatial positioning and place the sound to the left.
     sound.set_positioning(Positioning::Absolute);
