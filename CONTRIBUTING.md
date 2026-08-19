@@ -4,7 +4,9 @@ Thank you for your interest in improving maudio. Bug reports, feature requests,q
 
 ## Before making changes
 
-This project is not currently accepting pull requests. If you find a problem or have an idea for an improvement, please open an issue or contact me by email before doing any work on a fork.
+Pull requests are currenly not public. If you are interested in contributing to maudio, please open an issue and explain your ideas or what you would like to do, before doing any work.
+
+If you find a problem or have a feature you would like to request, please open an issue or contact me by email.
 
 The project is under active development, and I am closely involved in its direction and implementation. Issues and requests will be reviewed and worked on.
 
