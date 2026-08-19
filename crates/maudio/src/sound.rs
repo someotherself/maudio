@@ -398,11 +398,7 @@ impl Sound {
     }
 
     /// Sets the scheduled stop time with a fade-out in milliseconds.
-    pub fn set_stop_time_with_fade_millis(
-        &self,
-        stop_time_millis: u64,
-        fade_length_millis: u64,
-    ) {
+    pub fn set_stop_time_with_fade_millis(&self, stop_time_millis: u64, fade_length_millis: u64) {
         sound_ffi::ma_sound_set_stop_time_with_fade_in_milliseconds(
             self,
             stop_time_millis,
@@ -723,10 +719,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_stop_with_fade_in_pcm_frames(
-        sound: &Sound,
-        fade_frames: u64,
-    ) -> MaResult<()> {
+    pub fn ma_sound_stop_with_fade_in_pcm_frames(sound: &Sound, fade_frames: u64) -> MaResult<()> {
         let res =
             unsafe { sys::ma_sound_stop_with_fade_in_pcm_frames(sound.to_raw(), fade_frames) };
         MaudioError::check(res)
@@ -967,10 +960,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_set_directional_attenuation_factor(
-        sound: &Sound,
-        dir_attenuation_factor: f32,
-    ) {
+    pub fn ma_sound_set_directional_attenuation_factor(sound: &Sound, dir_attenuation_factor: f32) {
         unsafe {
             sys::ma_sound_set_directional_attenuation_factor(
                 sound.to_raw(),
