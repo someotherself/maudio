@@ -79,6 +79,8 @@ pub struct DataSource<F: PcmFormat, P: PcmSource<F>> {
     inner: *mut DataSourceInner<F, P>,
 }
 
+unsafe impl<F: PcmFormat, P: PcmSource<F>> Send for DataSource<F, P> where P: Send {}
+
 #[repr(C)]
 struct DataSourceInner<F: PcmFormat, P: PcmSource<F>> {
     inner: sys::ma_data_source_base,
