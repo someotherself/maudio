@@ -124,7 +124,7 @@ impl<F: PcmFormat, P: PcmSource<F>> DataSource<F, P> {
         data_source_ffi::ma_data_source_seek_to_second(self, seek_point)
     }
 
-    pub fn set_looping(&mut self, is_looping: bool) -> MaResult<()> {
+    pub fn set_looping(&self, is_looping: bool) -> MaResult<()> {
         data_source_ffi::ma_data_source_set_looping(self, is_looping)
     }
 
@@ -762,7 +762,7 @@ pub(crate) mod data_source_ffi {
 
     #[inline]
     pub fn ma_data_source_set_looping<S: AsSourcePtr + ?Sized>(
-        source: &mut S,
+        source: &S,
         is_looping: bool,
     ) -> MaResult<()> {
         let is_looping = is_looping as u32;
