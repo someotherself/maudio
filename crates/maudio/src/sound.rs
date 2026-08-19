@@ -100,22 +100,22 @@ impl Sound {
     }
 
     /// Starts playback.
-    pub fn play_sound(&mut self) -> MaResult<()> {
+    pub fn play_sound(&self) -> MaResult<()> {
         sound_ffi::ma_sound_start(self)
     }
 
     /// Stops playback.
-    pub fn stop_sound(&mut self) -> MaResult<()> {
+    pub fn stop_sound(&self) -> MaResult<()> {
         sound_ffi::ma_sound_stop(self)
     }
 
     /// Stops playback with a fade-out over `fade_frames` PCM frames.
-    pub fn stop_at_with_fade_frames(&mut self, fade_frames: u64) -> MaResult<()> {
+    pub fn stop_at_with_fade_frames(&self, fade_frames: u64) -> MaResult<()> {
         sound_ffi::ma_sound_stop_with_fade_in_pcm_frames(self, fade_frames)
     }
 
     /// Stops playback with a fade-out over `fade_milis` milliseconds.
-    pub fn stop_at_with_fade_millis(&mut self, fade_milis: u64) -> MaResult<()> {
+    pub fn stop_at_with_fade_millis(&self, fade_milis: u64) -> MaResult<()> {
         sound_ffi::ma_sound_stop_with_fade_in_milis(self, fade_milis)
     }
 
@@ -125,7 +125,7 @@ impl Sound {
     }
 
     /// Sets the sound volume.
-    pub fn set_volume(&mut self, volume: f32) {
+    pub fn set_volume(&self, volume: f32) {
         sound_ffi::ma_sound_set_volume(self, volume);
     }
 
@@ -135,7 +135,7 @@ impl Sound {
     }
 
     /// Sets the pan value.
-    pub fn set_pan(&mut self, pan: f32) {
+    pub fn set_pan(&self, pan: f32) {
         sound_ffi::ma_sound_set_pan(self, pan);
     }
 
@@ -145,7 +145,7 @@ impl Sound {
     }
 
     /// Sets the pan mode.
-    pub fn set_pan_mode(&mut self, mode: PanMode) {
+    pub fn set_pan_mode(&self, mode: PanMode) {
         sound_ffi::ma_sound_set_pan_mode(self, mode);
     }
 
@@ -155,7 +155,7 @@ impl Sound {
     }
 
     /// Sets the pitch multiplier.
-    pub fn set_pitch(&mut self, pitch: f32) {
+    pub fn set_pitch(&self, pitch: f32) {
         sound_ffi::ma_sound_set_pitch(self, pitch);
     }
 
@@ -165,7 +165,7 @@ impl Sound {
     }
 
     /// Enables or disables spatialization. Enabled by default.
-    pub fn set_spatialization(&mut self, enabled: bool) {
+    pub fn set_spatialization(&self, enabled: bool) {
         sound_ffi::ma_sound_set_spatialization_enabled(self, enabled);
     }
 
@@ -175,7 +175,7 @@ impl Sound {
     }
 
     /// Pins the sound to a specific listener.
-    pub fn set_pinned_listener(&mut self, listener: u32) {
+    pub fn set_pinned_listener(&self, listener: u32) {
         sound_ffi::ma_sound_set_pinned_listener_index(self, listener);
     }
 
@@ -195,7 +195,7 @@ impl Sound {
     }
 
     /// Sets the world-space position.
-    pub fn set_position(&mut self, vec3: Vec3) {
+    pub fn set_position(&self, vec3: Vec3) {
         sound_ffi::ma_sound_set_position(self, vec3);
     }
 
@@ -205,7 +205,7 @@ impl Sound {
     }
 
     /// Sets the facing direction.
-    pub fn set_direction(&mut self, vec3: Vec3) {
+    pub fn set_direction(&self, vec3: Vec3) {
         sound_ffi::ma_sound_set_direction(self, vec3);
     }
 
@@ -215,7 +215,7 @@ impl Sound {
     }
 
     /// Sets the velocity.
-    pub fn set_velocity(&mut self, vec3: Vec3) {
+    pub fn set_velocity(&self, vec3: Vec3) {
         sound_ffi::ma_sound_set_velocity(self, vec3);
     }
 
@@ -225,7 +225,7 @@ impl Sound {
     }
 
     /// Sets the attenuation model.
-    pub fn set_attenuation(&mut self, model: AttenuationModel) {
+    pub fn set_attenuation(&self, model: AttenuationModel) {
         sound_ffi::ma_sound_set_attenuation_model(self, model);
     }
 
@@ -235,7 +235,7 @@ impl Sound {
     }
 
     /// Sets the positioning mode.
-    pub fn set_positioning(&mut self, positioning: Positioning) {
+    pub fn set_positioning(&self, positioning: Positioning) {
         sound_ffi::ma_sound_set_positioning(self, positioning);
     }
 
@@ -245,7 +245,7 @@ impl Sound {
     }
 
     /// Sets the rolloff factor.
-    pub fn set_rolloff(&mut self, rolloff: f32) {
+    pub fn set_rolloff(&self, rolloff: f32) {
         sound_ffi::ma_sound_set_rolloff(self, rolloff);
     }
 
@@ -255,7 +255,7 @@ impl Sound {
     }
 
     /// Sets the minimum gain.
-    pub fn set_min_gain(&mut self, gain: f32) {
+    pub fn set_min_gain(&self, gain: f32) {
         sound_ffi::ma_sound_set_min_gain(self, gain);
     }
 
@@ -265,7 +265,7 @@ impl Sound {
     }
 
     /// Sets the maximum gain.
-    pub fn set_max_gain(&mut self, gain: f32) {
+    pub fn set_max_gain(&self, gain: f32) {
         sound_ffi::ma_sound_set_max_gain(self, gain);
     }
 
@@ -275,7 +275,7 @@ impl Sound {
     }
 
     /// Sets the minimum attenuation distance.
-    pub fn set_min_distance(&mut self, distance: f32) {
+    pub fn set_min_distance(&self, distance: f32) {
         sound_ffi::ma_sound_set_min_distance(self, distance);
     }
 
@@ -285,7 +285,7 @@ impl Sound {
     }
 
     /// Sets the maximum attenuation distance.
-    pub fn set_max_distance(&mut self, distance: f32) {
+    pub fn set_max_distance(&self, distance: f32) {
         sound_ffi::ma_sound_set_max_distance(self, distance);
     }
 
@@ -295,7 +295,7 @@ impl Sound {
     }
 
     /// Sets the directional cone settings.
-    pub fn set_cone(&mut self, cone: Cone) {
+    pub fn set_cone(&self, cone: Cone) {
         sound_ffi::ma_sound_set_cone(self, cone);
     }
 
@@ -305,33 +305,33 @@ impl Sound {
     }
 
     /// Sets the doppler factor.
-    pub fn set_doppler_factor(&mut self, factor: f32) {
+    pub fn set_doppler_factor(&self, factor: f32) {
         sound_ffi::ma_sound_set_doppler_factor(self, factor);
     }
 
     /// Returns the directional attenuation factor.
-    pub fn directional_attenuation(&mut self) -> f32 {
+    pub fn directional_attenuation(&self) -> f32 {
         sound_ffi::ma_sound_get_directional_attenuation_factor(self)
     }
 
     /// Sets the directional attenuation factor.
-    pub fn set_directional_attenuation(&mut self, factor: f32) {
+    pub fn set_directional_attenuation(&self, factor: f32) {
         sound_ffi::ma_sound_set_directional_attenuation_factor(self, factor);
     }
 
     /// Schedules a fade from `vol_start` to `vol_end` over `fade_length_frames` PCM frames.
-    pub fn set_fade_pcm(&mut self, vol_start: f32, vol_end: f32, fade_length_frames: u64) {
+    pub fn set_fade_pcm(&self, vol_start: f32, vol_end: f32, fade_length_frames: u64) {
         sound_ffi::ma_sound_set_fade_in_pcm_frames(self, vol_start, vol_end, fade_length_frames);
     }
 
     /// Schedules a fade from `vol_start` to `vol_end` over `fade_length_mili` milliseconds.
-    pub fn set_fade_mili(&mut self, vol_start: f32, vol_end: f32, fade_length_mili: u64) {
+    pub fn set_fade_mili(&self, vol_start: f32, vol_end: f32, fade_length_mili: u64) {
         sound_ffi::ma_sound_set_fade_in_milliseconds(self, vol_start, vol_end, fade_length_mili);
     }
 
     /// Schedules a fade starting at `time_in_frames` (PCM frames).
     pub fn set_fade_start_pcm(
-        &mut self,
+        &self,
         vol_start: f32,
         vol_end: f32,
         fade_length_frames: u64,
@@ -348,7 +348,7 @@ impl Sound {
 
     /// Schedules a fade starting at `time_in_frames` (PCM frames), specified in milliseconds.
     pub fn set_fade_start_millis(
-        &mut self,
+        &self,
         vol_start: f32,
         vol_end: f32,
         fade_length_mili: u64,
@@ -369,27 +369,27 @@ impl Sound {
     }
 
     /// Sets the scheduled start time in PCM frames.
-    pub fn set_start_time_pcm(&mut self, abs_time_frames: u64) {
+    pub fn set_start_time_pcm(&self, abs_time_frames: u64) {
         sound_ffi::ma_sound_set_start_time_in_pcm_frames(self, abs_time_frames);
     }
 
     /// Sets the scheduled start time in milliseconds.
-    pub fn set_start_time_millis(&mut self, abs_time_millis: u64) {
+    pub fn set_start_time_millis(&self, abs_time_millis: u64) {
         sound_ffi::ma_sound_set_start_time_in_milliseconds(self, abs_time_millis);
     }
 
     /// Sets the scheduled stop time in PCM frames.
-    pub fn set_stop_time_pcm(&mut self, abs_time_frames: u64) {
+    pub fn set_stop_time_pcm(&self, abs_time_frames: u64) {
         sound_ffi::ma_sound_set_stop_time_in_pcm_frames(self, abs_time_frames);
     }
 
     /// Sets the scheduled stop time in milliseconds.
-    pub fn set_stop_time_millis(&mut self, abs_time_millis: u64) {
+    pub fn set_stop_time_millis(&self, abs_time_millis: u64) {
         sound_ffi::ma_sound_set_stop_time_in_milliseconds(self, abs_time_millis);
     }
 
     /// Sets the scheduled stop time with a fade-out in PCM frames.
-    pub fn set_stop_time_with_fade_pcm(&mut self, stop_time_frames: u64, fade_length_frames: u64) {
+    pub fn set_stop_time_with_fade_pcm(&self, stop_time_frames: u64, fade_length_frames: u64) {
         sound_ffi::ma_sound_set_stop_time_with_fade_in_pcm_frames(
             self,
             stop_time_frames,
@@ -399,7 +399,7 @@ impl Sound {
 
     /// Sets the scheduled stop time with a fade-out in milliseconds.
     pub fn set_stop_time_with_fade_millis(
-        &mut self,
+        &self,
         stop_time_millis: u64,
         fade_length_millis: u64,
     ) {
@@ -431,7 +431,7 @@ impl Sound {
     }
 
     /// Enables or disables looping.
-    pub fn set_looping(&mut self, looping: bool) {
+    pub fn set_looping(&self, looping: bool) {
         sound_ffi::ma_sound_set_looping(self, looping);
     }
 
@@ -441,12 +441,12 @@ impl Sound {
     }
 
     /// Seeks to an absolute PCM frame index.
-    pub fn seek_to_frame(&mut self, frame_index: u64) -> MaResult<()> {
+    pub fn seek_to_frame(&self, frame_index: u64) -> MaResult<()> {
         sound_ffi::ma_sound_seek_to_pcm_frame(self, frame_index)
     }
 
     /// Seeks to an absolute position in seconds.
-    pub fn seek_to_second(&mut self, seek_point_seconds: f32) -> MaResult<()> {
+    pub fn seek_to_second(&self, seek_point_seconds: f32) -> MaResult<()> {
         sound_ffi::ma_sound_seek_to_second(self, seek_point_seconds)
     }
 
@@ -711,20 +711,20 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_start(sound: &mut Sound) -> MaResult<()> {
+    pub fn ma_sound_start(sound: &Sound) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_start(sound.to_raw()) };
         MaudioError::check(res)
     }
 
     #[inline]
-    pub fn ma_sound_stop(sound: &mut Sound) -> MaResult<()> {
+    pub fn ma_sound_stop(sound: &Sound) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_stop(sound.to_raw()) };
         MaudioError::check(res)
     }
 
     #[inline]
     pub fn ma_sound_stop_with_fade_in_pcm_frames(
-        sound: &mut Sound,
+        sound: &Sound,
         fade_frames: u64,
     ) -> MaResult<()> {
         let res =
@@ -733,14 +733,14 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_stop_with_fade_in_milis(sound: &mut Sound, fade_milis: u64) -> MaResult<()> {
+    pub fn ma_sound_stop_with_fade_in_milis(sound: &Sound, fade_milis: u64) -> MaResult<()> {
         let res =
             unsafe { sys::ma_sound_stop_with_fade_in_milliseconds(sound.to_raw(), fade_milis) };
         MaudioError::check(res)
     }
 
     #[inline]
-    pub fn ma_sound_set_volume(sound: &mut Sound, volume: f32) {
+    pub fn ma_sound_set_volume(sound: &Sound, volume: f32) {
         unsafe { sys::ma_sound_set_volume(sound.to_raw(), volume) }
     }
 
@@ -750,7 +750,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_set_pan(sound: &mut Sound, pan: f32) {
+    pub fn ma_sound_set_pan(sound: &Sound, pan: f32) {
         unsafe { sys::ma_sound_set_pan(sound.to_raw(), pan) }
     }
 
@@ -760,7 +760,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_set_pan_mode(sound: &mut Sound, mode: PanMode) {
+    pub fn ma_sound_set_pan_mode(sound: &Sound, mode: PanMode) {
         unsafe {
             sys::ma_sound_set_pan_mode(sound.to_raw(), mode.into());
         }
@@ -773,7 +773,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_set_pitch(sound: &mut Sound, pitch: f32) {
+    pub fn ma_sound_set_pitch(sound: &Sound, pitch: f32) {
         unsafe { sys::ma_sound_set_pitch(sound.to_raw(), pitch) }
     }
 
@@ -783,7 +783,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_set_spatialization_enabled(sound: &mut Sound, enabled: bool) {
+    pub fn ma_sound_set_spatialization_enabled(sound: &Sound, enabled: bool) {
         let enabled = enabled as sys::ma_bool32;
         unsafe { sys::ma_sound_set_spatialization_enabled(sound.to_raw(), enabled) }
     }
@@ -795,7 +795,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_set_pinned_listener_index(sound: &mut Sound, listener_idx: u32) {
+    pub fn ma_sound_set_pinned_listener_index(sound: &Sound, listener_idx: u32) {
         unsafe { sys::ma_sound_set_pinned_listener_index(sound.to_raw(), listener_idx) }
     }
 
@@ -816,7 +816,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_set_position(sound: &mut Sound, vec3: Vec3) {
+    pub fn ma_sound_set_position(sound: &Sound, vec3: Vec3) {
         unsafe {
             sys::ma_sound_set_position(sound.to_raw(), vec3.x, vec3.y, vec3.z);
         }
@@ -829,7 +829,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_set_direction(sound: &mut Sound, vec3: Vec3) {
+    pub fn ma_sound_set_direction(sound: &Sound, vec3: Vec3) {
         unsafe { sys::ma_sound_set_direction(sound.to_raw(), vec3.x, vec3.y, vec3.z) }
     }
 
@@ -840,7 +840,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_set_velocity(sound: &mut Sound, vec3: Vec3) {
+    pub fn ma_sound_set_velocity(sound: &Sound, vec3: Vec3) {
         unsafe { sys::ma_sound_set_velocity(sound.to_raw(), vec3.x, vec3.y, vec3.z) }
     }
 
@@ -851,7 +851,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_set_attenuation_model(sound: &mut Sound, model: AttenuationModel) {
+    pub fn ma_sound_set_attenuation_model(sound: &Sound, model: AttenuationModel) {
         unsafe { sys::ma_sound_set_attenuation_model(sound.to_raw(), model.into()) }
     }
 
@@ -862,7 +862,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_set_positioning(sound: &mut Sound, positioning: Positioning) {
+    pub fn ma_sound_set_positioning(sound: &Sound, positioning: Positioning) {
         unsafe { sys::ma_sound_set_positioning(sound.to_raw(), positioning.into()) }
     }
 
@@ -873,7 +873,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_set_rolloff(sound: &mut Sound, rolloff: f32) {
+    pub fn ma_sound_set_rolloff(sound: &Sound, rolloff: f32) {
         unsafe { sys::ma_sound_set_rolloff(sound.to_raw(), rolloff) }
     }
 
@@ -883,7 +883,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_set_min_gain(sound: &mut Sound, min_gain: f32) {
+    pub fn ma_sound_set_min_gain(sound: &Sound, min_gain: f32) {
         unsafe { sys::ma_sound_set_min_gain(sound.to_raw(), min_gain) }
     }
 
@@ -893,7 +893,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_set_max_gain(sound: &mut Sound, max_gain: f32) {
+    pub fn ma_sound_set_max_gain(sound: &Sound, max_gain: f32) {
         unsafe { sys::ma_sound_set_max_gain(sound.to_raw(), max_gain) }
     }
 
@@ -903,7 +903,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_set_min_distance(sound: &mut Sound, min_distance: f32) {
+    pub fn ma_sound_set_min_distance(sound: &Sound, min_distance: f32) {
         unsafe { sys::ma_sound_set_min_distance(sound.to_raw(), min_distance) }
     }
 
@@ -913,7 +913,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_set_max_distance(sound: &mut Sound, max_distance: f32) {
+    pub fn ma_sound_set_max_distance(sound: &Sound, max_distance: f32) {
         unsafe { sys::ma_sound_set_max_distance(sound.to_raw(), max_distance) }
     }
 
@@ -923,7 +923,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_set_cone(sound: &mut Sound, cone: Cone) {
+    pub fn ma_sound_set_cone(sound: &Sound, cone: Cone) {
         unsafe {
             sys::ma_sound_set_cone(
                 sound.to_raw(),
@@ -957,7 +957,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_set_doppler_factor(sound: &mut Sound, doppler_factor: f32) {
+    pub fn ma_sound_set_doppler_factor(sound: &Sound, doppler_factor: f32) {
         unsafe { sys::ma_sound_set_doppler_factor(sound.to_raw(), doppler_factor) }
     }
 
@@ -968,7 +968,7 @@ pub(crate) mod sound_ffi {
 
     #[inline]
     pub fn ma_sound_set_directional_attenuation_factor(
-        sound: &mut Sound,
+        sound: &Sound,
         dir_attenuation_factor: f32,
     ) {
         unsafe {
@@ -986,7 +986,7 @@ pub(crate) mod sound_ffi {
 
     #[inline]
     pub fn ma_sound_set_fade_in_pcm_frames(
-        sound: &mut Sound,
+        sound: &Sound,
         volume_start: f32,
         volume_end: f32,
         fade_length_frames: u64,
@@ -1003,7 +1003,7 @@ pub(crate) mod sound_ffi {
 
     #[inline]
     pub fn ma_sound_set_fade_in_milliseconds(
-        sound: &mut Sound,
+        sound: &Sound,
         volume_start: f32,
         volume_end: f32,
         fade_length_mili: u64,
@@ -1019,7 +1019,7 @@ pub(crate) mod sound_ffi {
     }
 
     pub fn ma_sound_set_fade_start_in_pcm_frames(
-        sound: &mut Sound,
+        sound: &Sound,
         volume_start: f32,
         volume_end: f32,
         fade_length_pcm: u64,
@@ -1037,7 +1037,7 @@ pub(crate) mod sound_ffi {
     }
 
     pub fn ma_sound_set_fade_start_in_milliseconds(
-        sound: &mut Sound,
+        sound: &Sound,
         volume_start: f32,
         volume_end: f32,
         fade_length_mili: u64,
@@ -1060,35 +1060,35 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_set_start_time_in_pcm_frames(sound: &mut Sound, abs_time_frames: u64) {
+    pub fn ma_sound_set_start_time_in_pcm_frames(sound: &Sound, abs_time_frames: u64) {
         unsafe {
             sys::ma_sound_set_start_time_in_pcm_frames(sound.to_raw(), abs_time_frames);
         }
     }
 
     #[inline]
-    pub fn ma_sound_set_start_time_in_milliseconds(sound: &mut Sound, abs_time_millis: u64) {
+    pub fn ma_sound_set_start_time_in_milliseconds(sound: &Sound, abs_time_millis: u64) {
         unsafe {
             sys::ma_sound_set_start_time_in_milliseconds(sound.to_raw(), abs_time_millis);
         }
     }
 
     #[inline]
-    pub fn ma_sound_set_stop_time_in_pcm_frames(sound: &mut Sound, abs_time_frames: u64) {
+    pub fn ma_sound_set_stop_time_in_pcm_frames(sound: &Sound, abs_time_frames: u64) {
         unsafe {
             sys::ma_sound_set_stop_time_in_pcm_frames(sound.to_raw(), abs_time_frames);
         }
     }
 
     #[inline]
-    pub fn ma_sound_set_stop_time_in_milliseconds(sound: &mut Sound, abs_time_mili: u64) {
+    pub fn ma_sound_set_stop_time_in_milliseconds(sound: &Sound, abs_time_mili: u64) {
         unsafe {
             sys::ma_sound_set_stop_time_in_milliseconds(sound.to_raw(), abs_time_mili);
         }
     }
 
     pub fn ma_sound_set_stop_time_with_fade_in_pcm_frames(
-        sound: &mut Sound,
+        sound: &Sound,
         stop_time_frames: u64,
         fade_length_frames: u64,
     ) {
@@ -1102,7 +1102,7 @@ pub(crate) mod sound_ffi {
     }
 
     pub fn ma_sound_set_stop_time_with_fade_in_milliseconds(
-        sound: &mut Sound,
+        sound: &Sound,
         stop_time_millis: u64,
         fade_length_millis: u64,
     ) {
@@ -1132,7 +1132,7 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_set_looping(sound: &mut Sound, looping: bool) {
+    pub fn ma_sound_set_looping(sound: &Sound, looping: bool) {
         let looping = looping as u32;
         unsafe {
             sys::ma_sound_set_looping(sound.to_raw(), looping);
@@ -1152,13 +1152,13 @@ pub(crate) mod sound_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_seek_to_pcm_frame(sound: &mut Sound, frame_index: u64) -> MaResult<()> {
+    pub fn ma_sound_seek_to_pcm_frame(sound: &Sound, frame_index: u64) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_seek_to_pcm_frame(sound.to_raw(), frame_index) };
         MaudioError::check(res)
     }
 
     #[inline]
-    pub fn ma_sound_seek_to_second(sound: &mut Sound, seek_point_seconds: f32) -> MaResult<()> {
+    pub fn ma_sound_seek_to_second(sound: &Sound, seek_point_seconds: f32) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_seek_to_second(sound.to_raw(), seek_point_seconds) };
         MaudioError::check(res)
     }
@@ -1315,7 +1315,7 @@ mod test {
     #[test]
     fn test_sound_play_stop_smoke() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         sound.play_sound().unwrap();
         let _ = sound.is_playing();
@@ -1327,7 +1327,7 @@ mod test {
     #[test]
     fn test_sound_stop_with_fade_smoke() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         sound.play_sound().unwrap();
 
@@ -1338,7 +1338,7 @@ mod test {
     #[test]
     fn test_sound_volume_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         sound.set_volume(0.25);
         assert_f32_eq(sound.volume(), 0.25);
@@ -1350,7 +1350,7 @@ mod test {
     #[test]
     fn test_sound_pan_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         sound.set_pan(-0.5);
         assert_f32_eq(sound.pan(), -0.5);
@@ -1362,7 +1362,7 @@ mod test {
     #[test]
     fn test_sound_pan_mode_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         sound.set_pan_mode(PanMode::Pan);
         assert_eq!(sound.pan_mode().unwrap(), PanMode::Pan);
@@ -1374,7 +1374,7 @@ mod test {
     #[test]
     fn test_sound_pitch_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         sound.set_pitch(0.75);
         assert_f32_eq(sound.pitch(), 0.75);
@@ -1386,7 +1386,7 @@ mod test {
     #[test]
     fn test_sound_spatialization_toggle() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         sound.set_spatialization(false);
         assert!(!sound.spatialization());
@@ -1398,7 +1398,7 @@ mod test {
     #[test]
     fn test_sound_pinned_listener_set_get() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         // If the engine only has 1 listener, 0 is the only valid value.
         let n = engine.listener_count();
@@ -1427,7 +1427,7 @@ mod test {
     #[test]
     fn test_sound_direction_to_listener_smoke() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         // Give it a non-zero position so direction is better defined.
         sound.set_position(Vec3 {
@@ -1442,7 +1442,7 @@ mod test {
     #[test]
     fn test_sound_position_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         let p = Vec3 {
             x: 1.0,
@@ -1456,7 +1456,7 @@ mod test {
     #[test]
     fn test_sound_direction_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         let d = Vec3 {
             x: 0.0,
@@ -1470,7 +1470,7 @@ mod test {
     #[test]
     fn test_sound_velocity_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         let v = Vec3 {
             x: -1.0,
@@ -1484,7 +1484,7 @@ mod test {
     #[test]
     fn test_sound_attenuation_model_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         sound.set_attenuation(AttenuationModel::Inverse);
         assert_eq!(sound.attenuation().unwrap(), AttenuationModel::Inverse);
@@ -1496,7 +1496,7 @@ mod test {
     #[test]
     fn test_sound_positioning_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         sound.set_positioning(Positioning::Absolute);
         assert_eq!(sound.positioning().unwrap(), Positioning::Absolute);
@@ -1508,7 +1508,7 @@ mod test {
     #[test]
     fn test_sound_rolloff_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         sound.set_rolloff(0.5);
         assert_f32_eq(sound.rolloff(), 0.5);
@@ -1520,7 +1520,7 @@ mod test {
     #[test]
     fn test_sound_min_max_gain_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         sound.set_min_gain(0.1);
         assert_f32_eq(sound.min_gain(), 0.1);
@@ -1532,7 +1532,7 @@ mod test {
     #[test]
     fn test_sound_min_max_distance_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         sound.set_min_distance(1.0);
         assert_f32_eq(sound.min_distance(), 1.0);
@@ -1544,7 +1544,7 @@ mod test {
     #[test]
     fn test_sound_cone_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         let cone = Cone {
             inner_angle_rad: 0.5,
@@ -1563,7 +1563,7 @@ mod test {
     #[test]
     fn test_sound_doppler_factor_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         sound.set_doppler_factor(0.25);
         assert_f32_eq(sound.doppler_factor(), 0.25);
@@ -1575,7 +1575,7 @@ mod test {
     #[test]
     fn test_sound_directional_attenuation_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         sound.set_directional_attenuation(0.2);
         assert_f32_eq(sound.directional_attenuation(), 0.2);
@@ -1587,7 +1587,7 @@ mod test {
     #[test]
     fn test_sound_fade_apis_smoke() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         sound.set_fade_pcm(1.0, 0.0, 128);
         sound.set_fade_mili(1.0, 0.0, 10);
@@ -1601,7 +1601,7 @@ mod test {
     #[test]
     fn test_sound_start_stop_times_smoke() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         sound.set_start_time_pcm(0);
         sound.set_start_time_millis(0);
@@ -1633,7 +1633,7 @@ mod test {
 
         let src = buf.as_source_ref();
 
-        let mut sound = SoundBuilder::new(&engine)
+        let sound = SoundBuilder::new(&engine)
             .data_source(&src)
             .build()
             .unwrap();
@@ -1654,7 +1654,7 @@ mod test {
 
         let src = buf.as_source_ref();
 
-        let mut sound = engine.new_sound_from_source(&src).unwrap();
+        let sound = engine.new_sound_from_source(&src).unwrap();
 
         sound.set_looping(false);
         assert!(!sound.looping());
@@ -1683,7 +1683,7 @@ mod test {
     #[test]
     fn test_sound_seek_apis_smoke() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut sound = engine.new_sound().unwrap();
+        let sound = engine.new_sound().unwrap();
 
         let _ = sound.seek_to_frame(0);
         let _ = sound.seek_to_second(0.0);
