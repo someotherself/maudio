@@ -64,6 +64,9 @@ pub struct Sound {
     end_notifier: Option<EndNotifier>,
 }
 
+unsafe impl Send for Sound {}
+unsafe impl Sync for Sound {}
+
 impl Binding for Sound {
     type Raw = *mut sys::ma_sound;
 
