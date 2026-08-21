@@ -5,7 +5,9 @@ license = "MIT"
 rust-version = "1.70" # required by bindgen 0.72.1
 edition = "2021"
 repository = "https://github.com/someotherself/maudio"
-description = "All-in-one audio crate for Rust (miniaudio)."
+homepage = "https://github.com/someotherself/maudio"
+documentation = "https://docs.rs/maudio/latest/maudio/"
+description = "All-in-one cross-platform audio library for Rust, powered by miniaudio."
 categories = ["multimedia::audio", "multimedia"]
 keywords = ["audio", "miniaudio", "playback", "recording", "dsp"]
 
