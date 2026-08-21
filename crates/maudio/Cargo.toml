@@ -7,6 +7,7 @@ edition = "2021"
 repository = "https://github.com/someotherself/maudio"
 description = "All-in-one audio crate for Rust (miniaudio)."
 categories = ["multimedia::audio", "multimedia"]
+keywords = ["audio", "miniaudio", "playback", "recording", "dsp"]
 
 [features]
 default = ["engine"]
