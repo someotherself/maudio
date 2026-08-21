@@ -95,7 +95,7 @@ The two APIs are closely related: the high level engine is built using many of t
 
 The low level API includes:
 
-- **Context** for initializing the audio backend and enumerating devices.
+- **Context** for initializing the audio backend and enumerating devices with stable id.
 - **Device** for creating playback, capture, loopback, or duplex streams with direct control over the audio callback.
 - **Decoder** for reading audio from encoded formats (mp3, flac, wav and ogg).
 - **Encoder** for saving PCM frames into an encoded format (wav supported).
