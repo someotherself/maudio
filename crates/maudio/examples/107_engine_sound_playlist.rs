@@ -49,7 +49,7 @@ impl PlayList {
             return Ok(());
         };
 
-        let (mut sound, notif) = SoundBuilder::new(engine)
+        let (sound, notif) = SoundBuilder::new(engine)
             .file_path(&path)
             .with_end_notifier()?;
 

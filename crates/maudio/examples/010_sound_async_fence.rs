@@ -32,7 +32,7 @@ fn main() -> MaResult<()> {
     // We create a sound and pass in our Fence
     //
     // Passing in the Fence will implicitly enable ASYNC loading as well
-    let mut sound = SoundBuilder::new(&engine)
+    let sound = SoundBuilder::new(&engine)
         .fence(&fence)
         .file_path(&path)
         .build()?;

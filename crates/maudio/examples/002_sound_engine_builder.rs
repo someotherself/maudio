@@ -40,7 +40,7 @@ fn main() -> MaResult<()> {
     // with `no_auto_start`, we need to start it manually.
     engine.start()?;
 
-    let mut sound = engine.new_sound_from_file(&path)?;
+    let sound = engine.new_sound_from_file(&path)?;
 
     sound.play_sound()?;
 

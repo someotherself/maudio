@@ -14,7 +14,7 @@
 //! # use maudio::engine::Engine;
 //! # fn main() -> maudio::MaResult<()> {
 //! let engine = Engine::new()?;
-//! // let mut sound = engine.new_sound_from_file("music.ogg")?;
+//! // let sound = engine.new_sound_from_file("music.ogg")?;
 //! // sound.play_sound()?;
 //! /* block the main thread while the sound is playing */
 //! # Ok(())

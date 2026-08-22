@@ -433,7 +433,7 @@ pub trait DecoderOps: AsDecoderPtr + AsSourcePtr {
         data_source_ffi::ma_data_source_is_looping(self)
     }
 
-    fn set_looping(&mut self, looping: bool) -> MaResult<()> {
+    fn set_looping(&self, looping: bool) -> MaResult<()> {
         data_source_ffi::ma_data_source_set_looping(self, looping)
     }
 

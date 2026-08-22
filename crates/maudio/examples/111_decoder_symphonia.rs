@@ -17,9 +17,10 @@ use symphonia::{
     core::{
         codecs::audio::{AudioDecoder, AudioDecoderOptions},
         errors::Error as SymphoniaError,
-        formats::{probe::Hint, FormatOptions, FormatReader, TrackType},
+        formats::{probe::Hint, FormatOptions, FormatReader, SeekMode, SeekTo, TrackType},
         io::{MediaSource, MediaSourceStream, MediaSourceStreamOptions},
         meta::MetadataOptions,
+        units::Timestamp,
     },
     default::{get_codecs, get_probe},
 };
@@ -46,7 +47,7 @@ fn main() -> MaResult<()> {
 
     let engine = EngineBuilder::new().resource_manager(&rm).build()?;
 
-    let mut sound = engine.new_sound_from_file(&path)?;
+    let sound = engine.new_sound_from_file(&path)?;
 
     sound.play_sound()?;
 
@@ -64,6 +65,7 @@ pub struct SymphoniaDecoder<'stream> {
     format: Box<dyn FormatReader + 'stream>,
     decoder: Box<dyn AudioDecoder>,
 
+    len_frames: u64,
     track_id: u32,
     channels: usize,
     sample_rate: u32,
@@ -116,7 +118,7 @@ impl<'stream> SymphoniaDecoder<'stream> {
             )
             .map_err(symphonia_error)?;
 
-        let (track_id, codec_params, channels, sample_rate, _) = {
+        let (track_id, codec_params, channels, sample_rate, len_frames) = {
             let track = format
                 .default_track(TrackType::Audio)
                 .ok_or_else(|| symphonia_error("the stream contains no supported audio track"))?;
@@ -154,6 +156,7 @@ impl<'stream> SymphoniaDecoder<'stream> {
         Ok(SymphoniaDecoder {
             format,
             decoder,
+            len_frames: len_frames.unwrap(), // we are guaranteed to have a length here
             track_id,
             channels,
             sample_rate,
@@ -261,6 +264,38 @@ impl<'stream> PcmSource<f32> for SymphoniaDecoder<'stream> {
         ctx.cursor += frames_written as u64;
 
         Ok(frames_written)
+    }
+
+    fn seek_to_pcm_frame(&mut self, frame_index: u64, ctx: &mut SourceContext) -> MaResult<()> {
+        let frame_index = frame_index.min(self.len_frames);
+        let track_id = self.track_id;
+        let Ok(seeked) = self.format.seek(
+            SeekMode::Accurate,
+            SeekTo::Timestamp {
+                ts: Timestamp::new(frame_index as i64),
+                track_id,
+            },
+        ) else {
+            return Ok(());
+        };
+
+        self.decoder.reset();
+
+        self.packet_samples.clear();
+        self.packet_offset = 0;
+
+        // Determine how far the actual seek landed before frame_index.
+        self.discard_frames = ((frame_index as i64) - seeked.actual_ts.get()) as u64;
+        ctx.cursor = frame_index;
+        Ok(())
+    }
+
+    fn cursor_in_pcm_frames(&self, ctx: &SourceContext) -> MaResult<u64> {
+        Ok(ctx.cursor)
+    }
+
+    fn length_in_pcm_frames(&self, _ctx: &SourceContext) -> MaResult<u64> {
+        Ok(self.len_frames)
     }
 }
 

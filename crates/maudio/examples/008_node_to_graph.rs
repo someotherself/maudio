@@ -58,7 +58,7 @@ fn main() -> MaResult<()> {
     let mut end_node = node_graph.endpoint();
 
     // Create a sound source and access its node handle.
-    let mut source = engine.new_sound_from_file(&path)?;
+    let source = engine.new_sound_from_file(&path)?;
     let mut source_node = source.as_node();
 
     // Sounds are normally connected automatically when created.

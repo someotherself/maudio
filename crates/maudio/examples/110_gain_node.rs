@@ -49,7 +49,7 @@ fn main() -> MaResult<()> {
     let mut gain_node = NodeBuilder::effect().build(&node_graph, Gain { gain: 0.5 })?;
     gain_node.attach_output_bus(0, &mut endpoint, 0)?;
 
-    let mut sound = SoundBuilder::new(&engine)
+    let sound = SoundBuilder::new(&engine)
         .initial_attachment(&gain_node, 0)
         .file_path(&path)
         .build()?;

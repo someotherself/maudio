@@ -24,7 +24,7 @@ fn main() {
     // `Engine::new_sound_from_source`
     // `Engine::new_sound_from_file_with_flags`
     // `Engine::clone_sound`
-    let mut sound = engine.new_sound_from_file(&path).unwrap();
+    let sound = engine.new_sound_from_file(&path).unwrap();
 
     // A Sound needs to be started manually.
     sound.play_sound().unwrap();

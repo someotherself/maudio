@@ -47,7 +47,7 @@ fn main() -> MaResult<()> {
         .from_memory(MUSIC_FILE)?;
 
     // Create a sound using the decoder as its audio source.
-    let mut sound = engine.new_sound_from_source(&decoder)?;
+    let sound = engine.new_sound_from_source(&decoder)?;
 
     sound.play_sound()?;
     println!("Stopping in 5 seconds...");

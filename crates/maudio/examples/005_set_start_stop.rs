@@ -32,7 +32,7 @@ fn main() -> MaResult<()> {
         env!("CARGO_MANIFEST_DIR"),
         "/../maudio-sys/native/miniaudio/data/16-44100-stereo.flac"
     ));
-    let mut sound = engine.new_sound_from_file(&path)?;
+    let sound = engine.new_sound_from_file(&path)?;
 
     // Sounds can define a playback window which limits the portion of the
     // audio file that will be played.

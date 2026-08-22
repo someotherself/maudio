@@ -41,7 +41,7 @@ fn main() -> MaResult<()> {
         }
     })?;
 
-    let mut sound = engine.new_sound_from_file(&path).unwrap();
+    let sound = engine.new_sound_from_file(&path).unwrap();
 
     sound.play_sound().unwrap();
 

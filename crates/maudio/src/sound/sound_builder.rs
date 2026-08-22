@@ -171,7 +171,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
             self.inner.pDoneFence = fence.to_raw()
         };
 
-        let mut sound = match self.source {
+        let sound = match self.source {
             SoundSource::DataSource(_) => {
                 if self.fence.is_some() {
                     return Err(crate::MaudioError::from_ma_result(
@@ -196,7 +196,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
             }
         };
 
-        self.configure_sound(&mut sound);
+        self.configure_sound(&sound);
         if self.source.is_valid() && self.sound_state.start_playing {
             sound.play_sound()?;
         }
@@ -594,7 +594,7 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
         (seconds.max(0.0) * sr).round() as u64
     }
 
-    fn configure_sound(&self, sound: &mut Sound) {
+    fn configure_sound(&self, sound: &Sound) {
         if let Some(min_d) = self.sound_state.min_distance {
             sound.set_min_distance(min_d)
         };

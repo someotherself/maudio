@@ -9,7 +9,7 @@ fn main() -> MaResult<()> {
         "/../maudio-sys/native/miniaudio/data/16-44100-stereo.flac"
     ));
 
-    let mut sound = SoundBuilder::new(&engine).file_path(&path).build()?;
+    let sound = SoundBuilder::new(&engine).file_path(&path).build()?;
 
     // Start playing from the beginning.
     sound.play_sound()?;

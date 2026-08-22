@@ -20,7 +20,7 @@ fn main() -> MaResult<()> {
         .sample_rate(SampleRate::Sr44100)
         .from_reader(file)?;
 
-    let mut sound = engine.new_sound_from_source(&decoder)?;
+    let sound = engine.new_sound_from_source(&decoder)?;
 
     sound.play_sound()?;
     println!("Stopping in 5 seconds...");
