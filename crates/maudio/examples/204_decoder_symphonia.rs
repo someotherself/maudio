@@ -86,8 +86,6 @@ use symphonia::{
 //
 // The decoder's output must be compatible with miniaudio's DataSource interface
 // and bridging that is done through the `PcmSource` trait.
-// Only the `PcmSource::fill_pcm_frames` is mandatory in this trait and we'll only
-// implement that. Seeking, looping, queries to the length or cursor will not be possible.
 //
 // [`PcmSource::fill_pcm_frames`] copies samples from the packet buffer into
 // miniaudio's output buffer. It decodes additional packets as necessary until
