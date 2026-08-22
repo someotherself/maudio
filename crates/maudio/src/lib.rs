@@ -96,6 +96,9 @@
 //!
 //! Only works for target `wasm32-unknown-emscripten`.
 
+#[cfg(feature = "use-global-allocator")]
+pub mod alloc_api;
+
 pub mod audio;
 pub mod backend;
 pub mod context;
@@ -116,6 +119,9 @@ pub extern crate maudio_sys;
 use std::num::TryFromIntError;
 
 use maudio_sys::ffi as sys;
+
+#[cfg(feature = "use-global-allocator")]
+use crate::alloc_api::ma_global_allocation_callbacks;
 
 /// IMPORTANT: type Raw must be a *mut pointer
 pub(crate) trait Binding: Sized {
@@ -519,15 +525,31 @@ pub(crate) fn wide_null_terminated_name(name: &str) -> Vec<u16> {
 /// (typically the system allocator).
 ///
 /// Custom allocators are currently not implemented.
-pub(crate) struct AllocationCallbacks {
-    inner: sys::ma_allocation_callbacks,
+pub(crate) struct AllocationCallbacks(pub(crate) sys::ma_allocation_callbacks);
+
+unsafe impl Send for AllocationCallbacks {}
+unsafe impl Sync for AllocationCallbacks {}
+
+impl AllocationCallbacks {
+    #[allow(unused)]
+    #[cfg(feature = "use-global-allocator")]
+    fn get() -> Option<&'static AllocationCallbacks> {
+        use crate::alloc_api::GLOBAL_ALLOC;
+
+        Some(GLOBAL_ALLOC.get_or_init(|| ma_global_allocation_callbacks()))
+    }
+    #[allow(unused)]
+    #[cfg(not(feature = "use-global-allocator"))]
+    fn get() -> Option<AllocationCallbacks> {
+        None
+    }
 }
 
 impl AsRawRef for AllocationCallbacks {
     type Raw = sys::ma_allocation_callbacks;
 
     fn as_raw(&self) -> &Self::Raw {
-        &self.inner
+        &self.0
     }
 }
 
