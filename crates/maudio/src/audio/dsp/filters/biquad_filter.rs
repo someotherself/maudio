@@ -41,7 +41,7 @@ impl<F: PcmFormat> Biquad<F> {
     fn build(config: &sys::ma_biquad_config, format: Format) -> MaResult<Biquad<F>> {
         let channels = config.channels;
         let mut inner: Box<MaybeUninit<sys::ma_biquad>> = Box::new(MaybeUninit::uninit());
-        biquad_ffi::ma_biquad_init(config, None, inner.as_mut_ptr())?;
+        biquad_ffi::ma_biquad_init(config, inner.as_mut_ptr())?;
 
         let inner_ptr = Box::into_raw(inner) as *mut sys::ma_biquad;
         Ok(Biquad {
@@ -104,23 +104,20 @@ impl<F: PcmFormat> Drop for Biquad<F> {
 }
 
 pub(crate) mod biquad_ffi {
-    use std::sync::Arc;
-
     use crate::{
         audio::dsp::filters::biquad_filter::Biquad, pcm_frames::PcmFormat, AllocationCallbacks,
-        AsRawRef, Binding, MaResult, MaudioError,
+        Binding, MaResult, MaudioError,
     };
     use maudio_sys::ffi as sys;
 
     #[inline]
     pub fn ma_biquad_init(
         config: &sys::ma_biquad_config,
-        alloc: Option<Arc<AllocationCallbacks>>,
         biquad: *mut sys::ma_biquad,
     ) -> MaResult<()> {
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-        let res = unsafe { sys::ma_biquad_init(config as *const _, alloc_cb, biquad) };
+        let res = unsafe {
+            sys::ma_biquad_init(config as *const _, AllocationCallbacks::cb_ptr(), biquad)
+        };
         MaudioError::check(res)
     }
 
@@ -136,7 +133,7 @@ pub(crate) mod biquad_ffi {
     #[inline]
     pub fn ma_biquad_uninit<F: PcmFormat>(biquad: &mut Biquad<F>) {
         unsafe {
-            sys::ma_biquad_uninit(biquad.to_raw(), std::ptr::null_mut());
+            sys::ma_biquad_uninit(biquad.to_raw(), AllocationCallbacks::cb_ptr());
         };
     }
 

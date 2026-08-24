@@ -51,7 +51,7 @@ impl<F: PcmFormat> Bpf2<F> {
         let channels = config.channels;
         let quality = config.q;
         let mut inner: Box<MaybeUninit<sys::ma_bpf2>> = Box::new(MaybeUninit::uninit());
-        bpf2_ffi::ma_bpf2_init(config, None, inner.as_mut_ptr())?;
+        bpf2_ffi::ma_bpf2_init(config, inner.as_mut_ptr())?;
 
         let inner_ptr = Box::into_raw(inner) as *mut sys::ma_bpf2;
         Ok(Bpf2 {
@@ -125,32 +125,24 @@ impl Bpf2Builder {
 }
 
 pub(crate) mod bpf2_ffi {
-    use std::sync::Arc;
-
     use maudio_sys::ffi as sys;
 
     use crate::{
         audio::dsp::filters::bpf2_filter::Bpf2, pcm_frames::PcmFormat, AllocationCallbacks,
-        AsRawRef, Binding, MaResult, MaudioError,
+        Binding, MaResult, MaudioError,
     };
 
     #[inline]
-    pub fn ma_bpf2_init(
-        config: &sys::ma_bpf2_config,
-        alloc: Option<Arc<AllocationCallbacks>>,
-        bpf2: *mut sys::ma_bpf2,
-    ) -> MaResult<()> {
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-
-        let res = unsafe { sys::ma_bpf2_init(config as *const _, alloc_cb, bpf2) };
+    pub fn ma_bpf2_init(config: &sys::ma_bpf2_config, bpf2: *mut sys::ma_bpf2) -> MaResult<()> {
+        let res =
+            unsafe { sys::ma_bpf2_init(config as *const _, AllocationCallbacks::cb_ptr(), bpf2) };
         MaudioError::check(res)
     }
 
     #[inline]
     pub fn ma_bpf2_uninit<F: PcmFormat>(bpf2: &mut Bpf2<F>) {
         unsafe {
-            sys::ma_bpf2_uninit(bpf2.to_raw(), std::ptr::null_mut());
+            sys::ma_bpf2_uninit(bpf2.to_raw(), AllocationCallbacks::cb_ptr());
         }
     }
 

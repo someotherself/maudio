@@ -1,5 +1,5 @@
 //! Audio file encoding.
-use std::{marker::PhantomData, mem::MaybeUninit, path::Path, sync::Arc};
+use std::{marker::PhantomData, mem::MaybeUninit, path::Path};
 
 use maudio_sys::ffi as sys;
 
@@ -439,7 +439,6 @@ impl TryFrom<sys::ma_encoding_format> for EncodingFormat {
 ///
 pub struct EncoderBuilder<F = Unknown, E = Unknown> {
     inner: sys::ma_encoder_config,
-    alloc_cb: Option<Arc<AllocationCallbacks>>,
     format: Format,
     channels: u32,
     sample_rate: SampleRate,
@@ -462,21 +461,24 @@ impl EncoderBuilder<Unknown, Unknown> {
         format: Format,
     ) -> sys::ma_encoder_config {
         // Format::U8 and encoding format unkwown are placeholders
-        unsafe {
+        let mut config = unsafe {
             sys::ma_encoder_config_init(
                 sys::ma_encoding_format_ma_encoding_format_unknown,
                 format.into(),
                 channels,
                 sample_rate.into(),
             )
-        }
+        };
+        if let Some(alloc) = AllocationCallbacks::clone_callbacks() {
+            config.allocationCallbacks = alloc;
+        };
+        config
     }
 
     pub fn new_u8(channels: u32, sample_rate: SampleRate) -> EncoderBuilder<u8, Unknown> {
         let inner = EncoderBuilder::new_inner(channels, sample_rate, Format::U8);
         EncoderBuilder {
             inner,
-            alloc_cb: None,
             format: Format::U8,
             channels,
             sample_rate,
@@ -489,7 +491,6 @@ impl EncoderBuilder<Unknown, Unknown> {
         let inner = EncoderBuilder::new_inner(channels, sample_rate, Format::S16);
         EncoderBuilder {
             inner,
-            alloc_cb: None,
             format: Format::S16,
             channels,
             sample_rate,
@@ -502,7 +503,6 @@ impl EncoderBuilder<Unknown, Unknown> {
         let inner = EncoderBuilder::new_inner(channels, sample_rate, Format::S32);
         EncoderBuilder {
             inner,
-            alloc_cb: None,
             format: Format::S32,
             channels,
             sample_rate,
@@ -518,7 +518,6 @@ impl EncoderBuilder<Unknown, Unknown> {
         let inner = EncoderBuilder::new_inner(channels, sample_rate, Format::S24Packed);
         EncoderBuilder {
             inner,
-            alloc_cb: None,
             format: Format::S24Packed,
             channels,
             sample_rate,
@@ -531,7 +530,6 @@ impl EncoderBuilder<Unknown, Unknown> {
         let inner = EncoderBuilder::new_inner(channels, sample_rate, Format::F32);
         EncoderBuilder {
             inner,
-            alloc_cb: None,
             format: Format::F32,
             channels,
             sample_rate,
@@ -552,7 +550,6 @@ impl<F: PcmFormat> EncoderBuilder<F, Unknown> {
         self.inner.encodingFormat = EncodingFormat::Wav.into();
         EncoderBuilder {
             inner: self.inner,
-            alloc_cb: self.alloc_cb,
             format: self.format,
             channels: self.channels,
             sample_rate: self.sample_rate,

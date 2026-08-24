@@ -33,7 +33,7 @@ impl<F: PcmFormat> Binding for Spatializer<F> {
 impl<F: PcmFormat> Spatializer<F> {
     fn build(config: &sys::ma_spatializer_config) -> MaResult<Spatializer<F>> {
         let mut inner: Box<MaybeUninit<sys::ma_spatializer>> = Box::new(MaybeUninit::uninit());
-        spatializer_ffi::ma_spatializer_init(config, None, inner.as_mut_ptr())?;
+        spatializer_ffi::ma_spatializer_init(config, inner.as_mut_ptr())?;
 
         let inner_ptr = Box::into_raw(inner) as *mut sys::ma_spatializer;
         Ok(Spatializer {
@@ -194,8 +194,6 @@ impl SpatializerBuilder {
 }
 
 mod spatializer_ffi {
-    use std::sync::Arc;
-
     use maudio_sys::ffi as sys;
 
     use crate::{
@@ -205,25 +203,28 @@ mod spatializer_ffi {
             spatial::{attenuation::AttenuationModel, cone::Cone, positioning::Positioning},
         },
         pcm_frames::PcmFormat,
-        AllocationCallbacks, AsRawRef, Binding, MaResult, MaudioError,
+        AllocationCallbacks, Binding, MaResult, MaudioError,
     };
 
     #[inline]
     pub fn ma_spatializer_init(
         config: &sys::ma_spatializer_config,
-        alloc: Option<Arc<AllocationCallbacks>>,
         spatializer: *mut sys::ma_spatializer,
     ) -> MaResult<()> {
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-        let res = unsafe { sys::ma_spatializer_init(config as *const _, alloc_cb, spatializer) };
+        let res = unsafe {
+            sys::ma_spatializer_init(
+                config as *const _,
+                AllocationCallbacks::cb_ptr(),
+                spatializer,
+            )
+        };
         MaudioError::check(res)
     }
 
     #[inline]
     pub fn ma_spatializer_uninit<F: PcmFormat>(spatializer: &mut Spatializer<F>) {
         unsafe {
-            sys::ma_spatializer_uninit(spatializer.to_raw(), std::ptr::null_mut());
+            sys::ma_spatializer_uninit(spatializer.to_raw(), AllocationCallbacks::cb_ptr());
         };
     }
 
@@ -549,7 +550,7 @@ impl<F: PcmFormat> Listener<F> {
         let channels_out = config.channelsOut;
         let mut inner: Box<MaybeUninit<sys::ma_spatializer_listener>> =
             Box::new(MaybeUninit::uninit());
-        sp_listener_ffi::ma_spatializer_listener_init(config, None, inner.as_mut_ptr())?;
+        sp_listener_ffi::ma_spatializer_listener_init(config, inner.as_mut_ptr())?;
 
         let inner_ptr = Box::into_raw(inner) as *mut sys::ma_spatializer_listener;
 
@@ -637,8 +638,6 @@ impl ListenerBuilder {
 }
 
 mod sp_listener_ffi {
-    use std::sync::Arc;
-
     use maudio_sys::ffi as sys;
 
     use crate::{
@@ -646,26 +645,28 @@ mod sp_listener_ffi {
             channels::Channel, dsp::spatializer::Listener, math::vec3::Vec3, spatial::cone::Cone,
         },
         pcm_frames::PcmFormat,
-        AllocationCallbacks, AsRawRef, Binding, MaResult, MaudioError,
+        AllocationCallbacks, Binding, MaResult, MaudioError,
     };
 
     #[inline]
     pub fn ma_spatializer_listener_init(
         config: &sys::ma_spatializer_listener_config,
-        alloc: Option<Arc<AllocationCallbacks>>,
         listener: *mut sys::ma_spatializer_listener,
     ) -> MaResult<()> {
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-        let res =
-            unsafe { sys::ma_spatializer_listener_init(config as *const _, alloc_cb, listener) };
+        let res = unsafe {
+            sys::ma_spatializer_listener_init(
+                config as *const _,
+                AllocationCallbacks::cb_ptr(),
+                listener,
+            )
+        };
         MaudioError::check(res)
     }
 
     #[inline]
     pub fn ma_spatializer_listener_uninit<F: PcmFormat>(listener: &mut Listener<F>) {
         unsafe {
-            sys::ma_spatializer_listener_uninit(listener.to_raw(), std::ptr::null_mut());
+            sys::ma_spatializer_listener_uninit(listener.to_raw(), AllocationCallbacks::cb_ptr());
         };
     }
 

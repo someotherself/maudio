@@ -1,4 +1,4 @@
-use std::{mem::MaybeUninit, sync::Arc};
+use std::mem::MaybeUninit;
 
 use maudio_sys::ffi as sys;
 
@@ -13,7 +13,7 @@ use crate::{
         },
         Engine,
     },
-    AllocationCallbacks, AsRawRef, Binding, MaResult,
+    AsRawRef, Binding, MaResult,
 };
 
 /// A node that applies a delay (echo) effect to an audio signal.
@@ -27,7 +27,6 @@ use crate::{
 /// Use [`DelayNodeBuilder`] to initialize
 pub struct DelayNode {
     inner: *mut sys::ma_delay_node,
-    alloc_cb: Option<Arc<AllocationCallbacks>>,
     _busses: NodeBusChannels, // keep alive
     pub(crate) owner: GraphOwner,
 }
@@ -123,10 +122,9 @@ impl DelayNode {
         NodeRef::from_ptr(ptr)
     }
 
-    fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
+    fn new_with_cfg_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &mut DelayNodeBuilder<N>,
-        alloc: Option<Arc<AllocationCallbacks>>,
     ) -> MaResult<Self> {
         let busses = config.busses.build_nodes(node_graph);
 
@@ -135,35 +133,18 @@ impl DelayNode {
         config.inner.nodeConfig.pInputChannels = busses.inputs.as_ptr();
         config.inner.nodeConfig.pOutputChannels = busses.outputs.as_ptr();
 
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_delay_node>> =
             Box::new(MaybeUninit::uninit());
 
-        n_delay_ffi::ma_delay_node_init(
-            node_graph,
-            config.as_raw_ptr(),
-            alloc_cb,
-            mem.as_mut_ptr(),
-        )?;
+        n_delay_ffi::ma_delay_node_init(node_graph, config.as_raw_ptr(), mem.as_mut_ptr())?;
 
         let inner: *mut sys::ma_delay_node = Box::into_raw(mem) as *mut sys::ma_delay_node;
 
         Ok(Self {
             inner,
-            alloc_cb: alloc,
             _busses: busses,
             owner: private_node_graph::clone_owner(node_graph),
         })
-    }
-
-    #[inline]
-    fn alloc_cb_ptr(&self) -> *const sys::ma_allocation_callbacks {
-        match &self.alloc_cb {
-            Some(cb) => cb.as_raw_ptr(),
-            None => core::ptr::null(),
-        }
     }
 }
 
@@ -172,7 +153,7 @@ pub(crate) mod n_delay_ffi {
         engine::node_graph::{
             nodes::effects::delay::DelayNode, private_node_graph, AsNodeGraphPtr,
         },
-        Binding, MaResult, MaudioError,
+        AllocationCallbacks, Binding, MaResult, MaudioError,
     };
     use maudio_sys::ffi as sys;
 
@@ -180,14 +161,13 @@ pub(crate) mod n_delay_ffi {
     pub fn ma_delay_node_init<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: *const sys::ma_delay_node_config,
-        alloc_cb: *const sys::ma_allocation_callbacks,
         node: *mut sys::ma_delay_node,
     ) -> MaResult<()> {
         let res = unsafe {
             sys::ma_delay_node_init(
                 private_node_graph::node_graph_ptr(node_graph),
                 config,
-                alloc_cb,
+                AllocationCallbacks::cb_ptr(),
                 node,
             )
         };
@@ -196,7 +176,7 @@ pub(crate) mod n_delay_ffi {
 
     #[inline]
     pub fn ma_delay_node_uninit(node: &mut DelayNode) {
-        unsafe { sys::ma_delay_node_uninit(node.to_raw(), node.alloc_cb_ptr()) }
+        unsafe { sys::ma_delay_node_uninit(node.to_raw(), AllocationCallbacks::cb_ptr()) }
     }
 
     #[inline]
@@ -387,7 +367,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> DelayNodeBuilder<'a, N> {
             ));
         }
 
-        DelayNode::new_with_cfg_alloc_internal(self.node_graph, self, None)
+        DelayNode::new_with_cfg_internal(self.node_graph, self)
     }
 
     #[inline]

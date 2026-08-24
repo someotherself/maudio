@@ -56,7 +56,7 @@ use crate::{
         AsSourcePtr, SourceContext,
     },
     pcm_frames::{PcmFormat, S24Packed},
-    AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
+    AllocationCallbacks, AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
 };
 
 use maudio_sys::ffi as sys;
@@ -328,77 +328,71 @@ impl<F: PcmFormat> AsRawRef for CustomDecoderBuilder<F> {
 }
 
 impl CustomDecoderBuilder<Unknown> {
-    pub fn new_u8() -> CustomDecoderBuilder<u8> {
+    fn new_internal(format: Format) -> sys::ma_decoder_config {
         let mut config = unsafe { sys::ma_decoder_config_init_default() };
-        config.format = Format::U8.into();
+        config.format = format.into();
+        if let Some(alloc) = AllocationCallbacks::clone_callbacks() {
+            config.allocationCallbacks = alloc;
+        };
+        config
+    }
+
+    pub fn new_u8() -> CustomDecoderBuilder<u8> {
         CustomDecoderBuilder {
-            config,
+            config: Self::new_internal(Format::U8),
             vtables: Vec::new(),
             sample_rate: None,
             channels: None,
             format: Format::U8,
             channel_map: Vec::new(),
-            // user_data: None,
             _format: PhantomData,
         }
     }
 
     pub fn new_i16() -> CustomDecoderBuilder<i16> {
-        let mut config = unsafe { sys::ma_decoder_config_init_default() };
-        config.format = Format::S16.into();
         CustomDecoderBuilder {
-            config,
+            config: Self::new_internal(Format::S16),
             vtables: Vec::new(),
             sample_rate: None,
             channels: None,
             format: Format::S16,
             channel_map: Vec::new(),
-            // user_data: None,
             _format: PhantomData,
         }
     }
 
     pub fn new_i32() -> CustomDecoderBuilder<i32> {
-        let mut config = unsafe { sys::ma_decoder_config_init_default() };
-        config.format = Format::S32.into();
         CustomDecoderBuilder {
-            config,
+            config: Self::new_internal(Format::S32),
             vtables: Vec::new(),
             sample_rate: None,
             channels: None,
             format: Format::S32,
             channel_map: Vec::new(),
-            // user_data: None,
             _format: PhantomData,
         }
     }
 
     pub fn new_s24_packed() -> CustomDecoderBuilder<S24Packed> {
-        let mut config = unsafe { sys::ma_decoder_config_init_default() };
-        config.format = Format::S24Packed.into();
         CustomDecoderBuilder {
-            config,
+            config: Self::new_internal(Format::S24Packed),
             vtables: Vec::new(),
             sample_rate: None,
             channels: None,
             format: Format::S24Packed,
             channel_map: Vec::new(),
-            // user_data: None,
             _format: PhantomData,
         }
     }
 
     pub fn new_f32() -> CustomDecoderBuilder<f32> {
-        let mut config = unsafe { sys::ma_decoder_config_init_default() };
-        config.format = Format::F32.into();
         CustomDecoderBuilder {
-            config,
+            config: Self::new_internal(Format::F32),
             vtables: Vec::new(),
             sample_rate: None,
             channels: None,
             format: Format::F32,
             channel_map: Vec::new(),
-            // user_data: None,
             _format: PhantomData,
         }
     }

@@ -58,7 +58,7 @@ impl<F: PcmFormat> Peak2<F> {
         let frequency = config.frequency;
         let gain_db = config.gainDB;
         let mut inner: Box<MaybeUninit<sys::ma_peak2>> = Box::new(MaybeUninit::uninit());
-        peak2_ffi::ma_peak2_init(config, None, inner.as_mut_ptr())?;
+        peak2_ffi::ma_peak2_init(config, inner.as_mut_ptr())?;
 
         let inner_ptr = Box::into_raw(inner) as *mut sys::ma_peak2;
         Ok(Peak2 {
@@ -145,33 +145,23 @@ impl Peak2Builder {
 }
 
 pub(crate) mod peak2_ffi {
-
-    use std::sync::Arc;
-
     use maudio_sys::ffi as sys;
 
     use crate::{
         audio::dsp::filters::peak2_filter::Peak2, pcm_frames::PcmFormat, AllocationCallbacks,
-        AsRawRef, Binding, MaResult, MaudioError,
+        Binding, MaResult, MaudioError,
     };
 
     #[inline]
-    pub fn ma_peak2_init(
-        config: &sys::ma_peak2_config,
-        alloc: Option<Arc<AllocationCallbacks>>,
-        peak2: *mut sys::ma_peak2,
-    ) -> MaResult<()> {
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-
-        let res = unsafe { sys::ma_peak2_init(config, alloc_cb, peak2) };
+    pub fn ma_peak2_init(config: &sys::ma_peak2_config, peak2: *mut sys::ma_peak2) -> MaResult<()> {
+        let res = unsafe { sys::ma_peak2_init(config, AllocationCallbacks::cb_ptr(), peak2) };
         MaudioError::check(res)
     }
 
     #[inline]
     pub fn ma_peak2_uninit<F: PcmFormat>(peak2: &mut Peak2<F>) {
         unsafe {
-            sys::ma_peak2_uninit(peak2.to_raw(), std::ptr::null_mut());
+            sys::ma_peak2_uninit(peak2.to_raw(), AllocationCallbacks::cb_ptr());
         }
     }
 

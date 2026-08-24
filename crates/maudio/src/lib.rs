@@ -97,7 +97,7 @@
 //! Only works for target `wasm32-unknown-emscripten`.
 
 #[cfg(feature = "use-global-allocator")]
-pub mod alloc_api;
+pub(crate) mod alloc_api;
 
 pub mod audio;
 pub mod backend;
@@ -532,15 +532,25 @@ unsafe impl Sync for AllocationCallbacks {}
 
 impl AllocationCallbacks {
     #[allow(unused)]
+    pub(crate) fn cb_ptr() -> *const sys::ma_allocation_callbacks {
+        Self::get().map_or(std::ptr::null_mut(), |a| &a.0 as *const _)
+    }
+
+    pub(crate) fn clone_callbacks() -> Option<sys::ma_allocation_callbacks> {
+        Self::get().map(|a| a.0)
+    }
+
+    #[inline]
     #[cfg(feature = "use-global-allocator")]
     fn get() -> Option<&'static AllocationCallbacks> {
         use crate::alloc_api::GLOBAL_ALLOC;
 
         Some(GLOBAL_ALLOC.get_or_init(|| ma_global_allocation_callbacks()))
     }
-    #[allow(unused)]
+
+    #[inline]
     #[cfg(not(feature = "use-global-allocator"))]
-    fn get() -> Option<AllocationCallbacks> {
+    fn get() -> Option<&'static AllocationCallbacks> {
         None
     }
 }

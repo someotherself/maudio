@@ -1,4 +1,4 @@
-use std::{mem::MaybeUninit, sync::Arc};
+use std::mem::MaybeUninit;
 
 use maudio_sys::ffi as sys;
 
@@ -14,7 +14,7 @@ use crate::{
         },
         Engine,
     },
-    AllocationCallbacks, AsRawRef, Binding, MaResult,
+    AsRawRef, Binding, MaResult,
 };
 
 /// A node that applies a biquad filtering to an audio signal.
@@ -52,10 +52,9 @@ use crate::{
 /// Use [`BiquadNodeBuilder`] to initialize
 pub struct BiquadNode {
     inner: *mut sys::ma_biquad_node,
-    alloc_cb: Option<Arc<AllocationCallbacks>>,
     pub(crate) owner: GraphOwner,
     // format is hard coded as ma_format_f32 in miniaudio `sys::ma_biquad_node_config_init()`
-    // but use value in inner.biquad.format anyway inside new_with_cfg_alloc_internal()
+    // but use value in inner.biquad.format anyway inside new_with_cfg_internal()
     _busses: NodeBusChannels, // keep alive
     format: Format,
 }
@@ -76,10 +75,9 @@ impl AsNodePtr for BiquadNode {
 }
 
 impl BiquadNode {
-    fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
+    fn new_with_cfg_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &mut BiquadNodeBuilder<N>,
-        alloc: Option<Arc<AllocationCallbacks>>,
     ) -> MaResult<Self> {
         let busses = config.busses.build_nodes(node_graph);
 
@@ -88,24 +86,15 @@ impl BiquadNode {
         config.inner.nodeConfig.pInputChannels = busses.inputs.as_ptr();
         config.inner.nodeConfig.pOutputChannels = busses.outputs.as_ptr();
 
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_biquad_node>> =
             Box::new(MaybeUninit::uninit());
 
-        n_biquad_ffi::ma_biquad_node_init(
-            node_graph,
-            config.as_raw_ptr(),
-            alloc_cb,
-            mem.as_mut_ptr(),
-        )?;
+        n_biquad_ffi::ma_biquad_node_init(node_graph, config.as_raw_ptr(), mem.as_mut_ptr())?;
 
         let inner: *mut sys::ma_biquad_node = Box::into_raw(mem) as *mut sys::ma_biquad_node;
 
         Ok(Self {
             inner,
-            alloc_cb: alloc,
             owner: private_node_graph::clone_owner(node_graph),
             _busses: busses,
             format: config.inner.biquad.format.try_into().unwrap_or(Format::F32),
@@ -142,14 +131,6 @@ impl BiquadNode {
         let ptr = self.to_raw().cast::<sys::ma_node>();
         NodeRef::from_ptr(ptr)
     }
-
-    #[inline]
-    fn alloc_cb_ptr(&self) -> *const sys::ma_allocation_callbacks {
-        match &self.alloc_cb {
-            Some(cb) => cb.as_raw_ptr(),
-            None => core::ptr::null(),
-        }
-    }
 }
 
 pub(crate) mod n_biquad_ffi {
@@ -157,7 +138,7 @@ pub(crate) mod n_biquad_ffi {
         engine::node_graph::{
             nodes::filters::biquad::BiquadNode, private_node_graph, AsNodeGraphPtr,
         },
-        Binding, MaResult, MaudioError,
+        AllocationCallbacks, Binding, MaResult, MaudioError,
     };
     use maudio_sys::ffi as sys;
 
@@ -165,14 +146,13 @@ pub(crate) mod n_biquad_ffi {
     pub fn ma_biquad_node_init<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: *const sys::ma_biquad_node_config,
-        alloc_cb: *const sys::ma_allocation_callbacks,
         node: *mut sys::ma_biquad_node,
     ) -> MaResult<()> {
         let res = unsafe {
             sys::ma_biquad_node_init(
                 private_node_graph::node_graph_ptr(node_graph),
                 config,
-                alloc_cb,
+                AllocationCallbacks::cb_ptr(),
                 node,
             )
         };
@@ -182,7 +162,7 @@ pub(crate) mod n_biquad_ffi {
     #[inline]
     pub fn ma_biquad_node_uninit(node: &mut BiquadNode) {
         unsafe {
-            sys::ma_biquad_node_uninit(node.to_raw(), node.alloc_cb_ptr());
+            sys::ma_biquad_node_uninit(node.to_raw(), AllocationCallbacks::cb_ptr());
         }
     }
 
@@ -275,7 +255,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> BiquadNodeBuilder<'a, N> {
                 sys::ma_result_MA_INVALID_ARGS,
             ));
         }
-        BiquadNode::new_with_cfg_alloc_internal(self.node_graph, self, None)
+        BiquadNode::new_with_cfg_internal(self.node_graph, self)
     }
 }
 

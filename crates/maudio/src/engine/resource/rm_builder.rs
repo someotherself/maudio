@@ -12,7 +12,7 @@ use crate::{
     device::device_builder::Unknown,
     engine::resource::{rm_flags::RmFlags, ResourceManager},
     pcm_frames::{PcmFormat, S24Packed},
-    AsRawRef, ErrorKinds, MaResult, MaudioError,
+    AllocationCallbacks, AsRawRef, ErrorKinds, MaResult, MaudioError,
 };
 
 /// At the end, you will set the sample format that audio decoded by
@@ -37,11 +37,18 @@ impl<F: PcmFormat> AsRawRef for ResourceManagerBuilder<F> {
 }
 
 impl ResourceManagerBuilder<Unknown> {
-    pub fn new_u8() -> ResourceManagerBuilder<u8> {
+    fn new_internal(format: Format) -> sys::ma_resource_manager_config {
         let mut config = unsafe { sys::ma_resource_manager_config_init() };
-        config.decodedFormat = Format::U8.into();
+        config.decodedFormat = format.into();
+        if let Some(alloc) = AllocationCallbacks::clone_callbacks() {
+            config.allocationCallbacks = alloc
+        };
+        config
+    }
+
+    pub fn new_u8() -> ResourceManagerBuilder<u8> {
         ResourceManagerBuilder {
-            config,
+            config: Self::new_internal(Format::U8),
             format: Format::U8,
             channels: None,
             sample_rate: None,
@@ -52,10 +59,8 @@ impl ResourceManagerBuilder<Unknown> {
     }
 
     pub fn new_i16() -> ResourceManagerBuilder<i16> {
-        let mut config = unsafe { sys::ma_resource_manager_config_init() };
-        config.decodedFormat = Format::S16.into();
         ResourceManagerBuilder {
-            config,
+            config: Self::new_internal(Format::S16),
             format: Format::S16,
             channels: None,
             sample_rate: None,
@@ -66,10 +71,8 @@ impl ResourceManagerBuilder<Unknown> {
     }
 
     pub fn new_s24_packed() -> ResourceManagerBuilder<S24Packed> {
-        let mut config = unsafe { sys::ma_resource_manager_config_init() };
-        config.decodedFormat = Format::S24Packed.into();
         ResourceManagerBuilder {
-            config,
+            config: Self::new_internal(Format::S24Packed),
             format: Format::S24Packed,
             channels: None,
             sample_rate: None,
@@ -80,10 +83,8 @@ impl ResourceManagerBuilder<Unknown> {
     }
 
     pub fn new_i32() -> ResourceManagerBuilder<i32> {
-        let mut config = unsafe { sys::ma_resource_manager_config_init() };
-        config.decodedFormat = Format::S32.into();
         ResourceManagerBuilder {
-            config,
+            config: Self::new_internal(Format::S32),
             format: Format::S32,
             channels: None,
             sample_rate: None,
@@ -94,10 +95,8 @@ impl ResourceManagerBuilder<Unknown> {
     }
 
     pub fn new_f32() -> ResourceManagerBuilder<f32> {
-        let mut config = unsafe { sys::ma_resource_manager_config_init() };
-        config.decodedFormat = Format::F32.into();
         ResourceManagerBuilder {
-            config,
+            config: Self::new_internal(Format::F32),
             format: Format::F32,
             channels: None,
             sample_rate: None,

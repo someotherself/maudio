@@ -4,7 +4,7 @@
 //! used as a [`DataSource`](crate::data_source::DataSource) by the engine.
 //!
 //! Use the builder helpers (`build_*` / `build_*_ref`) to construct a buffer from existing PCM data.
-use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
+use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;
 
@@ -12,7 +12,7 @@ use crate::{
     audio::formats::{Format, SampleBuffer},
     data_source::{private_data_source, AsSourcePtr, DataSourceRef},
     pcm_frames::{PcmFormat, PcmFormatInternal, S24Packed, S24},
-    AllocationCallbacks, AsRawRef, Binding, MaResult,
+    AsRawRef, Binding, MaResult,
 };
 
 /// Owned in-memory PCM audio buffer.
@@ -26,8 +26,6 @@ use crate::{
 pub struct AudioBuffer<F: PcmFormat> {
     inner: *mut sys::ma_audio_buffer,
     channels: u32,
-    #[allow(unused)]
-    alloc: Option<Arc<AllocationCallbacks>>,
     _sample_format: PhantomData<F>,
 }
 
@@ -44,8 +42,6 @@ impl<F: PcmFormat> Binding for AudioBuffer<F> {
 pub struct AudioBufferBase<F: PcmFormat> {
     inner: *mut sys::ma_audio_buffer_ref,
     channels: u32,
-    #[allow(unused)]
-    alloc: Option<Arc<AllocationCallbacks>>,
     _sample_format: PhantomData<F>,
 }
 
@@ -224,7 +220,6 @@ impl<F: PcmFormat> AudioBuffer<F> {
         Ok(Self {
             inner,
             channels: config.inner.channels,
-            alloc: config.alloc_cb.clone(),
             _sample_format: PhantomData,
         })
     }
@@ -679,7 +674,6 @@ impl<F: PcmFormat> Drop for AudioBufferBase<F> {
 /// Use `build_*` to copy data into an owned buffer, or `build_*_ref` to borrow the slice.
 pub struct AudioBufferBuilder<'a> {
     inner: sys::ma_audio_buffer_config,
-    alloc_cb: Option<Arc<AllocationCallbacks>>,
     // Data only needs to live until the `AudioBuffer` is initialized
     _marker: PhantomData<&'a [u8]>,
 }
@@ -723,7 +717,6 @@ impl<'a> AudioBufferBuilder<'a> {
         Ok(AudioBufferBase {
             inner,
             channels,
-            alloc: None,
             _sample_format: PhantomData,
         })
     }
@@ -740,7 +733,6 @@ impl<'a> AudioBufferBuilder<'a> {
             channels,
             frames as u64,
             data.as_ptr() as *const _,
-            None,
         );
         AudioBuffer::copy_with_cfg_internal(&builder)
     }
@@ -758,7 +750,6 @@ impl<'a> AudioBufferBuilder<'a> {
             channels,
             frames as u64,
             data.as_ptr() as *const _,
-            None,
         );
         AudioBuffer::copy_with_cfg_internal(&builder)
     }
@@ -776,7 +767,6 @@ impl<'a> AudioBufferBuilder<'a> {
             channels,
             frames as u64,
             data.as_ptr() as *const _,
-            None,
         );
         AudioBuffer::copy_with_cfg_internal(&builder)
     }
@@ -794,7 +784,6 @@ impl<'a> AudioBufferBuilder<'a> {
             channels,
             frames as u64,
             data.as_ptr() as *const _,
-            None,
         );
         AudioBuffer::copy_with_cfg_internal(&builder)
     }
@@ -825,7 +814,6 @@ impl<'a> AudioBufferBuilder<'a> {
             channels,
             frames as u64,
             dst.as_ptr() as *const _,
-            None,
         );
         AudioBuffer::copy_with_cfg_internal(&builder)
     }
@@ -844,7 +832,6 @@ impl<'a> AudioBufferBuilder<'a> {
             channels,
             frames as u64,
             data.as_ptr() as *const _,
-            None,
         );
         AudioBuffer::copy_with_cfg_internal(&builder)
     }
@@ -877,23 +864,12 @@ impl<'a> AudioBufferBuilder<'a> {
         channels: u32,
         size_frames: u64,
         data: *const core::ffi::c_void,
-        alloc_cb: Option<Arc<AllocationCallbacks>>,
     ) -> Self {
-        let alloc: *const sys::ma_allocation_callbacks = alloc_cb
-            .clone()
-            .map_or(core::ptr::null(), |c| c.as_raw_ptr());
-
-        let ptr = buffer_config_ffi::ma_audio_buffer_config_init(
-            format,
-            channels,
-            size_frames,
-            data,
-            alloc,
-        );
+        let config =
+            buffer_config_ffi::ma_audio_buffer_config_init(format, channels, size_frames, data);
 
         AudioBufferBuilder {
-            inner: ptr,
-            alloc_cb: None,
+            inner: config,
             _marker: PhantomData,
         }
     }
@@ -902,17 +878,22 @@ impl<'a> AudioBufferBuilder<'a> {
 pub(crate) mod buffer_config_ffi {
     use maudio_sys::ffi as sys;
 
-    use crate::audio::formats::Format;
+    use crate::{audio::formats::Format, AllocationCallbacks};
 
     pub fn ma_audio_buffer_config_init(
         format: Format,
         channels: u32,
         size_frames: u64,
         data: *const core::ffi::c_void,
-        alloc_cb: *const sys::ma_allocation_callbacks,
     ) -> sys::ma_audio_buffer_config {
         unsafe {
-            sys::ma_audio_buffer_config_init(format.into(), channels, size_frames, data, alloc_cb)
+            sys::ma_audio_buffer_config_init(
+                format.into(),
+                channels,
+                size_frames,
+                data,
+                AllocationCallbacks::cb_ptr(),
+            )
         }
     }
 }
