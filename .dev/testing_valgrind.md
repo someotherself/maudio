@@ -60,8 +60,3 @@ It can be traced by using the flag:
 ```
 --show-leak-kinds=possible
 ```
-
-valgrind -s --leak-check=full --show-leak-kinds=all --track-origins=yes \
-  /home/cristian/.cargo/target/debug/deps/maudio-cb146c22db33f1b7 \
-  --nocapture \
-  --test-threads=1
