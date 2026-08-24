@@ -545,7 +545,7 @@ impl AllocationCallbacks {
     fn get() -> Option<&'static AllocationCallbacks> {
         use crate::alloc_api::GLOBAL_ALLOC;
 
-        Some(GLOBAL_ALLOC.get_or_init(|| ma_global_allocation_callbacks()))
+        Some(GLOBAL_ALLOC.get_or_init(ma_global_allocation_callbacks))
     }
 
     #[inline]
