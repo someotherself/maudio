@@ -30,7 +30,10 @@ unsafe fn pack_ptr(base: *mut u8, size: usize) -> *mut c_void {
 }
 
 unsafe extern "C" fn ma_malloc_cb(size: usize, _user_data: *mut c_void) -> *mut c_void {
-    let Ok(layout) = Layout::from_size_align(size + META_SIZE, ALIGN) else {
+    let Some(alloc_size) = size.checked_add(META_SIZE) else {
+        return std::ptr::null_mut();
+    };
+    let Ok(layout) = Layout::from_size_align(alloc_size, ALIGN) else {
         return std::ptr::null_mut();
     };
     let base_ptr = std::alloc::alloc(layout);
@@ -59,10 +62,13 @@ unsafe extern "C" fn ma_realloc_cb(
     _user_data: *mut c_void,
 ) -> *mut c_void {
     if ptr.is_null() {
+        // Match realloc semantics: realloc(NULL, size) is equivalent to malloc(size).
         return ma_malloc_cb(new_size, _user_data);
     }
 
     if new_size == 0 {
+        // realloc(ptr, 0) has implementation-defined behavior. We choose to free the allocation
+        // and return NULL, matching the most common realloc behavior (and man realloc).
         ma_free_cb(ptr, _user_data);
         return std::ptr::null_mut();
     }
@@ -73,7 +79,10 @@ unsafe extern "C" fn ma_realloc_cb(
     // Layout assumed valid as it had to be created for this allocation to exist
     let old_layout = Layout::from_size_align_unchecked(old_size + META_SIZE, ALIGN);
 
-    let Ok(new_layout) = Layout::from_size_align(new_size + META_SIZE, ALIGN) else {
+    let Some(alloc_size) = new_size.checked_add(META_SIZE) else {
+        return std::ptr::null_mut();
+    };
+    let Ok(new_layout) = Layout::from_size_align(alloc_size, ALIGN) else {
         return std::ptr::null_mut();
     };
     let new_base_ptr = std::alloc::alloc(new_layout);
