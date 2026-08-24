@@ -95,6 +95,32 @@
 //! which can provide more reliable, low-latency audio processing in the browser.
 //!
 //! Only works for target `wasm32-unknown-emscripten`.
+//!
+//! ## `use-global-allocator`
+//!
+//! Enables using Rust's global allocator for allocations performed by
+//! miniaudio.
+//!
+//! When enabled, miniaudio receives allocation callbacks that forward
+//! allocations to Rust's `GlobalAlloc` interface. If the application does
+//! not define a custom global allocator, Rust's default global allocator is
+//! used.
+//!
+//! This feature does not install or replace the application's global
+//! allocator. To use a custom allocator, define it in the application with
+//! `#[global_allocator]`.
+//!
+//! ### Using the allocator API
+//!
+//! The optional `allocator_api` feature enables support for selecting a
+//! specific allocator through Rust's allocator API. This feature depends on
+//! Rust's unstable `allocator_api` feature and may therefore require a nightly
+//! compiler.
+//!
+//! Enabling `allocator_api` allows the global allocator used by this crate to
+//! be configured with an allocator other than the default global allocator.
+//! The selected allocator must remain valid for as long as miniaudio may use
+//! it.
 
 #[cfg(feature = "use-global-allocator")]
 pub(crate) mod alloc_api;
