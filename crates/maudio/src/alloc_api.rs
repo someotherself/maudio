@@ -23,21 +23,21 @@ struct Metadata {
 }
 
 #[inline]
-unsafe fn pack_ptr(ptr: *mut u8, size: usize) -> *mut c_void {
+unsafe fn pack_ptr(base: *mut u8, size: usize) -> *mut c_void {
     let metadata = Metadata { size };
-    (ptr as *mut Metadata).write(metadata);
-    ptr.add(META_SIZE) as *mut c_void
+    (base as *mut Metadata).write(metadata);
+    base.add(META_SIZE) as *mut c_void
 }
 
 unsafe extern "C" fn ma_malloc_cb(size: usize, _user_data: *mut c_void) -> *mut c_void {
     let Ok(layout) = Layout::from_size_align(size + META_SIZE, ALIGN) else {
         return std::ptr::null_mut();
     };
-    let ptr = std::alloc::alloc(layout);
-    if ptr.is_null() {
+    let base_ptr = std::alloc::alloc(layout);
+    if base_ptr.is_null() {
         return std::ptr::null_mut();
     };
-    pack_ptr(ptr, size)
+    pack_ptr(base_ptr, size)
 }
 
 unsafe extern "C" fn ma_free_cb(ptr: *mut c_void, _user_data: *mut c_void) {
@@ -59,6 +59,11 @@ unsafe extern "C" fn ma_realloc_cb(
     _user_data: *mut c_void,
 ) -> *mut c_void {
     if ptr.is_null() {
+        return ma_malloc_cb(new_size, _user_data);
+    }
+
+    if new_size == 0 {
+        ma_free_cb(ptr, _user_data);
         return std::ptr::null_mut();
     }
 
@@ -82,7 +87,7 @@ unsafe extern "C" fn ma_realloc_cb(
     std::alloc::dealloc(base_ptr, old_layout);
 
     // We already know that new_base_ptr is not null
-    pack_ptr(new_ptr, new_size)
+    pack_ptr(new_base_ptr, new_size)
 }
 
 pub(crate) fn ma_global_allocation_callbacks() -> AllocationCallbacks {
