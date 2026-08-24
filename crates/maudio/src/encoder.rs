@@ -21,7 +21,7 @@ use crate::{
 /// /// This encoder does not support concurrent access.
 ///
 /// To write from multiple threads, protect it with a [`Mutex`](std::sync::Mutex).
-/// Use an [`Arc`] as well if shared ownership is required.
+/// Use an [`Arc`](std::sync::Arc) as well if shared ownership is required.
 ///
 /// # Important notes
 ///
