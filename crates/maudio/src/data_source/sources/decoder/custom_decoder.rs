@@ -95,7 +95,7 @@ where
 pub(crate) struct BackendDataSource<'stream, F, D>
 where
     F: PcmFormat,
-    D: DecodingBackend<Format = F> + 'stream,
+    D: DecodingBackend + 'stream,
 {
     pub(crate) base: sys::ma_data_source_base,
     pub(crate) context: SourceContext,
@@ -107,7 +107,7 @@ where
 impl<'stream, F, D> AsRawRef for BackendDataSource<'stream, F, D>
 where
     F: PcmFormat,
-    D: DecodingBackend<Format = F>,
+    D: DecodingBackend,
 {
     type Raw = sys::ma_data_source_base;
 
@@ -119,7 +119,7 @@ where
 impl<'stream, F, D> Drop for BackendDataSource<'stream, F, D>
 where
     F: PcmFormat,
-    D: DecodingBackend<Format = F>,
+    D: DecodingBackend,
 {
     fn drop(&mut self) {
         data_source_ffi::ma_data_source_uninit(self.as_raw_ptr() as *mut _);
@@ -515,7 +515,7 @@ impl<F: PcmFormat> CustomDecoderBuilder<F> {
     /// Add a decoding backend to the `CustomDecoder`.
     ///
     /// Can be called multiple times to add multipe backends.
-    pub fn backend<B: DecodingBackend<Format = F>>(&mut self) -> &mut Self {
+    pub fn backend<B: DecodingBackend>(&mut self) -> &mut Self {
         let vtable = decoder_vtable::<F, B>();
         self.vtables.push(vtable);
         self
@@ -641,7 +641,7 @@ mod test {
     struct TestCbDecoder(Decoder<f32, Cb>);
 
     impl DecodingBackend for TestCbDecoder {
-        type Format = f32;
+        type NativeFormat = f32;
 
         type Decoder<'stream>
             = TestCbDecoder

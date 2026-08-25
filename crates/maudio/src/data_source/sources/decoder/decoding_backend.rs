@@ -37,18 +37,24 @@ use maudio_sys::ffi as sys;
 /// conversion, channel conversion, and resampling.
 ///
 /// The reported format describes decoded PCM output, not the format of the
-/// encoded input or the output format requested from `CustomDecoderBuilder`.
+/// encoded input nor the output format requested from `CustomDecoderBuilder`.
 pub trait DecodingBackend: Send {
     /// Sample type produced by the backend decoder.
     ///
-    /// This must agree with the sample format reported by [`Self::input_data_format`].
-    type Format: PcmFormat;
+    /// This is the decoder's native (input) sample type. It describes the PCM data
+    /// before any conversion performed by miniaudio and does not have to match
+    /// the output sample type selected by the [`CustomDecoderBuilder`](crate::data_source::sources::decoder).
+    ///
+    /// The implementation of [`PcmSource`] for [`Self::Decoder`] must use this
+    /// type, and it must agree with the sample format reported by
+    /// [`Self::input_data_format`].
+    type NativeFormat: PcmFormat;
 
     /// Decoder initialized for a particular input stream.
     ///
     /// The decoder may borrow from the supplied [`DecoderStream`] and therefore
     /// cannot outlive that stream.
-    type Decoder<'stream>: PcmSource<Self::Format> + 'stream
+    type Decoder<'stream>: PcmSource<Self::NativeFormat> + 'stream
     where
         Self: 'stream;
 

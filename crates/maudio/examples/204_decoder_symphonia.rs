@@ -357,7 +357,7 @@ impl<'stream> PcmSource<f32> for SymphoniaDecoder<'stream> {
 }
 
 impl DecodingBackend for SymphoniaBackend {
-    type Format = f32;
+    type NativeFormat = f32;
     type Decoder<'stream>
         = SymphoniaDecoder<'stream>
     where
@@ -381,21 +381,19 @@ impl DecodingBackend for SymphoniaBackend {
 }
 
 fn main() -> MaResult<()> {
-    // use maudio::audio::sample_rate::SampleRate;
-
     // Replace this with your example file
     let path = PathBuf::from("crates/maudio/examples/template_aac_1.aac");
 
-    // let channels = 2;
-    // let sample_rate = SampleRate::Sr44100;
-    let mut decoder = CustomDecoderBuilder::new_f32()
-        // .output_channels(channels)
-        // .output_sample_rate(sample_rate)
+    // The symphonia decoder we implemented decodes to f32 (native) format.
+    // However, here we build our audio chain in i32 format
+    // Miniaudio implements a data converted which can convert the native format
+    // of the backing decoder to our desired output format
+    let mut decoder = CustomDecoderBuilder::new_i32()
         .backend::<SymphoniaBackend>()
         .from_file(&path)?;
 
     let mut device = DeviceBuilder::playback()
-        .f32()
+        .i32()
         .with_callback(move |_, out| {
             decoder.read_pcm_frames_into(out).unwrap();
         })?;

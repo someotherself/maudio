@@ -152,7 +152,7 @@ impl<F: PcmFormat> ResourceManagerBuilder<F> {
         Ok(vtables)
     }
 
-    pub fn decoding_backend<B: DecodingBackend<Format = F>>(&mut self) -> &mut Self {
+    pub fn decoding_backend<B: DecodingBackend>(&mut self) -> &mut Self {
         let vtable = decoder_vtable::<F, B>();
         self.vtables.push(vtable);
         self
@@ -238,7 +238,7 @@ mod test {
     struct TestCbDecoder(Decoder<f32, Cb>);
 
     impl DecodingBackend for TestCbDecoder {
-        type Format = f32;
+        type NativeFormat = f32;
 
         type Decoder<'stream>
             = TestCbDecoder
