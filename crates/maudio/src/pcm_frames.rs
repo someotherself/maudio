@@ -3,6 +3,30 @@ use crate::audio::formats::Format;
 use crate::pcm_frames::private_pcm::PcmInterface;
 use crate::{ErrorKinds, MaResult, MaudioError};
 
+mod sealed {
+    use crate::pcm_frames::S24Packed;
+
+    pub trait Sealed {}
+
+    impl Sealed for u8 {}
+    impl Sealed for i16 {}
+    impl Sealed for i32 {}
+    impl Sealed for S24Packed {}
+    impl Sealed for f32 {}
+}
+
+/// A subset of [`PcmFormat`] that only includes sample formats supported by miniaudio
+///
+/// Interfaces using this trait, will accept any and all the native miniaudiu formats:
+/// u8, i16, i32, 3 byte packed and f32
+pub trait MaSampleFormat: PcmFormat + sealed::Sealed {}
+
+impl MaSampleFormat for u8 {}
+impl MaSampleFormat for i16 {}
+impl MaSampleFormat for i32 {}
+impl MaSampleFormat for S24Packed {}
+impl MaSampleFormat for f32 {}
+
 /// Native miniaudio 24-bit signed PCM format stored as **3-byte packed samples**.
 ///
 /// This corresponds directly to `ma_format_s24`.
