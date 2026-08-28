@@ -698,7 +698,7 @@ impl<'a> CaptureDeviceBuilder<'a, Unknown> {
 impl<'a> DuplexDeviceBuilder<'a, Unknown, Unknown> {
     pub fn new<F: MaSampleFormat, P: MaSampleFormat>(&mut self) -> DuplexDeviceBuilder<'a, F, P> {
         self.inner.playback.format = F::STORE_FORMAT.into();
-        self.inner.capture.format = F::STORE_FORMAT.into();
+        self.inner.capture.format = P::STORE_FORMAT.into();
         DuplexDeviceBuilder {
             inner: self.inner,
             context: None,
