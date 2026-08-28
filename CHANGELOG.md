@@ -1,3 +1,7 @@
+# maudio v0.1.13 - 28 Aug 2026 (non breaking)
+- use-global-allocator feature added
+- decoupled native format from output format in CustomDecoder (breaking)
+- duplex device now allows different formats for input and output (breaking)
 
 # maudio v0.1.12 - 22 Aug 2026 (non breaking)
 - methods on Sound change to take &self
