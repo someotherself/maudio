@@ -64,16 +64,25 @@ use std::{
 use maudio_sys::ffi as sys;
 
 use crate::{
-    AsRawRef, MaResult, audio::{
+    audio::{
         channels::{Channel, ChannelMixMode, RawChannel},
         performance::PerformanceProfile,
         sample_rate::SampleRate,
-    }, backend::Backend, context::ContextBuilder, device::{
-        CallBackDevice, Device, device_cb_notif::{
+    },
+    backend::Backend,
+    context::ContextBuilder,
+    device::{
+        device_cb_notif::{
             device_notification_capture_callback, device_notification_duplex_callback,
             device_notification_loopback_callback, device_notification_playback_callback,
-        }, device_id::DeviceId, device_type::{DeviceShareMode, DeviceType},
-    }, pcm_frames::{MaSampleFormat, PcmFormat, S24Packed}, util::{device_notif::DeviceStateNotifier, proc_notif::ProcFramesNotif},
+        },
+        device_id::DeviceId,
+        device_type::{DeviceShareMode, DeviceType},
+        CallBackDevice, Device,
+    },
+    pcm_frames::{MaSampleFormat, PcmFormat, S24Packed},
+    util::{device_notif::DeviceStateNotifier, proc_notif::ProcFramesNotif},
+    AsRawRef, MaResult,
 };
 
 /// Entry point for constructing audio devices.
@@ -265,7 +274,9 @@ impl<'a, F: PcmFormat> AsDeviceBuilder<'a> for CaptureDeviceBuilder<'a, F> {
     type _DeviceBuilderProvider = private_device_b::CaptureDeviceBuilderProvider;
 }
 
-impl<'a, F: MaSampleFormat, P: MaSampleFormat> AsDeviceBuilder<'a> for DuplexDeviceBuilder<'a, F, P> {
+impl<'a, F: MaSampleFormat, P: MaSampleFormat> AsDeviceBuilder<'a>
+    for DuplexDeviceBuilder<'a, F, P>
+{
     type _DeviceBuilderProvider = private_device_b::DuplexDeviceBuilderProvider;
 }
 
@@ -420,8 +431,8 @@ pub(crate) mod private_device_b {
         }
     }
 
-    impl<'a, F: MaSampleFormat, P: MaSampleFormat> DeviceBulderProvider<'a, DuplexDeviceBuilder<'a, F, P>>
-        for DuplexDeviceBuilderProvider
+    impl<'a, F: MaSampleFormat, P: MaSampleFormat>
+        DeviceBulderProvider<'a, DuplexDeviceBuilder<'a, F, P>> for DuplexDeviceBuilderProvider
     {
         fn set_backends<'s>(t: &'s mut DuplexDeviceBuilder<'a, F, P>, backends: &'a [Backend]) {
             t.backends = Some(backends);
@@ -747,7 +758,10 @@ impl<'a> LoopbackDeviceBuilder<'a, Unknown> {
 
 impl<'a, F: PcmFormat> DeviceBuilderOps<'a> for PlaybackDeviceBuilder<'a, F> {}
 impl<'a, F: PcmFormat> DeviceBuilderOps<'a> for CaptureDeviceBuilder<'a, F> {}
-impl<'a, F: MaSampleFormat, P: MaSampleFormat> DeviceBuilderOps<'a> for DuplexDeviceBuilder<'a, F, P> {}
+impl<'a, F: MaSampleFormat, P: MaSampleFormat> DeviceBuilderOps<'a>
+    for DuplexDeviceBuilder<'a, F, P>
+{
+}
 impl<'a, F: PcmFormat> DeviceBuilderOps<'a> for LoopbackDeviceBuilder<'a, F> {}
 
 /// Shared configuration methods for all device builders.

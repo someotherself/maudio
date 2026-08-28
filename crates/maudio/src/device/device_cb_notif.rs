@@ -3,7 +3,9 @@ use maudio_sys::ffi as sys;
 use crate::{
     device::device_builder::{
         CaptureDeviceState, DuplexDeviceState, LoopbackDeviceState, PlaybackDeviceState,
-    }, pcm_frames::{MaSampleFormat, PcmFormat}, util::device_notif::DeviceNotificationType,
+    },
+    pcm_frames::{MaSampleFormat, PcmFormat},
+    util::device_notif::DeviceNotificationType,
 };
 
 pub(crate) unsafe extern "C" fn device_notification_playback_callback<F: PcmFormat, C>(
