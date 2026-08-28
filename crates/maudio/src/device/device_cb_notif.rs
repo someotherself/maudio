@@ -4,7 +4,7 @@ use crate::{
     device::device_builder::{
         CaptureDeviceState, DuplexDeviceState, LoopbackDeviceState, PlaybackDeviceState,
     },
-    pcm_frames::PcmFormat,
+    pcm_frames::{MaSampleFormat, PcmFormat},
     util::device_notif::DeviceNotificationType,
 };
 
@@ -96,7 +96,11 @@ pub(crate) unsafe extern "C" fn device_notification_capture_callback<F: PcmForma
     (*state).state_notif.store_notifications(mask);
 }
 
-pub(crate) unsafe extern "C" fn device_notification_duplex_callback<F: PcmFormat, C>(
+pub(crate) unsafe extern "C" fn device_notification_duplex_callback<
+    F: MaSampleFormat,
+    P: MaSampleFormat,
+    C,
+>(
     notification: *const sys::ma_device_notification,
 ) {
     if notification.is_null() {
@@ -113,7 +117,7 @@ pub(crate) unsafe extern "C" fn device_notification_duplex_callback<F: PcmFormat
         return;
     }
 
-    let state = user_data.cast::<DuplexDeviceState<F, C>>();
+    let state = user_data.cast::<DuplexDeviceState<F, P, C>>();
 
     let mask = match (&*notification).type_ {
         sys::ma_device_notification_type_ma_device_notification_type_started => {

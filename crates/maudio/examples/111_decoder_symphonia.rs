@@ -300,7 +300,7 @@ impl<'stream> PcmSource<f32> for SymphoniaDecoder<'stream> {
 }
 
 impl DecodingBackend for SymphoniaBackend {
-    type Format = f32;
+    type NativeFormat = f32;
     type Decoder<'stream>
         = SymphoniaDecoder<'stream>
     where

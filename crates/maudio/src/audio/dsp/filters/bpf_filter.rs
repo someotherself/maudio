@@ -45,7 +45,7 @@ impl<F: PcmFormat> Bpf<F> {
         let channels = config.channels;
         let order = config.order;
         let mut inner: Box<MaybeUninit<sys::ma_bpf>> = Box::new(MaybeUninit::uninit());
-        bpf_ffi::ma_bpf_init(config, None, inner.as_mut_ptr())?;
+        bpf_ffi::ma_bpf_init(config, inner.as_mut_ptr())?;
 
         let inner_ptr = Box::into_raw(inner) as *mut sys::ma_bpf;
         Ok(Bpf {
@@ -121,32 +121,24 @@ impl BpfBuilder {
 }
 
 pub(crate) mod bpf_ffi {
-    use std::sync::Arc;
-
     use maudio_sys::ffi as sys;
 
     use crate::{
-        audio::dsp::filters::bpf_filter::Bpf, pcm_frames::PcmFormat, AllocationCallbacks, AsRawRef,
-        Binding, MaResult, MaudioError,
+        audio::dsp::filters::bpf_filter::Bpf, pcm_frames::PcmFormat, AllocationCallbacks, Binding,
+        MaResult, MaudioError,
     };
 
     #[inline]
-    pub fn ma_bpf_init(
-        config: &sys::ma_bpf_config,
-        alloc: Option<Arc<AllocationCallbacks>>,
-        bpf: *mut sys::ma_bpf,
-    ) -> MaResult<()> {
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-
-        let res = unsafe { sys::ma_bpf_init(config as *const _, alloc_cb, bpf) };
+    pub fn ma_bpf_init(config: &sys::ma_bpf_config, bpf: *mut sys::ma_bpf) -> MaResult<()> {
+        let res =
+            unsafe { sys::ma_bpf_init(config as *const _, AllocationCallbacks::cb_ptr(), bpf) };
         MaudioError::check(res)
     }
 
     #[inline]
     pub fn ma_bpf_uninit<F: PcmFormat>(bpf: &mut Bpf<F>) {
         unsafe {
-            sys::ma_bpf_uninit(bpf.to_raw(), std::ptr::null_mut());
+            sys::ma_bpf_uninit(bpf.to_raw(), AllocationCallbacks::cb_ptr());
         }
     }
 

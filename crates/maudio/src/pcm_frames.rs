@@ -1,6 +1,31 @@
 //! PCM format abstraction and utilities.
+use crate::audio::formats::Format;
 use crate::pcm_frames::private_pcm::PcmInterface;
 use crate::{ErrorKinds, MaResult, MaudioError};
+
+mod sealed {
+    use crate::pcm_frames::S24Packed;
+
+    pub trait Sealed {}
+
+    impl Sealed for u8 {}
+    impl Sealed for i16 {}
+    impl Sealed for i32 {}
+    impl Sealed for S24Packed {}
+    impl Sealed for f32 {}
+}
+
+/// A subset of [`PcmFormat`] that only includes sample formats supported by miniaudio
+///
+/// Interfaces using this trait, will accept any and all the native miniaudiu formats:
+/// u8, i16, i32, 3 byte packed and f32
+pub trait MaSampleFormat: PcmFormat + sealed::Sealed {}
+
+impl MaSampleFormat for u8 {}
+impl MaSampleFormat for i16 {}
+impl MaSampleFormat for i32 {}
+impl MaSampleFormat for S24Packed {}
+impl MaSampleFormat for f32 {}
 
 /// Native miniaudio 24-bit signed PCM format stored as **3-byte packed samples**.
 ///
@@ -904,6 +929,7 @@ pub trait PcmFormat {
     type PcmUnit: Default + Copy;
     /// Sample format used by miniaudio.
     type StorageUnit: Default + Copy;
+    const STORE_FORMAT: Format;
     /// Number of `StorageUnit` items per channel sample in a buffer.
     ///
     /// Examples: `S24Packed = 3`, `S24 = 1`, `u8 = 1`.
@@ -925,6 +951,7 @@ impl PcmFormat for u8 {
 
     type PcmUnit = u8;
     type StorageUnit = Self::PcmUnit;
+    const STORE_FORMAT: Format = Format::U8;
     const VEC_STORE_UNITS_PER_FRAME: usize = 1;
     const VEC_PCM_UNITS_PER_FRAME: usize = 1;
     const DIRECT_READ: bool = true;
@@ -937,6 +964,7 @@ impl PcmFormat for i16 {
 
     type PcmUnit = i16;
     type StorageUnit = Self::PcmUnit;
+    const STORE_FORMAT: Format = Format::S16;
     const VEC_STORE_UNITS_PER_FRAME: usize = 1;
     const VEC_PCM_UNITS_PER_FRAME: usize = 1;
     const DIRECT_READ: bool = true;
@@ -949,6 +977,7 @@ impl PcmFormat for S24Packed {
 
     type PcmUnit = u8;
     type StorageUnit = Self::PcmUnit;
+    const STORE_FORMAT: Format = Format::S24Packed;
     const VEC_STORE_UNITS_PER_FRAME: usize = 3;
     const VEC_PCM_UNITS_PER_FRAME: usize = 3;
     const DIRECT_READ: bool = true;
@@ -961,6 +990,7 @@ impl PcmFormat for S24 {
 
     type PcmUnit = i32;
     type StorageUnit = u8;
+    const STORE_FORMAT: Format = Format::S24Packed;
     const VEC_STORE_UNITS_PER_FRAME: usize = 3;
     const VEC_PCM_UNITS_PER_FRAME: usize = 1;
     const DIRECT_READ: bool = false;
@@ -973,6 +1003,7 @@ impl PcmFormat for i32 {
 
     type PcmUnit = i32;
     type StorageUnit = Self::PcmUnit;
+    const STORE_FORMAT: Format = Format::S32;
     const VEC_STORE_UNITS_PER_FRAME: usize = 1;
     const VEC_PCM_UNITS_PER_FRAME: usize = 1;
     const DIRECT_READ: bool = true;
@@ -984,6 +1015,7 @@ impl PcmFormat for f32 {
     type __PcmFramesProvider = private_pcm::PcmF32Provider;
     type PcmUnit = f32;
     type StorageUnit = Self::PcmUnit;
+    const STORE_FORMAT: Format = Format::F32;
     const VEC_STORE_UNITS_PER_FRAME: usize = 1;
     const VEC_PCM_UNITS_PER_FRAME: usize = 1;
     const DIRECT_READ: bool = true;

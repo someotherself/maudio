@@ -94,7 +94,6 @@ unsafe impl Sync for NodeGraph {}
 #[doc(hidden)]
 pub struct GraphInner {
     pub(crate) base: *mut sys::ma_node_graph,
-    pub(crate) alloc_cb: Option<Arc<AllocationCallbacks>>,
     pub(crate) reader_exists: Arc<AtomicBool>,
 }
 
@@ -314,21 +313,19 @@ impl NodeGraph {
         MaudioError::check(res)
     }
 
-    fn with_alloc_callbacks(
-        config: &NodeGraphBuilder,
-        alloc: Option<Arc<AllocationCallbacks>>,
-    ) -> MaResult<Self> {
+    fn with_config(config: &NodeGraphBuilder) -> MaResult<Self> {
         let mut mem: Box<MaybeUninit<sys::ma_node_graph>> = Box::new(MaybeUninit::uninit());
 
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-        graph_ffi::ma_node_graph_init(config.as_raw_ptr(), alloc_cb, mem.as_mut_ptr())?;
+        graph_ffi::ma_node_graph_init(
+            config.as_raw_ptr(),
+            AllocationCallbacks::cb_ptr(),
+            mem.as_mut_ptr(),
+        )?;
 
         let inner: *mut sys::ma_node_graph = Box::into_raw(mem) as *mut sys::ma_node_graph;
         Ok(Self {
             inner: Arc::new(GraphInner {
                 base: inner,
-                alloc_cb: alloc,
                 reader_exists: Arc::new(AtomicBool::new(false)),
             }),
         })
@@ -344,8 +341,6 @@ impl NodeGraph {
 }
 
 mod graph_ffi {
-    use std::sync::Arc;
-
     use maudio_sys::ffi as sys;
 
     use crate::{
@@ -353,7 +348,7 @@ mod graph_ffi {
         engine::node_graph::{
             nodes::NodeRef, private_node_graph, AsNodeGraphPtr, GraphInner, NodeGraphOps,
         },
-        AllocationCallbacks, AsRawRef, Binding, MaResult, MaudioError,
+        AllocationCallbacks, Binding, MaResult, MaudioError,
     };
 
     #[inline]
@@ -367,14 +362,8 @@ mod graph_ffi {
     }
 
     #[inline]
-    pub(crate) fn ma_node_graph_uninit(
-        node_graph: &mut GraphInner,
-        alloc: Option<Arc<AllocationCallbacks>>,
-    ) {
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-
-        unsafe { sys::ma_node_graph_uninit(node_graph.to_raw(), alloc_cb) }
+    pub(crate) fn ma_node_graph_uninit(node_graph: &mut GraphInner) {
+        unsafe { sys::ma_node_graph_uninit(node_graph.to_raw(), AllocationCallbacks::cb_ptr()) }
     }
 
     #[inline]
@@ -465,8 +454,7 @@ mod graph_ffi {
 
 impl Drop for GraphInner {
     fn drop(&mut self) {
-        let alloc_cb = self.alloc_cb.clone();
-        graph_ffi::ma_node_graph_uninit(self, alloc_cb);
+        graph_ffi::ma_node_graph_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
     }
 }

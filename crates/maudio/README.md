@@ -166,7 +166,7 @@ Maudio also comes with a variety of custom nodes with the more common functional
     let mut end_node = node_graph.endpoint();
 
     // The SOURCE (sound)
-    let mut source = engine.new_sound_from_file(&path)?;
+    let source = engine.new_sound_from_file(&path)?;
     let mut source_node = source.as_node(); // Gets a `NodeRef` to the `Sound`
 
     // Disconnect the source

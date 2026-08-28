@@ -1,5 +1,5 @@
 //! White, Pink or Brown noise generator
-use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
+use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;
 
@@ -7,13 +7,12 @@ use crate::{
     audio::formats::{Format, SampleBuffer},
     data_source::{private_data_source, AsSourcePtr, DataSourceRef},
     pcm_frames::{PcmFormat, S24Packed, S24},
-    AllocationCallbacks, AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
+    AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
 };
 
 pub struct Noise<F: PcmFormat> {
     inner: *mut sys::ma_noise,
     channels: u32,
-    alloc_cb: Option<Arc<AllocationCallbacks>>,
     _sample_format: PhantomData<F>,
 }
 
@@ -69,8 +68,6 @@ impl<F: PcmFormat> Noise<F> {
 }
 
 mod noise_ffi {
-    use std::sync::Arc;
-
     use maudio_sys::ffi as sys;
 
     use crate::{
@@ -104,27 +101,17 @@ mod noise_ffi {
     }
 
     #[inline]
-    pub fn ma_noise_init(
-        config: &NoiseBuilder,
-        alloc: Option<Arc<AllocationCallbacks>>,
-        noise: *mut sys::ma_noise,
-    ) -> MaResult<()> {
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-
-        let res = unsafe { sys::ma_noise_init(config.as_raw_ptr(), alloc_cb, noise) };
+    pub fn ma_noise_init(config: &NoiseBuilder, noise: *mut sys::ma_noise) -> MaResult<()> {
+        let res = unsafe {
+            sys::ma_noise_init(config.as_raw_ptr(), AllocationCallbacks::cb_ptr(), noise)
+        };
         MaudioError::check(res)
     }
 
     #[inline]
     pub fn ma_noise_uninit<F: PcmFormat>(noise: &mut Noise<F>) {
-        let alloc_cb: *const sys::ma_allocation_callbacks = noise
-            .alloc_cb
-            .clone()
-            .map_or(core::ptr::null(), |c| c.as_raw_ptr());
-
         unsafe {
-            sys::ma_noise_uninit(noise.to_raw(), alloc_cb);
+            sys::ma_noise_uninit(noise.to_raw(), AllocationCallbacks::cb_ptr());
         }
     }
 
@@ -300,7 +287,6 @@ impl NoiseBuilder {
         Ok(Noise {
             inner,
             channels: self.channels,
-            alloc_cb: None,
             _sample_format: PhantomData,
         })
     }
@@ -314,7 +300,6 @@ impl NoiseBuilder {
         Ok(Noise {
             inner,
             channels: self.channels,
-            alloc_cb: None,
             _sample_format: PhantomData,
         })
     }
@@ -328,7 +313,6 @@ impl NoiseBuilder {
         Ok(Noise {
             inner,
             channels: self.channels,
-            alloc_cb: None,
             _sample_format: PhantomData,
         })
     }
@@ -345,7 +329,6 @@ impl NoiseBuilder {
         Ok(Noise {
             inner,
             channels: self.channels,
-            alloc_cb: None,
             _sample_format: PhantomData,
         })
     }
@@ -360,7 +343,6 @@ impl NoiseBuilder {
         Ok(Noise {
             inner,
             channels: self.channels,
-            alloc_cb: None,
             _sample_format: PhantomData,
         })
     }
@@ -374,7 +356,6 @@ impl NoiseBuilder {
         Ok(Noise {
             inner,
             channels: self.channels,
-            alloc_cb: None,
             _sample_format: PhantomData,
         })
     }
@@ -382,7 +363,7 @@ impl NoiseBuilder {
     fn new_inner(&self) -> MaResult<*mut sys::ma_noise> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_noise>> = Box::new(MaybeUninit::uninit());
 
-        noise_ffi::ma_noise_init(self, None, mem.as_mut_ptr())?;
+        noise_ffi::ma_noise_init(self, mem.as_mut_ptr())?;
 
         let inner: *mut sys::ma_noise = Box::into_raw(mem) as *mut sys::ma_noise;
 

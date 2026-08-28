@@ -223,7 +223,7 @@ impl<C> Node<C> {
 
         let base_ptr = core::ptr::addr_of_mut!(inner.base);
 
-        node_ffi::ma_node_init(node_graph, config, None, base_ptr.cast())?;
+        node_ffi::ma_node_init(node_graph, config, base_ptr.cast())?;
 
         let inner_ptr = Box::into_raw(inner);
 
@@ -277,7 +277,7 @@ impl<C> Node<C> {
 
         let base_ptr = core::ptr::addr_of_mut!(inner.base);
 
-        node_ffi::ma_node_init(node_graph, config, None, base_ptr.cast())?;
+        node_ffi::ma_node_init(node_graph, config, base_ptr.cast())?;
 
         let inner_ptr = Box::into_raw(inner);
 
@@ -663,8 +663,6 @@ pub trait NodeOps: AsNodePtr {
 }
 
 pub(super) mod node_ffi {
-    use std::sync::Arc;
-
     use maudio_sys::ffi as sys;
 
     use crate::{
@@ -701,17 +699,13 @@ pub(super) mod node_ffi {
     pub(crate) fn ma_node_init<N: AsNodeGraphPtr>(
         node_graph: &N,
         config: &sys::ma_node_config,
-        alloc: Option<Arc<AllocationCallbacks>>,
         node: *mut sys::ma_node,
     ) -> MaResult<()> {
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-
         let res = unsafe {
             sys::ma_node_init(
                 private_node_graph::node_graph_ptr(node_graph),
                 config,
-                alloc_cb,
+                AllocationCallbacks::cb_ptr(),
                 node,
             )
         };
@@ -719,14 +713,10 @@ pub(super) mod node_ffi {
     }
 
     #[inline]
-    pub(crate) fn ma_node_uninit<C>(node: &mut Node<C>, alloc: Option<Arc<AllocationCallbacks>>) {
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-
-        unsafe { sys::ma_node_uninit(node.as_raw_ptr() as *mut _, alloc_cb) }
+    pub(crate) fn ma_node_uninit<C>(node: &mut Node<C>) {
+        unsafe { sys::ma_node_uninit(node.as_raw_ptr() as *mut _, AllocationCallbacks::cb_ptr()) }
     }
 
-    // Do not use
     #[inline]
     pub(crate) fn ma_node_get_node_graph<P: AsNodePtr + ?Sized>(
         node: &P,
@@ -911,7 +901,7 @@ pub(super) mod node_ffi {
 
 impl<C> Drop for Node<C> {
     fn drop(&mut self) {
-        node_ffi::ma_node_uninit(self, None);
+        node_ffi::ma_node_uninit(self);
         drop(unsafe { Box::from_raw((*self.inner).vtable as *mut sys::ma_node_vtable) });
         drop(unsafe { Box::from_raw(self.inner) });
     }

@@ -24,7 +24,7 @@ impl<F: PcmFormat> Delay<F> {
     fn build(config: &sys::ma_delay_config) -> MaResult<Delay<F>> {
         let channels = config.channels;
         let mut inner: Box<MaybeUninit<sys::ma_delay>> = Box::new(MaybeUninit::uninit());
-        delay_ffi::ma_delay_init(config, None, inner.as_mut_ptr())?;
+        delay_ffi::ma_delay_init(config, inner.as_mut_ptr())?;
 
         let inner_ptr = Box::into_raw(inner) as *mut sys::ma_delay;
         Ok(Delay {
@@ -84,31 +84,24 @@ impl DelayBuilder {
 }
 
 pub(crate) mod delay_ffi {
-    use std::sync::Arc;
-
     use maudio_sys::ffi as sys;
 
     use crate::{
-        audio::dsp::delay_effect::Delay, pcm_frames::PcmFormat, AllocationCallbacks, AsRawRef,
-        Binding, MaResult, MaudioError,
+        audio::dsp::delay_effect::Delay, pcm_frames::PcmFormat, AllocationCallbacks, Binding,
+        MaResult, MaudioError,
     };
 
     #[inline]
-    pub fn ma_delay_init(
-        config: &sys::ma_delay_config,
-        alloc: Option<Arc<AllocationCallbacks>>,
-        delay: *mut sys::ma_delay,
-    ) -> MaResult<()> {
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-        let res = unsafe { sys::ma_delay_init(config as *const _, alloc_cb, delay) };
+    pub fn ma_delay_init(config: &sys::ma_delay_config, delay: *mut sys::ma_delay) -> MaResult<()> {
+        let res =
+            unsafe { sys::ma_delay_init(config as *const _, AllocationCallbacks::cb_ptr(), delay) };
         MaudioError::check(res)
     }
 
     #[inline]
     pub fn ma_delay_uninit<F: PcmFormat>(delay: &mut Delay<F>) {
         unsafe {
-            sys::ma_delay_uninit(delay.to_raw(), std::ptr::null_mut());
+            sys::ma_delay_uninit(delay.to_raw(), AllocationCallbacks::cb_ptr());
         };
     }
 

@@ -23,7 +23,7 @@ use crate::{
     },
     pcm_frames::PcmFormat,
     util::{device_notif::DeviceStateNotifier, proc_notif::ProcFramesNotif},
-    Binding, MaResult,
+    AllocationCallbacks, Binding, MaResult,
 };
 
 pub mod device_builder;
@@ -328,6 +328,14 @@ impl<F: PcmFormat> Device<F> {
         capture_device_id: Option<DeviceId>,
     ) -> MaResult<Self> {
         let mut mem: Box<MaybeUninit<sys::ma_device>> = Box::new(MaybeUninit::uninit());
+
+        // Miniaudio passes in the alloc cb to the device via the context
+        // If user does not create a context, but uses the global alloc feature, we need to create a context
+        let owned_context = (context_cfg.is_none()
+            && AllocationCallbacks::clone_callbacks().is_some())
+        .then(ContextBuilder::new);
+
+        let context_cfg = context_cfg.or(owned_context.as_ref());
 
         device_ffi::ma_device_init_ex(backends, context_cfg, config, mem.as_mut_ptr())?;
 

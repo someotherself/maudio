@@ -24,7 +24,7 @@ impl<F: PcmFormat> Gainer<F> {
     fn build(config: &sys::ma_gainer_config) -> MaResult<Gainer<F>> {
         let channels = config.channels;
         let mut inner: Box<MaybeUninit<sys::ma_gainer>> = Box::new(MaybeUninit::uninit());
-        gainer_ffi::ma_gainer_init(config, None, inner.as_mut_ptr())?;
+        gainer_ffi::ma_gainer_init(config, inner.as_mut_ptr())?;
 
         let inner_ptr = Box::into_raw(inner) as *mut sys::ma_gainer;
         Ok(Gainer {
@@ -75,30 +75,27 @@ impl GainerBuilder {
 }
 
 mod gainer_ffi {
-    use std::sync::Arc;
-
     use crate::{
-        audio::dsp::volume_gainer::Gainer, pcm_frames::PcmFormat, AllocationCallbacks, AsRawRef,
-        Binding, ErrorKinds, MaResult, MaudioError,
+        audio::dsp::volume_gainer::Gainer, pcm_frames::PcmFormat, AllocationCallbacks, Binding,
+        ErrorKinds, MaResult, MaudioError,
     };
     use maudio_sys::ffi as sys;
 
     #[inline]
     pub fn ma_gainer_init(
         config: &sys::ma_gainer_config,
-        alloc: Option<Arc<AllocationCallbacks>>,
         gainer: *mut sys::ma_gainer,
     ) -> MaResult<()> {
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-        let res = unsafe { sys::ma_gainer_init(config as *const _, alloc_cb, gainer) };
+        let res = unsafe {
+            sys::ma_gainer_init(config as *const _, AllocationCallbacks::cb_ptr(), gainer)
+        };
         MaudioError::check(res)
     }
 
     #[inline]
     pub fn ma_gainer_uninit<F: PcmFormat>(gainer: &mut Gainer<F>) {
         unsafe {
-            sys::ma_gainer_uninit(gainer.to_raw(), std::ptr::null_mut());
+            sys::ma_gainer_uninit(gainer.to_raw(), AllocationCallbacks::cb_ptr());
         };
     }
 

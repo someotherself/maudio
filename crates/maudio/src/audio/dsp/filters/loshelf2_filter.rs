@@ -53,7 +53,7 @@ impl<F: PcmFormat> LoShelf2<F> {
     fn build(config: &sys::ma_loshelf2_config, format: Format) -> MaResult<LoShelf2<F>> {
         let channels = config.channels;
         let mut inner: Box<MaybeUninit<sys::ma_loshelf2>> = Box::new(MaybeUninit::uninit());
-        loshelf2_ffi::ma_loshelf2_init(config, None, inner.as_mut_ptr())?;
+        loshelf2_ffi::ma_loshelf2_init(config, inner.as_mut_ptr())?;
 
         let inner_ptr = Box::into_raw(inner) as *mut sys::ma_loshelf2;
         Ok(LoShelf2 {
@@ -134,30 +134,27 @@ impl LoShelf2Builder {
 }
 
 mod loshelf2_ffi {
-    use std::sync::Arc;
-
     use crate::{
         audio::dsp::filters::loshelf2_filter::LoShelf2, pcm_frames::PcmFormat, AllocationCallbacks,
-        AsRawRef, Binding, MaResult, MaudioError,
+        Binding, MaResult, MaudioError,
     };
     use maudio_sys::ffi as sys;
 
     #[inline]
     pub fn ma_loshelf2_init(
         config: &sys::ma_loshelf2_config,
-        alloc: Option<Arc<AllocationCallbacks>>,
         loshelf2: *mut sys::ma_loshelf2,
     ) -> MaResult<()> {
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-        let res = unsafe { sys::ma_loshelf2_init(config as *const _, alloc_cb, loshelf2) };
+        let res = unsafe {
+            sys::ma_loshelf2_init(config as *const _, AllocationCallbacks::cb_ptr(), loshelf2)
+        };
         MaudioError::check(res)
     }
 
     #[inline]
     pub fn ma_loshelf2_uninit<F: PcmFormat>(loshelf2: &mut LoShelf2<F>) {
         unsafe {
-            sys::ma_loshelf2_uninit(loshelf2.to_raw(), std::ptr::null_mut());
+            sys::ma_loshelf2_uninit(loshelf2.to_raw(), AllocationCallbacks::cb_ptr());
         };
     }
 

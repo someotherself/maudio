@@ -1,4 +1,4 @@
-use std::{mem::MaybeUninit, sync::Arc};
+use std::mem::MaybeUninit;
 
 use maudio_sys::ffi as sys;
 
@@ -14,7 +14,7 @@ use crate::{
         },
         Engine,
     },
-    AllocationCallbacks, AsRawRef, Binding, MaResult,
+    AsRawRef, Binding, MaResult,
 };
 
 /// A node that applies a **high-pass filter (HPF)** to an audio signal.
@@ -41,11 +41,10 @@ use crate::{
 /// Use [`HpfNodeBuilder`] to initialize
 pub struct HpfNode {
     inner: *mut sys::ma_hpf_node,
-    alloc_cb: Option<Arc<AllocationCallbacks>>,
     pub(crate) owner: GraphOwner,
     _busses: NodeBusChannels, // keep alive
     // format is hard coded as ma_format_f32 in miniaudio `sys::ma_hpf_node_config_init()`
-    // but use value in inner.hpf.format anyway inside new_with_cfg_alloc_internal()
+    // but use value in inner.hpf.format anyway inside new_with_cfg_internal()
     format: Format,
     order: u32,
 }
@@ -66,10 +65,9 @@ impl AsNodePtr for HpfNode {
 }
 
 impl HpfNode {
-    fn new_with_cfg_alloc_internal<N: AsNodeGraphPtr + ?Sized>(
+    fn new_with_cfg_internal<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: &mut HpfNodeBuilder<'_, N>,
-        alloc: Option<Arc<AllocationCallbacks>>,
     ) -> MaResult<Self> {
         let busses = config.busses.build_nodes(node_graph);
 
@@ -78,18 +76,14 @@ impl HpfNode {
         config.inner.nodeConfig.pInputChannels = busses.inputs.as_ptr();
         config.inner.nodeConfig.pOutputChannels = busses.outputs.as_ptr();
 
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_hpf_node>> = Box::new(MaybeUninit::uninit());
 
-        n_hpf_ffi::ma_hpf_node_init(node_graph, config.as_raw_ptr(), alloc_cb, mem.as_mut_ptr())?;
+        n_hpf_ffi::ma_hpf_node_init(node_graph, config.as_raw_ptr(), mem.as_mut_ptr())?;
 
         let inner: *mut sys::ma_hpf_node = Box::into_raw(mem) as *mut sys::ma_hpf_node;
 
         Ok(Self {
             inner,
-            alloc_cb: alloc,
             owner: private_node_graph::clone_owner(node_graph),
             _busses: busses,
             format: config.inner.hpf.format.try_into().unwrap_or(Format::F32),
@@ -136,14 +130,6 @@ impl HpfNode {
         let ptr = self.to_raw().cast::<sys::ma_node>();
         NodeRef::from_ptr(ptr)
     }
-
-    #[inline]
-    fn alloc_cb_ptr(&self) -> *const sys::ma_allocation_callbacks {
-        match &self.alloc_cb {
-            Some(cb) => cb.as_raw_ptr(),
-            None => core::ptr::null(),
-        }
-    }
 }
 
 pub(crate) mod n_hpf_ffi {
@@ -151,21 +137,20 @@ pub(crate) mod n_hpf_ffi {
 
     use crate::{
         engine::node_graph::{nodes::filters::hpf::HpfNode, private_node_graph, AsNodeGraphPtr},
-        Binding, MaResult, MaudioError,
+        AllocationCallbacks, Binding, MaResult, MaudioError,
     };
 
     #[inline]
     pub fn ma_hpf_node_init<N: AsNodeGraphPtr + ?Sized>(
         node_graph: &N,
         config: *const sys::ma_hpf_node_config,
-        alloc_cb: *const sys::ma_allocation_callbacks,
         node: *mut sys::ma_hpf_node,
     ) -> MaResult<()> {
         let res = unsafe {
             sys::ma_hpf_node_init(
                 private_node_graph::node_graph_ptr(node_graph),
                 config,
-                alloc_cb,
+                AllocationCallbacks::cb_ptr(),
                 node,
             )
         };
@@ -175,7 +160,7 @@ pub(crate) mod n_hpf_ffi {
     #[inline]
     pub fn ma_hpf_node_uninit(node: &mut HpfNode) {
         unsafe {
-            sys::ma_hpf_node_uninit(node.to_raw(), node.alloc_cb_ptr());
+            sys::ma_hpf_node_uninit(node.to_raw(), AllocationCallbacks::cb_ptr());
         }
     }
 
@@ -276,7 +261,7 @@ impl<'a, N: AsNodeGraphPtr + ?Sized> HpfNodeBuilder<'a, N> {
             ));
         }
 
-        HpfNode::new_with_cfg_alloc_internal(self.node_graph, self, None)
+        HpfNode::new_with_cfg_internal(self.node_graph, self)
     }
 }
 

@@ -13,7 +13,7 @@ use crate::{
         Engine,
     },
     util::{device_notif::DeviceStateNotifier, proc_notif::ProcFramesNotif},
-    AsRawRef, Binding, MaResult,
+    AllocationCallbacks, AsRawRef, Binding, MaResult,
 };
 
 pub struct EngineBuilder {
@@ -45,7 +45,10 @@ impl AsRawRef for EngineBuilder {
 impl EngineBuilder {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        let inner = unsafe { sys::ma_engine_config_init() };
+        let mut inner = unsafe { sys::ma_engine_config_init() };
+        if let Some(alloc) = AllocationCallbacks::clone_callbacks() {
+            inner.allocationCallbacks = alloc;
+        }
         Self {
             inner,
             playback_device_id: None,

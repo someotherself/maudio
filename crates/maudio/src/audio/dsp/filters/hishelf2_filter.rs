@@ -56,7 +56,7 @@ impl<F: PcmFormat> HiShelf2<F> {
         let slope = config.shelfSlope;
         let frequency = config.frequency;
         let mut inner: Box<MaybeUninit<sys::ma_hishelf2>> = Box::new(MaybeUninit::uninit());
-        hishelf2_ffi::ma_hishelf2_init(config, None, inner.as_mut_ptr())?;
+        hishelf2_ffi::ma_hishelf2_init(config, inner.as_mut_ptr())?;
 
         let inner_ptr = Box::into_raw(inner) as *mut sys::ma_hishelf2;
         Ok(HiShelf2 {
@@ -143,31 +143,28 @@ impl HiShelf2Builder {
 }
 
 pub(crate) mod hishelf2_ffi {
-    use std::sync::Arc;
-
     use maudio_sys::ffi as sys;
 
     use crate::{
         audio::dsp::filters::hishelf2_filter::HiShelf2, pcm_frames::PcmFormat, AllocationCallbacks,
-        AsRawRef, Binding, MaResult, MaudioError,
+        Binding, MaResult, MaudioError,
     };
 
     #[inline]
     pub fn ma_hishelf2_init(
         config: &sys::ma_hishelf2_config,
-        alloc: Option<Arc<AllocationCallbacks>>,
         hishelf2: *mut sys::ma_hishelf2,
     ) -> MaResult<()> {
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-        let res = unsafe { sys::ma_hishelf2_init(config as *const _, alloc_cb, hishelf2) };
+        let res = unsafe {
+            sys::ma_hishelf2_init(config as *const _, AllocationCallbacks::cb_ptr(), hishelf2)
+        };
         MaudioError::check(res)
     }
 
     #[inline]
     pub fn ma_hishelf2_uninit<F: PcmFormat>(hishelf2: &mut HiShelf2<F>) {
         unsafe {
-            sys::ma_hishelf2_uninit(hishelf2.to_raw(), std::ptr::null_mut());
+            sys::ma_hishelf2_uninit(hishelf2.to_raw(), AllocationCallbacks::cb_ptr());
         };
     }
 

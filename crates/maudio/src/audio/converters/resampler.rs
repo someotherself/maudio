@@ -1,11 +1,11 @@
-use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
+use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;
 
 use crate::{
     audio::{formats::Format, sample_rate::SampleRate},
     pcm_frames::PcmFormat,
-    AllocationCallbacks, AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
+    AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,7 +52,6 @@ pub struct ResamplerOutput {
 pub struct Resampler<F: PcmFormat> {
     inner: *mut sys::ma_resampler,
     channels: u32,
-    alloc_cb: Option<Arc<AllocationCallbacks>>,
     _format: PhantomData<F>,
 }
 
@@ -113,28 +112,22 @@ impl<F: PcmFormat> Resampler<F> {
 
 // Private methods
 impl<F: PcmFormat> Resampler<F> {
-    fn new_with_config(
-        config: &ResamplerBuilder,
-        alloc_cb: Option<Arc<AllocationCallbacks>>,
-    ) -> MaResult<Self> {
+    fn new_with_config(config: &ResamplerBuilder) -> MaResult<Self> {
         let mut mem: Box<MaybeUninit<sys::ma_resampler>> = Box::new(MaybeUninit::uninit());
 
-        resampler_ffi::ma_resampler_init(config, alloc_cb.clone(), mem.as_mut_ptr())?;
+        resampler_ffi::ma_resampler_init(config, mem.as_mut_ptr())?;
 
         let inner: *mut sys::ma_resampler = Box::into_raw(mem) as *mut sys::ma_resampler;
 
         Ok(Self {
             inner,
             channels: config.channels,
-            alloc_cb,
             _format: PhantomData,
         })
     }
 }
 
 mod resampler_ffi {
-    use std::sync::Arc;
-
     use maudio_sys::ffi as sys;
 
     use crate::{
@@ -149,24 +142,22 @@ mod resampler_ffi {
     #[inline]
     pub fn ma_resampler_init(
         config: &ResamplerBuilder,
-        alloc: Option<Arc<AllocationCallbacks>>,
         resampler: *mut sys::ma_resampler,
     ) -> MaResult<()> {
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-        let res = unsafe { sys::ma_resampler_init(config.as_raw_ptr(), alloc_cb, resampler) };
+        let res = unsafe {
+            sys::ma_resampler_init(
+                config.as_raw_ptr(),
+                AllocationCallbacks::cb_ptr(),
+                resampler,
+            )
+        };
         MaudioError::check(res)
     }
 
     #[inline]
-    pub fn ma_resampler_uninit<F: PcmFormat>(
-        resampler: &mut Resampler<F>,
-        alloc: Option<Arc<AllocationCallbacks>>,
-    ) {
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
+    pub fn ma_resampler_uninit<F: PcmFormat>(resampler: &mut Resampler<F>) {
         unsafe {
-            sys::ma_resampler_uninit(resampler.to_raw(), alloc_cb);
+            sys::ma_resampler_uninit(resampler.to_raw(), AllocationCallbacks::cb_ptr());
         }
     }
 
@@ -319,7 +310,7 @@ mod resampler_ffi {
 
 impl<F: PcmFormat> Drop for Resampler<F> {
     fn drop(&mut self) {
-        resampler_ffi::ma_resampler_uninit(self, self.alloc_cb.clone());
+        resampler_ffi::ma_resampler_uninit(self);
         drop(unsafe { Box::from_raw(self.to_raw()) });
     }
 }
@@ -357,12 +348,12 @@ impl ResamplerBuilder {
 
     pub fn build_i16(&mut self) -> MaResult<Resampler<i16>> {
         self.config.format = Format::S16.into(); // for consistency sake
-        Resampler::new_with_config(self, None)
+        Resampler::new_with_config(self)
     }
 
     pub fn build_f32(&mut self) -> MaResult<Resampler<f32>> {
         self.config.format = Format::F32.into();
-        Resampler::new_with_config(self, None)
+        Resampler::new_with_config(self)
     }
 }
 

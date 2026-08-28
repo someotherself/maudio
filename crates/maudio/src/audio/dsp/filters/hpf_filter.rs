@@ -57,7 +57,7 @@ impl<F: PcmFormat> Hpf<F> {
         let channels = config.channels;
         let order = config.order;
         let mut inner: Box<MaybeUninit<sys::ma_hpf>> = Box::new(MaybeUninit::uninit());
-        hpf_ffi::ma_hpf_init(config, None, inner.as_mut_ptr())?;
+        hpf_ffi::ma_hpf_init(config, inner.as_mut_ptr())?;
 
         let inner_ptr = Box::into_raw(inner) as *mut sys::ma_hpf;
         Ok(Hpf {
@@ -125,24 +125,17 @@ impl HpfBuilder {
 }
 
 pub(crate) mod hpf_ffi {
-    use std::sync::Arc;
-
     use maudio_sys::ffi as sys;
 
     use crate::{
-        audio::dsp::filters::hpf_filter::Hpf, pcm_frames::PcmFormat, AllocationCallbacks, AsRawRef,
-        Binding, MaResult, MaudioError,
+        audio::dsp::filters::hpf_filter::Hpf, pcm_frames::PcmFormat, AllocationCallbacks, Binding,
+        MaResult, MaudioError,
     };
 
     #[inline]
-    pub fn ma_hpf_init(
-        config: &sys::ma_hpf_config,
-        alloc: Option<Arc<AllocationCallbacks>>,
-        hpf: *mut sys::ma_hpf,
-    ) -> MaResult<()> {
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-        let res = unsafe { sys::ma_hpf_init(config as *const _, alloc_cb, hpf) };
+    pub fn ma_hpf_init(config: &sys::ma_hpf_config, hpf: *mut sys::ma_hpf) -> MaResult<()> {
+        let res =
+            unsafe { sys::ma_hpf_init(config as *const _, AllocationCallbacks::cb_ptr(), hpf) };
         MaudioError::check(res)
     }
 
@@ -158,7 +151,7 @@ pub(crate) mod hpf_ffi {
     #[inline]
     pub fn ma_hpf_uninit<F: PcmFormat>(hpf: &mut Hpf<F>) {
         unsafe {
-            sys::ma_hpf_uninit(hpf.to_raw(), std::ptr::null_mut());
+            sys::ma_hpf_uninit(hpf.to_raw(), AllocationCallbacks::cb_ptr());
         };
     }
 

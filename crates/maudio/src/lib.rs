@@ -95,6 +95,35 @@
 //! which can provide more reliable, low-latency audio processing in the browser.
 //!
 //! Only works for target `wasm32-unknown-emscripten`.
+//!
+//! ## `use-global-allocator`
+//!
+//! Enables using Rust's global allocator for allocations performed by
+//! miniaudio.
+//!
+//! When enabled, miniaudio receives allocation callbacks that forward
+//! allocations to Rust's `GlobalAlloc` interface. If the application does
+//! not define a custom global allocator, Rust's default global allocator is
+//! used.
+//!
+//! This feature does not install or replace the application's global
+//! allocator. To use a custom allocator, define it in the application with
+//! `#[global_allocator]`.
+//!
+//! ### Using the allocator API
+//!
+//! The optional `allocator_api` feature enables support for selecting a
+//! specific allocator through Rust's allocator API. This feature depends on
+//! Rust's unstable `allocator_api` feature and may therefore require a nightly
+//! compiler.
+//!
+//! Enabling `allocator_api` allows the global allocator used by this crate to
+//! be configured with an allocator other than the default global allocator.
+//! The selected allocator must remain valid for as long as miniaudio may use
+//! it.
+
+#[cfg(feature = "use-global-allocator")]
+pub(crate) mod alloc_api;
 
 pub mod audio;
 pub mod backend;
@@ -116,6 +145,9 @@ pub extern crate maudio_sys;
 use std::num::TryFromIntError;
 
 use maudio_sys::ffi as sys;
+
+#[cfg(feature = "use-global-allocator")]
+use crate::alloc_api::ma_global_allocation_callbacks;
 
 /// IMPORTANT: type Raw must be a *mut pointer
 pub(crate) trait Binding: Sized {
@@ -519,15 +551,41 @@ pub(crate) fn wide_null_terminated_name(name: &str) -> Vec<u16> {
 /// (typically the system allocator).
 ///
 /// Custom allocators are currently not implemented.
-pub(crate) struct AllocationCallbacks {
-    inner: sys::ma_allocation_callbacks,
+pub(crate) struct AllocationCallbacks(pub(crate) sys::ma_allocation_callbacks);
+
+unsafe impl Send for AllocationCallbacks {}
+unsafe impl Sync for AllocationCallbacks {}
+
+impl AllocationCallbacks {
+    #[allow(unused)]
+    pub(crate) fn cb_ptr() -> *const sys::ma_allocation_callbacks {
+        Self::get().map_or(std::ptr::null_mut(), |a| &a.0 as *const _)
+    }
+
+    pub(crate) fn clone_callbacks() -> Option<sys::ma_allocation_callbacks> {
+        Self::get().map(|a| a.0)
+    }
+
+    #[inline]
+    #[cfg(feature = "use-global-allocator")]
+    fn get() -> Option<&'static AllocationCallbacks> {
+        use crate::alloc_api::GLOBAL_ALLOC;
+
+        Some(GLOBAL_ALLOC.get_or_init(ma_global_allocation_callbacks))
+    }
+
+    #[inline]
+    #[cfg(not(feature = "use-global-allocator"))]
+    fn get() -> Option<&'static AllocationCallbacks> {
+        None
+    }
 }
 
 impl AsRawRef for AllocationCallbacks {
     type Raw = sys::ma_allocation_callbacks;
 
     fn as_raw(&self) -> &Self::Raw {
-        &self.inner
+        &self.0
     }
 }
 

@@ -20,7 +20,7 @@ use crate::{
     },
     data_source::{data_source_ffi, private_data_source, AsSourcePtr, DataFormat, DataSourceRef},
     pcm_frames::{PcmFormat, S24Packed},
-    AsRawRef, Binding, MaResult,
+    AllocationCallbacks, AsRawRef, Binding, MaResult,
 };
 
 pub mod custom_decoder;
@@ -843,6 +843,9 @@ impl DecoderBuilder<Unknown> {
                 0,
                 sys::ma_resample_algorithm_ma_resample_algorithm_linear,
             )
+        };
+        if let Some(alloc) = AllocationCallbacks::clone_callbacks() {
+            config.allocationCallbacks = alloc;
         };
         config.format = format.into();
         DecoderBuilder {

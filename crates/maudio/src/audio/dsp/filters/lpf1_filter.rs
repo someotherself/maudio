@@ -50,7 +50,7 @@ impl<F: PcmFormat> Lpf1<F> {
     fn build(config: &sys::ma_lpf1_config, format: Format) -> MaResult<Lpf1<F>> {
         let channels = config.channels;
         let mut inner: Box<MaybeUninit<sys::ma_lpf1>> = Box::new(MaybeUninit::uninit());
-        lpf1_ffi::ma_lpf1_init(config, None, inner.as_mut_ptr())?;
+        lpf1_ffi::ma_lpf1_init(config, inner.as_mut_ptr())?;
 
         let inner_ptr = Box::into_raw(inner) as *mut sys::ma_lpf1;
         Ok(Lpf1 {
@@ -115,24 +115,17 @@ impl Lpf1Builder {
 }
 
 pub(crate) mod lpf1_ffi {
-    use std::sync::Arc;
-
     use maudio_sys::ffi as sys;
 
     use crate::{
         audio::dsp::filters::lpf1_filter::Lpf1, pcm_frames::PcmFormat, AllocationCallbacks,
-        AsRawRef, Binding, MaResult, MaudioError,
+        Binding, MaResult, MaudioError,
     };
 
     #[inline]
-    pub fn ma_lpf1_init(
-        config: &sys::ma_lpf1_config,
-        alloc: Option<Arc<AllocationCallbacks>>,
-        lpf1: *mut sys::ma_lpf1,
-    ) -> MaResult<()> {
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-        let res = unsafe { sys::ma_lpf1_init(config as *const _, alloc_cb, lpf1) };
+    pub fn ma_lpf1_init(config: &sys::ma_lpf1_config, lpf1: *mut sys::ma_lpf1) -> MaResult<()> {
+        let res =
+            unsafe { sys::ma_lpf1_init(config as *const _, AllocationCallbacks::cb_ptr(), lpf1) };
         MaudioError::check(res)
     }
 
@@ -148,7 +141,7 @@ pub(crate) mod lpf1_ffi {
     #[inline]
     pub fn ma_lpf1_uninit<F: PcmFormat>(lpf1: &mut Lpf1<F>) {
         unsafe {
-            sys::ma_lpf1_uninit(lpf1.to_raw(), std::ptr::null_mut());
+            sys::ma_lpf1_uninit(lpf1.to_raw(), AllocationCallbacks::cb_ptr());
         };
     }
 

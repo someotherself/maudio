@@ -1,6 +1,6 @@
 [package]
 name = "maudio"
-version = "0.1.12"
+version = "0.1.13"
 license = "MIT"
 rust-version = "1.70" # required by bindgen 0.72.1
 edition = "2021"
@@ -14,6 +14,7 @@ keywords = ["audio", "miniaudio", "playback", "recording", "dsp"]
 [features]
 default = ["engine"]
 ci-tests = [] # disable the backend for the github CI
+use-global-allocator = []
 vorbis = ["maudio-sys/vorbis"]
 engine = ["maudio-sys/engine"]
 generate-bindings = ["maudio-sys/generate-bindings"]

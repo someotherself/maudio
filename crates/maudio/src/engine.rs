@@ -248,7 +248,8 @@ impl Engine {
     ///
     /// Most applications should start with this method.
     pub fn new() -> MaResult<Self> {
-        Self::new_with_config(None)
+        let builder = EngineBuilder::new();
+        Self::new_with_config(&builder)
     }
 
     /// Retrieves a [`ProcFramesNotif`] if one is present.
@@ -273,14 +274,12 @@ impl Engine {
         self.0.state_notifier.clone()
     }
 
-    fn new_with_config(config: Option<&EngineBuilder>) -> MaResult<Self> {
-        let (device, rm, dev_id) = config.map_or((None, None, None), |c| {
-            (
-                c.device.clone(),
-                c.resource_manager.clone(),
-                c.playback_device_id.clone(),
-            )
-        });
+    fn new_with_config(config: &EngineBuilder) -> MaResult<Self> {
+        let (device, rm, dev_id) = (
+            config.device.clone(),
+            config.resource_manager.clone(),
+            config.playback_device_id.clone(),
+        );
         let mut mem: Box<MaybeUninit<sys::ma_engine>> = Box::new(MaybeUninit::uninit());
         engine_ffi::engine_init(config, mem.as_mut_ptr())?;
 
@@ -310,7 +309,7 @@ impl Engine {
         };
 
         let mut mem: Box<MaybeUninit<sys::ma_engine>> = Box::new(MaybeUninit::uninit());
-        engine_ffi::engine_init(Some(config), mem.as_mut_ptr())?;
+        engine_ffi::engine_init(config, mem.as_mut_ptr())?;
 
         let inner: *mut sys::ma_engine = Box::into_raw(mem) as *mut sys::ma_engine;
         Ok(Self(Arc::new(EngineInner {
@@ -697,13 +696,8 @@ pub(crate) mod engine_ffi {
     };
 
     #[inline]
-    pub fn engine_init(
-        config: Option<&EngineBuilder>,
-        engine: *mut sys::ma_engine,
-    ) -> MaResult<()> {
-        let p_config: *const sys::ma_engine_config =
-            config.map_or(core::ptr::null(), |c| c.as_raw_ptr());
-        let res = unsafe { sys::ma_engine_init(p_config, engine) };
+    pub fn engine_init(config: &EngineBuilder, engine: *mut sys::ma_engine) -> MaResult<()> {
+        let res = unsafe { sys::ma_engine_init(config.as_raw_ptr(), engine) };
         MaudioError::check(res)
     }
 

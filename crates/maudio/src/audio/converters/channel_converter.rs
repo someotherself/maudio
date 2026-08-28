@@ -1,4 +1,4 @@
-use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
+use std::{marker::PhantomData, mem::MaybeUninit};
 
 use maudio_sys::ffi as sys;
 
@@ -8,14 +8,13 @@ use crate::{
         formats::Format,
     },
     pcm_frames::{PcmFormat, S24Packed},
-    AllocationCallbacks, AsRawRef, Binding, MaResult,
+    AsRawRef, Binding, MaResult,
 };
 
 pub struct ChannelConverter<F: PcmFormat> {
     inner: *mut sys::ma_channel_converter,
     channels_in: u32,
     channels_out: u32,
-    alloc_cb: Option<Arc<AllocationCallbacks>>,
     _format: PhantomData<F>,
 }
 
@@ -56,17 +55,10 @@ impl<F: PcmFormat> ChannelConverter<F> {
 
 // Private methods
 impl<F: PcmFormat> ChannelConverter<F> {
-    fn new_with_config(
-        config: &ChannelConverterBuilder,
-        alloc_cb: Option<Arc<AllocationCallbacks>>,
-    ) -> MaResult<Self> {
+    fn new_with_config(config: &ChannelConverterBuilder) -> MaResult<Self> {
         let mut mem: Box<MaybeUninit<sys::ma_channel_converter>> = Box::new(MaybeUninit::uninit());
 
-        channel_converter_ffi::ma_channel_converter_init(
-            config,
-            alloc_cb.clone(),
-            mem.as_mut_ptr(),
-        )?;
+        channel_converter_ffi::ma_channel_converter_init(config, mem.as_mut_ptr())?;
 
         let inner: *mut sys::ma_channel_converter =
             Box::into_raw(mem) as *mut sys::ma_channel_converter;
@@ -75,7 +67,6 @@ impl<F: PcmFormat> ChannelConverter<F> {
             inner,
             channels_in: config.channels_in,
             channels_out: config.channels_out,
-            alloc_cb,
             _format: PhantomData,
         })
     }
@@ -143,33 +134,31 @@ impl ChannelConverterBuilder {
 
     pub fn build_u8(&mut self) -> MaResult<ChannelConverter<u8>> {
         self.config.format = Format::U8.into();
-        ChannelConverter::new_with_config(self, None)
+        ChannelConverter::new_with_config(self)
     }
 
     pub fn build_i16(&mut self) -> MaResult<ChannelConverter<i16>> {
         self.config.format = Format::S16.into();
-        ChannelConverter::new_with_config(self, None)
+        ChannelConverter::new_with_config(self)
     }
 
     pub fn build_s24_packed(&mut self) -> MaResult<ChannelConverter<S24Packed>> {
         self.config.format = Format::S24Packed.into();
-        ChannelConverter::new_with_config(self, None)
+        ChannelConverter::new_with_config(self)
     }
 
     pub fn build_i32(&mut self) -> MaResult<ChannelConverter<i32>> {
         self.config.format = Format::S32.into();
-        ChannelConverter::new_with_config(self, None)
+        ChannelConverter::new_with_config(self)
     }
 
     pub fn build_f32(&mut self) -> MaResult<ChannelConverter<f32>> {
         self.config.format = Format::F32.into();
-        ChannelConverter::new_with_config(self, None)
+        ChannelConverter::new_with_config(self)
     }
 }
 
 mod channel_converter_ffi {
-    use std::sync::Arc;
-
     use crate::{
         audio::{
             channels::{Channel, RawChannel},
@@ -182,24 +171,21 @@ mod channel_converter_ffi {
 
     pub fn ma_channel_converter_init(
         config: &ChannelConverterBuilder,
-        alloc: Option<Arc<AllocationCallbacks>>,
         converter: *mut sys::ma_channel_converter,
     ) -> MaResult<()> {
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-        let res =
-            unsafe { sys::ma_channel_converter_init(config.as_raw_ptr(), alloc_cb, converter) };
+        let res = unsafe {
+            sys::ma_channel_converter_init(
+                config.as_raw_ptr(),
+                AllocationCallbacks::cb_ptr(),
+                converter,
+            )
+        };
         MaudioError::check(res)
     }
 
-    pub fn ma_channel_converter_uninit<F: PcmFormat>(
-        converter: &mut ChannelConverter<F>,
-        alloc: Option<Arc<AllocationCallbacks>>,
-    ) {
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
+    pub fn ma_channel_converter_uninit<F: PcmFormat>(converter: &mut ChannelConverter<F>) {
         unsafe {
-            sys::ma_channel_converter_uninit(converter.to_raw(), alloc_cb);
+            sys::ma_channel_converter_uninit(converter.to_raw(), AllocationCallbacks::cb_ptr());
         }
     }
 
@@ -305,7 +291,7 @@ mod channel_converter_ffi {
 
 impl<F: PcmFormat> Drop for ChannelConverter<F> {
     fn drop(&mut self) {
-        channel_converter_ffi::ma_channel_converter_uninit(self, self.alloc_cb.clone());
+        channel_converter_ffi::ma_channel_converter_uninit(self);
         drop(unsafe { Box::from_raw(self.inner) });
     }
 }

@@ -50,7 +50,7 @@ impl<F: PcmFormat> Notch2<F> {
         let channels = config.channels;
         let quality = config.q;
         let mut inner: Box<MaybeUninit<sys::ma_notch2>> = Box::new(MaybeUninit::uninit());
-        notch2_ffi::ma_notch2_init(config, None, inner.as_mut_ptr())?;
+        notch2_ffi::ma_notch2_init(config, inner.as_mut_ptr())?;
 
         let inner_ptr = Box::into_raw(inner) as *mut sys::ma_notch2;
         Ok(Notch2 {
@@ -124,32 +124,28 @@ impl Notch2Builder {
 }
 
 pub(crate) mod notch2_ffi {
-    use std::sync::Arc;
-
     use maudio_sys::ffi as sys;
 
     use crate::{
         audio::dsp::filters::notch2_filter::Notch2, pcm_frames::PcmFormat, AllocationCallbacks,
-        AsRawRef, Binding, MaResult, MaudioError,
+        Binding, MaResult, MaudioError,
     };
 
     #[inline]
     pub fn ma_notch2_init(
         config: &sys::ma_notch2_config,
-        alloc: Option<Arc<AllocationCallbacks>>,
         notch2: *mut sys::ma_notch2,
     ) -> MaResult<()> {
-        let alloc_cb: *const sys::ma_allocation_callbacks =
-            alloc.clone().map_or(core::ptr::null(), |c| c.as_raw_ptr());
-
-        let res = unsafe { sys::ma_notch2_init(config as *const _, alloc_cb, notch2) };
+        let res = unsafe {
+            sys::ma_notch2_init(config as *const _, AllocationCallbacks::cb_ptr(), notch2)
+        };
         MaudioError::check(res)
     }
 
     #[inline]
     pub fn ma_notch2_uninit<F: PcmFormat>(notch2: &mut Notch2<F>) {
         unsafe {
-            sys::ma_notch2_uninit(notch2.to_raw(), std::ptr::null_mut());
+            sys::ma_notch2_uninit(notch2.to_raw(), AllocationCallbacks::cb_ptr());
         }
     }
 

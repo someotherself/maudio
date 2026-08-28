@@ -482,8 +482,6 @@ impl Drop for ContextInner {
 pub struct ContextBuilder<'a> {
     inner: sys::ma_context_config,
     backends: Option<&'a [Backend]>,
-    #[allow(unused)]
-    alloc_cb: Option<Arc<AllocationCallbacks>>,
 }
 
 impl AsRawRef for ContextBuilder<'_> {
@@ -503,11 +501,13 @@ impl AsRawRef for ContextBuilder<'_> {
 impl<'a> ContextBuilder<'a> {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
-        let inner = unsafe { sys::ma_context_config_init() };
+        let mut inner = unsafe { sys::ma_context_config_init() };
+        if let Some(alloc) = AllocationCallbacks::clone_callbacks() {
+            inner.allocationCallbacks = alloc;
+        }
         Self {
             inner,
             backends: None,
-            alloc_cb: None,
         }
     }
 

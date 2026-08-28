@@ -80,7 +80,7 @@ use crate::{
         device_type::{DeviceShareMode, DeviceType},
         CallBackDevice, Device,
     },
-    pcm_frames::{PcmFormat, S24Packed},
+    pcm_frames::{MaSampleFormat, PcmFormat, S24Packed},
     util::{device_notif::DeviceStateNotifier, proc_notif::ProcFramesNotif},
     AsRawRef, MaResult,
 };
@@ -187,7 +187,7 @@ pub struct CaptureDeviceBuilder<'a, F = Unknown> {
 /// Playback and capture share the device sample rate.
 ///
 /// Construct this builder with [`DeviceBuilder::duplex()`].
-pub struct DuplexDeviceBuilder<'a, F = Unknown> {
+pub struct DuplexDeviceBuilder<'a, F = Unknown, C = Unknown> {
     inner: sys::ma_device_config,
     context: Option<&'a ContextBuilder<'a>>,
     backends: Option<&'a [Backend]>,
@@ -197,7 +197,8 @@ pub struct DuplexDeviceBuilder<'a, F = Unknown> {
     capture_device_id: Option<DeviceId>,
     playback_channel_map: Vec<RawChannel>,
     capture_channel_map: Vec<RawChannel>,
-    _format: PhantomData<F>,
+    _playback_f: PhantomData<F>,
+    _capture_f: PhantomData<C>,
 }
 
 /// Builder for a loopback device.
@@ -245,7 +246,7 @@ impl<F> AsRawRef for CaptureDeviceBuilder<'_, F> {
     }
 }
 
-impl<F> AsRawRef for DuplexDeviceBuilder<'_, F> {
+impl<F, C> AsRawRef for DuplexDeviceBuilder<'_, F, C> {
     type Raw = sys::ma_device_config;
 
     fn as_raw(&self) -> &Self::Raw {
@@ -273,7 +274,9 @@ impl<'a, F: PcmFormat> AsDeviceBuilder<'a> for CaptureDeviceBuilder<'a, F> {
     type _DeviceBuilderProvider = private_device_b::CaptureDeviceBuilderProvider;
 }
 
-impl<'a, F: PcmFormat> AsDeviceBuilder<'a> for DuplexDeviceBuilder<'a, F> {
+impl<'a, F: MaSampleFormat, P: MaSampleFormat> AsDeviceBuilder<'a>
+    for DuplexDeviceBuilder<'a, F, P>
+{
     type _DeviceBuilderProvider = private_device_b::DuplexDeviceBuilderProvider;
 }
 
@@ -294,8 +297,8 @@ pub(crate) mod private_device_b {
     // We must assing Playback or Capture capabilities to each builder type
     impl<'a, F: PcmFormat> SupportsPlayback for PlaybackDeviceBuilder<'a, F> {}
     impl<'a, F: PcmFormat> SupportsCapture for CaptureDeviceBuilder<'a, F> {}
-    impl<'a, F: PcmFormat> SupportsPlayback for DuplexDeviceBuilder<'a, F> {}
-    impl<'a, F: PcmFormat> SupportsCapture for DuplexDeviceBuilder<'a, F> {}
+    impl<'a, F: MaSampleFormat, P: MaSampleFormat> SupportsPlayback for DuplexDeviceBuilder<'a, F, P> {}
+    impl<'a, F: MaSampleFormat, P: MaSampleFormat> SupportsCapture for DuplexDeviceBuilder<'a, F, P> {}
     impl<'a, F: PcmFormat> SupportsCapture for LoopbackDeviceBuilder<'a, F> {}
 
     pub trait DeviceBulderProvider<'a, T: ?Sized> {
@@ -428,58 +431,60 @@ pub(crate) mod private_device_b {
         }
     }
 
-    impl<'a, F: PcmFormat> DeviceBulderProvider<'a, DuplexDeviceBuilder<'a, F>>
-        for DuplexDeviceBuilderProvider
+    impl<'a, F: MaSampleFormat, P: MaSampleFormat>
+        DeviceBulderProvider<'a, DuplexDeviceBuilder<'a, F, P>> for DuplexDeviceBuilderProvider
     {
-        fn set_backends<'s>(t: &'s mut DuplexDeviceBuilder<'a, F>, backends: &'a [Backend]) {
+        fn set_backends<'s>(t: &'s mut DuplexDeviceBuilder<'a, F, P>, backends: &'a [Backend]) {
             t.backends = Some(backends);
         }
 
-        fn get_backends<'s>(t: &'s DuplexDeviceBuilder<'a, F>) -> Option<&'s [Backend]> {
+        fn get_backends<'s>(t: &'s DuplexDeviceBuilder<'a, F, P>) -> Option<&'s [Backend]> {
             t.backends
         }
 
-        fn set_playback_channel_map(t: &mut DuplexDeviceBuilder<'a, F>, map: Vec<RawChannel>) {
+        fn set_playback_channel_map(t: &mut DuplexDeviceBuilder<'a, F, P>, map: Vec<RawChannel>) {
             t.inner.playback.channels = map.len() as u32;
             t.playback_channel_map = map;
             t.inner.playback.pChannelMap = t.playback_channel_map.as_ptr() as *mut _;
         }
 
-        fn set_capture_channel_map(t: &mut DuplexDeviceBuilder<'a, F>, map: Vec<RawChannel>) {
+        fn set_capture_channel_map(t: &mut DuplexDeviceBuilder<'a, F, P>, map: Vec<RawChannel>) {
             t.inner.capture.channels = map.len() as u32;
             t.capture_channel_map = map;
             t.inner.capture.pChannelMap = t.capture_channel_map.as_ptr() as *mut _;
         }
 
-        fn set_context<'s>(t: &'s mut DuplexDeviceBuilder<'a, F>, context: &'a ContextBuilder) {
+        fn set_context<'s>(t: &'s mut DuplexDeviceBuilder<'a, F, P>, context: &'a ContextBuilder) {
             t.context = Some(context);
         }
 
-        fn get_callback_info(t: &DuplexDeviceBuilder<'a, F>) -> Option<DeviceBuilderDataCallBack> {
+        fn get_callback_info(
+            t: &DuplexDeviceBuilder<'a, F, P>,
+        ) -> Option<DeviceBuilderDataCallBack> {
             t.data_callback_info.clone()
         }
 
-        fn set_state_cb_info(t: &mut DuplexDeviceBuilder<'a, F>) {
+        fn set_state_cb_info(t: &mut DuplexDeviceBuilder<'a, F, P>) {
             t.state_notifier = true;
         }
 
-        fn inner<'s>(t: &'s mut DuplexDeviceBuilder<'a, F>) -> &'s mut sys::ma_device_config {
+        fn inner<'s>(t: &'s mut DuplexDeviceBuilder<'a, F, P>) -> &'s mut sys::ma_device_config {
             &mut t.inner
         }
 
-        fn as_raw(t: &'a DuplexDeviceBuilder<'a, F>) -> &'a sys::ma_device_config {
+        fn as_raw(t: &'a DuplexDeviceBuilder<'a, F, P>) -> &'a sys::ma_device_config {
             t.as_raw()
         }
 
-        fn as_raw_ptr(t: &DuplexDeviceBuilder<'a, F>) -> *const sys::ma_device_config {
+        fn as_raw_ptr(t: &DuplexDeviceBuilder<'a, F, P>) -> *const sys::ma_device_config {
             t.as_raw_ptr()
         }
 
-        fn set_playback_id(t: &mut DuplexDeviceBuilder<'a, F>, id: DeviceId) {
+        fn set_playback_id(t: &mut DuplexDeviceBuilder<'a, F, P>, id: DeviceId) {
             t.playback_device_id = Some(id);
         }
 
-        fn set_capture_id(t: &mut DuplexDeviceBuilder<'a, F>, id: DeviceId) {
+        fn set_capture_id(t: &mut DuplexDeviceBuilder<'a, F, P>, id: DeviceId) {
             t.capture_device_id = Some(id);
         }
     }
@@ -690,8 +695,10 @@ impl<'a> CaptureDeviceBuilder<'a, Unknown> {
     }
 }
 
-impl<'a> DuplexDeviceBuilder<'a, Unknown> {
-    fn new_inner<F: PcmFormat>(&self) -> DuplexDeviceBuilder<'a, F> {
+impl<'a> DuplexDeviceBuilder<'a, Unknown, Unknown> {
+    pub fn new<F: MaSampleFormat, P: MaSampleFormat>(&mut self) -> DuplexDeviceBuilder<'a, F, P> {
+        self.inner.playback.format = F::STORE_FORMAT.into();
+        self.inner.capture.format = P::STORE_FORMAT.into();
         DuplexDeviceBuilder {
             inner: self.inner,
             context: None,
@@ -702,38 +709,9 @@ impl<'a> DuplexDeviceBuilder<'a, Unknown> {
             capture_device_id: None,
             playback_channel_map: Vec::new(),
             capture_channel_map: Vec::new(),
-            _format: PhantomData,
+            _playback_f: PhantomData,
+            _capture_f: PhantomData,
         }
-    }
-
-    pub fn u8(&mut self) -> DuplexDeviceBuilder<'a, u8> {
-        self.inner.playback.format = sys::ma_format_ma_format_u8;
-        self.inner.capture.format = sys::ma_format_ma_format_u8;
-        self.new_inner::<u8>()
-    }
-
-    pub fn i16(&mut self) -> DuplexDeviceBuilder<'a, i16> {
-        self.inner.playback.format = sys::ma_format_ma_format_s16;
-        self.inner.capture.format = sys::ma_format_ma_format_s16;
-        self.new_inner::<i16>()
-    }
-
-    pub fn i32(&mut self) -> DuplexDeviceBuilder<'a, i32> {
-        self.inner.playback.format = sys::ma_format_ma_format_s32;
-        self.inner.capture.format = sys::ma_format_ma_format_s32;
-        self.new_inner::<i32>()
-    }
-
-    pub fn s24_packed(&mut self) -> DuplexDeviceBuilder<'a, S24Packed> {
-        self.inner.playback.format = sys::ma_format_ma_format_s24;
-        self.inner.capture.format = sys::ma_format_ma_format_s24;
-        self.new_inner::<S24Packed>()
-    }
-
-    pub fn f32(&mut self) -> DuplexDeviceBuilder<'a, f32> {
-        self.inner.playback.format = sys::ma_format_ma_format_f32;
-        self.inner.capture.format = sys::ma_format_ma_format_f32;
-        self.new_inner::<f32>()
     }
 }
 
@@ -780,7 +758,10 @@ impl<'a> LoopbackDeviceBuilder<'a, Unknown> {
 
 impl<'a, F: PcmFormat> DeviceBuilderOps<'a> for PlaybackDeviceBuilder<'a, F> {}
 impl<'a, F: PcmFormat> DeviceBuilderOps<'a> for CaptureDeviceBuilder<'a, F> {}
-impl<'a, F: PcmFormat> DeviceBuilderOps<'a> for DuplexDeviceBuilder<'a, F> {}
+impl<'a, F: MaSampleFormat, P: MaSampleFormat> DeviceBuilderOps<'a>
+    for DuplexDeviceBuilder<'a, F, P>
+{
+}
 impl<'a, F: PcmFormat> DeviceBuilderOps<'a> for LoopbackDeviceBuilder<'a, F> {}
 
 /// Shared configuration methods for all device builders.
@@ -1063,7 +1044,7 @@ impl<'a> DeviceBuilder {
         }
     }
 
-    pub fn duplex() -> DuplexDeviceBuilder<'a, Unknown> {
+    pub fn duplex() -> DuplexDeviceBuilder<'a, Unknown, Unknown> {
         let ptr = unsafe { sys::ma_device_config_init(DeviceType::Duplex.into()) };
         DuplexDeviceBuilder {
             inner: ptr,
@@ -1075,7 +1056,8 @@ impl<'a> DeviceBuilder {
             capture_device_id: None,
             playback_channel_map: Vec::new(),
             capture_channel_map: Vec::new(),
-            _format: PhantomData,
+            _playback_f: PhantomData,
+            _capture_f: PhantomData,
         }
     }
 
@@ -1267,7 +1249,7 @@ impl<'a, F: PcmFormat> CaptureDeviceBuilder<'a, F> {
     }
 }
 
-impl<'a, F: PcmFormat> DuplexDeviceBuilder<'a, F> {
+impl<'a, F: MaSampleFormat, P: MaSampleFormat> DuplexDeviceBuilder<'a, F, P> {
     /// Builds the device and installs a duplex callback.
     ///
     /// The callback is invoked on miniaudio's audio thread for full-duplex
@@ -1311,26 +1293,27 @@ impl<'a, F: PcmFormat> DuplexDeviceBuilder<'a, F> {
     /// panic, the callback is poisoned and will no longer run user code.
     pub fn with_callback<C>(&mut self, f: C) -> MaResult<Device<F>>
     where
-        C: FnMut(CallBackDevice, &mut [F::StorageUnit], &[F::StorageUnit]) + Send + 'static,
+        C: FnMut(CallBackDevice, &mut [F::StorageUnit], &[P::StorageUnit]) + Send + 'static,
     {
         let panic_flag = Arc::new(AtomicBool::new(false));
         let state_notif = DeviceStateNotifier::default();
-        let state: DuplexDeviceState<F, C> = DuplexDeviceState {
+        let state: DuplexDeviceState<F, P, C> = DuplexDeviceState {
             f: UnsafeCell::new(f),
             frames_processed: ProcFramesNotif::default(),
             panic_flag: panic_flag.clone(),
             // If state notif was not set in `set_state_cb_info`, it will never get fired
             state_notif: state_notif.clone(),
-            _format: PhantomData,
+            _playback_f: PhantomData,
+            _capture_f: PhantomData,
         };
 
         let callback_process_notifier = state.frames_processed.clone();
 
         let state_box = Box::new(state);
-        let state_ptr: *mut DuplexDeviceState<F, C> = Box::into_raw(state_box);
+        let state_ptr: *mut DuplexDeviceState<F, P, C> = Box::into_raw(state_box);
         let callback_info: DeviceBuilderDataCallBack = DeviceBuilderDataCallBack {
             data_callback: state_ptr.cast(),
-            data_callback_drop: drop_duplex_device_state::<F, C>,
+            data_callback_drop: drop_duplex_device_state::<F, P, C>,
             data_callback_panic: panic_flag,
             state_notif: state_notif.clone(),
         };
@@ -1338,9 +1321,9 @@ impl<'a, F: PcmFormat> DuplexDeviceBuilder<'a, F> {
         self.data_callback_info = Some(callback_info);
 
         // Set all the callbacks and user data in the config
-        self.inner.dataCallback = Some(device_data_duplex_callback::<F, C>);
+        self.inner.dataCallback = Some(device_data_duplex_callback::<F, P, C>);
         if self.state_notifier {
-            self.inner.notificationCallback = Some(device_notification_duplex_callback::<F, C>);
+            self.inner.notificationCallback = Some(device_notification_duplex_callback::<F, P, C>);
         }
         self.inner.pUserData = state_ptr as *mut core::ffi::c_void;
 
@@ -1463,12 +1446,13 @@ pub(crate) struct CaptureDeviceState<F: PcmFormat, C> {
     _format: PhantomData<F>,
 }
 
-pub(crate) struct DuplexDeviceState<F: PcmFormat, C> {
+pub(crate) struct DuplexDeviceState<F: MaSampleFormat, P: MaSampleFormat, C> {
     f: UnsafeCell<C>,
     frames_processed: ProcFramesNotif,
     panic_flag: Arc<AtomicBool>,
     pub(crate) state_notif: DeviceStateNotifier,
-    _format: PhantomData<F>,
+    _playback_f: PhantomData<F>,
+    _capture_f: PhantomData<P>,
 }
 
 pub(crate) struct LoopbackDeviceState<F: PcmFormat, C> {
@@ -1585,13 +1569,13 @@ unsafe extern "C" fn device_data_capture_callback<F: PcmFormat, C>(
     }
 }
 
-unsafe extern "C" fn device_data_duplex_callback<F: PcmFormat, C>(
+unsafe extern "C" fn device_data_duplex_callback<F: MaSampleFormat, P: MaSampleFormat, C>(
     device: *mut sys::ma_device,
     output: *mut core::ffi::c_void,
     input: *const core::ffi::c_void,
     frame_count: u32,
 ) where
-    C: FnMut(CallBackDevice, &mut [F::StorageUnit], &[F::StorageUnit]) + Send + 'static,
+    C: FnMut(CallBackDevice, &mut [F::StorageUnit], &[P::StorageUnit]) + Send + 'static,
 {
     if device.is_null() {
         return;
@@ -1608,7 +1592,7 @@ unsafe extern "C" fn device_data_duplex_callback<F: PcmFormat, C>(
 
     // Build state from user data
     let cb_device = CallBackDevice::from_ptr(device);
-    let state = &*((*device).pUserData as *const DuplexDeviceState<F, C>);
+    let state = &*((*device).pUserData as *const DuplexDeviceState<F, P, C>);
 
     // Register processed frames in the flag
     state.frames_processed.add_frames(frame_count as u64);
@@ -1623,7 +1607,7 @@ unsafe extern "C" fn device_data_duplex_callback<F: PcmFormat, C>(
     };
     let out_slice =
         unsafe { slice::from_raw_parts_mut(output.cast::<F::StorageUnit>(), slice_len) };
-    let in_slice = unsafe { slice::from_raw_parts(input.cast::<F::StorageUnit>(), slice_len) };
+    let in_slice = unsafe { slice::from_raw_parts(input.cast::<P::StorageUnit>(), slice_len) };
 
     if state.panic_flag.load(Ordering::Relaxed) {
         // The callback is poisoned
@@ -1706,9 +1690,9 @@ fn drop_capture_device_state<F: PcmFormat, C>(ptr: *mut core::ffi::c_void) {
     drop(state);
 }
 
-fn drop_duplex_device_state<F: PcmFormat, C>(ptr: *mut core::ffi::c_void) {
-    let state: Box<DuplexDeviceState<F, C>> =
-        unsafe { Box::from_raw(ptr as *mut DuplexDeviceState<F, C>) };
+fn drop_duplex_device_state<F: MaSampleFormat, P: MaSampleFormat, C>(ptr: *mut core::ffi::c_void) {
+    let state: Box<DuplexDeviceState<F, P, C>> =
+        unsafe { Box::from_raw(ptr as *mut DuplexDeviceState<F, P, C>) };
     drop(state);
 }
 
@@ -1755,7 +1739,7 @@ mod test {
     fn test_device_builder_basic_duplex_init() {
         use crate::device::device_builder::{DeviceBuilder, DeviceBuilderOps};
         let mut device = DeviceBuilder::duplex()
-            .f32()
+            .new::<f32, f32>()
             .playback_channels(2)
             .capture_channels(2)
             .with_callback(|_a, b, _c| {
@@ -1910,7 +1894,7 @@ mod test {
             Channel::TopFrontRight,
         ];
         let device = DeviceBuilder::duplex()
-            .f32()
+            .new::<f32, f32>()
             .playback_channel_map(play_map)
             .capture_channel_map(capt_map)
             .with_callback(|_, _, _| {})
@@ -1964,7 +1948,7 @@ mod test {
             util::device_notif::DeviceNotificationType,
         };
         let mut device = DeviceBuilder::duplex()
-            .f32()
+            .new::<f32, f32>()
             .playback_channels(2)
             .capture_channels(2)
             .state_notifier()

@@ -85,7 +85,7 @@ use crate::{
         AsSourcePtr, DataSourceRef,
     },
     pcm_frames::{PcmFormat, PcmFormatInternal, S24Packed, S24},
-    AllocationCallbacks, MaResult,
+    MaResult,
 };
 
 /// Type for creating a typed single-producer / single-consumer PCM ring buffer.
@@ -110,8 +110,6 @@ pub struct PcmRingBuffer {}
 
 pub(crate) struct PcmRbInner {
     inner: *mut sys::ma_pcm_rb,
-    #[allow(unused)]
-    alloc_cb: Option<Arc<AllocationCallbacks>>,
 }
 
 // Required for Arc<PcmRbInner> to be Send
@@ -529,12 +527,8 @@ impl PcmRingBuffer {
         count: u32,
         stride: u32,
     ) -> MaResult<Arc<PcmRbInner>> {
-        let inner =
-            pcm_rb_ffi::new_raw_ex(format, channels, size_frames, count, stride, None, None)?;
-        Ok(Arc::new(PcmRbInner {
-            inner,
-            alloc_cb: None,
-        }))
+        let inner = pcm_rb_ffi::new_raw_ex(format, channels, size_frames, count, stride, None)?;
+        Ok(Arc::new(PcmRbInner { inner }))
     }
 }
 
@@ -724,14 +718,14 @@ impl<T: PcmFormat> AsPcmRbPtr for PcmRbSend<T> {
 }
 
 mod pcm_rb_ffi {
-    use std::{mem::MaybeUninit, sync::Arc};
+    use std::mem::MaybeUninit;
 
     use maudio_sys::ffi as sys;
 
     use crate::{
         audio::{formats::Format, sample_rate::SampleRate},
         data_source::sources::pcm_ring_buffer::{private_pcm_db, AsPcmRbPtr, PcmRbInner},
-        AllocationCallbacks, AsRawRef, MaResult, MaudioError,
+        AllocationCallbacks, MaResult, MaudioError,
     };
 
     pub fn new_raw_ex(
@@ -741,7 +735,6 @@ mod pcm_rb_ffi {
         count: u32,
         stride: u32,
         pre_alloc: Option<&mut [u8]>,
-        alloc_cb: Option<Arc<AllocationCallbacks>>,
     ) -> MaResult<*mut sys::ma_pcm_rb> {
         let mut mem: Box<MaybeUninit<sys::ma_pcm_rb>> = Box::new(MaybeUninit::uninit());
 
@@ -757,11 +750,7 @@ mod pcm_rb_ffi {
                     core::ptr::null(),
                 )
             }
-            None => {
-                let alloc_cb: *const sys::ma_allocation_callbacks =
-                    alloc_cb.map_or(core::ptr::null(), |c| c.as_raw_ptr());
-                (core::ptr::null_mut(), alloc_cb)
-            }
+            None => (core::ptr::null_mut(), AllocationCallbacks::cb_ptr()),
         };
 
         ma_pcm_rb_init_ex(

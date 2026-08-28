@@ -23,7 +23,7 @@ use crate::{
     MaResult, MaudioError,
 };
 
-pub(crate) fn decoder_vtable<F: PcmFormat, D: DecodingBackend<Format = F>>(
+pub(crate) fn decoder_vtable<F: PcmFormat, D: DecodingBackend>(
 ) -> *const sys::ma_decoding_backend_vtable {
     let mut vtable: sys::ma_decoding_backend_vtable = sys::ma_decoding_backend_vtable {
         onInit: Some(decoder_on_init::<F, D>),
@@ -45,7 +45,7 @@ pub(crate) fn decoder_vtable<F: PcmFormat, D: DecodingBackend<Format = F>>(
     Box::into_raw(Box::new(vtable)) as *const _
 }
 
-unsafe extern "C" fn decoder_on_init<F: PcmFormat, D: DecodingBackend<Format = F>>(
+unsafe extern "C" fn decoder_on_init<F: PcmFormat, D: DecodingBackend>(
     backend_user_data: *mut core::ffi::c_void,
     on_read: sys::ma_read_proc,
     on_seek: sys::ma_seek_proc,
@@ -93,7 +93,7 @@ unsafe extern "C" fn decoder_on_init<F: PcmFormat, D: DecodingBackend<Format = F
 }
 
 #[cfg(not(windows))]
-unsafe extern "C" fn decoder_on_init_file<F: PcmFormat, D: DecodingBackend<Format = F>>(
+unsafe extern "C" fn decoder_on_init_file<F: PcmFormat, D: DecodingBackend>(
     backend_user_data: *mut core::ffi::c_void,
     path: *const core::ffi::c_char,
     _: *const sys::ma_decoding_backend_config,
@@ -135,7 +135,7 @@ unsafe extern "C" fn decoder_on_init_file<F: PcmFormat, D: DecodingBackend<Forma
 }
 
 #[cfg(windows)]
-unsafe extern "C" fn decoder_on_init_file_w<F: PcmFormat, D: DecodingBackend<Format = F>>(
+unsafe extern "C" fn decoder_on_init_file_w<F: PcmFormat, D: DecodingBackend>(
     backend_user_data: *mut core::ffi::c_void,
     path: *const sys::wchar_t,
     _: *const sys::ma_decoding_backend_config,
@@ -184,7 +184,7 @@ unsafe extern "C" fn decoder_on_init_file_w<F: PcmFormat, D: DecodingBackend<For
     }
 }
 
-unsafe extern "C" fn decoder_on_init_memory<F: PcmFormat, D: DecodingBackend<Format = F>>(
+unsafe extern "C" fn decoder_on_init_memory<F: PcmFormat, D: DecodingBackend>(
     backend_user_data: *mut core::ffi::c_void,
     data: *const core::ffi::c_void,
     data_size: usize,
@@ -225,7 +225,7 @@ unsafe extern "C" fn decoder_on_init_memory<F: PcmFormat, D: DecodingBackend<For
     }
 }
 
-unsafe extern "C" fn decoder_on_uninit<F: PcmFormat, D: DecodingBackend<Format = F>>(
+unsafe extern "C" fn decoder_on_uninit<F: PcmFormat, D: DecodingBackend>(
     _user_data: *mut core::ffi::c_void,
     backend: *mut sys::ma_data_source,
     _alloc: *const sys::ma_allocation_callbacks,
@@ -233,7 +233,7 @@ unsafe extern "C" fn decoder_on_uninit<F: PcmFormat, D: DecodingBackend<Format =
     drop(Box::from_raw(backend.cast::<BackendDataSource<F, D>>()));
 }
 
-fn create_data_source<'stream, F: PcmFormat, D: DecodingBackend<Format = F> + 'stream>(
+fn create_data_source<'stream, F: PcmFormat, D: DecodingBackend + 'stream>(
     decoder_stream: impl DecoderStreamImpl + 'stream,
     registration: &BackendRegistration<F>,
 ) -> MaResult<*mut BackendDataSource<'stream, F, D>> {
@@ -245,7 +245,9 @@ fn create_data_source<'stream, F: PcmFormat, D: DecodingBackend<Format = F> + 's
     };
     let decoder = D::init_decoder(DecoderStream(Box::new(decoder_stream)), dr_ctx)?;
 
-    let input_df = <D as DecodingBackend>::input_data_format(&decoder);
+    let mut input_df = <D as DecodingBackend>::input_data_format(&decoder);
+    // make sure the format is correct
+    input_df.format = <D::NativeFormat as PcmFormat>::STORE_FORMAT;
 
     // Contains the input data format (df of the source created by the backend)
     let src_ctx = SourceContext {
@@ -259,7 +261,7 @@ fn create_data_source<'stream, F: PcmFormat, D: DecodingBackend<Format = F> + 's
         src_ctx.data_format.sample_rate,
     )
     .channel_map(src_ctx.data_format.channel_map.clone());
-    let vtable = data_source_vtable::<F, D::Decoder<'stream>>();
+    let vtable = data_source_vtable::<D::NativeFormat, D::Decoder<'stream>>();
     builder.inner.vtable = vtable;
 
     let mut inner: Box<BackendDataSource<F, D>> = Box::new(BackendDataSource {
