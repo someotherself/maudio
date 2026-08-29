@@ -1,10 +1,10 @@
-# maudio v0.1.13 - 28 Aug 2026 (non breaking)
+# maudio v0.1.13 - 28 Aug 2026 (breaking)
 - use-global-allocator feature added
 - decoupled native format from output format in CustomDecoder (breaking)
 - duplex device now allows different formats for input and output (breaking)
 
 # maudio v0.1.12 - 22 Aug 2026 (non breaking)
-- methods on Sound change to take &self
+- methods on Sound changed to take &self
 - Send, Sync added to Sound
 - Send added to DataSource
 - docs and examples improved
@@ -19,7 +19,7 @@
 
 # maudio v0.1.9 - 15 Aug 2026 (breaking)
 - adding ability to change channel counts for nodes
-- changed for paths are handled on windows / non-windows targets
+- changed how paths are handled on windows / non-windows targets
 - MA_NO_NODE_GRAPH and MA_NO_RESOURCE_MANAGER added when no-engine is passed
 - resource manager API re-design (breaking)
 - Bindgen output file added for iOS. cc / bindgen flags added for iOS
