@@ -330,6 +330,15 @@ impl Engine {
         SoundBuilder::init(self)
     }
 
+    /// Plays a fire and forget sound once without returning a handle.
+    ///
+    /// The engine manages the sound internally for the duration of playback.
+    ///
+    /// Will return an [`ErrorKinds::InvalidCString`](crate::ErrorKinds) error if path is not valid UTF8
+    pub fn play_one_shot(&self, path: &Path) -> MaResult<()> {
+        engine_ffi::ma_engine_play_sound(self, path)
+    }
+
     /// Creates an empty sound node with no audio source.
     ///
     /// Unlike sounds created from a file or data source, this object does not
@@ -706,6 +715,26 @@ pub(crate) mod engine_ffi {
         unsafe {
             sys::ma_engine_uninit(engine.inner);
         }
+    }
+
+    #[inline]
+    pub fn ma_engine_play_sound(engine: &Engine, path: &std::path::Path) -> MaResult<()> {
+        #[cfg(not(windows))]
+        let path = crate::cstring_from_path(path)?;
+
+        #[cfg(windows)]
+        let path = {
+            let path = path
+                .to_str()
+                .ok_or(MaudioError::new_ma_error(crate::ErrorKinds::InvalidCString))?;
+            std::ffi::CString::new(path.as_bytes())
+                .map_err(|_| MaudioError::new_ma_error(crate::ErrorKinds::InvalidCString))?
+        };
+
+        let res = unsafe {
+            sys::ma_engine_play_sound(engine.to_raw(), path.as_ptr(), std::ptr::null_mut())
+        };
+        MaudioError::check(res)
     }
 
     #[inline]
