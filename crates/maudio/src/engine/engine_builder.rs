@@ -19,7 +19,7 @@ use crate::{
 pub struct EngineBuilder {
     pub(crate) inner: sys::ma_engine_config,
     pub(crate) playback_device_id: Option<DeviceId>,
-    pub(crate) device: Option<Arc<DeviceInner<f32>>>, // a ref count, not ownership
+    pub(crate) device: Option<Arc<DeviceInner>>, // a ref count, not ownership
     pub(crate) resource_manager: Option<ResourceManager<f32>>, // a ref count, not ownership
     pub(crate) process_data: EngineProcessCbData,
 }

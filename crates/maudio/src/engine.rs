@@ -133,8 +133,8 @@ pub struct Engine(pub(crate) Arc<EngineInner>);
 #[doc(hidden)]
 pub struct EngineInner {
     inner: *mut sys::ma_engine,
-    _playback_device_id: Option<DeviceId>,  // keep alive
-    _device: Option<Arc<DeviceInner<f32>>>, // keep alive
+    _playback_device_id: Option<DeviceId>, // keep alive
+    _device: Option<Arc<DeviceInner>>,     // keep alive
     _resource_manager: Option<ResourceManager<f32>>, // keep alive
     process_data_ptr: Option<*mut ProcessState>, // userdata (self.inner.pProcessUserData)
     process_data_panic: Option<Arc<AtomicBool>>, // true = callback panicked and is now poisoned

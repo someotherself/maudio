@@ -38,12 +38,13 @@ pub mod device_type;
 /// Manages the lifetime of a `ma_device` and provides control over
 /// playback, capture, and device state.
 pub struct Device<F: PcmFormat> {
-    pub(crate) inner: Arc<DeviceInner<F>>,
+    pub(crate) inner: Arc<DeviceInner>,
+    _format: PhantomData<F>,
     // Device cannot be sync.
     _not_sync: PhantomData<Cell<()>>,
 }
 
-pub(crate) struct DeviceInner<F: PcmFormat> {
+pub(crate) struct DeviceInner {
     inner: *mut sys::ma_device,
     _playback_device_id: Option<DeviceId>, // Ref count. Needs to be kept alive.
     _capture_device_id: Option<DeviceId>,  // Ref count. Needs to be kept alive.
@@ -52,10 +53,9 @@ pub(crate) struct DeviceInner<F: PcmFormat> {
     callback_panic: Arc<AtomicBool>,       // true = callback panicked and is now poisoned
     callback_process_notifier: ProcFramesNotif,
     state_notifier: Option<DeviceStateNotifier>, // used by ma_device_notification
-    _format: PhantomData<F>,
 }
 
-impl<F: PcmFormat> Binding for DeviceInner<F> {
+impl Binding for DeviceInner {
     type Raw = *mut sys::ma_device;
 
     fn to_raw(&self) -> Self::Raw {
@@ -64,8 +64,8 @@ impl<F: PcmFormat> Binding for DeviceInner<F> {
 }
 
 // Required for Arc<DeviceInner> to implement Send
-unsafe impl<F: PcmFormat> Send for DeviceInner<F> {}
-unsafe impl<F: PcmFormat> Sync for DeviceInner<F> {}
+unsafe impl Send for DeviceInner {}
+unsafe impl Sync for DeviceInner {}
 
 impl<F: PcmFormat> Binding for Device<F> {
     type Raw = *mut sys::ma_device;
@@ -356,8 +356,8 @@ impl<F: PcmFormat> Device<F> {
                 callback_panic: cb_info.data_callback_panic,
                 callback_process_notifier: data_notif,
                 state_notifier: Some(cb_info.state_notif.clone()),
-                _format: PhantomData,
             }),
+            _format: PhantomData,
             _not_sync: PhantomData,
         })
     }
@@ -425,7 +425,7 @@ pub(crate) mod device_ffi {
         MaudioError::check(res)
     }
 
-    pub fn ma_device_uninit<F: PcmFormat>(device: &mut DeviceInner<F>) {
+    pub fn ma_device_uninit(device: &mut DeviceInner) {
         unsafe { sys::ma_device_uninit(device.to_raw()) };
     }
 
@@ -632,7 +632,7 @@ pub(crate) mod device_ffi {
     }
 }
 
-impl<F: PcmFormat> Drop for DeviceInner<F> {
+impl Drop for DeviceInner {
     fn drop(&mut self) {
         device_ffi::ma_device_uninit(self);
         (self.callback_user_data_drop)(self.callback_user_data);
