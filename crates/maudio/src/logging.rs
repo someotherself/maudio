@@ -573,9 +573,7 @@ impl Display for LogLevel {
 impl TryFrom<u32> for LogLevel {
     type Error = MaudioError;
 
-    fn try_from(
-        value: sys::ma_log_level,
-    ) -> Result<Self, <Self as TryFrom<sys::ma_log_level>>::Error> {
+    fn try_from(value: u32) -> Result<Self, <Self as TryFrom<sys::ma_log_level>>::Error> {
         match value {
             4 => Ok(LogLevel::Debug),
             3 => Ok(LogLevel::Info),
