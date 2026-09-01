@@ -24,7 +24,7 @@ external-lib = ["maudio-sys/external-lib"]
 worklet = ["maudio-sys/worklet"]
 
 [dependencies]
-maudio-sys = { path = "../maudio-sys", version = "0.1.8" }
+maudio-sys = { path = "../maudio-sys", version = "0.1.9" }
 
 [dev-dependencies]
 symphonia = { version = "0.6.0", features = ["aac"] }
