@@ -331,11 +331,11 @@ mod test {
             .unwrap();
 
         // NodeRef is a borrowed view, so make them mutable locals.
-        let mut a = splitter_a.as_node();
-        let mut b = splitter_b.as_node();
+        let a = splitter_a.as_node();
+        let b = splitter_b.as_node();
 
         // Attach A.out[0] -> B.in[0]
-        a.attach_output_bus(0, &mut b, 0).unwrap();
+        a.attach_output_bus(0, &b, 0).unwrap();
 
         // Detach just that bus.
         a.detach_output_bus(0).unwrap();
@@ -359,14 +359,14 @@ mod test {
             .build()
             .unwrap();
 
-        let mut a = splitter_a.as_node();
-        let mut b = splitter_b.as_node();
+        let a = splitter_a.as_node();
+        let b = splitter_b.as_node();
 
         // Attach multiple outputs of A to the same input of B (legal for routing graphs;
         // the graph may mix them or the node may receive multiple connections depending
         // on miniaudio internals, but attach should succeed).
         for out_bus in 0..4 {
-            a.attach_output_bus(out_bus, &mut b, 0).unwrap();
+            a.attach_output_bus(out_bus, &b, 0).unwrap();
         }
 
         a.detach_all_outputs().unwrap();
@@ -382,7 +382,7 @@ mod test {
             .build()
             .unwrap();
 
-        let mut node_ref = splitter.as_node();
+        let node_ref = splitter.as_node();
 
         let vols = [0.0_f32, 0.5_f32, 1.0_f32];
 
@@ -403,7 +403,7 @@ mod test {
             .build()
             .unwrap();
 
-        let mut node_ref = splitter.as_node();
+        let node_ref = splitter.as_node();
 
         node_ref.set_state(NodeState::Stopped).unwrap();
         assert_eq!(node_ref.state().unwrap(), NodeState::Stopped);
@@ -427,13 +427,13 @@ mod test {
             .build()
             .unwrap();
 
-        let mut a = splitter_a.as_node();
-        let mut b = splitter_b.as_node();
+        let a = splitter_a.as_node();
+        let b = splitter_b.as_node();
 
         // output_bus index 999 should be out of range => Err
-        assert!(a.attach_output_bus(999, &mut b, 0).is_err());
+        assert!(a.attach_output_bus(999, &b, 0).is_err());
 
         // input bus index 999 should be out of range => Err (splitter has 1 input bus)
-        assert!(a.attach_output_bus(0, &mut b, 999).is_err());
+        assert!(a.attach_output_bus(0, &b, 999).is_err());
     }
 }

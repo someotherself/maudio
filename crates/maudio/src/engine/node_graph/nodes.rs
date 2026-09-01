@@ -566,21 +566,21 @@ impl<T: AsNodePtr + ?Sized> NodeOps for T {}
 pub trait NodeOps: AsNodePtr {
     /// Attaches `output_bus` of this node to `other_node_input_bus` of `other_node`.
     fn attach_output_bus<P: AsNodePtr + ?Sized>(
-        &mut self,
+        &self,
         output_bus: u32,
-        other_node: &mut P,
+        other_node: &P,
         other_node_input_bus: u32,
     ) -> MaResult<()> {
         node_ffi::ma_node_attach_output_bus(self, output_bus, other_node, other_node_input_bus)
     }
 
     /// Detaches the specified output bus from its connected input bus.
-    fn detach_output_bus(&mut self, output_bus: u32) -> MaResult<()> {
+    fn detach_output_bus(&self, output_bus: u32) -> MaResult<()> {
         node_ffi::ma_node_detach_output_bus(self, output_bus)
     }
 
     /// Detaches all output buses from their connected input buses.
-    fn detach_all_outputs(&mut self) -> MaResult<()> {
+    fn detach_all_outputs(&self) -> MaResult<()> {
         node_ffi::ma_node_detach_all_output_buses(self)
     }
 
@@ -605,12 +605,12 @@ pub trait NodeOps: AsNodePtr {
     }
 
     /// Returns the volume for the given output bus.
-    fn output_bus_volume(&mut self, out_bus_index: u32) -> f32 {
+    fn output_bus_volume(&self, out_bus_index: u32) -> f32 {
         node_ffi::ma_node_get_output_bus_volume(self, out_bus_index)
     }
 
     /// Sets the volume for the given output bus.
-    fn set_output_bus_volume(&mut self, out_bus_index: u32, volume: f32) -> MaResult<()> {
+    fn set_output_bus_volume(&self, out_bus_index: u32, volume: f32) -> MaResult<()> {
         node_ffi::ma_node_set_output_bus_volume(self, out_bus_index, volume)
     }
 
@@ -623,7 +623,7 @@ pub trait NodeOps: AsNodePtr {
         node_ffi::ma_node_get_state(self)
     }
 
-    fn set_state(&mut self, state: NodeState) -> MaResult<()> {
+    fn set_state(&self, state: NodeState) -> MaResult<()> {
         node_ffi::ma_node_set_state(self, state)
     }
 
@@ -633,7 +633,7 @@ pub trait NodeOps: AsNodePtr {
     }
 
     /// Returns the global time (in PCM frames) at which `state` becomes active.
-    fn set_state_time(&mut self, state: NodeState, global_time: u64) -> MaResult<()> {
+    fn set_state_time(&self, state: NodeState, global_time: u64) -> MaResult<()> {
         node_ffi::ma_node_set_state_time(self, state, global_time)
     }
 
@@ -657,7 +657,7 @@ pub trait NodeOps: AsNodePtr {
     }
 
     /// Sets the current local time (in PCM frames) of the node.
-    fn set_time(&mut self, local_time: u64) -> MaResult<()> {
+    fn set_time(&self, local_time: u64) -> MaResult<()> {
         node_ffi::ma_node_set_time(self, local_time)
     }
 }
@@ -762,9 +762,9 @@ pub(super) mod node_ffi {
 
     #[inline]
     pub(crate) fn ma_node_attach_output_bus<P: AsNodePtr + ?Sized, Q: AsNodePtr + ?Sized>(
-        node: &mut P,
+        node: &P,
         output_bus_index: u32,
-        other_node: &mut Q,
+        other_node: &Q,
         other_node_input_bus_index: u32,
     ) -> MaResult<()> {
         unsafe {
@@ -780,7 +780,7 @@ pub(super) mod node_ffi {
 
     #[inline]
     pub(crate) fn ma_node_detach_output_bus<P: AsNodePtr + ?Sized>(
-        node: &mut P,
+        node: &P,
         output_bus_index: u32,
     ) -> MaResult<()> {
         let res = unsafe {
@@ -790,16 +790,14 @@ pub(super) mod node_ffi {
     }
 
     #[inline]
-    pub(crate) fn ma_node_detach_all_output_buses<P: AsNodePtr + ?Sized>(
-        node: &mut P,
-    ) -> MaResult<()> {
+    pub(crate) fn ma_node_detach_all_output_buses<P: AsNodePtr + ?Sized>(node: &P) -> MaResult<()> {
         let res = unsafe { sys::ma_node_detach_all_output_buses(private_node::node_ptr(node)) };
         MaudioError::check(res)
     }
 
     #[inline]
     pub(crate) fn ma_node_set_output_bus_volume<P: AsNodePtr + ?Sized>(
-        node: &mut P,
+        node: &P,
         output_bus_index: sys::ma_uint32,
         volume: f32,
     ) -> MaResult<()> {
@@ -815,7 +813,7 @@ pub(super) mod node_ffi {
 
     #[inline]
     pub(crate) fn ma_node_get_output_bus_volume<P: AsNodePtr + ?Sized>(
-        node: &mut P,
+        node: &P,
         output_bus_index: sys::ma_uint32,
     ) -> f32 {
         unsafe {
@@ -825,7 +823,7 @@ pub(super) mod node_ffi {
 
     #[inline]
     pub(crate) fn ma_node_set_state<P: AsNodePtr + ?Sized>(
-        node: &mut P,
+        node: &P,
         state: NodeState,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_node_set_state(private_node::node_ptr(node), state.into()) };
@@ -840,7 +838,7 @@ pub(super) mod node_ffi {
 
     #[inline]
     pub(crate) fn ma_node_set_state_time<P: AsNodePtr + ?Sized>(
-        node: &mut P,
+        node: &P,
         state: NodeState,
         global_time: u64,
     ) -> MaResult<()> {
@@ -891,7 +889,7 @@ pub(super) mod node_ffi {
 
     #[inline]
     pub(crate) fn ma_node_set_time<P: AsNodePtr + ?Sized>(
-        node: &mut P,
+        node: &P,
         local_time: u64,
     ) -> MaResult<()> {
         let res = unsafe { sys::ma_node_set_time(private_node::node_ptr(node), local_time) };

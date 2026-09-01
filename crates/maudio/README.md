@@ -160,22 +160,22 @@ Maudio also comes with a variety of custom nodes with the more common functional
     let node_graph = engine.as_node_graph();
 
     // Create a custom node (low pass filter node)
-    let mut lpf = LpfNodeBuilder::new(&node_graph, 2, SampleRate::Sr48000, 800.0, 1).build()?;
+    let lpf = LpfNodeBuilder::new(&node_graph, 2, SampleRate::Sr48000, 800.0, 1).build()?;
 
     // The ENDPOINT
-    let mut end_node = node_graph.endpoint();
+    let end_node = node_graph.endpoint();
 
     // The SOURCE (sound)
     let source = engine.new_sound_from_file(&path)?;
-    let mut source_node = source.as_node(); // Gets a `NodeRef` to the `Sound`
+    let source_node = source.as_node(); // Gets a `NodeRef` to the `Sound`
 
     // Disconnect the source
     source_node.detach_all_outputs()?;
 
     // Wire the new node in. LpfNode can pass around as a NodeRef implicitly.
     // attach_output_bus takes in the output bus of the current node and input bus of the upstream node (in this case, the lpf node)
-    source_node.attach_output_bus(0, &mut lpf, 0)?;
-    lpf.attach_output_bus(0, &mut end_node, 0)?;
+    source_node.attach_output_bus(0, &lpf, 0)?;
+    lpf.attach_output_bus(0, &end_node, 0)?;
 
     source.play_sound()?;
     println!("Stopping in 5 seconds...");
@@ -289,7 +289,7 @@ A more robust version of this can use the `PcmRingBuffer`.
 
     let node_graph = NodeGraphBuilder::new(channels).build()?;
     let mut reader = node_graph.try_acquire_reader()?;
-    let mut endpoint = node_graph.endpoint();
+    let endpoint = node_graph.endpoint();
 
     // This gives us an audio buffer that does not have a source
     // Later, we can bind it to the input buffer of the device callback
@@ -299,9 +299,9 @@ A more robust version of this can use the `PcmRingBuffer`.
     let mut src_node = AttachedSourceNodeBuilder::new(&node_graph, buffer_base).build()?;
 
     // The source node must live in the callback. Connect it to a splitter and store that for later use
-    let mut splitter = SplitterNodeBuilder::new(&node_graph, channels).build()?;
-    src_node.attach_output_bus(0, &mut splitter, 0)?;
-    splitter.attach_output_bus(0, &mut endpoint, 0)?;
+    let splitter = SplitterNodeBuilder::new(&node_graph, channels).build()?;
+    src_node.attach_output_bus(0, &splitter, 0)?;
+    splitter.attach_output_bus(0, &endpoint, 0)?;
 
     // The splitter can now be moved and store somewhere if needed
 

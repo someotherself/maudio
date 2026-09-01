@@ -77,9 +77,9 @@ impl PlayList {
             .channels(graph.channels())
             .sample_rate(SampleRate::Sr44100)
             .from_file(&path)?;
-        let mut node = AttachedSourceNodeBuilder::new(graph, decoder).build()?;
-        let mut endpoint = graph.endpoint();
-        node.attach_output_bus(0, &mut endpoint, 0)?;
+        let node = AttachedSourceNodeBuilder::new(graph, decoder).build()?;
+        let endpoint = graph.endpoint();
+        node.attach_output_bus(0, &endpoint, 0)?;
         self.current = Some(node);
 
         Ok(())

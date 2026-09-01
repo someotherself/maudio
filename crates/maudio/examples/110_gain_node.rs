@@ -44,10 +44,10 @@ fn main() -> MaResult<()> {
 
     let engine = Engine::new()?;
     let node_graph = engine.as_node_graph();
-    let mut endpoint = node_graph.endpoint();
+    let endpoint = node_graph.endpoint();
 
-    let mut gain_node = NodeBuilder::effect().build(&node_graph, Gain { gain: 0.5 })?;
-    gain_node.attach_output_bus(0, &mut endpoint, 0)?;
+    let gain_node = NodeBuilder::effect().build(&node_graph, Gain { gain: 0.5 })?;
+    gain_node.attach_output_bus(0, &endpoint, 0)?;
 
     let sound = SoundBuilder::new(&engine)
         .initial_attachment(&gain_node, 0)
