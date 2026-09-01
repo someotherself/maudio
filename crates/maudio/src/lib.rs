@@ -96,6 +96,17 @@
 //!
 //! Only works for target `wasm32-unknown-emscripten`.
 //!
+//! ## `debug-build`
+//!
+//! Enables debug logging at compile time. Unlike [`Log`](crate::logging::Log),
+//! this prints all log messages from every engine, device, and context.
+//!
+//! This feature does not work when using prebuilt static libraries. They would
+//! need to be compiled with the `MA_DEBUG_OUTPUT` flag.
+//!
+//! Use [`Log`](crate::logging::Log)
+//! instead.
+//!
 //! ## `use-global-allocator`
 //!
 //! Enables using Rust's global allocator for allocations performed by
