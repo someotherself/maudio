@@ -200,6 +200,10 @@ fn main() {
             cc_builder.define("MA_NO_RESOURCE_MANAGER", "1");
         }
 
+        if cfg!(feature = "debug-build") {
+            cc_builder.define("MA_DEBUG_OUTPUT", "1");
+        }
+
         // backend features
         backend_features(&mut cc_builder);
 
