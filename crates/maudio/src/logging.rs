@@ -570,17 +570,17 @@ impl Display for LogLevel {
     }
 }
 
-impl TryFrom<sys::ma_log_level> for LogLevel {
+impl TryFrom<u32> for LogLevel {
     type Error = MaudioError;
 
     fn try_from(
         value: sys::ma_log_level,
     ) -> Result<Self, <Self as TryFrom<sys::ma_log_level>>::Error> {
         match value {
-            sys::ma_log_level_MA_LOG_LEVEL_DEBUG => Ok(LogLevel::Debug),
-            sys::ma_log_level_MA_LOG_LEVEL_INFO => Ok(LogLevel::Info),
-            sys::ma_log_level_MA_LOG_LEVEL_WARNING => Ok(LogLevel::Warning),
-            sys::ma_log_level_MA_LOG_LEVEL_ERROR => Ok(LogLevel::Error),
+            4 => Ok(LogLevel::Debug),
+            3 => Ok(LogLevel::Info),
+            2 => Ok(LogLevel::Warning),
+            1 => Ok(LogLevel::Error),
             other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
                 LogLevel,
             >(other as i64))),
@@ -588,13 +588,40 @@ impl TryFrom<sys::ma_log_level> for LogLevel {
     }
 }
 
-impl From<LogLevel> for sys::ma_log_level {
+impl TryFrom<i32> for LogLevel {
+    type Error = MaudioError;
+
+    fn try_from(value: i32) -> Result<Self, <Self as TryFrom<sys::ma_log_level>>::Error> {
+        match value {
+            4 => Ok(LogLevel::Debug),
+            3 => Ok(LogLevel::Info),
+            2 => Ok(LogLevel::Warning),
+            1 => Ok(LogLevel::Error),
+            other => Err(MaudioError::new_ma_error(ErrorKinds::unknown_enum::<
+                LogLevel,
+            >(other as i64))),
+        }
+    }
+}
+
+impl From<LogLevel> for u32 {
     fn from(value: LogLevel) -> Self {
         match value {
-            LogLevel::Debug => sys::ma_log_level_MA_LOG_LEVEL_DEBUG,
-            LogLevel::Info => sys::ma_log_level_MA_LOG_LEVEL_INFO,
-            LogLevel::Warning => sys::ma_log_level_MA_LOG_LEVEL_WARNING,
-            LogLevel::Error => sys::ma_log_level_MA_LOG_LEVEL_ERROR,
+            LogLevel::Debug => 4,
+            LogLevel::Info => 3,
+            LogLevel::Warning => 2,
+            LogLevel::Error => 1,
+        }
+    }
+}
+
+impl From<LogLevel> for i32 {
+    fn from(value: LogLevel) -> Self {
+        match value {
+            LogLevel::Debug => 4,
+            LogLevel::Info => 3,
+            LogLevel::Warning => 2,
+            LogLevel::Error => 1,
         }
     }
 }
