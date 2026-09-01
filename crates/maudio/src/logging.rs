@@ -405,7 +405,9 @@ unsafe extern "C" fn ma_log_debug_callback_proc(
     level: u32,
     message: *const core::ffi::c_char,
 ) {
-    if level != sys::ma_log_level_MA_LOG_LEVEL_DEBUG {
+    // Cast is safe, but needed on windows
+    #[allow(clippy::unnecessary_cast)]
+    if level != sys::ma_log_level_MA_LOG_LEVEL_DEBUG as u32 {
         return;
     }
 
@@ -431,7 +433,9 @@ unsafe extern "C" fn ma_log_info_callback_proc(
     level: u32,
     message: *const core::ffi::c_char,
 ) {
-    if level != sys::ma_log_level_MA_LOG_LEVEL_INFO {
+    // Cast is safe, but needed on windows
+    #[allow(clippy::unnecessary_cast)]
+    if level != sys::ma_log_level_MA_LOG_LEVEL_INFO as u32 {
         return;
     }
 
@@ -457,7 +461,9 @@ unsafe extern "C" fn ma_log_warning_callback_proc(
     level: u32,
     message: *const core::ffi::c_char,
 ) {
-    if level != sys::ma_log_level_MA_LOG_LEVEL_WARNING {
+    // Cast is safe, but needed on windows
+    #[allow(clippy::unnecessary_cast)]
+    if level != sys::ma_log_level_MA_LOG_LEVEL_WARNING as u32 {
         return;
     }
 
@@ -483,7 +489,9 @@ unsafe extern "C" fn ma_log_error_callback_proc(
     level: u32,
     message: *const core::ffi::c_char,
 ) {
-    if level != sys::ma_log_level_MA_LOG_LEVEL_ERROR {
+    // Cast is safe, but needed on windows
+    #[allow(clippy::unnecessary_cast)]
+    if level != sys::ma_log_level_MA_LOG_LEVEL_ERROR as u32 {
         return;
     }
 
@@ -593,6 +601,7 @@ impl From<LogLevel> for sys::ma_log_level {
 
 #[cfg(test)]
 mod test {
+    #[cfg(not(feature = "ci-tests"))]
     use crate::{
         context::{ContextBuilder, ContextOps},
         device::device_builder::{DeviceBuilder, DeviceBuilderOps},
