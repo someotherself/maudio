@@ -97,6 +97,7 @@ use crate::{
         process_cb::ProcessState,
         resource::{ResourceManager, ResourceManagerRef},
     },
+    logging::{LogInner, LogRef, StoredLogs},
     sound::{
         sound_builder::SoundBuilder,
         sound_ffi,
@@ -136,11 +137,13 @@ pub struct EngineInner {
     _playback_device_id: Option<DeviceId>, // keep alive
     _device: Option<Arc<DeviceInner>>,     // keep alive
     _resource_manager: Option<ResourceManager<f32>>, // keep alive
+    _logger: Option<Arc<LogInner>>,        // keep alive
     process_data_ptr: Option<*mut ProcessState>, // userdata (self.inner.pProcessUserData)
     process_data_panic: Option<Arc<AtomicBool>>, // true = callback panicked and is now poisoned
     process_data_notif: Option<ProcFramesNotif>,
     state_notifier: Option<DeviceStateNotifier>,
     reader_exists: Arc<AtomicBool>,
+    pub(crate) logs: StoredLogs,
 }
 
 unsafe impl Send for EngineInner {}
@@ -275,10 +278,11 @@ impl Engine {
     }
 
     fn new_with_config(config: &EngineBuilder) -> MaResult<Self> {
-        let (device, rm, dev_id) = (
+        let (device, rm, dev_id, log) = (
             config.device.clone(),
             config.resource_manager.clone(),
             config.playback_device_id.clone(),
+            config.log.clone(),
         );
         let mut mem: Box<MaybeUninit<sys::ma_engine>> = Box::new(MaybeUninit::uninit());
         engine_ffi::engine_init(config, mem.as_mut_ptr())?;
@@ -289,11 +293,13 @@ impl Engine {
             _playback_device_id: dev_id,
             _device: device,
             _resource_manager: rm,
+            _logger: log,
             process_data_ptr: None,
             process_data_panic: None,
             process_data_notif: None,
             state_notifier: None,
             reader_exists: Arc::new(AtomicBool::new(false)),
+            logs: StoredLogs::default(),
         })))
     }
 
@@ -317,11 +323,13 @@ impl Engine {
             _playback_device_id: config.playback_device_id.take(),
             _device: config.device.take(),
             _resource_manager: config.resource_manager.take(),
+            _logger: config.log.clone(),
             process_data_ptr: config.process_data.process_data_ptr,
             process_data_panic: config.process_data.process_data_panic.take(),
             process_data_notif: data_notif,
             state_notifier: state_notif,
             reader_exists: Arc::new(AtomicBool::new(false)),
+            logs: StoredLogs::default(),
         })))
     }
 
@@ -528,6 +536,10 @@ impl Engine {
         engine_ffi::ma_engine_get_device(self)
     }
 
+    pub fn log(&self) -> LogRef {
+        engine_ffi::ma_engine_get_log(self)
+    }
+
     /// Returns the engine’s **endpoint node**.
     ///
     /// The endpoint node is the final node in the engine’s internal node graph.
@@ -701,6 +713,7 @@ pub(crate) mod engine_ffi {
             resource::{ResourceManagerRef, RmOwner},
             AsEnginePtr, Binding, Engine, EngineInner, EngineReader,
         },
+        logging::{LogOwner, LogRef},
         AsRawRef, MaResult, MaudioError,
     };
 
@@ -818,11 +831,14 @@ pub(crate) mod engine_ffi {
         }
     }
 
-    // TODO: Implement Log(Ref?)
     #[inline]
-    #[allow(dead_code)]
-    pub fn ma_engine_get_log(engine: &Engine) -> *mut sys::ma_log {
-        unsafe { sys::ma_engine_get_log(engine.to_raw()) }
+    pub fn ma_engine_get_log(engine: &Engine) -> LogRef {
+        let ptr = unsafe { sys::ma_engine_get_log(engine.to_raw()) };
+
+        LogRef {
+            inner: ptr,
+            _owner: LogOwner::Engine(engine.0.clone()),
+        }
     }
 
     #[inline]

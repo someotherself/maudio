@@ -133,6 +133,7 @@ pub mod device;
 pub mod encoder;
 #[cfg(feature = "engine")]
 pub mod engine;
+pub mod logging;
 pub mod pcm_frames;
 #[cfg(feature = "engine")]
 pub mod sound;

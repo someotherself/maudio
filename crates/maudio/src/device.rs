@@ -21,6 +21,7 @@ use crate::{
         device_state::DeviceState,
         device_type::DeviceType,
     },
+    logging::{LogRef, StoredLogs},
     pcm_frames::PcmFormat,
     util::{device_notif::DeviceStateNotifier, proc_notif::ProcFramesNotif},
     AllocationCallbacks, Binding, MaResult,
@@ -44,7 +45,8 @@ pub struct Device<F: PcmFormat> {
     _not_sync: PhantomData<Cell<()>>,
 }
 
-pub(crate) struct DeviceInner {
+#[doc(hidden)]
+pub struct DeviceInner {
     inner: *mut sys::ma_device,
     _playback_device_id: Option<DeviceId>, // Ref count. Needs to be kept alive.
     _capture_device_id: Option<DeviceId>,  // Ref count. Needs to be kept alive.
@@ -53,6 +55,7 @@ pub(crate) struct DeviceInner {
     callback_panic: Arc<AtomicBool>,       // true = callback panicked and is now poisoned
     callback_process_notifier: ProcFramesNotif,
     state_notifier: Option<DeviceStateNotifier>, // used by ma_device_notification
+    pub(crate) logs: StoredLogs,
 }
 
 impl Binding for DeviceInner {
@@ -293,6 +296,10 @@ impl<F: PcmFormat> Device<F> {
         device_ffi::ma_device_stop(self)
     }
 
+    pub fn log(&self) -> LogRef {
+        device_ffi::ma_device_get_log(self)
+    }
+
     /// Returns `true` if the data callback previously panicked.
     ///
     /// When this happens, the callback is considered poisoned and will no longer run.
@@ -356,6 +363,7 @@ impl<F: PcmFormat> Device<F> {
                 callback_panic: cb_info.data_callback_panic,
                 callback_process_notifier: data_notif,
                 state_notifier: Some(cb_info.state_notif.clone()),
+                logs: StoredLogs::default(),
             }),
             _format: PhantomData,
             _not_sync: PhantomData,
@@ -379,6 +387,7 @@ pub(crate) mod device_ffi {
             device_type::DeviceType,
             private_device, AsDevicePtr, Device, DeviceInner,
         },
+        logging::{LogOwner, LogRef},
         pcm_frames::PcmFormat,
         AsRawRef, Binding, MaResult, MaudioError,
     };
@@ -442,15 +451,15 @@ pub(crate) mod device_ffi {
         }
     }
 
-    // TODO: Implement log
+    // Callback: not safe
+    // Theadsafe: not safe
     #[inline]
-    #[allow(dead_code)]
-    pub fn ma_device_get_log<D: AsDevicePtr + ?Sized>(context: &D) -> Option<*mut sys::ma_log> {
-        let ptr = unsafe { sys::ma_device_get_log(private_device::device_ptr(context)) };
-        if ptr.is_null() {
-            None
-        } else {
-            Some(ptr)
+    pub fn ma_device_get_log<F: PcmFormat>(device: &Device<F>) -> LogRef {
+        let ptr = unsafe { sys::ma_device_get_log(device.to_raw()) };
+
+        LogRef {
+            inner: ptr,
+            _owner: LogOwner::Device(device.inner.clone()),
         }
     }
 
