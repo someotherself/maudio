@@ -16,6 +16,7 @@ default = ["engine"]
 ci-tests = [] # disable the backend for the github CI
 use-global-allocator = []
 vorbis = ["maudio-sys/vorbis"]
+debug-build = ["maudio-sys/debug-build"]
 engine = ["maudio-sys/engine"]
 generate-bindings = ["maudio-sys/generate-bindings"]
 supplybin = ["maudio-sys/supplybin"]
