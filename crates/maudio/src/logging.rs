@@ -22,7 +22,7 @@ use crate::{device::DeviceInner, engine::EngineInner, Binding, ErrorKinds, MaRes
 /// Logs remain associated with the log until they are removed
 /// or their corresponding [`LogListener`] is dropped.
 ///
-/// In order to pass a `Log` to a [`Device`](crate::device::Device), 
+/// In order to pass a `Log` to a [`Device`](crate::device::Device),
 /// a `Log` must first be passed to a [`ContextBuilder`](crate::context::ContextBuilder)
 /// which must then be passed to a device via [`DeviceBuilder::context`](crate::device::device_builder::DeviceBuilderOps::context)
 pub struct Log(pub(crate) Arc<LogInner>);
@@ -600,6 +600,7 @@ mod test {
         logging::{Log, LogLevel, LogOps},
     };
 
+    #[cfg(not(feature = "ci-tests"))]
     #[test]
     fn logger_test_engine_print_all() {
         let log = Log::new().unwrap();
@@ -630,6 +631,7 @@ mod test {
             .unwrap();
     }
 
+    #[cfg(not(feature = "ci-tests"))]
     #[test]
     fn logger_test_engine_log_reg_print_all() {
         let engine = EngineBuilder::new().build_for_tests().unwrap();
@@ -658,6 +660,7 @@ mod test {
         log.print_level(LogLevel::Error).unwrap();
     }
 
+    #[cfg(not(feature = "ci-tests"))]
     #[test]
     fn logger_test_engine_register_without_drop() {
         let log = Log::new().unwrap();
