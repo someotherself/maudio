@@ -1,4 +1,4 @@
-# Rust bindings to the miniaudio library
+# A comprehensive Rust audio library powered by miniaudio
 
 ### To learn more about miniaudio, check https://miniaud.io/ and https://github.com/mackron/miniaudio
 
