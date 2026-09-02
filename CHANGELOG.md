@@ -5,6 +5,7 @@
 - debug-build feature added
 - &mut self functions on NodeOps now take &self
 - maudio-sys bump (debug-build feature)
+- methods on SoundGroup now take &self
 
 # maudio v0.1.13 - 28 Aug 2026 (breaking)
 - use-global-allocator feature added
