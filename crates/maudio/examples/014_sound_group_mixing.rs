@@ -38,8 +38,8 @@ fn main() -> MaResult<()> {
     ));
 
     // Create two groups representing separate mix buses.
-    let mut music_group = SoundGroupBuilder::new(&engine).build()?;
-    let mut sfx_group = SoundGroupBuilder::new(&engine).build()?;
+    let music_group = SoundGroupBuilder::new(&engine).build()?;
+    let sfx_group = SoundGroupBuilder::new(&engine).build()?;
 
     // Set different base levels for each group.
     music_group.set_volume(0.3);

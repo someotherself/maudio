@@ -25,7 +25,7 @@ fn main() -> MaResult<()> {
     // Groups are commonly used to organize sounds into categories such as
     // music, sound effects, or dialogue. Each group has its own volume and
     // effect processing which is applied to every sound attached to it.
-    let mut group = SoundGroupBuilder::new(&engine)
+    let group = SoundGroupBuilder::new(&engine)
         .volume_smooth_millis(250.0)
         .build()?;
 

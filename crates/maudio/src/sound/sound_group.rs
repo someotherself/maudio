@@ -34,19 +34,19 @@ impl Binding for SoundGroup {
 }
 
 impl SoundGroup {
-    pub fn engine(&mut self) -> Engine {
+    pub fn engine(&self) -> Engine {
         Engine(self._engine.clone())
     }
 
-    pub fn start(&mut self) -> MaResult<()> {
+    pub fn start(&self) -> MaResult<()> {
         s_group_ffi::ma_sound_group_start(self)
     }
 
-    pub fn stop(&mut self) -> MaResult<()> {
+    pub fn stop(&self) -> MaResult<()> {
         s_group_ffi::ma_sound_group_stop(self)
     }
 
-    pub fn set_volume(&mut self, volume: f32) {
+    pub fn set_volume(&self, volume: f32) {
         s_group_ffi::ma_sound_group_set_volume(self, volume);
     }
 
@@ -58,7 +58,7 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_get_pan(self)
     }
 
-    pub fn set_pan(&mut self, pan: f32) {
+    pub fn set_pan(&self, pan: f32) {
         s_group_ffi::ma_sound_group_set_pan(self, pan);
     }
 
@@ -66,7 +66,7 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_get_pan_mode(self)
     }
 
-    pub fn set_pan_mode(&mut self, pan_mode: PanMode) {
+    pub fn set_pan_mode(&self, pan_mode: PanMode) {
         s_group_ffi::ma_sound_group_set_pan_mode(self, pan_mode);
     }
 
@@ -74,7 +74,7 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_get_pitch(self)
     }
 
-    pub fn set_pitch(&mut self, pitch: f32) {
+    pub fn set_pitch(&self, pitch: f32) {
         s_group_ffi::ma_sound_group_set_pitch(self, pitch);
     }
 
@@ -82,7 +82,7 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_is_spatialization_enabled(self)
     }
 
-    pub fn set_spatialization(&mut self, enabled: bool) {
+    pub fn set_spatialization(&self, enabled: bool) {
         s_group_ffi::ma_sound_group_set_spatialization_enabled(self, enabled);
     }
 
@@ -90,7 +90,7 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_get_pinned_listener_index(self)
     }
 
-    pub fn set_pinned_listener(&mut self, listener: u32) {
+    pub fn set_pinned_listener(&self, listener: u32) {
         s_group_ffi::ma_sound_group_set_pinned_listener_index(self, listener);
     }
 
@@ -102,7 +102,7 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_get_direction_to_listener(self)
     }
 
-    pub fn set_position(&mut self, vec: Vec3) {
+    pub fn set_position(&self, vec: Vec3) {
         s_group_ffi::ma_sound_group_set_position(self, vec);
     }
 
@@ -110,7 +110,7 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_get_position(self)
     }
 
-    pub fn set_direction(&mut self, vec: Vec3) {
+    pub fn set_direction(&self, vec: Vec3) {
         s_group_ffi::ma_sound_group_set_direction(self, vec);
     }
 
@@ -122,11 +122,11 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_get_velocity(self)
     }
 
-    pub fn set_velocity(&mut self, vec: Vec3) {
+    pub fn set_velocity(&self, vec: Vec3) {
         s_group_ffi::ma_sound_group_set_velocity(self, vec);
     }
 
-    pub fn set_attenuation(&mut self, model: AttenuationModel) {
+    pub fn set_attenuation(&self, model: AttenuationModel) {
         s_group_ffi::ma_sound_group_set_attenuation_model(self, model);
     }
 
@@ -138,7 +138,7 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_get_positioning(self)
     }
 
-    pub fn set_positioning(&mut self, positioning: Positioning) {
+    pub fn set_positioning(&self, positioning: Positioning) {
         s_group_ffi::ma_sound_group_set_positioning(self, positioning);
     }
 
@@ -146,7 +146,7 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_get_rolloff(self)
     }
 
-    pub fn set_rolloff(&mut self, rolloff: f32) {
+    pub fn set_rolloff(&self, rolloff: f32) {
         s_group_ffi::ma_sound_group_set_rolloff(self, rolloff);
     }
 
@@ -154,7 +154,7 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_get_min_gain(self)
     }
 
-    pub fn set_min_gain(&mut self, gain: f32) {
+    pub fn set_min_gain(&self, gain: f32) {
         s_group_ffi::ma_sound_group_set_min_gain(self, gain);
     }
 
@@ -162,7 +162,7 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_get_max_gain(self)
     }
 
-    pub fn set_max_gain(&mut self, gain: f32) {
+    pub fn set_max_gain(&self, gain: f32) {
         s_group_ffi::ma_sound_group_set_max_gain(self, gain);
     }
 
@@ -170,7 +170,7 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_get_min_distance(self)
     }
 
-    pub fn set_min_distance(&mut self, distance: f32) {
+    pub fn set_min_distance(&self, distance: f32) {
         s_group_ffi::ma_sound_group_set_min_distance(self, distance);
     }
 
@@ -178,7 +178,7 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_get_max_distance(self)
     }
 
-    pub fn set_max_distance(&mut self, distance: f32) {
+    pub fn set_max_distance(&self, distance: f32) {
         s_group_ffi::ma_sound_group_set_max_distance(self, distance);
     }
 
@@ -186,7 +186,7 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_get_cone(self)
     }
 
-    pub fn set_cone(&mut self, cone: Cone) {
+    pub fn set_cone(&self, cone: Cone) {
         s_group_ffi::ma_sound_group_set_cone(self, cone);
     }
 
@@ -194,19 +194,19 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_get_doppler_factor(self)
     }
 
-    pub fn set_doppler_factor(&mut self, factor: f32) {
+    pub fn set_doppler_factor(&self, factor: f32) {
         s_group_ffi::ma_sound_group_set_doppler_factor(self, factor);
     }
 
-    pub fn directional_attenuation(&mut self) -> f32 {
+    pub fn directional_attenuation(&self) -> f32 {
         s_group_ffi::ma_sound_group_get_directional_attenuation_factor(self)
     }
 
-    pub fn set_directional_attenuation(&mut self, factor: f32) {
+    pub fn set_directional_attenuation(&self, factor: f32) {
         s_group_ffi::ma_sound_group_set_directional_attenuation_factor(self, factor);
     }
 
-    pub fn set_fade_pcm(&mut self, vol_start: f32, vol_end: f32, fade_length_frames: u64) {
+    pub fn set_fade_pcm(&self, vol_start: f32, vol_end: f32, fade_length_frames: u64) {
         s_group_ffi::ma_sound_group_set_fade_in_pcm_frames(
             self,
             vol_start,
@@ -215,7 +215,7 @@ impl SoundGroup {
         );
     }
 
-    pub fn set_fade_mili(&mut self, vol_start: f32, vol_end: f32, fade_length_mili: u64) {
+    pub fn set_fade_mili(&self, vol_start: f32, vol_end: f32, fade_length_mili: u64) {
         s_group_ffi::ma_sound_group_set_fade_in_milliseconds(
             self,
             vol_start,
@@ -224,23 +224,23 @@ impl SoundGroup {
         );
     }
 
-    pub fn current_fade_volume(&mut self) -> f32 {
+    pub fn current_fade_volume(&self) -> f32 {
         s_group_ffi::ma_sound_group_get_current_fade_volume(self)
     }
 
-    pub fn set_start_time_pcm(&mut self, abs_time_frames: u64) {
+    pub fn set_start_time_pcm(&self, abs_time_frames: u64) {
         s_group_ffi::ma_sound_group_set_start_time_in_pcm_frames(self, abs_time_frames);
     }
 
-    pub fn set_start_time_mili(&mut self, abs_time_millis: u64) {
+    pub fn set_start_time_mili(&self, abs_time_millis: u64) {
         s_group_ffi::ma_sound_group_set_start_time_in_milliseconds(self, abs_time_millis);
     }
 
-    pub fn set_stop_time_pcm(&mut self, abs_time_frames: u64) {
+    pub fn set_stop_time_pcm(&self, abs_time_frames: u64) {
         s_group_ffi::ma_sound_group_set_stop_time_in_pcm_frames(self, abs_time_frames);
     }
 
-    pub fn set_stop_time_mili(&mut self, abs_time_millis: u64) {
+    pub fn set_stop_time_mili(&self, abs_time_millis: u64) {
         s_group_ffi::ma_sound_group_set_stop_time_in_milliseconds(self, abs_time_millis);
     }
 
@@ -248,7 +248,7 @@ impl SoundGroup {
         s_group_ffi::ma_sound_group_is_playing(self)
     }
 
-    pub fn time_pcm(&mut self) -> u64 {
+    pub fn time_pcm(&self) -> u64 {
         s_group_ffi::ma_sound_group_get_time_in_pcm_frames(self)
     }
 
@@ -292,7 +292,7 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_uninit(s_group: &mut SoundGroup) {
+    pub fn ma_sound_group_uninit(s_group: &SoundGroup) {
         unsafe { sys::ma_sound_group_uninit(s_group.to_raw()) };
     }
 
@@ -304,19 +304,19 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_start(s_group: &mut SoundGroup) -> MaResult<()> {
+    pub fn ma_sound_group_start(s_group: &SoundGroup) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_group_start(s_group.to_raw()) };
         MaudioError::check(res)
     }
 
     #[inline]
-    pub fn ma_sound_group_stop(s_group: &mut SoundGroup) -> MaResult<()> {
+    pub fn ma_sound_group_stop(s_group: &SoundGroup) -> MaResult<()> {
         let res = unsafe { sys::ma_sound_group_stop(s_group.to_raw()) };
         MaudioError::check(res)
     }
 
     #[inline]
-    pub fn ma_sound_group_set_volume(s_group: &mut SoundGroup, volume: f32) {
+    pub fn ma_sound_group_set_volume(s_group: &SoundGroup, volume: f32) {
         unsafe {
             sys::ma_sound_group_set_volume(s_group.to_raw(), volume);
         }
@@ -328,7 +328,7 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_set_pan(s_group: &mut SoundGroup, pan: f32) {
+    pub fn ma_sound_group_set_pan(s_group: &SoundGroup, pan: f32) {
         unsafe { sys::ma_sound_group_set_pan(s_group.to_raw(), pan) };
     }
 
@@ -338,7 +338,7 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_set_pan_mode(s_group: &mut SoundGroup, pan_mode: PanMode) {
+    pub fn ma_sound_group_set_pan_mode(s_group: &SoundGroup, pan_mode: PanMode) {
         unsafe { sys::ma_sound_group_set_pan_mode(s_group.to_raw(), pan_mode.into()) }
     }
 
@@ -349,7 +349,7 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_set_pitch(s_group: &mut SoundGroup, pitch: f32) {
+    pub fn ma_sound_group_set_pitch(s_group: &SoundGroup, pitch: f32) {
         unsafe { sys::ma_sound_group_set_pitch(s_group.to_raw(), pitch) }
     }
 
@@ -359,7 +359,7 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_set_spatialization_enabled(s_group: &mut SoundGroup, enabled: bool) {
+    pub fn ma_sound_group_set_spatialization_enabled(s_group: &SoundGroup, enabled: bool) {
         let enabled = enabled as sys::ma_bool32;
         unsafe { sys::ma_sound_group_set_spatialization_enabled(s_group.to_raw(), enabled) }
     }
@@ -372,7 +372,7 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_set_pinned_listener_index(s_group: &mut SoundGroup, listener_idx: u32) {
+    pub fn ma_sound_group_set_pinned_listener_index(s_group: &SoundGroup, listener_idx: u32) {
         unsafe { sys::ma_sound_group_set_pinned_listener_index(s_group.to_raw(), listener_idx) }
     }
 
@@ -394,7 +394,7 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_set_position(s_group: &mut SoundGroup, vec3: Vec3) {
+    pub fn ma_sound_group_set_position(s_group: &SoundGroup, vec3: Vec3) {
         unsafe {
             sys::ma_sound_group_set_position(s_group.to_raw(), vec3.x, vec3.y, vec3.z);
         }
@@ -407,7 +407,7 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_set_direction(s_group: &mut SoundGroup, vec3: Vec3) {
+    pub fn ma_sound_group_set_direction(s_group: &SoundGroup, vec3: Vec3) {
         unsafe { sys::ma_sound_group_set_direction(s_group.to_raw(), vec3.x, vec3.y, vec3.z) }
     }
 
@@ -418,7 +418,7 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_set_velocity(s_group: &mut SoundGroup, vec3: Vec3) {
+    pub fn ma_sound_group_set_velocity(s_group: &SoundGroup, vec3: Vec3) {
         unsafe { sys::ma_sound_group_set_velocity(s_group.to_raw(), vec3.x, vec3.y, vec3.z) }
     }
 
@@ -429,7 +429,7 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_set_attenuation_model(s_group: &mut SoundGroup, model: AttenuationModel) {
+    pub fn ma_sound_group_set_attenuation_model(s_group: &SoundGroup, model: AttenuationModel) {
         unsafe { sys::ma_sound_group_set_attenuation_model(s_group.to_raw(), model.into()) }
     }
 
@@ -443,7 +443,7 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_set_positioning(s_group: &mut SoundGroup, positioning: Positioning) {
+    pub fn ma_sound_group_set_positioning(s_group: &SoundGroup, positioning: Positioning) {
         unsafe { sys::ma_sound_group_set_positioning(s_group.to_raw(), positioning.into()) }
     }
 
@@ -454,7 +454,7 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_set_rolloff(s_group: &mut SoundGroup, rolloff: f32) {
+    pub fn ma_sound_group_set_rolloff(s_group: &SoundGroup, rolloff: f32) {
         unsafe { sys::ma_sound_group_set_rolloff(s_group.to_raw(), rolloff) }
     }
 
@@ -464,7 +464,7 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_set_min_gain(s_group: &mut SoundGroup, min_gain: f32) {
+    pub fn ma_sound_group_set_min_gain(s_group: &SoundGroup, min_gain: f32) {
         unsafe { sys::ma_sound_group_set_min_gain(s_group.to_raw(), min_gain) }
     }
 
@@ -474,7 +474,7 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_set_max_gain(s_group: &mut SoundGroup, max_gain: f32) {
+    pub fn ma_sound_group_set_max_gain(s_group: &SoundGroup, max_gain: f32) {
         unsafe { sys::ma_sound_group_set_max_gain(s_group.to_raw(), max_gain) }
     }
 
@@ -484,7 +484,7 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_set_min_distance(s_group: &mut SoundGroup, min_distance: f32) {
+    pub fn ma_sound_group_set_min_distance(s_group: &SoundGroup, min_distance: f32) {
         unsafe { sys::ma_sound_group_set_min_distance(s_group.to_raw(), min_distance) }
     }
 
@@ -494,7 +494,7 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_set_max_distance(s_group: &mut SoundGroup, max_distance: f32) {
+    pub fn ma_sound_group_set_max_distance(s_group: &SoundGroup, max_distance: f32) {
         unsafe { sys::ma_sound_group_set_max_distance(s_group.to_raw(), max_distance) }
     }
 
@@ -504,7 +504,7 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_set_cone(s_group: &mut SoundGroup, cone: Cone) {
+    pub fn ma_sound_group_set_cone(s_group: &SoundGroup, cone: Cone) {
         unsafe {
             sys::ma_sound_group_set_cone(
                 s_group.to_raw(),
@@ -538,7 +538,7 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_set_doppler_factor(s_group: &mut SoundGroup, doppler_factor: f32) {
+    pub fn ma_sound_group_set_doppler_factor(s_group: &SoundGroup, doppler_factor: f32) {
         unsafe { sys::ma_sound_group_set_doppler_factor(s_group.to_raw(), doppler_factor) }
     }
 
@@ -549,7 +549,7 @@ pub(crate) mod s_group_ffi {
 
     #[inline]
     pub fn ma_sound_group_set_directional_attenuation_factor(
-        s_group: &mut SoundGroup,
+        s_group: &SoundGroup,
         dir_attenuation_factor: f32,
     ) {
         unsafe {
@@ -569,7 +569,7 @@ pub(crate) mod s_group_ffi {
 
     #[inline]
     pub fn ma_sound_group_set_fade_in_pcm_frames(
-        s_group: &mut SoundGroup,
+        s_group: &SoundGroup,
         volume_start: f32,
         volume_end: f32,
         fade_length_frames: u64,
@@ -586,7 +586,7 @@ pub(crate) mod s_group_ffi {
 
     #[inline]
     pub fn ma_sound_group_set_fade_in_milliseconds(
-        s_group: &mut SoundGroup,
+        s_group: &SoundGroup,
         volume_start: f32,
         volume_end: f32,
         fade_length_mili: u64,
@@ -602,45 +602,33 @@ pub(crate) mod s_group_ffi {
     }
 
     #[inline]
-    pub fn ma_sound_group_get_current_fade_volume(s_group: &mut SoundGroup) -> f32 {
+    pub fn ma_sound_group_get_current_fade_volume(s_group: &SoundGroup) -> f32 {
         unsafe { sys::ma_sound_group_get_current_fade_volume(s_group.to_raw()) }
     }
 
     #[inline]
-    pub fn ma_sound_group_set_start_time_in_pcm_frames(
-        s_group: &mut SoundGroup,
-        abs_time_frames: u64,
-    ) {
+    pub fn ma_sound_group_set_start_time_in_pcm_frames(s_group: &SoundGroup, abs_time_frames: u64) {
         unsafe {
             sys::ma_sound_group_set_start_time_in_pcm_frames(s_group.to_raw(), abs_time_frames);
         }
     }
 
     #[inline]
-    pub fn ma_sound_group_set_start_time_in_milliseconds(
-        s_group: &mut SoundGroup,
-        abs_time_mili: u64,
-    ) {
+    pub fn ma_sound_group_set_start_time_in_milliseconds(s_group: &SoundGroup, abs_time_mili: u64) {
         unsafe {
             sys::ma_sound_group_set_start_time_in_milliseconds(s_group.to_raw(), abs_time_mili);
         }
     }
 
     #[inline]
-    pub fn ma_sound_group_set_stop_time_in_pcm_frames(
-        s_group: &mut SoundGroup,
-        abs_time_frames: u64,
-    ) {
+    pub fn ma_sound_group_set_stop_time_in_pcm_frames(s_group: &SoundGroup, abs_time_frames: u64) {
         unsafe {
             sys::ma_sound_group_set_stop_time_in_pcm_frames(s_group.to_raw(), abs_time_frames);
         }
     }
 
     #[inline]
-    pub fn ma_sound_group_set_stop_time_in_milliseconds(
-        s_group: &mut SoundGroup,
-        abs_time_mili: u64,
-    ) {
+    pub fn ma_sound_group_set_stop_time_in_milliseconds(s_group: &SoundGroup, abs_time_mili: u64) {
         unsafe {
             sys::ma_sound_group_set_stop_time_in_milliseconds(s_group.to_raw(), abs_time_mili);
         }
@@ -683,8 +671,8 @@ impl<'a> SoundGroupBuilder<'a> {
     }
 
     pub fn build(&self) -> MaResult<SoundGroup> {
-        let mut group = self.new_sound_group(self.engine.0.clone())?;
-        self.configure_sound_group(&mut group);
+        let group = self.new_sound_group(self.engine.0.clone())?;
+        self.configure_sound_group(&group);
         Ok(group)
     }
 
@@ -809,7 +797,7 @@ impl<'a> SoundGroupBuilder<'a> {
         (millis.max(0.0) * sr / 1000.0).round() as u64
     }
 
-    fn configure_sound_group(&self, sound: &mut SoundGroup) {
+    fn configure_sound_group(&self, sound: &SoundGroup) {
         if let Some(min_d) = self.state.min_distance {
             sound.set_min_distance(min_d)
         };
@@ -872,14 +860,14 @@ mod test {
     #[test]
     fn test_sound_group_basic() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
         let _engine_ref = s_group.engine();
     }
 
     #[test]
     fn test_sound_group_start_stop_smoke() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
 
         // These are just smoke tests; depending on backend/device, playing() may be false.
         s_group.start().unwrap();
@@ -889,7 +877,7 @@ mod test {
     #[test]
     fn test_sound_group_volume_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
 
         s_group.set_volume(0.25);
         let v = s_group.volume();
@@ -903,7 +891,7 @@ mod test {
     #[test]
     fn test_sound_group_pan_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
 
         s_group.set_pan(-0.5);
         assert_approx_eq(s_group.pan(), -0.5, 1e-6);
@@ -915,7 +903,7 @@ mod test {
     #[test]
     fn test_sound_group_pan_mode_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
 
         // Use variants that exist in your PanMode enum.
         // Common miniaudio ones: PanMode::Balance, PanMode::Pan
@@ -929,7 +917,7 @@ mod test {
     #[test]
     fn test_sound_group_pitch_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
 
         s_group.set_pitch(0.5);
         assert_approx_eq(s_group.pitch(), 0.5, 1e-6);
@@ -941,7 +929,7 @@ mod test {
     #[test]
     fn test_sound_group_spatialization_toggle() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
 
         s_group.set_spatialization(false);
         assert!(!s_group.spatialization());
@@ -956,7 +944,7 @@ mod test {
             .listener_count(2)
             .build_for_tests()
             .unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
 
         s_group.set_pinned_listener(0);
         assert_eq!(s_group.pinned_listener(), 0);
@@ -975,7 +963,7 @@ mod test {
     #[test]
     fn test_sound_group_position_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
 
         let p = Vec3 {
             x: 1.0,
@@ -990,7 +978,7 @@ mod test {
     #[test]
     fn test_sound_group_direction_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
 
         let d = Vec3 {
             x: 0.0,
@@ -1005,7 +993,7 @@ mod test {
     #[test]
     fn test_sound_group_velocity_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
 
         let v = Vec3 {
             x: -1.0,
@@ -1029,7 +1017,7 @@ mod test {
     #[test]
     fn test_sound_group_attenuation_model_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
 
         // Use variants that exist in your AttenuationModel enum.
         s_group.set_attenuation(AttenuationModel::None);
@@ -1042,7 +1030,7 @@ mod test {
     #[test]
     fn test_sound_group_positioning_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
 
         s_group.set_positioning(Positioning::Absolute);
         assert_eq!(s_group.positioning().unwrap(), Positioning::Absolute);
@@ -1054,7 +1042,7 @@ mod test {
     #[test]
     fn test_sound_group_rolloff_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
 
         s_group.set_rolloff(0.75);
         assert_approx_eq(s_group.rolloff(), 0.75, 1e-6);
@@ -1063,7 +1051,7 @@ mod test {
     #[test]
     fn test_sound_group_min_max_gain_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
 
         s_group.set_min_gain(0.1);
         assert_approx_eq(s_group.min_gain(), 0.1, 1e-6);
@@ -1075,7 +1063,7 @@ mod test {
     #[test]
     fn test_sound_group_min_max_distance_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
 
         s_group.set_min_distance(1.25);
         assert_approx_eq(s_group.min_distance(), 1.25, 1e-6);
@@ -1087,7 +1075,7 @@ mod test {
     #[test]
     fn test_sound_group_cone_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
 
         let c = Cone {
             inner_angle_rad: 0.5,
@@ -1106,7 +1094,7 @@ mod test {
     #[test]
     fn test_sound_group_doppler_factor_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
 
         s_group.set_doppler_factor(1.5);
         assert_approx_eq(s_group.doppler_factor(), 1.5, 1e-6);
@@ -1115,7 +1103,7 @@ mod test {
     #[test]
     fn test_sound_group_directional_attenuation_roundtrip() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
 
         s_group.set_directional_attenuation(0.6);
         assert_approx_eq(s_group.directional_attenuation(), 0.6, 1e-6);
@@ -1124,7 +1112,7 @@ mod test {
     #[test]
     fn test_sound_group_fade_api_smoke() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
 
         // Not possible to reliably assert current_fade_volume() without running audio;
         // this just ensures the calls are wired correctly.
@@ -1138,7 +1126,7 @@ mod test {
     #[test]
     fn test_sound_group_start_stop_time_api_smoke() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
 
         s_group.set_start_time_pcm(0);
         s_group.set_stop_time_pcm(0);
@@ -1150,7 +1138,7 @@ mod test {
     #[test]
     fn test_sound_group_playing_and_time_pcm_smoke() {
         let engine = Engine::new_for_tests().unwrap();
-        let mut s_group = engine.new_sound_group().unwrap();
+        let s_group = engine.new_sound_group().unwrap();
 
         let _is_playing = s_group.is_playing();
         let _t = s_group.time_pcm();
