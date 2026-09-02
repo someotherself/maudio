@@ -30,11 +30,11 @@ fn main() -> MaResult<()> {
         .build_f32()?;
 
     let graph = engine.as_node_graph();
-    let mut src_node = SourceNodeBuilder::new(&graph, &wave_src_2).build()?;
+    let src_node = SourceNodeBuilder::new(&graph, &wave_src_2).build()?;
 
     // Connect a second source node to the endpoint. They will be mixed there
-    let mut end_node = graph.endpoint();
-    src_node.attach_output_bus(0, &mut end_node, 0)?;
+    let end_node = graph.endpoint();
+    src_node.attach_output_bus(0, &end_node, 0)?;
 
     // Start the sound
     // The source node added earlier will start feeding sound into the engine immediately.

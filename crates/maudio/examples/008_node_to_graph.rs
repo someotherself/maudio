@@ -49,17 +49,17 @@ fn main() -> MaResult<()> {
 
     // Create a low-pass filter node that will process the sound before it
     // reaches the final output.
-    let mut lpf = LpfNodeBuilder::new(&node_graph, 2, SampleRate::Sr48000, 800.0, 1).build()?;
+    let lpf = LpfNodeBuilder::new(&node_graph, 2, SampleRate::Sr48000, 800.0, 1).build()?;
 
     // The endpoint is the final output node of the graph.
     //
     // Every source node in the node graph can be routed to the endpoint
     // and all the sounds wil be mixed there and will exit the node graph.
-    let mut end_node = node_graph.endpoint();
+    let end_node = node_graph.endpoint();
 
     // Create a sound source and access its node handle.
     let source = engine.new_sound_from_file(&path)?;
-    let mut source_node = source.as_node();
+    let source_node = source.as_node();
 
     // Sounds are normally connected automatically when created.
     // Disconnect this one so we can define a custom signal path.
@@ -69,8 +69,8 @@ fn main() -> MaResult<()> {
 
     // Re-route the signal:
     // Sound -> low-pass filter -> graph endpoint
-    source_node.attach_output_bus(0, &mut lpf, 0)?;
-    lpf.attach_output_bus(0, &mut end_node, 0)?;
+    source_node.attach_output_bus(0, &lpf, 0)?;
+    lpf.attach_output_bus(0, &end_node, 0)?;
 
     source.play_sound()?;
     println!("Stopping in 5 seconds...");

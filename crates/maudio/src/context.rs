@@ -45,6 +45,7 @@ use crate::{
         device_info::{DeviceBasicInfo, DeviceInfo, Devices},
         device_type::DeviceType,
     },
+    logging::{Log, LogInner, StoredLogs},
     AllocationCallbacks, AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
 };
 
@@ -63,8 +64,11 @@ pub struct Context {
     inner: Arc<ContextInner>,
 }
 
-pub(crate) struct ContextInner {
+#[doc(hidden)]
+pub struct ContextInner {
     inner: *mut sys::ma_context,
+    _log: Option<Arc<LogInner>>,
+    pub(crate) logs: StoredLogs,
 }
 
 impl Binding for ContextInner {
@@ -332,7 +336,7 @@ pub trait ContextOps: AsContextPtr {
 
 // Private methods
 impl Context {
-    fn new_with_config(config: &ContextBuilder) -> MaResult<Self> {
+    fn new_with_config(config: &mut ContextBuilder) -> MaResult<Self> {
         let mut mem: Box<MaybeUninit<sys::ma_context>> = Box::new(MaybeUninit::uninit());
 
         context_ffi::ma_context_init(config.backends, config, mem.as_mut_ptr())?;
@@ -340,7 +344,11 @@ impl Context {
         let inner: *mut sys::ma_context = Box::into_raw(mem) as *mut sys::ma_context;
 
         Ok(Self {
-            inner: Arc::new(ContextInner { inner }),
+            inner: Arc::new(ContextInner {
+                inner,
+                _log: config.log.take(),
+                logs: StoredLogs::default(),
+            }),
         })
     }
 }
@@ -354,6 +362,7 @@ pub(crate) mod context_ffi {
         backend::Backend,
         context::{private_context, AsContextPtr, Context, ContextBuilder, ContextInner},
         device::{device_id::DeviceId, device_info::DeviceInfo, device_type::DeviceType},
+        logging::{LogOwner, LogRef},
         AsRawRef, Binding, MaResult, MaudioError,
     };
 
@@ -392,12 +401,11 @@ pub(crate) mod context_ffi {
     // TODO: Implement log
     #[inline]
     #[allow(dead_code)]
-    pub fn ma_context_get_log(context: &Context) -> Option<*mut sys::ma_log> {
+    pub fn ma_context_get_log(context: &Context) -> LogRef {
         let ptr = unsafe { sys::ma_context_get_log(context.to_raw()) };
-        if ptr.is_null() {
-            None
-        } else {
-            Some(ptr)
+        LogRef {
+            inner: ptr,
+            _owner: LogOwner::Context(context.inner.clone()),
         }
     }
 
@@ -482,6 +490,7 @@ impl Drop for ContextInner {
 pub struct ContextBuilder<'a> {
     inner: sys::ma_context_config,
     backends: Option<&'a [Backend]>,
+    log: Option<Arc<LogInner>>,
 }
 
 impl AsRawRef for ContextBuilder<'_> {
@@ -507,8 +516,15 @@ impl<'a> ContextBuilder<'a> {
         }
         Self {
             inner,
+            log: None,
             backends: None,
         }
+    }
+
+    pub fn log(&mut self, log: &Log) -> &mut Self {
+        self.log = Some(log.0.clone());
+        self.inner.pLog = log.to_raw();
+        self
     }
 
     /// Sets the thread priority used by internal context threads, if applicable.
@@ -536,7 +552,7 @@ impl<'a> ContextBuilder<'a> {
         self
     }
 
-    pub fn build(&self) -> MaResult<Context> {
+    pub fn build(&mut self) -> MaResult<Context> {
         let ctx = Context::new_with_config(self)?;
         Ok(ctx)
     }

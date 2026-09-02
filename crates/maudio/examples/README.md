@@ -34,6 +34,7 @@ If you already cloned it without submodules, run:
 - 109_splitter_node           - Create a very basic splitter node using custom node interface
 - 110_gain_node               - Create a custom gain node and connect it to an Engine
 - 111_decoder_symphonia       - Custom decoder implementation using symphonia with a resource manager
+- 112_engine_logging          - An example on how the logging works with the Engine
 
 -> Examples using the low level API
 - 201_device_playback         - Use a device and decoder for playback

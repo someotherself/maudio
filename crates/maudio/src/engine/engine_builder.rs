@@ -12,6 +12,7 @@ use crate::{
         resource::{private_rm, ResourceManager},
         Engine,
     },
+    logging::{Log, LogInner},
     util::{device_notif::DeviceStateNotifier, proc_notif::ProcFramesNotif},
     AllocationCallbacks, AsRawRef, Binding, MaResult,
 };
@@ -19,7 +20,8 @@ use crate::{
 pub struct EngineBuilder {
     pub(crate) inner: sys::ma_engine_config,
     pub(crate) playback_device_id: Option<DeviceId>,
-    pub(crate) device: Option<Arc<DeviceInner<f32>>>, // a ref count, not ownership
+    pub(crate) device: Option<Arc<DeviceInner>>, // a ref count, not ownership
+    pub(crate) log: Option<Arc<LogInner>>,       // a ref count, not ownership
     pub(crate) resource_manager: Option<ResourceManager<f32>>, // a ref count, not ownership
     pub(crate) process_data: EngineProcessCbData,
 }
@@ -53,6 +55,7 @@ impl EngineBuilder {
             inner,
             playback_device_id: None,
             device: None,
+            log: None,
             resource_manager: None,
             process_data: EngineProcessCbData {
                 process_data_ptr: None,
@@ -61,6 +64,12 @@ impl EngineBuilder {
                 state_notif: None,
             },
         }
+    }
+
+    pub fn logger(&mut self, log: &Log) -> &mut Self {
+        self.inner.pLog = log.to_raw();
+        self.log = Some(log.0.clone());
+        self
     }
 
     // If set, the caller is responsible for calling ma_engine_data_callback() in the device's data callback.

@@ -1,4 +1,4 @@
-# Rust bindings to the miniaudio library
+# A comprehensive Rust audio library powered by miniaudio
 
 ### To learn more about miniaudio, check https://miniaud.io/ and https://github.com/mackron/miniaudio
 
@@ -6,6 +6,7 @@
 - The crate is currently locked to miniaudio version **0.11.23**
 
 miniaudio does not guarantee a stable ABI, even between minor releases. The same applies to maudio.
+See [CHANGELOG](../../CHANGELOG.md) for more details.
 
 # Building
 
@@ -74,7 +75,19 @@ While exposing a very easy-to-use interface, the Engine only allows playback and
 
 ## High Level API
 
-The high level API is built around an audio **Engine**. Under the hood, the engine consists of:
+The high level API is built around an audio **Engine**.
+
+Despite the functionality contained in the high-level API, most applications only need to manage an Engine and their active Sounds. The engine owns the playback device, resource manager, and node graph, while each sound is automatically connected to the engine’s output. A typical application-level audio system can therefore be as small as:
+
+```rust
+struct Audio {
+    engine: Engine,
+    sounds: HashMap<u64, Sound>,
+}
+```
+This is enough to load or stream sounds, play and pause them, loop or seek, control their volume and spatial properties, and keep them alive for as long as the application needs them. The lower-level components remain available when custom routing, DSP, capture, or direct device control is required.
+
+Under the hood, the engine consists of:
 - **ResourceManager**: It is responsible for loading sounds into memory or streaming them. It is also responsible for refence counting them to avoid loading sounds into memory multiple times.
 It also has a **Decoder** and can decode audio either before or after it is loaded into memory.
 - **NodeGraph**: It is a directed graph of audio processing units called Nodes. Nodes can be audio sources (such as sounds or waveforms), processing units (DSP, filters, splitters), or endpoints. Audio data flows through the graph from source nodes, through optional processing nodes, and finally into the endpoint.
@@ -125,6 +138,11 @@ Use the low level API when you need full control over how audio is generated, pr
     sound.play_sound().unwrap();
     // block thread while music plays
 ```
+Sounds can also be streamed, or fully decoded in memory:
+```rust
+    let sound = engine.new_sound_from_file_with_flags(&path, SoundFlags::DECODE, None)?;
+    let sound = engine.new_sound_from_file_with_flags(&path, SoundFlags::STREAM, None)?;
+```
 
 `WaveForm` is a `DataSource`. A data source can be wrapped by a `Sound` or by a `SourceNode`.
 A `SourceNode` or any `Node` needs to be piped into the `NodeGraph` manually.
@@ -160,22 +178,22 @@ Maudio also comes with a variety of custom nodes with the more common functional
     let node_graph = engine.as_node_graph();
 
     // Create a custom node (low pass filter node)
-    let mut lpf = LpfNodeBuilder::new(&node_graph, 2, SampleRate::Sr48000, 800.0, 1).build()?;
+    let lpf = LpfNodeBuilder::new(&node_graph, 2, SampleRate::Sr48000, 800.0, 1).build()?;
 
     // The ENDPOINT
-    let mut end_node = node_graph.endpoint();
+    let end_node = node_graph.endpoint();
 
     // The SOURCE (sound)
     let source = engine.new_sound_from_file(&path)?;
-    let mut source_node = source.as_node(); // Gets a `NodeRef` to the `Sound`
+    let source_node = source.as_node(); // Gets a `NodeRef` to the `Sound`
 
     // Disconnect the source
     source_node.detach_all_outputs()?;
 
     // Wire the new node in. LpfNode can pass around as a NodeRef implicitly.
     // attach_output_bus takes in the output bus of the current node and input bus of the upstream node (in this case, the lpf node)
-    source_node.attach_output_bus(0, &mut lpf, 0)?;
-    lpf.attach_output_bus(0, &mut end_node, 0)?;
+    source_node.attach_output_bus(0, &lpf, 0)?;
+    lpf.attach_output_bus(0, &end_node, 0)?;
 
     source.play_sound()?;
     println!("Stopping in 5 seconds...");
@@ -289,7 +307,7 @@ A more robust version of this can use the `PcmRingBuffer`.
 
     let node_graph = NodeGraphBuilder::new(channels).build()?;
     let mut reader = node_graph.try_acquire_reader()?;
-    let mut endpoint = node_graph.endpoint();
+    let endpoint = node_graph.endpoint();
 
     // This gives us an audio buffer that does not have a source
     // Later, we can bind it to the input buffer of the device callback
@@ -299,9 +317,9 @@ A more robust version of this can use the `PcmRingBuffer`.
     let mut src_node = AttachedSourceNodeBuilder::new(&node_graph, buffer_base).build()?;
 
     // The source node must live in the callback. Connect it to a splitter and store that for later use
-    let mut splitter = SplitterNodeBuilder::new(&node_graph, channels).build()?;
-    src_node.attach_output_bus(0, &mut splitter, 0)?;
-    splitter.attach_output_bus(0, &mut endpoint, 0)?;
+    let splitter = SplitterNodeBuilder::new(&node_graph, channels).build()?;
+    src_node.attach_output_bus(0, &splitter, 0)?;
+    splitter.attach_output_bus(0, &endpoint, 0)?;
 
     // The splitter can now be moved and store somewhere if needed
 
