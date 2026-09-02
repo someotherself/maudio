@@ -95,7 +95,8 @@ pub struct AttachedSourceNode<S: AsSourcePtr> {
     pub(crate) owner: GraphOwner,
 }
 
-unsafe impl<S: AsSourcePtr> Send for AttachedSourceNode<S> {}
+unsafe impl<S: AsSourcePtr> Send for AttachedSourceNode<S> where S: Send {}
+unsafe impl<S: AsSourcePtr> Sync for AttachedSourceNode<S> where S: Sync {}
 
 impl<S: AsSourcePtr> Binding for AttachedSourceNode<S> {
     type Raw = *mut sys::ma_data_source_node;

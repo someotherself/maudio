@@ -1,5 +1,5 @@
 //! A collection of sounds that can be controlled as a single Sound instance
-use std::{cell::Cell, marker::PhantomData, mem::MaybeUninit, sync::Arc};
+use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
 
 use maudio_sys::ffi as sys;
 
@@ -19,9 +19,11 @@ use crate::{
 
 pub struct SoundGroup {
     inner: *mut sys::ma_sound_group,
-    _not_sync: PhantomData<Cell<()>>,
     _engine: Arc<EngineInner>,
 }
+
+unsafe impl Send for SoundGroup {}
+unsafe impl Sync for SoundGroup {}
 
 impl Binding for SoundGroup {
     type Raw = *mut sys::ma_sound_group;
@@ -836,7 +838,6 @@ impl<'a> SoundGroupBuilder<'a> {
         let inner: *mut sys::ma_sound_group = Box::into_raw(mem) as *mut sys::ma_sound_group;
         Ok(SoundGroup {
             inner,
-            _not_sync: PhantomData,
             _engine: engine,
         })
     }

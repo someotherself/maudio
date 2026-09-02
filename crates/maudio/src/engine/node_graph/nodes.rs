@@ -111,7 +111,6 @@ impl TryFrom<sys::ma_node_state> for NodeState {
 /// See [`NodeBuilder`](crate::engine::node_graph::node_builder)
 pub struct Node<C> {
     pub(crate) inner: *mut NodeInner<C>,
-    _not_sync: PhantomData<Cell<()>>,
 }
 
 #[repr(C)]
@@ -122,11 +121,10 @@ pub(crate) struct NodeInner<C> {
     pub(crate) custom: C,
     pub(crate) op: NodeFunction,
     pub(crate) owner: GraphOwner,
-    pub(crate) _not_sync: PhantomData<Cell<()>>,
 }
 
-unsafe impl<C> Send for NodeInner<C> {}
-unsafe impl<C> Sync for NodeInner<C> {}
+unsafe impl<C> Send for NodeInner<C> where C: Send {}
+unsafe impl<C> Sync for NodeInner<C> where C: Sync {}
 
 impl<C> AsRawRef for Node<C> {
     type Raw = sys::ma_node_base;
@@ -218,7 +216,6 @@ impl<C> Node<C> {
             custom,
             op,
             owner: private_node_graph::clone_owner(node_graph),
-            _not_sync: PhantomData,
         });
 
         let base_ptr = core::ptr::addr_of_mut!(inner.base);
@@ -234,7 +231,6 @@ impl<C> Node<C> {
 
         Ok(Node {
             inner: inner_ptr,
-            _not_sync: PhantomData,
         })
     }
 
@@ -272,7 +268,6 @@ impl<C> Node<C> {
             custom,
             op,
             owner: private_node_graph::clone_owner(node_graph),
-            _not_sync: PhantomData,
         });
 
         let base_ptr = core::ptr::addr_of_mut!(inner.base);
@@ -288,7 +283,6 @@ impl<C> Node<C> {
 
         Ok(Node {
             inner: inner_ptr,
-            _not_sync: PhantomData,
         })
     }
 }

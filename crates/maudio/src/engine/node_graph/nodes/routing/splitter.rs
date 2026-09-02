@@ -60,6 +60,7 @@ pub struct SplitterNode {
 }
 
 unsafe impl Send for SplitterNode {}
+unsafe impl Sync for SplitterNode {}
 
 impl Binding for SplitterNode {
     type Raw = *mut sys::ma_splitter_node;

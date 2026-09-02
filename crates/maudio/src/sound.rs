@@ -57,7 +57,6 @@ impl SoundSource<'_> {
 pub struct Sound {
     inner: *mut sys::ma_sound,
     _engine: Arc<EngineInner>,
-    _not_sync: PhantomData<Cell<()>>,
     // Miniaudio stores only one ma_sound_end_proc and pUserData per ma_sound.
     // One end_notifier at a time will be ok
     _fence: Option<Fence>, // Ref count
@@ -504,7 +503,6 @@ impl Sound {
         Sound {
             inner,
             _engine: engine,
-            _not_sync: PhantomData,
             _fence: fence,
             end_notifier,
         }
