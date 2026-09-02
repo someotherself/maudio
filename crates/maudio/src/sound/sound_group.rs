@@ -1,5 +1,5 @@
 //! A collection of sounds that can be controlled as a single Sound instance
-use std::{marker::PhantomData, mem::MaybeUninit, sync::Arc};
+use std::{mem::MaybeUninit, sync::Arc};
 
 use maudio_sys::ffi as sys;
 

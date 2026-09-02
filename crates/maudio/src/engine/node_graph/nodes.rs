@@ -229,9 +229,7 @@ impl<C> Node<C> {
             inner_ptr.cast::<u8>(),
         );
 
-        Ok(Node {
-            inner: inner_ptr,
-        })
+        Ok(Node { inner: inner_ptr })
     }
 
     pub(crate) fn build_required_frames<N>(
@@ -281,9 +279,7 @@ impl<C> Node<C> {
             inner_ptr.cast::<u8>(),
         );
 
-        Ok(Node {
-            inner: inner_ptr,
-        })
+        Ok(Node { inner: inner_ptr })
     }
 }
 
