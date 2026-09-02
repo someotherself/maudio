@@ -1,3 +1,11 @@
+# maudio v0.1.14 - 02 Sept 2026 (non-breaking)
+- device backends now passed as IntoInterator
+- inline sounds added (engine.play_one_shot)
+- Log, LogRef now implemented
+- debug-build feature added
+- &mut self functions on NodeOps now take &self
+- maudio-sys bump (debug-build feature)
+
 # maudio v0.1.13 - 28 Aug 2026 (breaking)
 - use-global-allocator feature added
 - decoupled native format from output format in CustomDecoder (breaking)
@@ -11,7 +19,7 @@
 
 # maudio v0.1.11 - 18 Aug 2026 (breaking)
 - bug fix in DataSource vtable
-- Backend feature removed (no-wasapi, no-alsa etc) (breaking)
+- Backend features removed (no-wasapi, no-alsa etc) (breaking)
 - (get) cursor_pcm fixed for Decoder
 
 # maudio v0.1.10 - 15 Aug 2026 (non-breaking)
