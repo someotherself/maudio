@@ -2,8 +2,6 @@
 //!
 //! This module defines [`Sound`], an engine-managed audio voice.
 use std::{
-    cell::Cell,
-    marker::PhantomData,
     path::{Path, PathBuf},
     sync::Arc,
 };
