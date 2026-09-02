@@ -75,7 +75,19 @@ While exposing a very easy-to-use interface, the Engine only allows playback and
 
 ## High Level API
 
-The high level API is built around an audio **Engine**. Under the hood, the engine consists of:
+The high level API is built around an audio **Engine**.
+
+Despite the functionality contained in the high-level API, most applications only need to manage an Engine and their active Sounds. The engine owns the playback device, resource manager, and node graph, while each sound is automatically connected to the engine’s output. A typical application-level audio system can therefore be as small as:
+
+```rust
+struct Audio {
+    engine: Engine,
+    sounds: HashMap<u64, Sound>,
+}
+```
+This is enough to load or stream sounds, play and pause them, loop or seek, control their volume and spatial properties, and keep them alive for as long as the application needs them. The lower-level components remain available when custom routing, DSP, capture, or direct device control is required.
+
+Under the hood, the engine consists of:
 - **ResourceManager**: It is responsible for loading sounds into memory or streaming them. It is also responsible for refence counting them to avoid loading sounds into memory multiple times.
 It also has a **Decoder** and can decode audio either before or after it is loaded into memory.
 - **NodeGraph**: It is a directed graph of audio processing units called Nodes. Nodes can be audio sources (such as sounds or waveforms), processing units (DSP, filters, splitters), or endpoints. Audio data flows through the graph from source nodes, through optional processing nodes, and finally into the endpoint.
@@ -125,6 +137,11 @@ Use the low level API when you need full control over how audio is generated, pr
     let sound = engine.new_sound_from_file(&path).unwrap();
     sound.play_sound().unwrap();
     // block thread while music plays
+```
+Sounds can also be streamed, or fully decoded in memory:
+```rust
+    let sound = engine.new_sound_from_file_with_flags(&path, SoundFlags::DECODE, None)?;
+    let sound = engine.new_sound_from_file_with_flags(&path, SoundFlags::STREAM, None)?;
 ```
 
 `WaveForm` is a `DataSource`. A data source can be wrapped by a `Sound` or by a `SourceNode`.
