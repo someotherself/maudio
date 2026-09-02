@@ -6,6 +6,7 @@
 - The crate is currently locked to miniaudio version **0.11.23**
 
 miniaudio does not guarantee a stable ABI, even between minor releases. The same applies to maudio.
+See [CHANGELOG](/CHANGELOG.md) for more details.
 
 # Building
 
