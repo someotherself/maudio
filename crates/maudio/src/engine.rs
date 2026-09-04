@@ -88,6 +88,7 @@ use crate::{
     audio::{
         formats::SampleBuffer, math::vec3::Vec3, sample_rate::SampleRate, spatial::cone::Cone,
     },
+    context::ContextInner,
     data_source::AsSourcePtr,
     device::{device_id::DeviceId, DeviceInner, DeviceRef},
     engine::{
@@ -136,6 +137,7 @@ pub struct EngineInner {
     inner: *mut sys::ma_engine,
     _playback_device_id: Option<DeviceId>, // keep alive
     _device: Option<Arc<DeviceInner>>,     // keep alive
+    _context: Option<Arc<ContextInner>>,   // keep alive
     _resource_manager: Option<ResourceManager<f32>>, // keep alive
     _logger: Option<Arc<LogInner>>,        // keep alive
     process_data_ptr: Option<*mut ProcessState>, // userdata (self.inner.pProcessUserData)
@@ -251,8 +253,8 @@ impl Engine {
     ///
     /// Most applications should start with this method.
     pub fn new() -> MaResult<Self> {
-        let builder = EngineBuilder::new();
-        Self::new_with_config(&builder)
+        let mut builder = EngineBuilder::new();
+        Self::new_with_config(&mut builder)
     }
 
     /// Retrieves a [`ProcFramesNotif`] if one is present.
@@ -277,13 +279,16 @@ impl Engine {
         self.0.state_notifier.clone()
     }
 
-    fn new_with_config(config: &EngineBuilder) -> MaResult<Self> {
+    fn new_with_config(config: &mut EngineBuilder) -> MaResult<Self> {
         let (device, rm, dev_id, log) = (
-            config.device.clone(),
-            config.resource_manager.clone(),
-            config.playback_device_id.clone(),
-            config.log.clone(),
+            config.device.take(),
+            config.resource_manager.take(),
+            config.playback_device_id.take(),
+            config.log.take(),
         );
+
+        let context = device.as_ref().and_then(|_| config.context.take());
+
         let mut mem: Box<MaybeUninit<sys::ma_engine>> = Box::new(MaybeUninit::uninit());
         engine_ffi::engine_init(config, mem.as_mut_ptr())?;
 
@@ -292,6 +297,7 @@ impl Engine {
             inner,
             _playback_device_id: dev_id,
             _device: device,
+            _context: context,
             _resource_manager: rm,
             _logger: log,
             process_data_ptr: None,
@@ -317,11 +323,14 @@ impl Engine {
         let mut mem: Box<MaybeUninit<sys::ma_engine>> = Box::new(MaybeUninit::uninit());
         engine_ffi::engine_init(config, mem.as_mut_ptr())?;
 
+        let context = config.device.as_ref().and_then(|_| config.context.take());
+
         let inner: *mut sys::ma_engine = Box::into_raw(mem) as *mut sys::ma_engine;
         Ok(Self(Arc::new(EngineInner {
             inner,
             _playback_device_id: config.playback_device_id.take(),
             _device: config.device.take(),
+            _context: context,
             _resource_manager: config.resource_manager.take(),
             _logger: config.log.clone(),
             process_data_ptr: config.process_data.process_data_ptr,

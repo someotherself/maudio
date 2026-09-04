@@ -60,9 +60,7 @@ use crate::{
 ///
 /// For temporary borrowed access, see [`ContextRef`].
 #[derive(Clone)]
-pub struct Context {
-    inner: Arc<ContextInner>,
-}
+pub struct Context(pub(crate) Arc<ContextInner>);
 
 #[doc(hidden)]
 pub struct ContextInner {
@@ -86,7 +84,7 @@ impl Binding for Context {
     type Raw = *mut sys::ma_context;
 
     fn to_raw(&self) -> Self::Raw {
-        self.inner.inner
+        self.0.inner
     }
 }
 
@@ -343,13 +341,11 @@ impl Context {
 
         let inner: *mut sys::ma_context = Box::into_raw(mem) as *mut sys::ma_context;
 
-        Ok(Self {
-            inner: Arc::new(ContextInner {
-                inner,
-                _log: config.log.take(),
-                logs: StoredLogs::default(),
-            }),
-        })
+        Ok(Self(Arc::new(ContextInner {
+            inner,
+            _log: config.log.take(),
+            logs: StoredLogs::default(),
+        })))
     }
 }
 
@@ -405,7 +401,7 @@ pub(crate) mod context_ffi {
         let ptr = unsafe { sys::ma_context_get_log(context.to_raw()) };
         LogRef {
             inner: ptr,
-            _owner: LogOwner::Context(context.inner.clone()),
+            _owner: LogOwner::Context(context.0.clone()),
         }
     }
 

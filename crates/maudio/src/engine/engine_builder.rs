@@ -5,6 +5,7 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     audio::{channels::MonoExpansionMode, sample_rate::SampleRate},
+    context::{Context, ContextInner},
     device::{device_id::DeviceId, Device, DeviceInner},
     engine::{
         engine_cb_notif::engine_notification_callback,
@@ -21,6 +22,7 @@ pub struct EngineBuilder {
     pub(crate) inner: sys::ma_engine_config,
     pub(crate) playback_device_id: Option<DeviceId>,
     pub(crate) device: Option<Arc<DeviceInner>>, // a ref count, not ownership
+    pub(crate) context: Option<Arc<ContextInner>>, // a ref count, not ownership
     pub(crate) log: Option<Arc<LogInner>>,       // a ref count, not ownership
     pub(crate) resource_manager: Option<ResourceManager<f32>>, // a ref count, not ownership
     pub(crate) process_data: EngineProcessCbData,
@@ -55,6 +57,7 @@ impl EngineBuilder {
             inner,
             playback_device_id: None,
             device: None,
+            context: None,
             log: None,
             resource_manager: None,
             process_data: EngineProcessCbData {
@@ -313,6 +316,16 @@ impl EngineBuilder {
     /// It can be retrieved by calling [`Engine::get_state_notifier()`] after building the `Engine`.
     pub fn state_notifier(&mut self) -> &mut Self {
         self.process_data.state_notif_exists = true;
+        self
+    }
+
+    /// Pass in a custom [`Context`] to the Engine
+    ///
+    /// This is used by the Engine when initializing the Device. If a [`Device`]
+    /// is also passed into the builder, then the Context is ignored.
+    pub fn context(&mut self, context: &Context) -> &mut Self {
+        self.inner.pContext = context.to_raw();
+        self.context = Some(context.0.clone());
         self
     }
 
