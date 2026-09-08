@@ -147,7 +147,7 @@ pub struct Unknown {}
 /// Construct this builder with [`DeviceBuilder::playback()`].
 pub struct PlaybackDeviceBuilder<'a, F = Unknown> {
     inner: sys::ma_device_config,
-    context: Option<&'a ContextBuilder<'a>>,
+    context: Option<&'a ContextBuilder>,
     backends: Option<Box<[Backend]>>,
     data_callback_info: Option<DeviceBuilderDataCallBack>,
     state_notifier: bool,
@@ -168,7 +168,7 @@ pub struct PlaybackDeviceBuilder<'a, F = Unknown> {
 /// Construct this builder with [`DeviceBuilder::capture()`].
 pub struct CaptureDeviceBuilder<'a, F = Unknown> {
     inner: sys::ma_device_config,
-    context: Option<&'a ContextBuilder<'a>>,
+    context: Option<&'a ContextBuilder>,
     backends: Option<Box<[Backend]>>,
     data_callback_info: Option<DeviceBuilderDataCallBack>,
     state_notifier: bool,
@@ -189,7 +189,7 @@ pub struct CaptureDeviceBuilder<'a, F = Unknown> {
 /// Construct this builder with [`DeviceBuilder::duplex()`].
 pub struct DuplexDeviceBuilder<'a, F = Unknown, C = Unknown> {
     inner: sys::ma_device_config,
-    context: Option<&'a ContextBuilder<'a>>,
+    context: Option<&'a ContextBuilder>,
     backends: Option<Box<[Backend]>>,
     data_callback_info: Option<DeviceBuilderDataCallBack>,
     state_notifier: bool,
@@ -211,7 +211,7 @@ pub struct DuplexDeviceBuilder<'a, F = Unknown, C = Unknown> {
 /// Construct this builder with [`DeviceBuilder::loopback()`].
 pub struct LoopbackDeviceBuilder<'a, F = Unknown> {
     inner: sys::ma_device_config,
-    context: Option<&'a ContextBuilder<'a>>,
+    context: Option<&'a ContextBuilder>,
     backends: Option<Box<[Backend]>>,
     data_callback_info: Option<DeviceBuilderDataCallBack>,
     state_notifier: bool,

@@ -235,6 +235,13 @@ impl MaudioError {
             ma_result: MaError(sys::ma_result_MA_ERROR),
         }
     }
+
+    pub fn other(error: impl ToString) -> Self {
+        Self {
+            native: Some(ErrorKinds::Other(error.to_string())),
+            ma_result: MaError(sys::ma_result_MA_ERROR),
+        }
+    }
 }
 
 impl PartialEq<MaError> for MaudioError {

@@ -39,7 +39,10 @@ use std::{
 use maudio_sys::ffi as sys;
 
 use crate::{
-    backend::Backend,
+    backend::{
+        callback::user_backend_callbacks, custom_backend::CustomBackend,
+        custom_context::CustomContext, Backend,
+    },
     device::{
         device_id::DeviceId,
         device_info::{DeviceBasicInfo, DeviceInfo, Devices},
@@ -116,12 +119,13 @@ impl<'a> ContextRef<'a> {
     }
 }
 
-mod private_context {
+pub(crate) mod private_context {
     use maudio_sys::ffi as sys;
 
     use crate::{
+        backend::{custom_backend::CustomBackend, custom_context::CustomContext},
         context::{AsContextPtr, Context, ContextRef},
-        Binding,
+        AsRawRef, Binding,
     };
 
     pub trait ContextPtrProvider<T: ?Sized> {
@@ -130,6 +134,7 @@ mod private_context {
 
     pub struct ContextProvider;
     pub struct ContextRefProvider;
+    pub struct CustomContextProvider;
 
     impl ContextPtrProvider<Context> for ContextProvider {
         fn as_context_ptr(t: &Context) -> *mut sys::ma_context {
@@ -140,6 +145,12 @@ mod private_context {
     impl ContextPtrProvider<ContextRef<'_>> for ContextRefProvider {
         fn as_context_ptr(t: &ContextRef) -> *mut sys::ma_context {
             t.to_raw()
+        }
+    }
+
+    impl<B: CustomBackend> ContextPtrProvider<CustomContext<B>> for CustomContextProvider {
+        fn as_context_ptr(t: &CustomContext<B>) -> *mut sys::ma_context {
+            t.as_raw_ptr() as *mut _
         }
     }
 
@@ -162,6 +173,7 @@ impl<'a> AsContextPtr for ContextRef<'a> {
 
 impl ContextOps for Context {}
 impl ContextOps for ContextRef<'_> {}
+impl<B: CustomBackend> ContextOps for CustomContext<B> {}
 
 /// Common operations available on both owned and borrowed context handles.
 ///
@@ -337,7 +349,7 @@ impl Context {
     fn new_with_config(config: &mut ContextBuilder) -> MaResult<Self> {
         let mut mem: Box<MaybeUninit<sys::ma_context>> = Box::new(MaybeUninit::uninit());
 
-        context_ffi::ma_context_init(config.backends, config, mem.as_mut_ptr())?;
+        context_ffi::ma_context_init(config.backends.as_deref(), config, mem.as_mut_ptr())?;
 
         let inner: *mut sys::ma_context = Box::into_raw(mem) as *mut sys::ma_context;
 
@@ -356,7 +368,7 @@ pub(crate) mod context_ffi {
 
     use crate::{
         backend::Backend,
-        context::{private_context, AsContextPtr, Context, ContextBuilder, ContextInner},
+        context::{private_context, AsContextPtr, Context, ContextBuilder},
         device::{device_id::DeviceId, device_info::DeviceInfo, device_type::DeviceType},
         logging::{LogOwner, LogRef},
         AsRawRef, Binding, MaResult, MaudioError,
@@ -382,8 +394,8 @@ pub(crate) mod context_ffi {
     }
 
     #[inline]
-    pub fn ma_context_uninit(context: &mut ContextInner) -> MaResult<()> {
-        let res = unsafe { sys::ma_context_uninit(context.to_raw()) };
+    pub fn ma_context_uninit(context: *mut sys::ma_context) -> MaResult<()> {
+        let res = unsafe { sys::ma_context_uninit(context) };
         MaudioError::check(res)
     }
 
@@ -394,7 +406,6 @@ pub(crate) mod context_ffi {
         unsafe { sys::ma_context_sizeof() }
     }
 
-    // TODO: Implement log
     #[inline]
     #[allow(dead_code)]
     pub fn ma_context_get_log(context: &Context) -> LogRef {
@@ -478,18 +489,18 @@ pub(crate) mod context_ffi {
 
 impl Drop for ContextInner {
     fn drop(&mut self) {
-        let _ = context_ffi::ma_context_uninit(self);
+        let _ = context_ffi::ma_context_uninit(self.to_raw());
         drop(unsafe { Box::from_raw(self.inner) });
     }
 }
 
-pub struct ContextBuilder<'a> {
-    inner: sys::ma_context_config,
-    backends: Option<&'a [Backend]>,
-    log: Option<Arc<LogInner>>,
+pub struct ContextBuilder {
+    pub(crate) inner: sys::ma_context_config,
+    pub(crate) backends: Option<Box<[Backend]>>,
+    pub(crate) log: Option<Arc<LogInner>>,
 }
 
-impl AsRawRef for ContextBuilder<'_> {
+impl AsRawRef for ContextBuilder {
     type Raw = sys::ma_context_config;
 
     fn as_raw(&self) -> &Self::Raw {
@@ -503,7 +514,7 @@ impl AsRawRef for ContextBuilder<'_> {
 /// used internally by miniaudio.
 ///
 /// In most applications, a single shared context is enough.
-impl<'a> ContextBuilder<'a> {
+impl ContextBuilder {
     #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         let mut inner = unsafe { sys::ma_context_config_init() };
@@ -535,8 +546,11 @@ impl<'a> ContextBuilder<'a> {
     ///
     /// Miniaudio will try the provided backends in order until one succeeds.
     /// If not set, miniaudio uses its default backend selection logic.
-    pub fn preferred_backends(&mut self, backends: &'a [Backend]) -> &mut Self {
-        self.backends = Some(backends);
+    pub fn preferred_backends<I>(&mut self, backends: I) -> &mut Self
+    where
+        I: IntoIterator<Item = Backend>,
+    {
+        self.backends = Some(backends.into_iter().collect());
         self
     }
 
@@ -546,6 +560,11 @@ impl<'a> ContextBuilder<'a> {
     pub fn stack_size(&mut self, bytes: usize) -> &mut Self {
         self.inner.threadStackSize = bytes;
         self
+    }
+
+    pub fn build_custom<B: CustomBackend>(&mut self) -> MaResult<CustomContext<B>> {
+        self.inner.custom = user_backend_callbacks::<B>();
+        CustomContext::new_with_config(self)
     }
 
     pub fn build(&mut self) -> MaResult<Context> {

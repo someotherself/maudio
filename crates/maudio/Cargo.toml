@@ -28,6 +28,7 @@ maudio-sys = { path = "../maudio-sys", version = "0.1.9" }
 
 [dev-dependencies]
 symphonia = { version = "0.6.0", features = ["aac"] }
+sdl2 = { version = "0.38.0", features = ["bundled"] }
 
 [[example]]
 name = "001_play_sound"

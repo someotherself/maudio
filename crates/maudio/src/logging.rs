@@ -29,7 +29,7 @@ pub struct Log(pub(crate) Arc<LogInner>);
 
 #[doc(hidden)]
 pub struct LogInner {
-    inner: *mut sys::ma_log,
+    pub(crate) inner: *mut sys::ma_log,
     logs: StoredLogs,
 }
 
@@ -253,6 +253,10 @@ pub trait LogOps: AsLogPtr {
         Ok(())
     }
 
+    fn post(&self, level: LogLevel, message: impl ToString) -> MaResult<()> {
+        log_ffi::ma_log_post(self, level, message)
+    }
+
     /// Registers a callback that receives log messages from all log levels.
     ///
     /// The returned [`LogListener`] controls the lifetime of the registration.
@@ -343,10 +347,16 @@ mod log_ffi {
         unsafe { sys::ma_log_callback_init(on_log, user_data) }
     }
 
-    // There is no use case for this yet
     #[inline]
-    pub fn _ma_log_post(log: &Log, level: LogLevel, message: *const i8) -> MaResult<()> {
-        let res = unsafe { sys::ma_log_post(log.to_raw(), level.into(), message) };
+    pub fn ma_log_post<L: AsLogPtr + ?Sized>(
+        log: &L,
+        level: LogLevel,
+        message: impl ToString,
+    ) -> MaResult<()> {
+        let message = std::ffi::CString::new(message.to_string()).map_err(MaudioError::other)?;
+
+        let res =
+            unsafe { sys::ma_log_post(private_log::log_ptr(log), level.into(), message.as_ptr()) };
         MaudioError::check(res)
     }
 }

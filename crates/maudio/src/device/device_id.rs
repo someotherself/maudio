@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use maudio_sys::ffi as sys;
 
-use crate::AsRawRef;
+use crate::{AsRawRef, ErrorKinds, MaResult, MaudioError};
 
 /// Identifies an audio device reported by [`Context`](crate::context::Context) enumeration.
 ///
@@ -15,11 +15,13 @@ use crate::AsRawRef;
 #[repr(transparent)]
 #[derive(Clone)]
 pub struct DeviceId {
-    inner: Arc<DeviceIdInner>,
+    pub(crate) inner: Arc<DeviceIdInner>,
 }
 
-struct DeviceIdInner {
-    inner: sys::ma_device_id,
+pub(crate) struct DeviceIdInner {
+    pub(crate) id: sys::ma_device_id,
+    #[allow(unused)]
+    store: DeviceIdStore,
 }
 
 unsafe impl Send for DeviceIdInner {}
@@ -29,14 +31,66 @@ impl AsRawRef for DeviceId {
     type Raw = sys::ma_device_id;
 
     fn as_raw(&self) -> &Self::Raw {
-        &self.inner.inner
+        &self.inner.id
     }
 }
 
+#[derive(Default)]
+enum DeviceIdStore {
+    #[default]
+    Native,
+    Id,
+    Name,
+}
+
 impl DeviceId {
+    pub fn custom_from_id(id: i32) -> Self {
+        let inner = sys::ma_device_id {
+            custom: sys::ma_device_id__bindgen_ty_1 { i: id },
+        };
+        Self {
+            inner: Arc::new(DeviceIdInner {
+                id: inner,
+                store: DeviceIdStore::Id,
+            }),
+        }
+    }
+
+    pub fn custom_from_name(name: impl ToString) -> MaResult<Self> {
+        let name = name.to_string();
+        if name.len() >= 256 {
+            return Err(MaudioError::new_ma_error(ErrorKinds::InvalidOperation(
+                "Name length out of range",
+            )));
+        };
+
+        // Convert string to c_char
+        let bytes = name.as_bytes();
+
+        let mut buffer = [0 as core::ffi::c_char; 256];
+
+        for (dest, &src) in buffer.iter_mut().zip(bytes) {
+            *dest = src as core::ffi::c_char;
+        }
+
+        let inner = sys::ma_device_id {
+            custom: sys::ma_device_id__bindgen_ty_1 { s: buffer },
+        };
+
+        Ok(Self {
+            inner: Arc::new(DeviceIdInner {
+                id: inner,
+                store: DeviceIdStore::Name,
+            }),
+        })
+    }
+
     pub(crate) fn from_raw(id: &sys::ma_device_id) -> Self {
         Self {
-            inner: Arc::new(DeviceIdInner { inner: *id }),
+            inner: Arc::new(DeviceIdInner {
+                id: *id,
+                store: DeviceIdStore::default(),
+            }),
         }
     }
 }

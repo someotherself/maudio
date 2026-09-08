@@ -3,6 +3,10 @@ use maudio_sys::ffi as sys;
 
 use crate::{ErrorKinds, MaudioError};
 
+pub(crate) mod callback;
+pub mod custom_backend;
+pub mod custom_context;
+
 /// Audio backend identifiers used for device and context initialization.
 ///
 /// Each variant maps directly to a `ma_backend` in miniaudio.
