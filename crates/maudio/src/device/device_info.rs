@@ -22,7 +22,7 @@ const EXCLUSIVE_MODE: u32 = 1 << 1; // 0b0000_0010
 #[repr(transparent)]
 #[derive(Clone, Copy)]
 pub struct DeviceInfo {
-    inner: sys::ma_device_info,
+    pub(crate) inner: sys::ma_device_info,
 }
 
 impl AsRawRef for DeviceInfo {
@@ -154,7 +154,7 @@ impl DeviceInfoBuilder {
 
         let mut buffer = [0 as core::ffi::c_char; 256];
 
-        for (dest, &src) in buffer.iter_mut().zip(bytes) {
+        for (dest, &src) in buffer.iter_mut().take(255).zip(bytes) {
             *dest = src as core::ffi::c_char;
         }
 
@@ -166,6 +166,7 @@ impl DeviceInfoBuilder {
         };
         let mut formats = [zero_df; 64];
 
+        // TODO: Check we don't overfloww the array
         for (idx, &f) in self.data_formats.iter().enumerate() {
             formats[idx] = f;
         }
@@ -263,6 +264,7 @@ impl Devices {
 ///
 /// Support for `exclusive` mode is backend specific and is primarily relevant to WASAPI.
 #[allow(unused)]
+#[derive(Debug)]
 pub struct DeviceFormat {
     format: Format,
     channels: u32,
