@@ -3,10 +3,7 @@ use std::panic::AssertUnwindSafe;
 use maudio_sys::ffi as sys;
 
 use crate::{
-    backend::{
-        custom_backend::{BackendContext, CustomBackend},
-        custom_context::CustomContextInner,
-    },
+    backend::{custom_backend::CustomBackend, custom_context::CustomContextInner},
     context::ContextBuilder,
     device::{device_info::DeviceInfo, device_type::DeviceType},
     logging::{LogOwner, LogRef},
@@ -51,7 +48,7 @@ unsafe extern "C" fn custom_context_enumerate_devices<B: CustomBackend>(
         _owner: LogOwner::Log(l.clone()),
     });
 
-    let Some(backend_context) = custom.context.get() else {
+    let Some(mut backend_context) = custom.context.get_mut() else {
         return sys::ma_result_MA_INVALID_OPERATION;
     };
 
@@ -69,7 +66,7 @@ unsafe extern "C" fn custom_context_enumerate_devices<B: CustomBackend>(
             !stopped
         };
 
-        backend_context.enumerate_devices(&mut report, log)
+        B::enumerate_devices(&mut backend_context, &mut report, log)
     }));
 
     match res {

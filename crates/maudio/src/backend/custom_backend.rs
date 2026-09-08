@@ -6,13 +6,15 @@ use crate::{
 };
 
 pub trait CustomBackend {
-    type Context: BackendContext;
+    type Context;
 
     fn init_context(config: ContextBuilder, log: Option<LogRef>) -> MaResult<Self::Context>;
-}
 
-pub trait BackendContext {
-    fn enumerate_devices<F>(&self, mut _f: F, _log: Option<LogRef>) -> MaResult<()>
+    fn enumerate_devices<F>(
+        _context: &mut Self::Context,
+        mut _f: F,
+        _log: Option<LogRef>,
+    ) -> MaResult<()>
     where
         F: FnMut(DeviceType, &DeviceInfo) -> bool,
     {

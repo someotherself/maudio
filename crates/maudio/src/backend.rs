@@ -3,7 +3,7 @@ use maudio_sys::ffi as sys;
 
 use crate::{ErrorKinds, MaudioError};
 
-pub(crate) mod callback;
+pub(crate) mod context_callbacks;
 pub mod custom_backend;
 pub mod custom_context;
 
