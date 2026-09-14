@@ -85,6 +85,16 @@ impl DeviceId {
         })
     }
 
+    pub fn get_custom_name(&self) -> Option<String> {
+        if matches!(self.inner.store, DeviceIdStore::Name) {
+            let name = unsafe { std::ffi::CStr::from_ptr(self.inner.id.custom.s.as_ptr()) };
+
+            Some(name.to_string_lossy().into_owned())
+        } else {
+            None
+        }
+    }
+
     pub(crate) fn from_raw(id: &sys::ma_device_id) -> Self {
         Self {
             inner: Arc::new(DeviceIdInner {

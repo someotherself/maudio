@@ -64,6 +64,7 @@ impl Log {
 pub enum LogOwner {
     Engine(Arc<EngineInner>),
     Device(Arc<DeviceInner>),
+    // CustomDevice(Arc<CustomContextInner<B>>),
     Context(Arc<ContextInner>),
     Log(Arc<LogInner>),
 }

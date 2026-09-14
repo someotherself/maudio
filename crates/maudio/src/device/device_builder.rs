@@ -70,7 +70,7 @@ use crate::{
         sample_rate::SampleRate,
     },
     backend::Backend,
-    context::ContextBuilder,
+    context::{Context, ContextBuilder},
     device::{
         device_cb_notif::{
             device_notification_capture_callback, device_notification_duplex_callback,
@@ -1120,6 +1120,37 @@ impl<'a, F: PcmFormat> PlaybackDeviceBuilder<'a, F> {
     where
         C: FnMut(CallBackDevice, &mut [F::StorageUnit]) + Send + 'static,
     {
+        let (builder, callback_process_notifier) = self.configure_builder(f);
+
+        Device::new_ex_with_config(
+            builder,
+            builder.context,
+            private_device_b::get_backends(builder),
+            callback_process_notifier,
+            builder.playback_device_id.clone(),
+            builder.capture_device_id.clone(),
+        )
+    }
+
+    pub fn with_context<C>(&mut self, context: &Context, f: C) -> MaResult<Device<F>>
+    where
+        C: FnMut(CallBackDevice, &mut [F::StorageUnit]) + Send + 'static,
+    {
+        let (builder, callback_process_notifier) = self.configure_builder(f);
+
+        Device::new_with_config(
+            builder,
+            context,
+            callback_process_notifier,
+            builder.playback_device_id.clone(),
+            builder.capture_device_id.clone(),
+        )
+    }
+
+    fn configure_builder<C>(&mut self, f: C) -> (&mut Self, ProcFramesNotif)
+    where
+        C: FnMut(CallBackDevice, &mut [F::StorageUnit]) + Send + 'static,
+    {
         let panic_flag = Arc::new(AtomicBool::new(false));
         let state_notif = DeviceStateNotifier::default();
         let state: PlaybackDeviceState<F, C> = PlaybackDeviceState {
@@ -1151,14 +1182,7 @@ impl<'a, F: PcmFormat> PlaybackDeviceBuilder<'a, F> {
         }
         self.inner.pUserData = state_ptr as *mut core::ffi::c_void;
 
-        Device::new_with_config(
-            self,
-            self.context,
-            private_device_b::get_backends(self),
-            callback_process_notifier,
-            self.playback_device_id.clone(),
-            self.capture_device_id.clone(),
-        )
+        (self, callback_process_notifier)
     }
 }
 
@@ -1206,6 +1230,37 @@ impl<'a, F: PcmFormat> CaptureDeviceBuilder<'a, F> {
     where
         C: FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
     {
+        let (builder, callback_process_notifier) = self.configure_builder(f);
+
+        Device::new_ex_with_config(
+            builder,
+            builder.context,
+            private_device_b::get_backends(builder),
+            callback_process_notifier,
+            builder.playback_device_id.clone(),
+            builder.capture_device_id.clone(),
+        )
+    }
+
+    pub fn with_context<C>(&mut self, context: &Context, f: C) -> MaResult<Device<F>>
+    where
+        C: FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
+    {
+        let (builder, callback_process_notifier) = self.configure_builder(f);
+
+        Device::new_with_config(
+            builder,
+            context,
+            callback_process_notifier,
+            builder.playback_device_id.clone(),
+            builder.capture_device_id.clone(),
+        )
+    }
+
+    fn configure_builder<C>(&mut self, f: C) -> (&mut Self, ProcFramesNotif)
+    where
+        C: FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
+    {
         let panic_flag = Arc::new(AtomicBool::new(false));
         let state_notif = DeviceStateNotifier::default();
 
@@ -1238,14 +1293,7 @@ impl<'a, F: PcmFormat> CaptureDeviceBuilder<'a, F> {
         }
         self.inner.pUserData = state_ptr as *mut core::ffi::c_void;
 
-        Device::new_with_config(
-            self,
-            self.context,
-            private_device_b::get_backends(self),
-            callback_process_notifier,
-            self.playback_device_id.clone(),
-            self.capture_device_id.clone(),
-        )
+        (self, callback_process_notifier)
     }
 }
 
@@ -1295,6 +1343,37 @@ impl<'a, F: MaSampleFormat, P: MaSampleFormat> DuplexDeviceBuilder<'a, F, P> {
     where
         C: FnMut(CallBackDevice, &mut [F::StorageUnit], &[P::StorageUnit]) + Send + 'static,
     {
+        let (builder, callback_process_notifier) = self.configure_builder(f);
+
+        Device::new_ex_with_config(
+            builder,
+            builder.context,
+            private_device_b::get_backends(builder),
+            callback_process_notifier,
+            builder.playback_device_id.clone(),
+            builder.capture_device_id.clone(),
+        )
+    }
+
+    pub fn with_context<C>(&mut self, context: &Context, f: C) -> MaResult<Device<F>>
+    where
+        C: FnMut(CallBackDevice, &mut [F::StorageUnit], &[P::StorageUnit]) + Send + 'static,
+    {
+        let (builder, callback_process_notifier) = self.configure_builder(f);
+
+        Device::new_with_config(
+            builder,
+            context,
+            callback_process_notifier,
+            builder.playback_device_id.clone(),
+            builder.capture_device_id.clone(),
+        )
+    }
+
+    fn configure_builder<C>(&mut self, f: C) -> (&mut Self, ProcFramesNotif)
+    where
+        C: FnMut(CallBackDevice, &mut [F::StorageUnit], &[P::StorageUnit]) + Send + 'static,
+    {
         let panic_flag = Arc::new(AtomicBool::new(false));
         let state_notif = DeviceStateNotifier::default();
         let state: DuplexDeviceState<F, P, C> = DuplexDeviceState {
@@ -1327,14 +1406,7 @@ impl<'a, F: MaSampleFormat, P: MaSampleFormat> DuplexDeviceBuilder<'a, F, P> {
         }
         self.inner.pUserData = state_ptr as *mut core::ffi::c_void;
 
-        Device::new_with_config(
-            self,
-            self.context,
-            private_device_b::get_backends(self),
-            callback_process_notifier,
-            self.playback_device_id.clone(),
-            self.capture_device_id.clone(),
-        )
+        (self, callback_process_notifier)
     }
 }
 
@@ -1388,6 +1460,37 @@ impl<'a, F: PcmFormat> LoopbackDeviceBuilder<'a, F> {
     where
         C: FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
     {
+        let (builder, callback_process_notifier) = self.configure_builder(f);
+
+        Device::new_ex_with_config(
+            builder,
+            builder.context,
+            private_device_b::get_backends(builder),
+            callback_process_notifier,
+            builder.playback_device_id.clone(),
+            builder.capture_device_id.clone(),
+        )
+    }
+
+    pub fn with_context<C>(&mut self, context: &Context, f: C) -> MaResult<Device<F>>
+    where
+        C: FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
+    {
+        let (builder, callback_process_notifier) = self.configure_builder(f);
+
+        Device::new_with_config(
+            builder,
+            context,
+            callback_process_notifier,
+            builder.playback_device_id.clone(),
+            builder.capture_device_id.clone(),
+        )
+    }
+
+    fn configure_builder<C>(&mut self, f: C) -> (&mut Self, ProcFramesNotif)
+    where
+        C: FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
+    {
         let panic_flag = Arc::new(AtomicBool::new(false));
         let state_notif = DeviceStateNotifier::default();
         let state: LoopbackDeviceState<F, C> = LoopbackDeviceState {
@@ -1419,14 +1522,7 @@ impl<'a, F: PcmFormat> LoopbackDeviceBuilder<'a, F> {
         }
         self.inner.pUserData = state_ptr as *mut core::ffi::c_void;
 
-        Device::new_with_config(
-            self,
-            self.context,
-            private_device_b::get_backends(self),
-            callback_process_notifier,
-            self.playback_device_id.clone(),
-            self.capture_device_id.clone(),
-        )
+        (self, callback_process_notifier)
     }
 }
 

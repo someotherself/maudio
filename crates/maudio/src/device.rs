@@ -12,9 +12,10 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     audio::channels::Channel,
-    backend::Backend,
-    context::{ContextBuilder, ContextRef},
+    backend::{custom_backend::CustomBackend, Backend},
+    context::{Context, ContextBuilder, ContextRef},
     device::{
+        custom_device::CustomDevice,
         device_builder::{private_device_b, AsDeviceBuilder},
         device_id::DeviceId,
         device_info::DeviceInfo,
@@ -27,6 +28,7 @@ use crate::{
     AllocationCallbacks, Binding, MaResult,
 };
 
+pub mod custom_device;
 pub mod device_builder;
 pub(crate) mod device_cb_notif;
 pub mod device_id;
@@ -127,11 +129,12 @@ impl AsDevicePtr for CallBackDevice {
     type __PtrProvider = private_device::CallBackDeviceRefProvider;
 }
 
-mod private_device {
+pub(crate) mod private_device {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        device::{AsDevicePtr, CallBackDevice, Device, DeviceRef},
+        backend::custom_backend::CustomBackend,
+        device::{custom_device::CustomDevice, AsDevicePtr, CallBackDevice, Device, DeviceRef},
         pcm_frames::PcmFormat,
         Binding,
     };
@@ -148,6 +151,7 @@ mod private_device {
     pub struct DeviceProvider;
     pub struct DeviceRefProvider;
     pub struct CallBackDeviceRefProvider;
+    pub struct CustomDeviceProvider;
 
     impl<F: PcmFormat> DevicePtrProvider<Device<F>> for DeviceProvider {
         fn as_device_ptr(t: &Device<F>) -> *mut sys::ma_device {
@@ -163,6 +167,14 @@ mod private_device {
 
     impl DevicePtrProvider<CallBackDevice> for CallBackDeviceRefProvider {
         fn as_device_ptr(t: &CallBackDevice) -> *mut sys::ma_device {
+            t.to_raw()
+        }
+    }
+
+    impl<F: PcmFormat, B: CustomBackend> DevicePtrProvider<CustomDevice<F, B>>
+        for CustomDeviceProvider
+    {
+        fn as_device_ptr(t: &CustomDevice<F, B>) -> *mut sys::ma_device {
             t.to_raw()
         }
     }
@@ -187,6 +199,7 @@ impl<'a> AsDevicePtr for DeviceRef<'a> {
 impl<F: PcmFormat> DeviceOps for Device<F> {}
 impl DeviceOps for DeviceRef<'_> {}
 impl DeviceOps for CallBackDevice {}
+impl<F: PcmFormat, B: CustomBackend> DeviceOps for CustomDevice<F, B> {}
 
 /// Methods shared between Device, DeviceRef and CallBackDevice
 pub trait DeviceOps: AsDevicePtr {
@@ -286,14 +299,14 @@ impl<F: PcmFormat> Device<F> {
     ///
     /// Begins audio processing.
     pub fn device_start(&mut self) -> MaResult<()> {
-        device_ffi::ma_device_start(self)
+        device_ffi::ma_device_start(self.to_raw())
     }
 
     /// Stops the device.
     ///
     /// Halts audio processing.
     pub fn device_stop(&mut self) -> MaResult<()> {
-        device_ffi::ma_device_stop(self)
+        device_ffi::ma_device_stop(self.to_raw())
     }
 
     pub fn log(&self) -> LogRef {
@@ -327,6 +340,41 @@ impl<F: PcmFormat> Device<F> {
 // Private methods
 impl<F: PcmFormat> Device<F> {
     pub(crate) fn new_with_config<'a, B: AsDeviceBuilder<'a> + ?Sized>(
+        config: &B,
+        context: &Context,
+        data_notif: ProcFramesNotif,
+        playback_device_id: Option<DeviceId>,
+        capture_device_id: Option<DeviceId>,
+    ) -> MaResult<Self> {
+        let mut mem: Box<MaybeUninit<sys::ma_device>> = Box::new(MaybeUninit::uninit());
+
+        device_ffi::ma_device_init(context, config, mem.as_mut_ptr())?;
+
+        let inner: *mut sys::ma_device = Box::into_raw(mem) as *mut sys::ma_device;
+        let Some(cb_info) = private_device_b::get_data_callback_info(config) else {
+            return Err(crate::MaudioError::from_ma_result(
+                sys::ma_result_MA_INVALID_ARGS,
+            ));
+        };
+
+        Ok(Self {
+            inner: Arc::new(DeviceInner {
+                inner,
+                _playback_device_id: playback_device_id,
+                _capture_device_id: capture_device_id,
+                callback_user_data: cb_info.data_callback,
+                callback_user_data_drop: cb_info.data_callback_drop,
+                callback_panic: cb_info.data_callback_panic,
+                callback_process_notifier: data_notif,
+                state_notifier: Some(cb_info.state_notif.clone()),
+                logs: StoredLogs::default(),
+            }),
+            _format: PhantomData,
+            _not_sync: PhantomData,
+        })
+    }
+
+    pub(crate) fn new_ex_with_config<'a, B: AsDeviceBuilder<'a> + ?Sized>(
         config: &B,
         context_cfg: Option<&ContextBuilder>,
         backends: Option<&[Backend]>,
@@ -377,24 +425,24 @@ pub(crate) mod device_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        audio::{performance::PerformanceProfile, sample_rate::SampleRate},
-        backend::Backend,
+        backend::{custom_backend::CustomBackend, Backend},
         context::{Context, ContextBuilder, ContextRef},
         device::{
+            custom_device::UserDevice,
             device_builder::{private_device_b, AsDeviceBuilder},
             device_info::DeviceInfo,
             device_state::DeviceState,
             device_type::DeviceType,
-            private_device, AsDevicePtr, Device, DeviceInner,
+            private_device, AsDevicePtr, Device,
         },
         logging::{LogOwner, LogRef},
         pcm_frames::PcmFormat,
-        AsRawRef, Binding, MaResult, MaudioError,
+        AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
     };
 
     #[allow(dead_code)]
-    pub fn ma_device_init<'a, B: AsDeviceBuilder<'a>>(
-        context: &mut Context,
+    pub fn ma_device_init<'a, B: AsDeviceBuilder<'a> + ?Sized>(
+        context: &Context,
         config: &B,
         device: *mut sys::ma_device,
     ) -> MaResult<()> {
@@ -434,8 +482,8 @@ pub(crate) mod device_ffi {
         MaudioError::check(res)
     }
 
-    pub fn ma_device_uninit(device: &mut DeviceInner) {
-        unsafe { sys::ma_device_uninit(device.to_raw()) };
+    pub fn ma_device_uninit(device: *mut sys::ma_device) {
+        unsafe { sys::ma_device_uninit(device) };
     }
 
     // Callback: not safe
@@ -512,16 +560,16 @@ pub(crate) mod device_ffi {
     // Callback: not safe
     // Theadsafe: SAFE
     #[inline]
-    pub fn ma_device_start<F: PcmFormat>(device: &mut Device<F>) -> MaResult<()> {
-        let res = unsafe { sys::ma_device_start(device.to_raw()) };
+    pub fn ma_device_start(device: *mut sys::ma_device) -> MaResult<()> {
+        let res = unsafe { sys::ma_device_start(device) };
         MaudioError::check(res)
     }
 
     // Callback: not safe
     // Theadsafe: SAFE
     #[inline]
-    pub fn ma_device_stop<F: PcmFormat>(device: &mut Device<F>) -> MaResult<()> {
-        let res = unsafe { sys::ma_device_stop(device.to_raw()) };
+    pub fn ma_device_stop(device: *mut sys::ma_device) -> MaResult<()> {
+        let res = unsafe { sys::ma_device_stop(device) };
         MaudioError::check(res)
     }
 
@@ -599,51 +647,73 @@ pub(crate) mod device_ffi {
         Ok(volume)
     }
 
+    // TODO: Can this API be improved?
     // Callback: called by miniaudio
     // Theadsafe: called by miniaudio
-    // Not implemented. Only used for custom backends
     #[inline]
-    #[allow(dead_code)]
-    pub fn ma_device_handle_backend_data_callback<D: AsDevicePtr + ?Sized>(
-        device: &D,
-        output: *mut core::ffi::c_void,
-        input: *const core::ffi::c_void,
-        frame_count: u32,
+    pub fn ma_device_handle_backend_data_callback<F: PcmFormat, R: PcmFormat, B: CustomBackend>(
+        device: &UserDevice<B>,
+        output: Option<&mut [F::StorageUnit]>,
+        input: Option<&[R::StorageUnit]>,
     ) -> MaResult<()> {
+        if output.is_none() && input.is_none() {
+            return Err(MaudioError::new_ma_error(ErrorKinds::InvalidOperation(
+                "At least one buffer must be valid",
+            )));
+        }
+
+        let invalid = |message| MaudioError::new_ma_error(ErrorKinds::InvalidOperation(message));
+
+        let count_frames = |len: usize, units_per_frame: usize| -> MaResult<u32> {
+            if units_per_frame == 0 || len % units_per_frame != 0 {
+                return Err(invalid("Buffer must contain a whole number of frames"));
+            }
+
+            u32::try_from(len / units_per_frame)
+                .map_err(|_| invalid("Frame count exceeds u32::MAX"))
+        };
+
+        let output_frames = output
+            .as_ref()
+            .map(|buffer| count_frames(buffer.len(), F::VEC_STORE_UNITS_PER_FRAME))
+            .transpose()?;
+
+        let input_frames = input
+            .as_ref()
+            .map(|buffer| count_frames(buffer.len(), R::VEC_STORE_UNITS_PER_FRAME))
+            .transpose()?;
+
+        let frame_count = match (output_frames, input_frames) {
+            (Some(output), Some(input)) => {
+                if output != input {
+                    return Err(invalid("Input and output frame counts must match"));
+                }
+                output
+            }
+            (Some(count), None) | (None, Some(count)) => count,
+            (None, None) => {
+                return Err(invalid("At least one buffer must be valid"));
+            }
+        };
+
+        let output = output.map_or(std::ptr::null_mut(), |o| o.as_mut_ptr());
+        let input = input.map_or(std::ptr::null(), |i| i.as_ptr());
+
         let res = unsafe {
             sys::ma_device_handle_backend_data_callback(
-                private_device::device_ptr(device),
-                output,
-                input,
+                device.to_raw(),
+                output as *mut _,
+                input as *const _,
                 frame_count,
             )
         };
         MaudioError::check(res)
     }
-
-    // Callback: called by miniaudio
-    // Theadsafe: called by miniaudio
-    // Not implemented. Only used for custom backends
-    #[inline]
-    #[allow(dead_code)]
-    pub fn ma_calculate_buffer_size_in_frames_from_descriptor(
-        descriptor: *const sys::ma_device_descriptor,
-        native_sample_rate: SampleRate,
-        performance_profile: PerformanceProfile,
-    ) -> u32 {
-        unsafe {
-            sys::ma_calculate_buffer_size_in_frames_from_descriptor(
-                descriptor,
-                native_sample_rate.into(),
-                performance_profile.into(),
-            )
-        }
-    }
 }
 
 impl Drop for DeviceInner {
     fn drop(&mut self) {
-        device_ffi::ma_device_uninit(self);
+        device_ffi::ma_device_uninit(self.to_raw());
         (self.callback_user_data_drop)(self.callback_user_data);
         drop(unsafe { Box::from_raw(self.to_raw()) });
     }

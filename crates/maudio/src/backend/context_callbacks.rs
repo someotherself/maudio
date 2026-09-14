@@ -3,9 +3,16 @@ use std::panic::AssertUnwindSafe;
 use maudio_sys::ffi as sys;
 
 use crate::{
-    backend::{custom_backend::CustomBackend, custom_context::CustomContextInner},
-    context::ContextBuilder,
-    device::{device_id::DeviceId, device_info::DeviceInfo, device_type::DeviceType},
+    backend::{
+        custom_backend::CustomBackend,
+        custom_context::{CustomContextInner, DeviceDescriptor, UserDeviceConfig},
+    },
+    device::{
+        custom_device::{CustomDeviceInner, UserDevice},
+        device_id::DeviceId,
+        device_info::DeviceInfo,
+        device_type::DeviceType,
+    },
     logging::{LogOwner, LogRef},
     AsRawRef, MaResult,
 };
@@ -16,7 +23,7 @@ pub(crate) fn user_backend_callbacks<B: CustomBackend>() -> sys::ma_backend_call
         onContextUninit: None,
         onContextEnumerateDevices: Some(custom_context_enumerate_devices::<B>),
         onContextGetDeviceInfo: Some(custom_context_device_info::<B>),
-        onDeviceInit: None,
+        onDeviceInit: Some(custom_context_on_device_init::<B>),
         onDeviceUninit: None,
         onDeviceStart: None,
         onDeviceStop: None,
@@ -44,13 +51,7 @@ unsafe extern "C" fn custom_context_on_init<B: CustomBackend>(
         _owner: LogOwner::Log(l.clone()),
     });
 
-    let config: ContextBuilder = ContextBuilder {
-        inner: unsafe { *config },
-        backends: custom._backends.take(),
-        log: custom.log.clone(),
-    };
-
-    let res = std::panic::catch_unwind(AssertUnwindSafe(|| B::init_context(config, log)));
+    let res = std::panic::catch_unwind(AssertUnwindSafe(|| B::init_context(log)));
 
     let backend_context = match res {
         Ok(Ok(context)) => context,
@@ -58,7 +59,7 @@ unsafe extern "C" fn custom_context_on_init<B: CustomBackend>(
         Err(_) => return sys::ma_result_MA_ERROR,
     };
 
-    match custom.context.set(backend_context) {
+    match custom.user_context.set(backend_context) {
         Ok(_) => sys::ma_result_MA_SUCCESS,
         Err(_) => sys::ma_result_MA_ERROR,
     }
@@ -84,7 +85,7 @@ unsafe extern "C" fn custom_context_enumerate_devices<B: CustomBackend>(
         _owner: LogOwner::Log(l.clone()),
     });
 
-    let Some(backend_context) = custom.context.get_mut() else {
+    let Some(backend_context) = custom.user_context.get_mut() else {
         return sys::ma_result_MA_INVALID_OPERATION;
     };
 
@@ -135,7 +136,7 @@ unsafe extern "C" fn custom_context_device_info<B: CustomBackend>(
         _owner: LogOwner::Log(l.clone()),
     });
 
-    let Some(backend_context) = custom.context.get_mut() else {
+    let Some(backend_context) = custom.user_context.get_mut() else {
         return sys::ma_result_MA_INVALID_OPERATION;
     };
 
@@ -154,4 +155,64 @@ unsafe extern "C" fn custom_context_device_info<B: CustomBackend>(
     }
 
     sys::ma_result_MA_SUCCESS
+}
+
+unsafe extern "C" fn custom_context_on_device_init<B: CustomBackend>(
+    device: *mut sys::ma_device,
+    config: *const sys::ma_device_config,
+    playback_descriptor: *mut sys::ma_device_descriptor,
+    capture_descriptor: *mut sys::ma_device_descriptor,
+) -> sys::ma_result {
+    if device.is_null()
+        || config.is_null()
+        || playback_descriptor.is_null()
+        || capture_descriptor.is_null()
+    {
+        return sys::ma_result_MA_ERROR;
+    }
+
+    let Ok(config): MaResult<UserDeviceConfig> = unsafe { *config }.try_into() else {
+        return sys::ma_result_MA_ERROR;
+    };
+
+    let mut playback_descr: Option<DeviceDescriptor> = None;
+    let mut capture_descr: Option<DeviceDescriptor> = None;
+
+    if config.device_type == DeviceType::Duplex || config.device_type == DeviceType::Playback {
+        if let Ok(play) = unsafe { *playback_descriptor }.try_into() {
+            playback_descr = Some(play);
+        }
+    }
+    if config.device_type == DeviceType::Duplex || config.device_type == DeviceType::Capture {
+        if let Ok(capt) = unsafe { *capture_descriptor }.try_into() {
+            capture_descr = Some(capt);
+        }
+    }
+
+    let user_device = UserDevice(device.cast::<CustomDeviceInner<B>>());
+
+    let device = unsafe { &*device.cast::<CustomDeviceInner<B>>() };
+
+    // TODO:
+    // Update the device descripters after the users updates them.
+
+    let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+        B::device_init(
+            user_device,
+            config,
+            playback_descr.as_mut(),
+            capture_descr.as_mut(),
+        )
+    }));
+
+    let user_device = match res {
+        Ok(Ok(device)) => device,
+        Ok(Err(error)) => return error.ma_result(),
+        Err(_) => return sys::ma_result_MA_ERROR,
+    };
+
+    match device.user_device.set(user_device) {
+        Ok(_) => sys::ma_result_MA_SUCCESS,
+        Err(_) => sys::ma_result_MA_ERROR,
+    }
 }

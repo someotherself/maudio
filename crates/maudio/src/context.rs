@@ -125,7 +125,7 @@ pub(crate) mod private_context {
     use crate::{
         backend::{custom_backend::CustomBackend, custom_context::CustomContext},
         context::{AsContextPtr, Context, ContextRef},
-        AsRawRef, Binding,
+        Binding,
     };
 
     pub trait ContextPtrProvider<T: ?Sized> {
@@ -150,7 +150,7 @@ pub(crate) mod private_context {
 
     impl<B: CustomBackend> ContextPtrProvider<CustomContext<B>> for CustomContextProvider {
         fn as_context_ptr(t: &CustomContext<B>) -> *mut sys::ma_context {
-            t.as_raw_ptr() as *mut _
+            t.to_raw()
         }
     }
 
