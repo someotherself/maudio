@@ -27,8 +27,8 @@ pub struct CustomContext<B: CustomBackend>(pub(crate) Arc<CustomContextInner<B>>
 #[repr(C)]
 pub(crate) struct CustomContextInner<B: CustomBackend> {
     pub(crate) inner: UnsafeCell<sys::ma_context>,
-    pub(crate) user_context: OnceLock<B::Context>,
-    pub(super) log: Option<Arc<LogInner>>,
+    pub(crate) backend_context: OnceLock<B::Context>,
+    pub(crate) log: Option<Arc<LogInner>>,
     pub(crate) backend: PhantomData<B>,
 }
 
@@ -49,7 +49,7 @@ impl<B: CustomBackend> CustomContext<B> {
     pub(crate) fn new_with_config(config: &mut ContextBuilder) -> MaResult<Self> {
         let inner = Arc::new(CustomContextInner {
             inner: unsafe { MaybeUninit::zeroed().assume_init() },
-            user_context: OnceLock::new(),
+            backend_context: OnceLock::new(),
             log: config.log.take(),
             backend: PhantomData,
         });
@@ -72,11 +72,11 @@ impl<B: CustomBackend> Drop for CustomContextInner<B> {
     }
 }
 
-pub struct UserDeviceConfig {
+pub struct BackendDeviceConfig {
     pub device_type: DeviceType,
-    pub sample_rate: SampleRate,
-    pub playback_channels: u32,
-    pub capture_channels: u32,
+    pub sample_rate: Option<SampleRate>,
+    pub playback_channels: Option<u32>,
+    pub capture_channels: Option<u32>,
     pub period_size_frames: u32,
     pub period_size_millis: u32,
     pub period_count: u32,
@@ -86,15 +86,15 @@ pub struct UserDeviceConfig {
     pub no_fixed_size_callback: bool,
 }
 
-impl TryFrom<sys::ma_device_config> for UserDeviceConfig {
+impl TryFrom<sys::ma_device_config> for BackendDeviceConfig {
     type Error = MaudioError;
 
     fn try_from(value: sys::ma_device_config) -> Result<Self, Self::Error> {
         Ok(Self {
             device_type: value.deviceType.try_into()?,
-            sample_rate: value.sampleRate.try_into()?,
-            playback_channels: value.playback.channels,
-            capture_channels: value.capture.channels,
+            sample_rate: value.sampleRate.try_into().ok(),
+            playback_channels: (value.playback.channels != 0).then_some(value.playback.channels),
+            capture_channels: (value.capture.channels != 0).then_some(value.capture.channels),
             period_size_frames: value.periodSizeInFrames,
             period_size_millis: value.periodSizeInMilliseconds,
             period_count: value.periods,
@@ -107,11 +107,11 @@ impl TryFrom<sys::ma_device_config> for UserDeviceConfig {
 }
 
 pub struct DeviceDescriptor {
-    pub device_id: DeviceId,
+    pub device_id: Option<DeviceId>,
     pub share_mode: DeviceShareMode,
     pub format: Format,
-    pub channels: u32,
-    pub sample_rate: SampleRate,
+    pub channels: Option<u32>,
+    pub sample_rate: Option<SampleRate>,
     pub channel_map: Vec<Channel>,
     pub period_size_frames: u32,
     pub period_size_millis: u32,
@@ -119,24 +119,38 @@ pub struct DeviceDescriptor {
 }
 
 impl DeviceDescriptor {
+    pub(crate) fn update_raw_descriptor(&self, raw: &mut sys::ma_device_descriptor) {
+        if let Some(channels) = self.channels {
+            raw.channels = channels;
+        }
+        if let Some(sample_rate) = self.sample_rate {
+            raw.sampleRate = sample_rate.into()
+        };
+
+        raw.periodSizeInMilliseconds = self.period_size_millis;
+        raw.periodSizeInFrames = self.period_size_frames;
+        raw.periodCount = self.period_count;
+        raw.format = self.format.into();
+    }
+
     // SAFETY: sys::ma_device_descriptor cannot outlive self
     unsafe fn to_raw(&self) -> sys::ma_device_descriptor {
         let mut channel_map = [0 as sys::ma_channel; 254];
-        for (id, &c) in self
-            .channel_map
-            .iter()
-            .enumerate()
-            .take(self.channels as usize)
-        {
-            channel_map[id] = c.into();
+        if let Some(channels) = self.channels {
+            for (id, &c) in self.channel_map.iter().enumerate().take(channels as usize) {
+                channel_map[id] = c.into();
+            }
         }
 
         sys::ma_device_descriptor {
-            pDeviceID: &self.device_id.inner.id as *const _,
+            pDeviceID: self
+                .device_id
+                .as_ref()
+                .map_or(std::ptr::null() as *const _, |p| &p.inner.id as *const _),
             shareMode: self.share_mode.into(),
             format: self.format.into(),
-            channels: self.channels,
-            sampleRate: self.sample_rate.into(),
+            channels: self.channels.unwrap_or(0),
+            sampleRate: self.sample_rate.unwrap_or(SampleRate::Custom(0)).into(),
             channelMap: channel_map,
             periodSizeInFrames: self.period_size_frames,
             periodSizeInMilliseconds: self.period_size_millis,
@@ -165,16 +179,22 @@ impl TryFrom<sys::ma_device_descriptor> for DeviceDescriptor {
 
     fn try_from(value: sys::ma_device_descriptor) -> Result<Self, Self::Error> {
         let mut channel_map: Vec<Channel> = vec![Channel::None; value.channels as usize];
-        for &c in value.channelMap.iter().take(value.channels as usize) {
-            channel_map.push(c.try_into()?);
+        for (idx, &c) in value
+            .channelMap
+            .iter()
+            .enumerate()
+            .take(value.channels as usize)
+        {
+            channel_map[idx] = c.try_into()?;
         }
 
         Ok(Self {
-            device_id: DeviceId::from_raw(unsafe { &*value.pDeviceID }),
+            device_id: (!value.pDeviceID.is_null())
+                .then(|| DeviceId::from_raw(unsafe { &*value.pDeviceID })),
             share_mode: value.shareMode.try_into()?,
             format: value.format.try_into()?,
-            channels: value.channels,
-            sample_rate: value.sampleRate.try_into()?,
+            channels: (value.channels != 0).then_some(value.channels),
+            sample_rate: value.sampleRate.try_into().ok(),
             channel_map,
             period_size_frames: value.periodSizeInFrames,
             period_size_millis: value.periodSizeInMilliseconds,

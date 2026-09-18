@@ -40,7 +40,7 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     backend::{
-        context_callbacks::user_backend_callbacks, custom_backend::CustomBackend,
+        context_callbacks::custom_backend_callbacks, custom_backend::CustomBackend,
         custom_context::CustomContext, Backend,
     },
     device::{
@@ -563,7 +563,7 @@ impl ContextBuilder {
     }
 
     pub fn build_custom<B: CustomBackend>(&mut self) -> MaResult<CustomContext<B>> {
-        self.inner.custom = user_backend_callbacks::<B>();
+        self.inner.custom = custom_backend_callbacks::<B>();
         CustomContext::new_with_config(self)
     }
 
