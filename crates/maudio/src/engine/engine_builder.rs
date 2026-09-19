@@ -526,7 +526,7 @@ mod test {
 
     #[test]
     fn test_engine_builder_with_process_notifier_multiple_builds_no_double_free() -> MaResult<()> {
-        // This targets the `process_notifier: Option<Arc<ProcessState>>` in the builder and the `take()`.
+        // This targets the `process_notifier: Option<Arc<EngineUserData>>` in the builder and the `take()`.
         let mut b = EngineBuilder::new();
 
         let engine1 = b.with_process_notifier()?;
