@@ -9,7 +9,7 @@ use crate::{
     device::{device_id::DeviceId, Device, DeviceInner},
     engine::{
         engine_cb_notif::engine_notification_callback,
-        process_cb::{on_process_callback, EngineProcessCallback, ProcessState},
+        process_cb::{on_process_callback, EngineProcessCallback, EngineUserData},
         resource::{private_rm, ResourceManager},
         Engine,
     },
@@ -29,7 +29,7 @@ pub struct EngineBuilder {
 }
 
 pub(crate) struct EngineProcessCbData {
-    pub(crate) process_data_ptr: Option<*mut ProcessState>,
+    pub(crate) process_data_ptr: Option<*mut EngineUserData>,
     pub(crate) process_data_panic: Option<Arc<AtomicBool>>,
     pub(crate) state_notif_exists: bool,
     pub(crate) state_notif: Option<DeviceStateNotifier>, // Always set by set_process_notifier. Dropped if state_notif_exists is false
@@ -191,7 +191,7 @@ impl EngineBuilder {
 
     fn set_process_notifier(&mut self, f: Option<Box<EngineProcessCallback>>) -> ProcFramesNotif {
         let channels = self.inner.channels; // engine is init with 2 channels by default
-        let state = ProcessState::new(channels, f);
+        let state = EngineUserData::new(channels, f);
 
         let proc_notif = state.clone_proc_notif();
         let proc_data_panic = state.clone_panic_flag();

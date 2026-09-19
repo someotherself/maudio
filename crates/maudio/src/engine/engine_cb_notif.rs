@@ -1,6 +1,6 @@
 use maudio_sys::ffi as sys;
 
-use crate::{engine::process_cb::ProcessState, util::device_notif::DeviceNotificationType};
+use crate::{engine::process_cb::EngineUserData, util::device_notif::DeviceNotificationType};
 
 pub(crate) unsafe extern "C" fn engine_notification_callback(
     notification: *const sys::ma_device_notification,
@@ -19,7 +19,7 @@ pub(crate) unsafe extern "C" fn engine_notification_callback(
         return;
     }
 
-    let state = (*engine).pProcessUserData.cast::<ProcessState>();
+    let state = (*engine).pProcessUserData.cast::<EngineUserData>();
     if state.is_null() {
         return;
     }

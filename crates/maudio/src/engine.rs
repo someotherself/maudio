@@ -95,7 +95,7 @@ use crate::{
         engine_builder::EngineBuilder,
         engine_cb_notif::engine_notification_callback,
         node_graph::{nodes::NodeRef, NodeGraphRef},
-        process_cb::ProcessState,
+        process_cb::EngineUserData,
         resource::{ResourceManager, ResourceManagerRef},
     },
     logging::{LogInner, LogRef, StoredLogs},
@@ -140,7 +140,7 @@ pub struct EngineInner {
     _context: Option<Arc<ContextInner>>,   // keep alive
     _resource_manager: Option<ResourceManager<f32>>, // keep alive
     _logger: Option<Arc<LogInner>>,        // keep alive
-    process_data_ptr: Option<*mut ProcessState>, // userdata (self.inner.pProcessUserData)
+    process_data_ptr: Option<*mut EngineUserData>, // userdata (self.inner.pProcessUserData)
     process_data_panic: Option<Arc<AtomicBool>>, // true = callback panicked and is now poisoned
     process_data_notif: Option<ProcFramesNotif>,
     state_notifier: Option<DeviceStateNotifier>,

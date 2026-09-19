@@ -13,38 +13,64 @@ use maudio_sys::ffi as sys;
 use crate::util::{device_notif::DeviceStateNotifier, proc_notif::ProcFramesNotif};
 
 #[derive(Default)]
-pub(crate) struct ProcessState {
-    frames_processed: ProcFramesNotif,
-    channels: u32,
-    cb: UnsafeCell<Option<Box<EngineProcessCallback>>>,
-    pub(crate) state_notif: DeviceStateNotifier,
-    panic_flag: Arc<AtomicBool>,
-    in_cb: AtomicBool,
+pub(crate) struct EngineUserData {
+    frame_counter: FrameCounter,
+    pub(crate) state_notif: DeviceStateNotifier, // device notificationCallback
+    process_callback: ProcessCallbackState,
 }
 
-impl ProcessState {
-    pub(crate) fn new(channels: u32, cb: Option<Box<EngineProcessCallback>>) -> Self {
-        ProcessState {
+#[derive(Default)]
+struct FrameCounter {
+    frames_processed: ProcFramesNotif,
+    channels: u32,
+}
+
+impl FrameCounter {
+    fn new(channels: u32) -> Self {
+        Self {
             frames_processed: ProcFramesNotif::default(),
             channels,
+        }
+    }
+}
+
+#[derive(Default)]
+struct ProcessCallbackState {
+    cb: UnsafeCell<Option<Box<EngineProcessCallback>>>,
+    panic_flag: Arc<AtomicBool>,
+    callback_lock: AtomicBool, // prevents concurrent access to the cb
+}
+
+impl ProcessCallbackState {
+    fn new(cb: Option<Box<EngineProcessCallback>>) -> Self {
+        Self {
             cb: UnsafeCell::new(cb),
-            state_notif: DeviceStateNotifier::default(),
             panic_flag: Arc::new(AtomicBool::new(false)),
-            in_cb: AtomicBool::new(false),
+            callback_lock: AtomicBool::new(false),
+        }
+    }
+}
+
+impl EngineUserData {
+    pub(crate) fn new(channels: u32, cb: Option<Box<EngineProcessCallback>>) -> Self {
+        EngineUserData {
+            frame_counter: FrameCounter::new(channels),
+            state_notif: DeviceStateNotifier::default(),
+            process_callback: ProcessCallbackState::new(cb),
         }
     }
 
     pub(crate) fn clone_proc_notif(&self) -> ProcFramesNotif {
-        self.frames_processed.clone()
+        self.frame_counter.frames_processed.clone()
     }
 
     #[allow(unused)]
     pub(crate) fn data_callback_panicked(&self) -> bool {
-        self.panic_flag.load(Ordering::Relaxed)
+        self.process_callback.panic_flag.load(Ordering::Relaxed)
     }
 
     pub(crate) fn clone_panic_flag(&self) -> Arc<AtomicBool> {
-        self.panic_flag.clone()
+        self.process_callback.panic_flag.clone()
     }
 }
 
@@ -62,9 +88,9 @@ pub(crate) unsafe extern "C" fn on_process_callback(
         return;
     }
 
-    let ctx = unsafe { &*(user_data as *const ProcessState) };
+    let ctx = unsafe { &*(user_data as *const EngineUserData) };
 
-    if ctx.panic_flag.load(Ordering::Relaxed) {
+    if ctx.process_callback.panic_flag.load(Ordering::Relaxed) {
         // The callback is poisoned
         return;
     }
@@ -73,10 +99,11 @@ pub(crate) unsafe extern "C" fn on_process_callback(
         return;
     }
 
-    ctx.frames_processed.add_frames(frame_count);
+    ctx.frame_counter.frames_processed.add_frames(frame_count);
 
     if ctx
-        .in_cb
+        .process_callback
+        .callback_lock
         .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
         .is_err()
     {
@@ -84,7 +111,7 @@ pub(crate) unsafe extern "C" fn on_process_callback(
         return;
     }
 
-    let channels = ctx.channels as usize;
+    let channels = ctx.frame_counter.channels as usize;
     // Engine is alwaus f32, no need to adjust to vec storage units
     let Some(slice_len) = (frame_count as usize).checked_mul(channels) else {
         return;
@@ -93,18 +120,22 @@ pub(crate) unsafe extern "C" fn on_process_callback(
     // Out is only valid for the duration of the callback
     let out = core::slice::from_raw_parts_mut(frames_out, slice_len);
 
-    let cb_slot = &mut *ctx.cb.get();
+    let cb_slot = &mut *ctx.process_callback.cb.get();
     if let Some(cb) = cb_slot.as_mut() {
         let result = catch_unwind(AssertUnwindSafe(|| {
-            cb(out, ctx.channels);
+            cb(out, ctx.frame_counter.channels);
         }));
 
         if result.is_err() {
             // Disable callback permanently after panic.
-            ctx.panic_flag.store(true, Ordering::Release);
+            ctx.process_callback
+                .panic_flag
+                .store(true, Ordering::Release);
             *cb_slot = None;
         }
     }
 
-    ctx.in_cb.store(false, Ordering::Release);
+    ctx.process_callback
+        .callback_lock
+        .store(false, Ordering::Release);
 }
