@@ -1133,6 +1133,24 @@ impl<'a, F: PcmFormat> PlaybackDeviceBuilder<'a, F> {
         )
     }
 
+    pub fn with_custom_backend<'device, B: CustomBackend>(
+        &mut self,
+        f: impl FnMut(CallBackDevice, &mut [F::StorageUnit]) + Send + 'static,
+    ) -> MaResult<CustomDevice<'device, F, B>> {
+        let (builder, callback_process_notifier) = self.configure_builder(f);
+        let context = ContextBuilder::new()
+            .preferred_backends([Backend::Custom])
+            .build_custom::<B>()?;
+
+        CustomDevice::new_with_config(
+            builder,
+            &context,
+            callback_process_notifier,
+            builder.playback_device_id.clone(),
+            builder.capture_device_id.clone(),
+        )
+    }
+
     pub fn with_context<C>(&mut self, context: &Context, f: C) -> MaResult<Device<F>>
     where
         C: FnMut(CallBackDevice, &mut [F::StorageUnit]) + Send + 'static,
@@ -1256,6 +1274,24 @@ impl<'a, F: PcmFormat> CaptureDeviceBuilder<'a, F> {
             builder,
             builder.context,
             private_device_b::get_backends(builder),
+            callback_process_notifier,
+            builder.playback_device_id.clone(),
+            builder.capture_device_id.clone(),
+        )
+    }
+
+    pub fn with_custom_backend<'device, B: CustomBackend>(
+        &mut self,
+        f: impl FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
+    ) -> MaResult<CustomDevice<'device, F, B>> {
+        let (builder, callback_process_notifier) = self.configure_builder(f);
+        let context = ContextBuilder::new()
+            .preferred_backends([Backend::Custom])
+            .build_custom::<B>()?;
+
+        CustomDevice::new_with_config(
+            builder,
+            &context,
             callback_process_notifier,
             builder.playback_device_id.clone(),
             builder.capture_device_id.clone(),
@@ -1394,6 +1430,24 @@ impl<'a, F: MaSampleFormat, P: MaSampleFormat> DuplexDeviceBuilder<'a, F, P> {
         )
     }
 
+    pub fn with_custom_backend<'device, B: CustomBackend>(
+        &mut self,
+        f: impl FnMut(CallBackDevice, &mut [F::StorageUnit], &[P::StorageUnit]) + Send + 'static,
+    ) -> MaResult<CustomDevice<'device, F, B>> {
+        let (builder, callback_process_notifier) = self.configure_builder(f);
+        let context = ContextBuilder::new()
+            .preferred_backends([Backend::Custom])
+            .build_custom::<B>()?;
+
+        CustomDevice::new_with_config(
+            builder,
+            &context,
+            callback_process_notifier,
+            builder.playback_device_id.clone(),
+            builder.capture_device_id.clone(),
+        )
+    }
+
     pub fn with_context<C>(&mut self, context: &Context, f: C) -> MaResult<Device<F>>
     where
         C: FnMut(CallBackDevice, &mut [F::StorageUnit], &[P::StorageUnit]) + Send + 'static,
@@ -1524,6 +1578,24 @@ impl<'a, F: PcmFormat> LoopbackDeviceBuilder<'a, F> {
             builder,
             builder.context,
             private_device_b::get_backends(builder),
+            callback_process_notifier,
+            builder.playback_device_id.clone(),
+            builder.capture_device_id.clone(),
+        )
+    }
+
+    pub fn with_custom_backend<'device, B: CustomBackend>(
+        &mut self,
+        f: impl FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
+    ) -> MaResult<CustomDevice<'device, F, B>> {
+        let (builder, callback_process_notifier) = self.configure_builder(f);
+        let context = ContextBuilder::new()
+            .preferred_backends([Backend::Custom])
+            .build_custom::<B>()?;
+
+        CustomDevice::new_with_config(
+            builder,
+            &context,
             callback_process_notifier,
             builder.playback_device_id.clone(),
             builder.capture_device_id.clone(),
