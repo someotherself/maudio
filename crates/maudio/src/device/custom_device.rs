@@ -43,7 +43,6 @@ pub(crate) struct CustomDeviceInner<'device, B: CustomBackend> {
     callback_process_notifier: ProcFramesNotif,
     state_notifier: Option<DeviceStateNotifier>, // used by ma_device_notification
     pub(crate) logs: StoredLogs,                 // TODO: Add it in the LogOwner
-    backend: PhantomData<B>,
 }
 
 impl<'device, F: PcmFormat, B: CustomBackend> Binding for CustomDevice<'device, F, B> {
@@ -86,7 +85,6 @@ impl<'a, 'device, F: PcmFormat, B: CustomBackend> CustomDevice<'device, F, B> {
             callback_process_notifier: data_notif,
             state_notifier: Some(cb_info.state_notif.clone()),
             logs: StoredLogs::default(),
-            backend: PhantomData,
         });
 
         let base_ptr = core::ptr::addr_of!(inner.inner);
