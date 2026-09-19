@@ -24,16 +24,16 @@ use crate::{
     Binding, MaResult,
 };
 
-pub struct CustomDevice<F: PcmFormat, B: CustomBackend> {
-    pub(crate) inner: Arc<CustomDeviceInner<B>>,
+pub struct CustomDevice<'device, F: PcmFormat, B: CustomBackend> {
+    pub(crate) inner: Arc<CustomDeviceInner<'device, B>>,
     format: PhantomData<F>,
 }
 
 #[repr(C)]
-pub(crate) struct CustomDeviceInner<B: CustomBackend> {
+pub(crate) struct CustomDeviceInner<'device, B: CustomBackend> {
     pub(crate) inner: UnsafeCell<sys::ma_device>,
     pub(crate) context: Arc<CustomContextInner<B>>,
-    pub(crate) backend_device: OnceLock<B::Device>,
+    pub(crate) backend_device: OnceLock<B::Device<'device>>,
     pub(super) log: Option<Arc<LogInner>>,
     _playback_device_id: Option<DeviceId>, // Ref count. Needs to be kept alive.
     _capture_device_id: Option<DeviceId>,  // Ref count. Needs to be kept alive.
@@ -46,7 +46,7 @@ pub(crate) struct CustomDeviceInner<B: CustomBackend> {
     backend: PhantomData<B>,
 }
 
-impl<F: PcmFormat, B: CustomBackend> Binding for CustomDevice<F, B> {
+impl<'device, F: PcmFormat, B: CustomBackend> Binding for CustomDevice<'device, F, B> {
     type Raw = *mut sys::ma_device;
 
     fn to_raw(&self) -> Self::Raw {
@@ -54,19 +54,19 @@ impl<F: PcmFormat, B: CustomBackend> Binding for CustomDevice<F, B> {
     }
 }
 
-impl<F: PcmFormat, B: CustomBackend> AsDevicePtr for CustomDevice<F, B> {
+impl<'device, F: PcmFormat, B: CustomBackend> AsDevicePtr for CustomDevice<'device, F, B> {
     type __PtrProvider = private_device::CustomDeviceProvider;
 }
 
 // Private methods
-impl<'a, F: PcmFormat, B: CustomBackend> CustomDevice<F, B> {
+impl<'a, 'device, F: PcmFormat, B: CustomBackend> CustomDevice<'device, F, B> {
     pub(crate) fn new_with_config<D: AsDeviceBuilder<'a> + ?Sized>(
         config: &D,
         context: &'a CustomContext<B>,
         data_notif: ProcFramesNotif,
         playback_device_id: Option<DeviceId>,
         capture_device_id: Option<DeviceId>,
-    ) -> MaResult<CustomDevice<F, B>> {
+    ) -> MaResult<CustomDevice<'device, F, B>> {
         let Some(cb_info) = private_device_b::get_data_callback_info(config) else {
             return Err(crate::MaudioError::from_ma_result(
                 sys::ma_result_MA_INVALID_ARGS,
@@ -108,7 +108,7 @@ impl<'a, F: PcmFormat, B: CustomBackend> CustomDevice<F, B> {
 }
 
 // Device only methods
-impl<F: PcmFormat, B: CustomBackend> CustomDevice<F, B> {
+impl<'device, F: PcmFormat, B: CustomBackend> CustomDevice<'device, F, B> {
     /// Starts the device.
     ///
     /// Begins audio processing.
@@ -152,7 +152,7 @@ impl<F: PcmFormat, B: CustomBackend> CustomDevice<F, B> {
     }
 }
 
-impl<B: CustomBackend> Drop for CustomDeviceInner<B> {
+impl<'device, B: CustomBackend> Drop for CustomDeviceInner<'device, B> {
     fn drop(&mut self) {
         device_ffi::ma_device_uninit(self.inner.get());
         (self.callback_user_data_drop)(self.callback_user_data);
@@ -160,15 +160,17 @@ impl<B: CustomBackend> Drop for CustomDeviceInner<B> {
 }
 
 #[derive(Copy)]
-pub struct BackendDeviceHandle<B: CustomBackend>(pub(crate) *mut CustomDeviceInner<B>);
+pub struct BackendDeviceHandle<'device, B: CustomBackend>(
+    pub(crate) *mut CustomDeviceInner<'device, B>,
+);
 
-impl<B: CustomBackend> Clone for BackendDeviceHandle<B> {
+impl<'device, B: CustomBackend> Clone for BackendDeviceHandle<'device, B> {
     fn clone(&self) -> Self {
         Self(self.0)
     }
 }
 
-impl<B: CustomBackend> Binding for BackendDeviceHandle<B> {
+impl<'device, B: CustomBackend> Binding for BackendDeviceHandle<'device, B> {
     type Raw = *mut sys::ma_device;
 
     fn to_raw(&self) -> Self::Raw {
@@ -176,10 +178,10 @@ impl<B: CustomBackend> Binding for BackendDeviceHandle<B> {
     }
 }
 
-unsafe impl<B: CustomBackend> Send for BackendDeviceHandle<B> {}
+unsafe impl<'device, B: CustomBackend> Send for BackendDeviceHandle<'device, B> {}
 
-impl<B: CustomBackend> BackendDeviceHandle<B> {
-    pub fn user_device(&self) -> Option<&B::Device> {
+impl<'device, B: CustomBackend> BackendDeviceHandle<'device, B> {
+    pub fn backend_device(&self) -> Option<&B::Device<'device>> {
         let device = unsafe { &*self.0 };
         device.backend_device.get()
     }
@@ -189,7 +191,7 @@ impl<B: CustomBackend> BackendDeviceHandle<B> {
         output: Option<&mut [F::StorageUnit]>,
         input: Option<&[R::StorageUnit]>,
     ) -> MaResult<()> {
-        device_ffi::ma_device_handle_backend_data_callback::<F, R, B>(self, output, input)
+        device_ffi::ma_device_handle_backend_data_callback::<F, R>(self.to_raw(), output, input)
     }
 
     pub fn with_context<F, R>(&self, f: F) -> MaResult<R>

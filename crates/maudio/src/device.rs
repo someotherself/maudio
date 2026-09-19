@@ -142,7 +142,7 @@ pub(crate) mod private_device {
     // Controls the Device functions that can be called from the data callback
     pub trait DeviceControl {}
     impl<F: PcmFormat> DeviceControl for Device<F> {}
-    impl<F: PcmFormat, B: CustomBackend> DeviceControl for CustomDevice<F, B> {}
+    impl<'device, F: PcmFormat, B: CustomBackend> DeviceControl for CustomDevice<'device, F, B> {}
     impl DeviceControl for DeviceRef<'_> {}
 
     pub trait DevicePtrProvider<T: ?Sized> {
@@ -172,7 +172,7 @@ pub(crate) mod private_device {
         }
     }
 
-    impl<F: PcmFormat, B: CustomBackend> DevicePtrProvider<CustomDevice<F, B>>
+    impl<'device, F: PcmFormat, B: CustomBackend> DevicePtrProvider<CustomDevice<'device, F, B>>
         for CustomDeviceProvider
     {
         fn as_device_ptr(t: &CustomDevice<F, B>) -> *mut sys::ma_device {
@@ -200,7 +200,7 @@ impl<'a> AsDevicePtr for DeviceRef<'a> {
 impl<F: PcmFormat> DeviceOps for Device<F> {}
 impl DeviceOps for DeviceRef<'_> {}
 impl DeviceOps for CallBackDevice {}
-impl<F: PcmFormat, B: CustomBackend> DeviceOps for CustomDevice<F, B> {}
+impl<'device, F: PcmFormat, B: CustomBackend> DeviceOps for CustomDevice<'device, F, B> {}
 
 /// Methods shared between Device, DeviceRef and CallBackDevice
 pub trait DeviceOps: AsDevicePtr {
@@ -426,10 +426,9 @@ pub(crate) mod device_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        backend::{custom_backend::CustomBackend, Backend},
+        backend::Backend,
         context::{ContextBuilder, ContextRef},
         device::{
-            custom_device::BackendDeviceHandle,
             device_builder::{private_device_b, AsDeviceBuilder},
             device_info::DeviceInfo,
             device_state::DeviceState,
@@ -441,7 +440,6 @@ pub(crate) mod device_ffi {
         AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
     };
 
-    #[allow(dead_code)]
     pub fn ma_device_init<'a, B: AsDeviceBuilder<'a> + ?Sized>(
         context: *mut sys::ma_context,
         config: &B,
@@ -647,8 +645,8 @@ pub(crate) mod device_ffi {
     // Callback: called by miniaudio
     // Theadsafe: called by miniaudio
     #[inline]
-    pub fn ma_device_handle_backend_data_callback<F: PcmFormat, R: PcmFormat, B: CustomBackend>(
-        device: &BackendDeviceHandle<B>,
+    pub fn ma_device_handle_backend_data_callback<F: PcmFormat, R: PcmFormat>(
+        device: *mut sys::ma_device,
         output: Option<&mut [F::StorageUnit]>,
         input: Option<&[R::StorageUnit]>,
     ) -> MaResult<()> {
@@ -669,12 +667,10 @@ pub(crate) mod device_ffi {
                 .map_err(|_| invalid("Frame count exceeds u32::MAX"))
         };
 
-        let raw_device = device.to_raw();
-
         let output_frames = output
             .as_ref()
             .map(|buffer| {
-                let channels = unsafe { (*raw_device).playback.internalChannels } as usize;
+                let channels = unsafe { (*device).playback.internalChannels } as usize;
 
                 let units_per_frame = F::VEC_STORE_UNITS_PER_FRAME
                     .checked_mul(channels)
@@ -687,7 +683,7 @@ pub(crate) mod device_ffi {
         let input_frames = input
             .as_ref()
             .map(|buffer| {
-                let channels = unsafe { (*raw_device).capture.internalChannels } as usize;
+                let channels = unsafe { (*device).capture.internalChannels } as usize;
 
                 let units_per_frame = R::VEC_STORE_UNITS_PER_FRAME
                     .checked_mul(channels)
@@ -715,7 +711,7 @@ pub(crate) mod device_ffi {
 
         let res = unsafe {
             sys::ma_device_handle_backend_data_callback(
-                device.to_raw(),
+                device,
                 output as *mut _,
                 input as *const _,
                 frame_count,

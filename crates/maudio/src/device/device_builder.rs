@@ -1148,11 +1148,11 @@ impl<'a, F: PcmFormat> PlaybackDeviceBuilder<'a, F> {
         )
     }
 
-    pub fn with_custom_context<C, B: CustomBackend>(
+    pub fn with_custom_context<'device, C, B: CustomBackend>(
         &mut self,
         context: &CustomContext<B>,
         f: C,
-    ) -> MaResult<CustomDevice<F, B>>
+    ) -> MaResult<CustomDevice<'device, F, B>>
     where
         C: FnMut(CallBackDevice, &mut [F::StorageUnit]) + Send + 'static,
     {
@@ -1277,11 +1277,11 @@ impl<'a, F: PcmFormat> CaptureDeviceBuilder<'a, F> {
         )
     }
 
-    pub fn with_custom_context<C, B: CustomBackend>(
+    pub fn with_custom_context<'device, C, B: CustomBackend>(
         &mut self,
         context: &CustomContext<B>,
         f: C,
-    ) -> MaResult<CustomDevice<F, B>>
+    ) -> MaResult<CustomDevice<'device, F, B>>
     where
         C: FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
     {
@@ -1409,11 +1409,11 @@ impl<'a, F: MaSampleFormat, P: MaSampleFormat> DuplexDeviceBuilder<'a, F, P> {
         )
     }
 
-    pub fn with_custom_context<C, B: CustomBackend>(
+    pub fn with_custom_context<'device, C, B: CustomBackend>(
         &mut self,
         context: &CustomContext<B>,
         f: C,
-    ) -> MaResult<CustomDevice<F, B>>
+    ) -> MaResult<CustomDevice<'device, F, B>>
     where
         C: FnMut(CallBackDevice, &mut [F::StorageUnit], &[P::StorageUnit]) + Send + 'static,
     {
@@ -1545,11 +1545,11 @@ impl<'a, F: PcmFormat> LoopbackDeviceBuilder<'a, F> {
         )
     }
 
-    pub fn with_custom_context<C, B: CustomBackend>(
+    pub fn with_custom_context<'device, C, B: CustomBackend>(
         &mut self,
         context: &CustomContext<B>,
         f: C,
-    ) -> MaResult<CustomDevice<F, B>>
+    ) -> MaResult<CustomDevice<'device, F, B>>
     where
         C: FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
     {

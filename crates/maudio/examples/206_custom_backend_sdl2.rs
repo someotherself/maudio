@@ -20,13 +20,19 @@ use maudio::{
     pcm_frames::PcmFormat,
     ErrorKinds, MaResult, MaudioError,
 };
-use sdl2::audio::{AudioCallback, AudioFormat, AudioFormatNum, AudioSpec};
+use sdl2::audio::{AudioCallback, AudioFormat, AudioFormatNum, AudioSpec, AudioSpecDesired};
 
 // Note on SDL2:
-// When testing with the PulseAudio backend, I have noticed some memory leaks on sdl2 2.26.5.
+// 1. When testing with the PulseAudio backend, I have noticed some memory leaks on sdl2 2.26.5.
+// These are not related to the sdl2 crate.
 //
 // This seems to be fixed in SDL 2.30.0
 // I have not tested backends other than PulseAudio
+//
+// 2. At the moment, the sdl2 crate does not allow querying the default device
+// (missing interface for SDL_GetDefaultAudioInfo)
+// Devices can still be enumerated, and if a DeviceId is passed to the device builder,
+// functions such as device.get_name will work.
 
 struct SdlBackend;
 
@@ -36,25 +42,27 @@ struct SdlContext {
 }
 
 #[derive(Default)]
-struct SdlDevice
+struct SdlDevice<'device>
 where
-    BackendDeviceHandle<SdlBackend>: Send,
+    BackendDeviceHandle<'device, SdlBackend>: Send,
 {
-    playback: Option<sdl2::audio::AudioDevice<PlaybackCallback<f32, SdlBackend>>>,
-    capture: Option<sdl2::audio::AudioDevice<CaptureCallback<f32, SdlBackend>>>,
+    playback: Option<sdl2::audio::AudioDevice<PlaybackCallback<'device, f32, SdlBackend>>>,
+    playback_identity: Option<String>, // None if using default device
+    capture: Option<sdl2::audio::AudioDevice<CaptureCallback<'device, f32, SdlBackend>>>,
+    capture_identity: Option<String>,
 }
 
-struct PlaybackCallback<F: PcmFormat, B: CustomBackend> {
-    device: BackendDeviceHandle<B>,
+struct PlaybackCallback<'device, F: PcmFormat, B: CustomBackend> {
+    device: BackendDeviceHandle<'device, B>,
     format: PhantomData<fn() -> F>,
 }
 
-impl<F, B> AudioCallback for PlaybackCallback<F, B>
+impl<'device, F, B> AudioCallback for PlaybackCallback<'device, F, B>
 where
     F: PcmFormat,
     B: CustomBackend,
     F::StorageUnit: AudioFormatNum + 'static,
-    BackendDeviceHandle<B>: Send,
+    BackendDeviceHandle<'device, B>: Send,
 {
     type Channel = F::StorageUnit;
 
@@ -63,24 +71,23 @@ where
     }
 }
 
-impl<F, B> AudioCallback for CaptureCallback<F, B>
+struct CaptureCallback<'device, F: PcmFormat, B: CustomBackend> {
+    device: BackendDeviceHandle<'device, B>,
+    format: PhantomData<fn() -> F>,
+}
+
+impl<'device, F, B> AudioCallback for CaptureCallback<'device, F, B>
 where
     F: PcmFormat,
     B: CustomBackend,
     F::StorageUnit: AudioFormatNum + 'static,
-    BackendDeviceHandle<B>: Send,
+    BackendDeviceHandle<'device, B>: Send,
 {
     type Channel = F::StorageUnit;
 
     fn callback(&mut self, buffer: &mut [Self::Channel]) {
-        // Coerces to the immutable slice your capture function accepts.
         sdl_capture_callback::<F, B>(&self.device, buffer);
     }
-}
-
-struct CaptureCallback<F: PcmFormat, B: CustomBackend> {
-    device: BackendDeviceHandle<B>,
-    format: PhantomData<fn() -> F>,
 }
 
 fn desired_spec(
@@ -138,15 +145,20 @@ fn apply_obtained_spec(descriptor: &mut DeviceDescriptor, sdl_spec: &AudioSpec) 
 
 impl CustomBackend for SdlBackend {
     type Context = SdlContext;
-    type Device = SdlDevice;
+    type Device<'device> = SdlDevice<'device>;
 
-    fn init_context(log: Option<LogRef>) -> MaResult<Self::Context> {
-        if let Some(log) = log {
+    fn init_context(log: Option<&LogRef>) -> MaResult<Self::Context> {
+        if let Some(ref log) = log {
             log.post(LogLevel::Debug, "Attempting to initialize SDL2 backend")?;
         }
         let sdl = sdl2::init().map_err(MaudioError::other)?;
         let audio = sdl.audio().map_err(|e| {
-            println!("{e}");
+            if let Some(ref log) = log {
+                let _ = log.post(
+                    LogLevel::Error,
+                    format!("Failed to initialize SDL2 subsystem: {:?}", &e),
+                );
+            }
             MaudioError::other(e)
         })?;
 
@@ -156,7 +168,7 @@ impl CustomBackend for SdlBackend {
     fn enumerate_devices<F>(
         context: &mut Self::Context,
         mut report: F,
-        _log: Option<LogRef>,
+        _log: Option<&LogRef>,
     ) -> MaResult<()>
     where
         F: FnMut(DeviceType, &DeviceInfo) -> bool,
@@ -190,11 +202,11 @@ impl CustomBackend for SdlBackend {
         Ok(())
     }
 
-    fn context_get_device_info(
+    fn context_query_device_info(
         context: &mut Self::Context,
         device_type: DeviceType,
-        device_id: maudio::device::device_id::DeviceId,
-        _log: Option<LogRef>,
+        device_id: DeviceId,
+        _log: Option<&LogRef>,
     ) -> MaResult<DeviceInfo> {
         let capture = match device_type {
             DeviceType::Playback => false,
@@ -260,13 +272,13 @@ impl CustomBackend for SdlBackend {
         Err(MaudioError::other("SDL audio device was not found"))
     }
 
-    fn device_init(
-        device: BackendDeviceHandle<Self>,
+    fn device_init<'device>(
+        device: BackendDeviceHandle<'device, Self>,
         config: BackendDeviceConfig,
         playback: Option<&mut DeviceDescriptor>,
         capture: Option<&mut DeviceDescriptor>,
-        log: Option<LogRef>,
-    ) -> MaResult<Self::Device>
+        log: Option<&LogRef>,
+    ) -> MaResult<Self::Device<'device>>
     where
         Self: Sized,
     {
@@ -299,7 +311,7 @@ impl CustomBackend for SdlBackend {
                 ),
             };
 
-            let desired: sdl2::audio::AudioSpecDesired = desired_spec(descriptor, &config)?;
+            let desired: AudioSpecDesired = desired_spec(descriptor, &config)?;
 
             post(
                 LogLevel::Debug,
@@ -309,8 +321,6 @@ impl CustomBackend for SdlBackend {
                     name, desired.freq, desired.channels, desired.samples,
                 ),
             );
-
-            // Proposed adapter: forwards captured PCM to miniaudio.
 
             let callback = CaptureCallback::<f32, Self> {
                 device: device.clone(),
@@ -348,6 +358,7 @@ impl CustomBackend for SdlBackend {
             );
 
             state.capture = Some(opened);
+            state.capture_identity = name;
         }
 
         if matches!(
@@ -414,16 +425,20 @@ impl CustomBackend for SdlBackend {
             );
 
             state.playback = Some(opened);
+            state.playback_identity = name;
         }
 
         Ok(state)
     }
 
-    fn device_start(device: &BackendDeviceHandle<Self>) -> MaResult<()>
+    fn device_start<'device>(
+        device: &'device BackendDeviceHandle<Self>,
+        _log: Option<&LogRef>,
+    ) -> MaResult<()>
     where
         Self: Sized,
     {
-        let Some(device) = device.user_device() else {
+        let Some(device) = device.backend_device() else {
             return Err(MaudioError::new_ma_error(ErrorKinds::Other(
                 "Backend device not available".to_string(),
             )));
@@ -440,11 +455,14 @@ impl CustomBackend for SdlBackend {
         Ok(())
     }
 
-    fn device_stop(device: &BackendDeviceHandle<Self>) -> MaResult<()>
+    fn device_stop<'device>(
+        device: &BackendDeviceHandle<'device, Self>,
+        _log: Option<&LogRef>,
+    ) -> MaResult<()>
     where
         Self: Sized,
     {
-        let Some(device) = device.user_device() else {
+        let Some(device) = device.backend_device() else {
             return Err(MaudioError::new_ma_error(ErrorKinds::Other(
                 "Backend device not available".to_string(),
             )));
@@ -459,6 +477,47 @@ impl CustomBackend for SdlBackend {
         }
 
         Ok(())
+    }
+
+    fn device_get_info<'device>(
+        device: BackendDeviceHandle<'device, Self>,
+        _context: &'device Self::Context,
+        device_type: DeviceType,
+        _log: Option<&LogRef>,
+    ) -> MaResult<DeviceInfo>
+    where
+        Self: Sized,
+    {
+        let Some(device) = device.backend_device() else {
+            return Err(MaudioError::new_ma_error(ErrorKinds::Other(
+                "Backend device not available".to_string(),
+            )));
+        };
+
+        if device_type == DeviceType::Playback {
+            if let Some(name) = &device.playback_identity {
+                return Ok(DeviceInfoBuilder::from_name(name)?.build());
+            } else {
+                return Err(MaudioError::new_ma_error(ErrorKinds::Other(
+                    "Querying the default device is not supported".to_string(),
+                )));
+            }
+        };
+
+        if device_type == DeviceType::Capture {
+            if let Some(name) = &device.capture_identity {
+                let id = DeviceId::custom_from_name(name)?;
+                return Ok(DeviceInfoBuilder::new(id, name.clone()).build());
+            } else {
+                return Err(MaudioError::new_ma_error(ErrorKinds::Other(
+                    "Querying the default device is not supported".to_string(),
+                )));
+            }
+        }
+
+        return Err(MaudioError::new_ma_error(ErrorKinds::Other(
+            "Unsupported device type".to_string(),
+        )));
     }
 }
 
@@ -532,6 +591,10 @@ fn main() -> MaResult<()> {
                     out[samples_read..].fill(0);
                 }
             })?;
+
+    // let name = device.get_name(DeviceType::Playback)?;
+
+    // println!("{name}");
 
     device.device_start()?;
 
