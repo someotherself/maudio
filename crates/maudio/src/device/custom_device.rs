@@ -32,7 +32,7 @@ pub struct CustomDevice<'device, F: PcmFormat, B: CustomBackend> {
 #[repr(C)]
 pub(crate) struct CustomDeviceInner<'device, B: CustomBackend> {
     pub(crate) inner: UnsafeCell<sys::ma_device>,
-    pub(crate) context: Arc<CustomContextInner<B>>,
+    pub(crate) backend_context: Arc<CustomContextInner<B>>,
     pub(crate) backend_device: OnceLock<B::Device<'device>>,
     pub(super) log: Option<Arc<LogInner>>,
     _playback_device_id: Option<DeviceId>, // Ref count. Needs to be kept alive.
@@ -74,7 +74,7 @@ impl<'a, 'device, F: PcmFormat, B: CustomBackend> CustomDevice<'device, F, B> {
 
         let inner: Arc<CustomDeviceInner<B>> = Arc::new(CustomDeviceInner {
             inner: unsafe { MaybeUninit::zeroed().assume_init() },
-            context: context.0.clone(),
+            backend_context: context.0.clone(),
             backend_device: OnceLock::new(),
             log: context.0.log.clone(),
             _playback_device_id: playback_device_id,
@@ -157,14 +157,19 @@ impl<'device, B: CustomBackend> Drop for CustomDeviceInner<'device, B> {
     }
 }
 
-#[derive(Copy)]
-pub struct BackendDeviceHandle<'device, B: CustomBackend>(
-    pub(crate) *mut CustomDeviceInner<'device, B>,
-);
+pub struct BackendDeviceHandle<'device, B: CustomBackend> {
+    pub(crate) inner: *mut sys::ma_device,
+    pub(crate) backend_device: &'device OnceLock<B::Device<'device>>,
+    pub(crate) backend_context: &'device OnceLock<B::Context>,
+}
 
 impl<'device, B: CustomBackend> Clone for BackendDeviceHandle<'device, B> {
     fn clone(&self) -> Self {
-        Self(self.0)
+        Self {
+            inner: self.inner,
+            backend_device: self.backend_device,
+            backend_context: self.backend_context,
+        }
     }
 }
 
@@ -172,7 +177,7 @@ impl<'device, B: CustomBackend> Binding for BackendDeviceHandle<'device, B> {
     type Raw = *mut sys::ma_device;
 
     fn to_raw(&self) -> Self::Raw {
-        unsafe { &*self.0 }.inner.get()
+        self.inner
     }
 }
 
@@ -180,8 +185,7 @@ unsafe impl<'device, B: CustomBackend> Send for BackendDeviceHandle<'device, B> 
 
 impl<'device, B: CustomBackend> BackendDeviceHandle<'device, B> {
     pub fn backend_device(&self) -> Option<&B::Device<'device>> {
-        let device = unsafe { &*self.0 };
-        device.backend_device.get()
+        self.backend_device.get()
     }
 
     pub fn handle_backend_data_callback<F: PcmFormat, R: PcmFormat>(
@@ -192,19 +196,16 @@ impl<'device, B: CustomBackend> BackendDeviceHandle<'device, B> {
         device_ffi::ma_device_handle_backend_data_callback::<F, R>(self.to_raw(), output, input)
     }
 
-    pub fn with_context<F, R>(&self, f: F) -> MaResult<R>
-    where
-        for<'b> F: FnOnce(&'b CustomContext<B>) -> MaResult<R>,
-    {
-        let ctx = unsafe { &*self.0 }.context.clone();
-        let ctx = CustomContext(ctx);
-        f(&ctx)
-    }
+    // pub fn with_context<F, R>(&self, f: F) -> MaResult<R>
+    // where
+    //     for<'b> F: FnOnce(&'b CustomContext<B>) -> MaResult<R>,
+    // {
+    //     let ctx = unsafe { &*self.0 }.backend_context.clone();
+    //     let ctx = CustomContext(ctx);
+    //     f(&ctx)
+    // }
 
     pub fn backend_context(&self) -> &B::Context {
-        let inner_ptr = unsafe { &*self.0 };
-        let ptr: *mut CustomContextInner<B> =
-            unsafe { &*inner_ptr.inner.get() }.pContext as *mut CustomContextInner<B>;
-        unsafe { &*ptr }.backend_context.get().unwrap()
+        self.backend_context.get().unwrap()
     }
 }

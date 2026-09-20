@@ -5,11 +5,15 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     audio::{channels::MonoExpansionMode, sample_rate::SampleRate},
-    context::{Context, ContextInner},
+    backend::{custom_backend::CustomBackend, Backend},
+    context::{Context, ContextBuilder, ContextInner},
     device::{device_id::DeviceId, Device, DeviceInner},
     engine::{
         engine_cb_notif::engine_notification_callback,
-        process_cb::{on_process_callback, EngineProcessCallback, EngineUserData},
+        process_cb::{
+            on_process_callback, EngineBackendState, EngineProcessCallback, EngineUserData,
+            ErasedBackendState,
+        },
         resource::{private_rm, ResourceManager},
         Engine,
     },
@@ -26,6 +30,7 @@ pub struct EngineBuilder {
     pub(crate) log: Option<Arc<LogInner>>,       // a ref count, not ownership
     pub(crate) resource_manager: Option<ResourceManager<f32>>, // a ref count, not ownership
     pub(crate) process_data: EngineProcessCbData,
+    pub(crate) backend_state: Option<ErasedBackendState>,
 }
 
 pub(crate) struct EngineProcessCbData {
@@ -66,6 +71,7 @@ impl EngineBuilder {
                 state_notif_exists: false,
                 state_notif: None,
             },
+            backend_state: None,
         }
     }
 
@@ -191,7 +197,7 @@ impl EngineBuilder {
 
     fn set_process_notifier(&mut self, f: Option<Box<EngineProcessCallback>>) -> ProcFramesNotif {
         let channels = self.inner.channels; // engine is init with 2 channels by default
-        let state = EngineUserData::new(channels, f);
+        let state = EngineUserData::new(channels, f, self.backend_state.take());
 
         let proc_notif = state.clone_proc_notif();
         let proc_data_panic = state.clone_panic_flag();
@@ -326,6 +332,21 @@ impl EngineBuilder {
     pub fn context(&mut self, context: &Context) -> &mut Self {
         self.inner.pContext = context.to_raw();
         self.context = Some(context.0.clone());
+        self
+    }
+
+    pub fn custom_backend<B: CustomBackend>(
+        &mut self,
+        prefered_backends: impl IntoIterator<Item = Backend>,
+    ) -> &mut Self {
+        let context = ContextBuilder::new()
+            .preferred_backends(prefered_backends)
+            .build_custom_engine::<B>()
+            .unwrap();
+        self.inner.pContext = context.to_raw();
+
+        let erased_state = EngineBackendState::new_erased(&context);
+        self.backend_state = Some(erased_state);
         self
     }
 

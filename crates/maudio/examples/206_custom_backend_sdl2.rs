@@ -7,15 +7,13 @@ use maudio::{
         custom_context::{BackendDeviceConfig, DeviceDescriptor},
         Backend,
     },
-    context::ContextBuilder,
-    data_source::sources::decoder::{DecoderBuilder, DecoderOps},
     device::{
         custom_device::BackendDeviceHandle,
-        device_builder::DeviceBuilder,
         device_id::DeviceId,
         device_info::{DeviceInfo, DeviceInfoBuilder},
         device_type::DeviceType,
     },
+    engine::engine_builder::EngineBuilder,
     logging::{Log, LogLevel, LogOps, LogRef},
     pcm_frames::PcmFormat,
     ErrorKinds, MaResult, MaudioError,
@@ -131,9 +129,6 @@ fn sdl_playback_callback<F: PcmFormat, B: CustomBackend>(
 }
 
 fn apply_obtained_spec(descriptor: &mut DeviceDescriptor, sdl_spec: &AudioSpec) -> MaResult<()> {
-    println!("sdl2 samples: {}", sdl_spec.samples);
-    println!("sdl2 size: {}", sdl_spec.size);
-
     descriptor.format = Format::F32;
     descriptor.channels = Some(sdl_spec.channels as u32);
     descriptor.sample_rate = (sdl_spec.freq as u32).try_into().ok();
@@ -528,78 +523,58 @@ fn main() -> MaResult<()> {
     log.print_level(LogLevel::Info)?;
     log.print_level(LogLevel::Warning)?;
 
-    let context = ContextBuilder::new()
-        .log(&log)
-        .preferred_backends([Backend::Custom])
-        .build_custom::<SdlBackend>()?;
-
-    // let mut id = None;
-
-    // context.enumerate_devices(|ty, info| {
-    //     println!("SDL2 - Type: {}, name: {}", ty, info.name());
-
-    //     EnumerateControl::Continue
-    // })?;
-
-    // // Verify that a stop request ends the entire enumeration.
-    // let mut visits = 0;
-    // context.enumerate_devices(|_, info| {
-    //     visits += 1;
-
-    //     if visits == 2 {
-    //         id = Some(info.id());
-    //     }
-
-    //     if visits == 3 {
-    //         return EnumerateControl::Stop;
-    //     }
-    //     EnumerateControl::Continue
-    // })?;
-    // assert!(visits == 3);
-    // println!("Stopped with visits = {visits}");
-
-    // let id = id.unwrap();
-    // let info = context.device_info(DeviceType::Playback, &id)?;
-
-    // println!(
-    //     "Device Info: {} / f count: {:?}",
-    //     info.device_name(),
-    //     info.device_formats()
-    // );
-
     let path = PathBuf::from(concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/../maudio-sys/native/miniaudio/data/16-44100-stereo.flac"
     ));
 
-    let mut decoder = DecoderBuilder::new_i16()
-        .channels(2)
-        .sample_rate(SampleRate::Sr44100)
-        .from_file(&path)?;
+    let engine = EngineBuilder::new()
+        .logger(&log)
+        .custom_backend::<SdlBackend>([Backend::Custom])
+        .build()?;
 
-    let data_format = decoder.data_format()?;
+    engine.play_one_shot(&path)?;
 
-    let mut device =
-        DeviceBuilder::playback()
-            .i16()
-            .with_custom_context(&context, move |_, out| {
-                let frames_read = decoder.read_pcm_frames_into(out).unwrap_or(0);
-
-                let samples_read = frames_read * data_format.channels as usize;
-
-                if samples_read < out.len() {
-                    out[samples_read..].fill(0);
-                }
-            })?;
-
-    // let name = device.get_name(DeviceType::Playback)?;
-
-    // println!("{name}");
-
-    device.device_start()?;
-
-    std::thread::sleep(std::time::Duration::from_secs(1));
-    device.device_stop()?;
+    std::thread::sleep(std::time::Duration::from_secs(2));
 
     Ok(())
 }
+
+// fn main() -> MaResult<()> {
+//     let log = Log::new()?;
+//     log.print_level(LogLevel::Debug)?;
+//     log.print_level(LogLevel::Error)?;
+//     log.print_level(LogLevel::Info)?;
+//     log.print_level(LogLevel::Warning)?;
+
+//     let path = PathBuf::from(concat!(
+//         env!("CARGO_MANIFEST_DIR"),
+//         "/../maudio-sys/native/miniaudio/data/16-44100-stereo.flac"
+//     ));
+
+//     let mut decoder = DecoderBuilder::new_i16()
+//         .channels(2)
+//         .sample_rate(SampleRate::Sr44100)
+//         .from_file(&path)?;
+
+//     let data_format = decoder.data_format()?;
+
+//     let mut device = DeviceBuilder::playback()
+//         .i16()
+//         .with_custom_backend::<SdlBackend>(move |_, out| {
+//             let frames_read = decoder.read_pcm_frames_into(out).unwrap_or(0);
+
+//             let samples_read = frames_read * data_format.channels as usize;
+
+//             if samples_read < out.len() {
+//                 out[samples_read..].fill(0);
+//             }
+//         })?;
+
+//     device.device_start()?;
+
+//     std::thread::sleep(std::time::Duration::from_secs(1));
+//     device.device_stop()?;
+
+//     Ok(())
+// }

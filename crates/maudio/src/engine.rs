@@ -112,8 +112,8 @@ use crate::{
 
 use maudio_sys::ffi as sys;
 
+pub(crate) mod backend_callbacks;
 pub mod engine_builder;
-
 pub(crate) mod engine_cb_notif;
 pub mod node_graph;
 pub(crate) mod process_cb;

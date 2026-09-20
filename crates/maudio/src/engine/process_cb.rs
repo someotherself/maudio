@@ -4,19 +4,26 @@ use std::{
     panic::{catch_unwind, AssertUnwindSafe},
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, Mutex, OnceLock,
     },
 };
 
 use maudio_sys::ffi as sys;
 
-use crate::util::{device_notif::DeviceStateNotifier, proc_notif::ProcFramesNotif};
+use crate::{
+    backend::{
+        custom_backend::CustomBackend,
+        custom_context::{CustomContext, CustomContextInner},
+    },
+    util::{device_notif::DeviceStateNotifier, proc_notif::ProcFramesNotif},
+};
 
 #[derive(Default)]
 pub(crate) struct EngineUserData {
     frame_counter: FrameCounter,
     pub(crate) state_notif: DeviceStateNotifier, // device notificationCallback
     process_callback: ProcessCallbackState,
+    pub(crate) backend_state: Mutex<Option<ErasedBackendState>>,
 }
 
 #[derive(Default)]
@@ -52,11 +59,16 @@ impl ProcessCallbackState {
 }
 
 impl EngineUserData {
-    pub(crate) fn new(channels: u32, cb: Option<Box<EngineProcessCallback>>) -> Self {
+    pub(crate) fn new(
+        channels: u32,
+        cb: Option<Box<EngineProcessCallback>>,
+        state: Option<ErasedBackendState>,
+    ) -> Self {
         EngineUserData {
             frame_counter: FrameCounter::new(channels),
             state_notif: DeviceStateNotifier::default(),
             process_callback: ProcessCallbackState::new(cb),
+            backend_state: Mutex::new(state),
         }
     }
 
@@ -138,4 +150,54 @@ pub(crate) unsafe extern "C" fn on_process_callback(
     ctx.process_callback
         .callback_lock
         .store(false, Ordering::Release);
+}
+
+pub(crate) struct ErasedBackendState {
+    pub(crate) data: *mut core::ffi::c_void,
+    vtable: BackendStateVTable,
+}
+
+impl ErasedBackendState {
+    fn new<T>(data: T) -> Self {
+        let boxed = Box::new(data);
+
+        unsafe fn drop_impl<T>(ptr: *mut std::ffi::c_void) {
+            drop(Box::from_raw(ptr.cast::<T>()));
+        }
+
+        let vtable: BackendStateVTable = BackendStateVTable {
+            drop: drop_impl::<T>,
+        };
+
+        Self {
+            data: Box::into_raw(boxed).cast(),
+            vtable,
+        }
+    }
+}
+
+struct BackendStateVTable {
+    drop: unsafe fn(*mut core::ffi::c_void),
+}
+
+impl Drop for ErasedBackendState {
+    fn drop(&mut self) {
+        unsafe { (self.vtable.drop)(self.data) }
+    }
+}
+
+pub(crate) struct EngineBackendState<'device, B: CustomBackend> {
+    pub(crate) _custom_context: Arc<CustomContextInner<B>>,
+    pub(crate) backend_device: OnceLock<B::Device<'device>>,
+}
+
+impl<'device, B: CustomBackend> EngineBackendState<'device, B> {
+    pub(crate) fn new_erased(ctx: &CustomContext<B>) -> ErasedBackendState {
+        let state = EngineBackendState {
+            _custom_context: ctx.0.clone(),
+            backend_device: OnceLock::new(),
+        };
+
+        ErasedBackendState::new(state)
+    }
 }

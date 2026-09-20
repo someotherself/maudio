@@ -48,6 +48,7 @@ use crate::{
         device_info::{DeviceBasicInfo, DeviceInfo, Devices},
         device_type::DeviceType,
     },
+    engine::backend_callbacks::engine_custom_backend_callbacks,
     logging::{Log, LogInner, StoredLogs},
     AllocationCallbacks, AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
 };
@@ -564,6 +565,11 @@ impl ContextBuilder {
 
     pub fn build_custom<B: CustomBackend>(&mut self) -> MaResult<CustomContext<B>> {
         self.inner.custom = custom_backend_callbacks::<B>();
+        CustomContext::new_with_config(self)
+    }
+
+    pub(crate) fn build_custom_engine<B: CustomBackend>(&mut self) -> MaResult<CustomContext<B>> {
+        self.inner.custom = engine_custom_backend_callbacks::<B>();
         CustomContext::new_with_config(self)
     }
 
