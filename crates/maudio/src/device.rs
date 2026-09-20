@@ -52,9 +52,9 @@ pub struct DeviceInner {
     inner: *mut sys::ma_device,
     _playback_device_id: Option<DeviceId>, // Ref count. Needs to be kept alive.
     _capture_device_id: Option<DeviceId>,  // Ref count. Needs to be kept alive.
-    callback_user_data: *mut core::ffi::c_void, // userdata (self.inner.pUserData)
+    callback_user_data: *mut core::ffi::c_void, // userdata (self.inner.pUserData - ErasedBackendState)
     callback_user_data_drop: fn(*mut core::ffi::c_void), // destructor for the callback_user_data
-    callback_panic: Arc<AtomicBool>,       // true = callback panicked and is now poisoned
+    callback_panic: Arc<AtomicBool>,            // true = callback panicked and is now poisoned
     callback_process_notifier: ProcFramesNotif,
     state_notifier: Option<DeviceStateNotifier>, // used by ma_device_notification
     pub(crate) logs: StoredLogs,

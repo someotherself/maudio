@@ -57,7 +57,7 @@ use std::{
     slice,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc,
+        Arc, Mutex,
     },
 };
 
@@ -156,6 +156,8 @@ pub struct PlaybackDeviceBuilder<'a, F = Unknown> {
     playback_device_id: Option<DeviceId>,
     capture_device_id: Option<DeviceId>,
     playback_channel_map: Vec<RawChannel>,
+    // State that captures the pUserData storage, including
+    // device or cb related (device state, cb) and optional custom backend
     pub(crate) backend_state: Option<ErasedBackendState>,
     _format: PhantomData<F>,
 }
@@ -178,6 +180,8 @@ pub struct CaptureDeviceBuilder<'a, F = Unknown> {
     playback_device_id: Option<DeviceId>,
     capture_device_id: Option<DeviceId>,
     capture_channel_map: Vec<RawChannel>,
+    // State that captures the pUserData storage, including
+    // device or cb related (device state, cb) and optional custom backend
     pub(crate) backend_state: Option<ErasedBackendState>,
     _format: PhantomData<F>,
 }
@@ -201,6 +205,8 @@ pub struct DuplexDeviceBuilder<'a, F = Unknown, C = Unknown> {
     capture_device_id: Option<DeviceId>,
     playback_channel_map: Vec<RawChannel>,
     capture_channel_map: Vec<RawChannel>,
+    // State that captures the pUserData storage, including
+    // device or cb related (device state, cb) and optional custom backend
     pub(crate) backend_state: Option<ErasedBackendState>,
     _playback_f: PhantomData<F>,
     _capture_f: PhantomData<C>,
@@ -223,6 +229,8 @@ pub struct LoopbackDeviceBuilder<'a, F = Unknown> {
     playback_device_id: Option<DeviceId>,
     capture_device_id: Option<DeviceId>,
     playback_channel_map: Vec<RawChannel>,
+    // State that captures the pUserData storage, including
+    // device or cb related (device state, cb) and optional custom backend
     pub(crate) backend_state: Option<ErasedBackendState>,
     _format: PhantomData<F>,
 }
@@ -291,6 +299,8 @@ impl<'a, F: PcmFormat> AsDeviceBuilder<'a> for LoopbackDeviceBuilder<'a, F> {
     type _DeviceBuilderProvider = private_device_b::LoopbackDeviceBuilderProvider;
 }
 
+// The traits / methods here create a unified interface
+// for setter and getts on the 4 device builders
 pub(crate) mod private_device_b {
     use super::*;
     use maudio_sys::ffi as sys;
@@ -641,6 +651,8 @@ pub(crate) mod private_device_b {
     }
 }
 
+// The first step in the builder processs
+// device format -> device type -> other methods -> build
 impl<'a> PlaybackDeviceBuilder<'a, Unknown> {
     fn new_inner<F: PcmFormat>(&mut self) -> PlaybackDeviceBuilder<'a, F> {
         PlaybackDeviceBuilder {
@@ -683,6 +695,8 @@ impl<'a> PlaybackDeviceBuilder<'a, Unknown> {
     }
 }
 
+// The first step in the builder processs
+// device format -> device type -> other methods -> build
 impl<'a> CaptureDeviceBuilder<'a, Unknown> {
     fn new_inner<F: PcmFormat>(&mut self) -> CaptureDeviceBuilder<'a, F> {
         CaptureDeviceBuilder {
@@ -725,6 +739,8 @@ impl<'a> CaptureDeviceBuilder<'a, Unknown> {
     }
 }
 
+// The first step in the builder processs
+// device format -> device type -> other methods -> build
 impl<'a> DuplexDeviceBuilder<'a, Unknown, Unknown> {
     pub fn new<F: MaSampleFormat, P: MaSampleFormat>(&mut self) -> DuplexDeviceBuilder<'a, F, P> {
         self.inner.playback.format = F::STORE_FORMAT.into();
@@ -746,6 +762,8 @@ impl<'a> DuplexDeviceBuilder<'a, Unknown, Unknown> {
     }
 }
 
+// The first step in the builder processs
+// device format -> device type -> other methods -> build
 impl<'a> LoopbackDeviceBuilder<'a, Unknown> {
     fn new_inner<F: PcmFormat>(&mut self) -> LoopbackDeviceBuilder<'a, F> {
         LoopbackDeviceBuilder {
@@ -796,6 +814,8 @@ impl<'a, F: MaSampleFormat, P: MaSampleFormat> DeviceBuilderOps<'a>
 }
 impl<'a, F: PcmFormat> DeviceBuilderOps<'a> for LoopbackDeviceBuilder<'a, F> {}
 
+// The third step in the builder processs
+// device format -> device type -> other methods -> build
 /// Shared configuration methods for all device builders.
 ///
 /// These methods modify the underlying miniaudio device configuration before the
@@ -1061,6 +1081,8 @@ pub trait DeviceBuilderOps<'a>: AsDeviceBuilder<'a> {
     }
 }
 
+// The second step in the builder processs
+// device format -> device type -> other methods -> build
 impl<'a> DeviceBuilder {
     pub fn playback() -> PlaybackDeviceBuilder<'a, Unknown> {
         let ptr = unsafe { sys::ma_device_config_init(DeviceType::Playback.into()) };
@@ -1129,6 +1151,8 @@ impl<'a> DeviceBuilder {
     }
 }
 
+// The last step in the builder processs
+// device format -> device type -> other methods -> build
 impl<'a, F: PcmFormat> PlaybackDeviceBuilder<'a, F> {
     /// Builds the device and installs a playback callback.
     ///
@@ -1275,6 +1299,8 @@ impl<'a, F: PcmFormat> PlaybackDeviceBuilder<'a, F> {
     }
 }
 
+// The last step in the builder processs
+// device format -> device type -> other methods -> build
 impl<'a, F: PcmFormat> CaptureDeviceBuilder<'a, F> {
     /// Builds the device and installs a capture callback.
     ///
@@ -1423,6 +1449,8 @@ impl<'a, F: PcmFormat> CaptureDeviceBuilder<'a, F> {
     }
 }
 
+// The last step in the builder processs
+// device format -> device type -> other methods -> build
 impl<'a, F: MaSampleFormat, P: MaSampleFormat> DuplexDeviceBuilder<'a, F, P> {
     /// Builds the device and installs a duplex callback.
     ///
@@ -1573,6 +1601,8 @@ impl<'a, F: MaSampleFormat, P: MaSampleFormat> DuplexDeviceBuilder<'a, F, P> {
     }
 }
 
+// The last step in the builder processs
+// device format -> device type -> other methods -> build
 impl<'a, F: PcmFormat> LoopbackDeviceBuilder<'a, F> {
     /// Builds the device and installs a loopback callback.
     ///
@@ -1727,10 +1757,11 @@ impl<'a, F: PcmFormat> LoopbackDeviceBuilder<'a, F> {
     }
 }
 
+// Erased type for storage in the device pUserData
 pub(crate) struct DeviceState {
     // Custom backend state
     #[allow(unused)]
-    pub(crate) backend_state: Option<ErasedBackendState>,
+    pub(crate) backend_state: Mutex<Option<ErasedBackendState>>,
     // Device callback state
     pub(crate) callback_state: ErasedBackendState,
 }
@@ -1739,7 +1770,7 @@ impl DeviceState {
     fn new<T>(backend_state: Option<ErasedBackendState>, callback_state: T) -> Self {
         let callback_state = ErasedBackendState::new(callback_state);
         Self {
-            backend_state,
+            backend_state: Mutex::new(backend_state),
             callback_state,
         }
     }
