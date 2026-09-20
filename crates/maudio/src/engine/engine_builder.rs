@@ -11,7 +11,7 @@ use crate::{
     engine::{
         engine_cb_notif::engine_notification_callback,
         process_cb::{
-            on_process_callback, EngineBackendState, EngineProcessCallback, EngineUserData,
+            on_process_callback, CustomBackendState, EngineProcessCallback, EngineUserData,
             ErasedBackendState,
         },
         resource::{private_rm, ResourceManager},
@@ -345,7 +345,7 @@ impl EngineBuilder {
             .unwrap();
         self.inner.pContext = context.to_raw();
 
-        let erased_state = EngineBackendState::new_erased(&context);
+        let erased_state = CustomBackendState::new_erased(&context);
         self.backend_state = Some(erased_state);
         self
     }

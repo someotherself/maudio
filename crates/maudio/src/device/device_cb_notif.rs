@@ -2,7 +2,8 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     device::device_builder::{
-        CaptureDeviceState, DuplexDeviceState, LoopbackDeviceState, PlaybackDeviceState,
+        CaptureDeviceState, DeviceState, DuplexDeviceState, LoopbackDeviceState,
+        PlaybackDeviceState,
     },
     pcm_frames::{MaSampleFormat, PcmFormat},
     util::device_notif::DeviceNotificationType,
@@ -20,12 +21,14 @@ pub(crate) unsafe extern "C" fn device_notification_playback_callback<F: PcmForm
         return;
     }
 
-    let user_data = (*device).pUserData;
-    if user_data.is_null() {
-        return;
-    }
-
-    let state = user_data.cast::<PlaybackDeviceState<F, C>>();
+    let device_ref = unsafe { &*device };
+    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceState>() };
+    let state = unsafe {
+        &*device_state_ref
+            .callback_state
+            .data
+            .cast::<PlaybackDeviceState<F, C>>()
+    };
 
     let mask = match (&*notification).type_ {
         sys::ma_device_notification_type_ma_device_notification_type_started => {
@@ -49,7 +52,7 @@ pub(crate) unsafe extern "C" fn device_notification_playback_callback<F: PcmForm
         _ => 0,
     };
 
-    (*state).state_notif.store_notifications(mask);
+    state.state_notif.store_notifications(mask);
 }
 
 pub(crate) unsafe extern "C" fn device_notification_capture_callback<F: PcmFormat, C>(
@@ -64,12 +67,14 @@ pub(crate) unsafe extern "C" fn device_notification_capture_callback<F: PcmForma
         return;
     }
 
-    let user_data = (*device).pUserData;
-    if user_data.is_null() {
-        return;
-    }
-
-    let state = user_data.cast::<CaptureDeviceState<F, C>>();
+    let device_ref = unsafe { &*device };
+    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceState>() };
+    let state = unsafe {
+        &*device_state_ref
+            .callback_state
+            .data
+            .cast::<CaptureDeviceState<F, C>>()
+    };
 
     let mask = match (&*notification).type_ {
         sys::ma_device_notification_type_ma_device_notification_type_started => {
@@ -93,7 +98,7 @@ pub(crate) unsafe extern "C" fn device_notification_capture_callback<F: PcmForma
         _ => 0,
     };
 
-    (*state).state_notif.store_notifications(mask);
+    state.state_notif.store_notifications(mask);
 }
 
 pub(crate) unsafe extern "C" fn device_notification_duplex_callback<
@@ -112,12 +117,14 @@ pub(crate) unsafe extern "C" fn device_notification_duplex_callback<
         return;
     }
 
-    let user_data = (*device).pUserData;
-    if user_data.is_null() {
-        return;
-    }
-
-    let state = user_data.cast::<DuplexDeviceState<F, P, C>>();
+    let device_ref = unsafe { &*device };
+    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceState>() };
+    let state = unsafe {
+        &*device_state_ref
+            .callback_state
+            .data
+            .cast::<DuplexDeviceState<F, P, C>>()
+    };
 
     let mask = match (&*notification).type_ {
         sys::ma_device_notification_type_ma_device_notification_type_started => {
@@ -141,7 +148,7 @@ pub(crate) unsafe extern "C" fn device_notification_duplex_callback<
         _ => 0,
     };
 
-    (*state).state_notif.store_notifications(mask);
+    state.state_notif.store_notifications(mask);
 }
 
 pub(crate) unsafe extern "C" fn device_notification_loopback_callback<F: PcmFormat, C>(
@@ -156,12 +163,14 @@ pub(crate) unsafe extern "C" fn device_notification_loopback_callback<F: PcmForm
         return;
     }
 
-    let user_data = (*device).pUserData;
-    if user_data.is_null() {
-        return;
-    }
-
-    let state = user_data.cast::<LoopbackDeviceState<F, C>>();
+    let device_ref = unsafe { &*device };
+    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceState>() };
+    let state = unsafe {
+        &*device_state_ref
+            .callback_state
+            .data
+            .cast::<LoopbackDeviceState<F, C>>()
+    };
 
     let mask = match (&*notification).type_ {
         sys::ma_device_notification_type_ma_device_notification_type_started => {
@@ -185,5 +194,5 @@ pub(crate) unsafe extern "C" fn device_notification_loopback_callback<F: PcmForm
         _ => 0,
     };
 
-    (*state).state_notif.store_notifications(mask);
+    state.state_notif.store_notifications(mask);
 }

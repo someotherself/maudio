@@ -81,6 +81,7 @@ use crate::{
         device_type::{DeviceShareMode, DeviceType},
         CallBackDevice, Device,
     },
+    engine::process_cb::{CustomBackendState, ErasedBackendState},
     pcm_frames::{MaSampleFormat, PcmFormat, S24Packed},
     util::{device_notif::DeviceStateNotifier, proc_notif::ProcFramesNotif},
     AsRawRef, MaResult,
@@ -155,6 +156,7 @@ pub struct PlaybackDeviceBuilder<'a, F = Unknown> {
     playback_device_id: Option<DeviceId>,
     capture_device_id: Option<DeviceId>,
     playback_channel_map: Vec<RawChannel>,
+    pub(crate) backend_state: Option<ErasedBackendState>,
     _format: PhantomData<F>,
 }
 
@@ -176,6 +178,7 @@ pub struct CaptureDeviceBuilder<'a, F = Unknown> {
     playback_device_id: Option<DeviceId>,
     capture_device_id: Option<DeviceId>,
     capture_channel_map: Vec<RawChannel>,
+    pub(crate) backend_state: Option<ErasedBackendState>,
     _format: PhantomData<F>,
 }
 
@@ -198,6 +201,7 @@ pub struct DuplexDeviceBuilder<'a, F = Unknown, C = Unknown> {
     capture_device_id: Option<DeviceId>,
     playback_channel_map: Vec<RawChannel>,
     capture_channel_map: Vec<RawChannel>,
+    pub(crate) backend_state: Option<ErasedBackendState>,
     _playback_f: PhantomData<F>,
     _capture_f: PhantomData<C>,
 }
@@ -219,13 +223,15 @@ pub struct LoopbackDeviceBuilder<'a, F = Unknown> {
     playback_device_id: Option<DeviceId>,
     capture_device_id: Option<DeviceId>,
     playback_channel_map: Vec<RawChannel>,
+    pub(crate) backend_state: Option<ErasedBackendState>,
     _format: PhantomData<F>,
 }
 
-// TODO: Can this be made private?
+#[doc(hidden)]
 #[derive(Clone)]
 pub struct DeviceBuilderDataCallBack {
-    pub(crate) data_callback: *mut core::ffi::c_void, // type erased for each State (ex: LoopbackDeviceState)
+    // type erased for each Custom Backend / CallbackState (ex: LoopbackDeviceState)
+    pub(crate) data_callback: *mut core::ffi::c_void,
     pub(crate) data_callback_drop: fn(*mut core::ffi::c_void),
     pub(crate) data_callback_panic: Arc<AtomicBool>,
     pub(crate) state_notif: DeviceStateNotifier,
@@ -305,6 +311,7 @@ pub(crate) mod private_device_b {
     pub trait DeviceBulderProvider<'a, T: ?Sized> {
         fn set_backends(t: &mut T, backends: Box<[Backend]>);
         fn get_backends(t: &T) -> Option<&[Backend]>;
+        fn set_backend_state(t: &mut T, state: ErasedBackendState);
         fn set_playback_channel_map(t: &mut T, map: Vec<RawChannel>);
         fn set_capture_channel_map(t: &mut T, map: Vec<RawChannel>);
         fn set_context<'s>(t: &'s mut T, context: &'a ContextBuilder);
@@ -331,6 +338,10 @@ pub(crate) mod private_device_b {
 
         fn get_backends<'s>(t: &'s PlaybackDeviceBuilder<'a, F>) -> Option<&'s [Backend]> {
             t.backends.as_deref()
+        }
+
+        fn set_backend_state(t: &mut PlaybackDeviceBuilder<'a, F>, state: ErasedBackendState) {
+            t.backend_state = Some(state);
         }
 
         fn set_playback_channel_map(t: &mut PlaybackDeviceBuilder<'a, F>, map: Vec<RawChannel>) {
@@ -389,6 +400,10 @@ pub(crate) mod private_device_b {
             t.backends.as_deref()
         }
 
+        fn set_backend_state(t: &mut CaptureDeviceBuilder<'a, F>, state: ErasedBackendState) {
+            t.backend_state = Some(state);
+        }
+
         fn set_playback_channel_map(_t: &mut CaptureDeviceBuilder<'a, F>, _map: Vec<RawChannel>) {
             unreachable!()
         }
@@ -441,6 +456,10 @@ pub(crate) mod private_device_b {
 
         fn get_backends<'s>(t: &'s DuplexDeviceBuilder<'a, F, P>) -> Option<&'s [Backend]> {
             t.backends.as_deref()
+        }
+
+        fn set_backend_state(t: &mut DuplexDeviceBuilder<'a, F, P>, state: ErasedBackendState) {
+            t.backend_state = Some(state);
         }
 
         fn set_playback_channel_map(t: &mut DuplexDeviceBuilder<'a, F, P>, map: Vec<RawChannel>) {
@@ -501,6 +520,10 @@ pub(crate) mod private_device_b {
             t.backends.as_deref()
         }
 
+        fn set_backend_state(t: &mut LoopbackDeviceBuilder<'a, F>, state: ErasedBackendState) {
+            t.backend_state = Some(state);
+        }
+
         fn set_playback_channel_map(t: &mut LoopbackDeviceBuilder<'a, F>, map: Vec<RawChannel>) {
             t.inner.playback.channels = map.len() as u32;
             t.playback_channel_map = map;
@@ -554,6 +577,13 @@ pub(crate) mod private_device_b {
         t: &'s T,
     ) -> Option<&'s [Backend]> {
         <T as AsDeviceBuilder>::_DeviceBuilderProvider::get_backends(t)
+    }
+
+    pub fn set_backend_state<'a, T: AsDeviceBuilder<'a> + ?Sized>(
+        t: &mut T,
+        state: ErasedBackendState,
+    ) {
+        <T as AsDeviceBuilder>::_DeviceBuilderProvider::set_backend_state(t, state);
     }
 
     pub fn set_playback_channel_map<'a, T: AsDeviceBuilder<'a> + ?Sized>(
@@ -622,6 +652,7 @@ impl<'a> PlaybackDeviceBuilder<'a, Unknown> {
             playback_device_id: None,
             capture_device_id: None,
             playback_channel_map: Vec::new(),
+            backend_state: None,
             _format: PhantomData,
         }
     }
@@ -663,6 +694,7 @@ impl<'a> CaptureDeviceBuilder<'a, Unknown> {
             playback_device_id: None,
             capture_device_id: None,
             capture_channel_map: Vec::new(),
+            backend_state: None,
             _format: PhantomData,
         }
     }
@@ -707,6 +739,7 @@ impl<'a> DuplexDeviceBuilder<'a, Unknown, Unknown> {
             capture_device_id: None,
             playback_channel_map: Vec::new(),
             capture_channel_map: Vec::new(),
+            backend_state: None,
             _playback_f: PhantomData,
             _capture_f: PhantomData,
         }
@@ -724,6 +757,7 @@ impl<'a> LoopbackDeviceBuilder<'a, Unknown> {
             playback_device_id: None,
             capture_device_id: None,
             playback_channel_map: Vec::new(),
+            backend_state: None,
             _format: PhantomData,
         }
     }
@@ -1008,6 +1042,19 @@ pub trait DeviceBuilderOps<'a>: AsDeviceBuilder<'a> {
         self
     }
 
+    fn custom_backend<B: CustomBackend>(
+        &mut self,
+        prefered_backends: impl IntoIterator<Item = Backend>,
+    ) -> &mut Self {
+        let context = ContextBuilder::new()
+            .preferred_backends(prefered_backends)
+            .build_custom_engine::<B>()
+            .unwrap();
+        let erased_state = CustomBackendState::new_erased(&context);
+        private_device_b::set_backend_state(self, erased_state);
+        self
+    }
+
     fn context(&mut self, ctx: &'a ContextBuilder) -> &mut Self {
         private_device_b::set_context(self, ctx);
         self
@@ -1026,6 +1073,7 @@ impl<'a> DeviceBuilder {
             playback_device_id: None,
             capture_device_id: None,
             playback_channel_map: Vec::new(),
+            backend_state: None,
             _format: PhantomData,
         }
     }
@@ -1041,6 +1089,7 @@ impl<'a> DeviceBuilder {
             playback_device_id: None,
             capture_device_id: None,
             capture_channel_map: Vec::new(),
+            backend_state: None,
             _format: PhantomData,
         }
     }
@@ -1057,6 +1106,7 @@ impl<'a> DeviceBuilder {
             capture_device_id: None,
             playback_channel_map: Vec::new(),
             capture_channel_map: Vec::new(),
+            backend_state: None,
             _playback_f: PhantomData,
             _capture_f: PhantomData,
         }
@@ -1073,6 +1123,7 @@ impl<'a> DeviceBuilder {
             playback_device_id: None,
             capture_device_id: None,
             playback_channel_map: Vec::new(),
+            backend_state: None,
             _format: PhantomData,
         }
     }
@@ -1199,14 +1250,14 @@ impl<'a, F: PcmFormat> PlaybackDeviceBuilder<'a, F> {
             state_notif: state_notif.clone(),
             _format: PhantomData,
         };
-
         let callback_process_notifier = state.frames_processed.clone();
 
-        let state_box = Box::new(state);
-        let state_ptr: *mut PlaybackDeviceState<F, C> = Box::into_raw(state_box);
+        let state = DeviceState::new(self.backend_state.take(), state);
+        let state_ptr = Box::into_raw(Box::new(state));
+
         let callback_info: DeviceBuilderDataCallBack = DeviceBuilderDataCallBack {
             data_callback: state_ptr.cast(),
-            data_callback_drop: drop_playback_device_state::<F, C>,
+            data_callback_drop: drop_erased_device_state,
             data_callback_panic: panic_flag,
             state_notif: state_notif.clone(),
         };
@@ -1347,14 +1398,14 @@ impl<'a, F: PcmFormat> CaptureDeviceBuilder<'a, F> {
             state_notif: state_notif.clone(),
             _format: PhantomData,
         };
-
         let callback_process_notifier = state.frames_processed.clone();
 
-        let state_box = Box::new(state);
-        let state_ptr: *mut CaptureDeviceState<F, C> = Box::into_raw(state_box);
+        let state = DeviceState::new(self.backend_state.take(), state);
+        let state_ptr = Box::into_raw(Box::new(state));
+
         let callback_info: DeviceBuilderDataCallBack = DeviceBuilderDataCallBack {
             data_callback: state_ptr.cast(),
-            data_callback_drop: drop_capture_device_state::<F, C>,
+            data_callback_drop: drop_erased_device_state,
             data_callback_panic: panic_flag,
             state_notif: state_notif.clone(),
         };
@@ -1497,14 +1548,14 @@ impl<'a, F: MaSampleFormat, P: MaSampleFormat> DuplexDeviceBuilder<'a, F, P> {
             _playback_f: PhantomData,
             _capture_f: PhantomData,
         };
-
         let callback_process_notifier = state.frames_processed.clone();
 
-        let state_box = Box::new(state);
-        let state_ptr: *mut DuplexDeviceState<F, P, C> = Box::into_raw(state_box);
+        let state = DeviceState::new(self.backend_state.take(), state);
+        let state_ptr = Box::into_raw(Box::new(state));
+
         let callback_info: DeviceBuilderDataCallBack = DeviceBuilderDataCallBack {
             data_callback: state_ptr.cast(),
-            data_callback_drop: drop_duplex_device_state::<F, P, C>,
+            data_callback_drop: drop_erased_device_state,
             data_callback_panic: panic_flag,
             state_notif: state_notif.clone(),
         };
@@ -1642,6 +1693,7 @@ impl<'a, F: PcmFormat> LoopbackDeviceBuilder<'a, F> {
     {
         let panic_flag = Arc::new(AtomicBool::new(false));
         let state_notif = DeviceStateNotifier::default();
+
         let state: LoopbackDeviceState<F, C> = LoopbackDeviceState {
             f: UnsafeCell::new(f),
             frames_processed: ProcFramesNotif::default(),
@@ -1650,14 +1702,14 @@ impl<'a, F: PcmFormat> LoopbackDeviceBuilder<'a, F> {
             state_notif: state_notif.clone(),
             _format: PhantomData,
         };
-
         let callback_process_notifier = state.frames_processed.clone();
 
-        let state_box = Box::new(state);
-        let state_ptr: *mut LoopbackDeviceState<F, C> = Box::into_raw(state_box);
+        let state = DeviceState::new(self.backend_state.take(), state);
+        let state_ptr = Box::into_raw(Box::new(state));
+
         let callback_info: DeviceBuilderDataCallBack = DeviceBuilderDataCallBack {
             data_callback: state_ptr.cast(),
-            data_callback_drop: drop_loopback_device_state::<F, C>,
+            data_callback_drop: drop_erased_device_state,
             data_callback_panic: panic_flag,
             state_notif: state_notif.clone(),
         };
@@ -1672,6 +1724,24 @@ impl<'a, F: PcmFormat> LoopbackDeviceBuilder<'a, F> {
         self.inner.pUserData = state_ptr as *mut core::ffi::c_void;
 
         (self, callback_process_notifier)
+    }
+}
+
+pub(crate) struct DeviceState {
+    // Custom backend state
+    #[allow(unused)]
+    pub(crate) backend_state: Option<ErasedBackendState>,
+    // Device callback state
+    pub(crate) callback_state: ErasedBackendState,
+}
+
+impl DeviceState {
+    fn new<T>(backend_state: Option<ErasedBackendState>, callback_state: T) -> Self {
+        let callback_state = ErasedBackendState::new(callback_state);
+        Self {
+            backend_state,
+            callback_state,
+        }
     }
 }
 
@@ -1731,7 +1801,15 @@ unsafe extern "C" fn device_data_playback_callback<F: PcmFormat, C>(
 
     // Build state from user data
     let cb_device = CallBackDevice::from_ptr(device);
-    let state = &*((*device).pUserData as *const PlaybackDeviceState<F, C>);
+
+    let device_ref = unsafe { &*device };
+    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceState>() };
+    let state = unsafe {
+        &*device_state_ref
+            .callback_state
+            .data
+            .cast::<PlaybackDeviceState<F, C>>()
+    };
 
     // Register processed frames in the flag
     state.frames_processed.add_frames(frame_count as u64);
@@ -1785,7 +1863,15 @@ unsafe extern "C" fn device_data_capture_callback<F: PcmFormat, C>(
 
     // Build state from user data
     let cb_device = CallBackDevice::from_ptr(device);
-    let state = &*((*device).pUserData as *const CaptureDeviceState<F, C>);
+
+    let device_ref = unsafe { &*device };
+    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceState>() };
+    let state = unsafe {
+        &*device_state_ref
+            .callback_state
+            .data
+            .cast::<CaptureDeviceState<F, C>>()
+    };
 
     // Register processed frames in the flag
     state.frames_processed.add_frames(frame_count as u64);
@@ -1837,7 +1923,15 @@ unsafe extern "C" fn device_data_duplex_callback<F: MaSampleFormat, P: MaSampleF
 
     // Build state from user data
     let cb_device = CallBackDevice::from_ptr(device);
-    let state = &*((*device).pUserData as *const DuplexDeviceState<F, P, C>);
+
+    let device_ref = unsafe { &*device };
+    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceState>() };
+    let state = unsafe {
+        &*device_state_ref
+            .callback_state
+            .data
+            .cast::<DuplexDeviceState<F, P, C>>()
+    };
 
     // Register processed frames in the flag
     state.frames_processed.add_frames(frame_count as u64);
@@ -1893,7 +1987,15 @@ unsafe extern "C" fn device_data_loopback_callback<F: PcmFormat, C>(
 
     // Build state from user data
     let cb_device = CallBackDevice::from_ptr(device);
-    let state = &*((*device).pUserData as *const LoopbackDeviceState<F, C>);
+
+    let device_ref = unsafe { &*device };
+    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceState>() };
+    let state = unsafe {
+        &*device_state_ref
+            .callback_state
+            .data
+            .cast::<LoopbackDeviceState<F, C>>()
+    };
 
     // Register processed frames in the flag
     state.frames_processed.add_frames(frame_count as u64);
@@ -1922,28 +2024,9 @@ unsafe extern "C" fn device_data_loopback_callback<F: PcmFormat, C>(
     }
 }
 
-// Functions to de-allocate the user data for data callback
-fn drop_playback_device_state<F: PcmFormat, C>(ptr: *mut core::ffi::c_void) {
-    let state: Box<PlaybackDeviceState<F, C>> =
-        unsafe { Box::from_raw(ptr as *mut PlaybackDeviceState<F, C>) };
-    drop(state);
-}
-
-fn drop_capture_device_state<F: PcmFormat, C>(ptr: *mut core::ffi::c_void) {
-    let state: Box<CaptureDeviceState<F, C>> =
-        unsafe { Box::from_raw(ptr as *mut CaptureDeviceState<F, C>) };
-    drop(state);
-}
-
-fn drop_duplex_device_state<F: MaSampleFormat, P: MaSampleFormat, C>(ptr: *mut core::ffi::c_void) {
-    let state: Box<DuplexDeviceState<F, P, C>> =
-        unsafe { Box::from_raw(ptr as *mut DuplexDeviceState<F, P, C>) };
-    drop(state);
-}
-
-fn drop_loopback_device_state<F: PcmFormat, C>(ptr: *mut core::ffi::c_void) {
-    let state: Box<LoopbackDeviceState<F, C>> =
-        unsafe { Box::from_raw(ptr as *mut LoopbackDeviceState<F, C>) };
+// Functions to drop the pUserData from the device
+fn drop_erased_device_state(ptr: *mut core::ffi::c_void) {
+    let state: Box<ErasedBackendState> = unsafe { Box::from_raw(ptr as *mut ErasedBackendState) };
     drop(state);
 }
 

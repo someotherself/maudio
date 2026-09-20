@@ -10,7 +10,7 @@ use crate::{
     },
     device::{custom_device::BackendDeviceHandle, device_type::DeviceType},
     engine::{
-        process_cb::{EngineBackendState, EngineUserData},
+        process_cb::{CustomBackendState, EngineUserData},
         EngineInner,
     },
     logging::{LogOwner, LogRef},
@@ -67,7 +67,7 @@ unsafe extern "C" fn engine_custom_context_on_device_init<B: CustomBackend>(
         return sys::ma_result_MA_ERROR;
     };
 
-    let backend_state_ptr = state_ref.data.cast::<EngineBackendState<B>>();
+    let backend_state_ptr = state_ref.data.cast::<CustomBackendState<B>>();
     let backend_state_ref = unsafe { &*backend_state_ptr };
 
     let mut playback_descr: Option<DeviceDescriptor> = None;
@@ -148,7 +148,7 @@ unsafe extern "C" fn engine_custom_context_on_device_start<B: CustomBackend>(
         return sys::ma_result_MA_ERROR;
     };
 
-    let backend_state_ptr = state_ref.data.cast::<EngineBackendState<B>>();
+    let backend_state_ptr = state_ref.data.cast::<CustomBackendState<B>>();
     let backend_state_ref = unsafe { &*backend_state_ptr };
 
     let engine_inner = unsafe { &*engine_ptr.cast::<EngineInner>() };
@@ -196,7 +196,7 @@ unsafe extern "C" fn engine_custom_context_on_device_stop<B: CustomBackend>(
         return sys::ma_result_MA_ERROR;
     };
 
-    let backend_state_ptr = state_ref.data.cast::<EngineBackendState<B>>();
+    let backend_state_ptr = state_ref.data.cast::<CustomBackendState<B>>();
     let backend_state_ref = unsafe { &*backend_state_ptr };
 
     let engine_inner = unsafe { &*engine_ptr.cast::<EngineInner>() };

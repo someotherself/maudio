@@ -152,13 +152,14 @@ pub(crate) unsafe extern "C" fn on_process_callback(
         .store(false, Ordering::Release);
 }
 
-pub(crate) struct ErasedBackendState {
+#[doc(hidden)]
+pub struct ErasedBackendState {
     pub(crate) data: *mut core::ffi::c_void,
     vtable: BackendStateVTable,
 }
 
 impl ErasedBackendState {
-    fn new<T>(data: T) -> Self {
+    pub(crate) fn new<T>(data: T) -> Self {
         let boxed = Box::new(data);
 
         unsafe fn drop_impl<T>(ptr: *mut std::ffi::c_void) {
@@ -186,14 +187,14 @@ impl Drop for ErasedBackendState {
     }
 }
 
-pub(crate) struct EngineBackendState<'device, B: CustomBackend> {
+pub(crate) struct CustomBackendState<'device, B: CustomBackend> {
     pub(crate) _custom_context: Arc<CustomContextInner<B>>,
     pub(crate) backend_device: OnceLock<B::Device<'device>>,
 }
 
-impl<'device, B: CustomBackend> EngineBackendState<'device, B> {
+impl<'device, B: CustomBackend> CustomBackendState<'device, B> {
     pub(crate) fn new_erased(ctx: &CustomContext<B>) -> ErasedBackendState {
-        let state = EngineBackendState {
+        let state = CustomBackendState {
             _custom_context: ctx.0.clone(),
             backend_device: OnceLock::new(),
         };
