@@ -5,15 +5,14 @@ use maudio::{
     backend::{
         custom_backend::CustomBackend,
         custom_context::{BackendDeviceConfig, DeviceDescriptor},
-        Backend,
     },
     device::{
         custom_device::BackendDeviceHandle,
+        device_builder::DeviceBuilderOps,
         device_id::DeviceId,
         device_info::{DeviceInfo, DeviceInfoBuilder},
         device_type::DeviceType,
     },
-    engine::engine_builder::EngineBuilder,
     logging::{Log, LogLevel, LogOps, LogRef},
     pcm_frames::PcmFormat,
     ErrorKinds, MaResult, MaudioError,
@@ -516,33 +515,12 @@ impl CustomBackend for SdlBackend {
     }
 }
 
-fn main() -> MaResult<()> {
-    let log = Log::new()?;
-    // TODO: Investigate why the logger doesn't work
-    log.print_level(LogLevel::Debug)?;
-    log.print_level(LogLevel::Error)?;
-    log.print_level(LogLevel::Info)?;
-    log.print_level(LogLevel::Warning)?;
-
-    let path = PathBuf::from(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../maudio-sys/native/miniaudio/data/16-44100-stereo.flac"
-    ));
-
-    let engine = EngineBuilder::new()
-        .logger(&log)
-        .custom_backend::<SdlBackend>([Backend::Custom])
-        .build()?;
-
-    engine.play_one_shot(&path)?;
-
-    std::thread::sleep(std::time::Duration::from_secs(2));
-
-    Ok(())
-}
-
 // fn main() -> MaResult<()> {
+// use maudio::engine::engine_builder::EngineBuilder;
+// use maudio::backend::Backend;
+
 //     let log = Log::new()?;
+//     // TODO: Investigate why the logger doesn't work
 //     log.print_level(LogLevel::Debug)?;
 //     log.print_level(LogLevel::Error)?;
 //     log.print_level(LogLevel::Info)?;
@@ -553,29 +531,58 @@ fn main() -> MaResult<()> {
 //         "/../maudio-sys/native/miniaudio/data/16-44100-stereo.flac"
 //     ));
 
-//     let mut decoder = DecoderBuilder::new_i16()
-//         .channels(2)
-//         .sample_rate(SampleRate::Sr44100)
-//         .from_file(&path)?;
+//     let engine = EngineBuilder::new()
+//         .logger(&log)
+//         .custom_backend::<SdlBackend>([Backend::Custom])
+//         .build()?;
 
-//     let data_format = decoder.data_format()?;
+//     engine.play_one_shot(&path)?;
 
-//     let mut device = DeviceBuilder::playback()
-//         .i16()
-//         .with_custom_backend::<SdlBackend>(move |_, out| {
-//             let frames_read = decoder.read_pcm_frames_into(out).unwrap_or(0);
-
-//             let samples_read = frames_read * data_format.channels as usize;
-
-//             if samples_read < out.len() {
-//                 out[samples_read..].fill(0);
-//             }
-//         })?;
-
-//     device.device_start()?;
-
-//     std::thread::sleep(std::time::Duration::from_secs(1));
-//     device.device_stop()?;
+//     std::thread::sleep(std::time::Duration::from_secs(2));
 
 //     Ok(())
 // }
+
+fn main() -> MaResult<()> {
+    use maudio::backend::Backend;
+    use maudio::data_source::sources::decoder::{DecoderBuilder, DecoderOps};
+    use maudio::device::device_builder::DeviceBuilder;
+
+    let log: Log = Log::new()?;
+    log.print_level(LogLevel::Debug)?;
+    log.print_level(LogLevel::Error)?;
+    log.print_level(LogLevel::Info)?;
+    log.print_level(LogLevel::Warning)?;
+
+    let path = PathBuf::from(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../maudio-sys/native/miniaudio/data/16-44100-stereo.flac"
+    ));
+
+    let mut decoder = DecoderBuilder::new_i16()
+        .channels(2)
+        .sample_rate(SampleRate::Sr44100)
+        .from_file(&path)?;
+
+    let data_format = decoder.data_format()?;
+
+    let mut device = DeviceBuilder::playback()
+        .i16()
+        .custom_backend::<SdlBackend>([Backend::Custom])
+        .with_callback(move |_, out| {
+            let frames_read = decoder.read_pcm_frames_into(out).unwrap_or(0);
+
+            let samples_read = frames_read * data_format.channels as usize;
+
+            if samples_read < out.len() {
+                out[samples_read..].fill(0);
+            }
+        })?;
+
+    device.device_start()?;
+
+    std::thread::sleep(std::time::Duration::from_secs(1));
+    device.device_stop()?;
+
+    Ok(())
+}

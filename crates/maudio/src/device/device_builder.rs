@@ -57,7 +57,7 @@ use std::{
     slice,
     sync::{
         atomic::{AtomicBool, Ordering},
-        Arc, Mutex,
+        Arc,
     },
 };
 
@@ -70,9 +70,8 @@ use crate::{
         sample_rate::SampleRate,
     },
     backend::{custom_backend::CustomBackend, custom_context::CustomContext, Backend},
-    context::{Context, ContextBuilder},
+    context::{Context, ContextBuilder, ContextInner},
     device::{
-        custom_device::CustomDevice,
         device_cb_notif::{
             device_notification_capture_callback, device_notification_duplex_callback,
             device_notification_loopback_callback, device_notification_playback_callback,
@@ -84,7 +83,7 @@ use crate::{
     engine::process_cb::{CustomBackendState, ErasedBackendState},
     pcm_frames::{MaSampleFormat, PcmFormat, S24Packed},
     util::{device_notif::DeviceStateNotifier, proc_notif::ProcFramesNotif},
-    AsRawRef, MaResult,
+    AsRawRef, Binding, MaResult,
 };
 
 /// Entry point for constructing audio devices.
@@ -147,10 +146,10 @@ pub struct Unknown {}
 /// The sample type is determined by the selected [`PcmFormat`].
 ///
 /// Construct this builder with [`DeviceBuilder::playback()`].
-pub struct PlaybackDeviceBuilder<'a, F = Unknown> {
+pub struct PlaybackDeviceBuilder<F = Unknown> {
     inner: sys::ma_device_config,
-    context: Option<&'a ContextBuilder>,
     backends: Option<Box<[Backend]>>,
+    ctx: Option<DeviceContextStore>,
     data_callback_info: Option<DeviceBuilderDataCallBack>,
     state_notifier: bool,
     playback_device_id: Option<DeviceId>,
@@ -171,10 +170,10 @@ pub struct PlaybackDeviceBuilder<'a, F = Unknown> {
 /// The sample type is determined by the selected [`PcmFormat`].
 ///
 /// Construct this builder with [`DeviceBuilder::capture()`].
-pub struct CaptureDeviceBuilder<'a, F = Unknown> {
+pub struct CaptureDeviceBuilder<F = Unknown> {
     inner: sys::ma_device_config,
-    context: Option<&'a ContextBuilder>,
     backends: Option<Box<[Backend]>>,
+    ctx: Option<DeviceContextStore>,
     data_callback_info: Option<DeviceBuilderDataCallBack>,
     state_notifier: bool,
     playback_device_id: Option<DeviceId>,
@@ -195,10 +194,10 @@ pub struct CaptureDeviceBuilder<'a, F = Unknown> {
 /// Playback and capture share the device sample rate.
 ///
 /// Construct this builder with [`DeviceBuilder::duplex()`].
-pub struct DuplexDeviceBuilder<'a, F = Unknown, C = Unknown> {
+pub struct DuplexDeviceBuilder<F = Unknown, C = Unknown> {
     inner: sys::ma_device_config,
-    context: Option<&'a ContextBuilder>,
     backends: Option<Box<[Backend]>>,
+    ctx: Option<DeviceContextStore>,
     data_callback_info: Option<DeviceBuilderDataCallBack>,
     state_notifier: bool,
     playback_device_id: Option<DeviceId>,
@@ -220,10 +219,10 @@ pub struct DuplexDeviceBuilder<'a, F = Unknown, C = Unknown> {
 /// The callback receives an immutable input buffer containing captured frames.
 ///
 /// Construct this builder with [`DeviceBuilder::loopback()`].
-pub struct LoopbackDeviceBuilder<'a, F = Unknown> {
+pub struct LoopbackDeviceBuilder<F = Unknown> {
     inner: sys::ma_device_config,
-    context: Option<&'a ContextBuilder>,
     backends: Option<Box<[Backend]>>,
+    ctx: Option<DeviceContextStore>,
     data_callback_info: Option<DeviceBuilderDataCallBack>,
     state_notifier: bool,
     playback_device_id: Option<DeviceId>,
@@ -245,7 +244,7 @@ pub struct DeviceBuilderDataCallBack {
     pub(crate) state_notif: DeviceStateNotifier,
 }
 
-impl<F> AsRawRef for PlaybackDeviceBuilder<'_, F> {
+impl<F> AsRawRef for PlaybackDeviceBuilder<F> {
     type Raw = sys::ma_device_config;
 
     fn as_raw(&self) -> &Self::Raw {
@@ -253,7 +252,7 @@ impl<F> AsRawRef for PlaybackDeviceBuilder<'_, F> {
     }
 }
 
-impl<F> AsRawRef for CaptureDeviceBuilder<'_, F> {
+impl<F> AsRawRef for CaptureDeviceBuilder<F> {
     type Raw = sys::ma_device_config;
 
     fn as_raw(&self) -> &Self::Raw {
@@ -261,7 +260,7 @@ impl<F> AsRawRef for CaptureDeviceBuilder<'_, F> {
     }
 }
 
-impl<F, C> AsRawRef for DuplexDeviceBuilder<'_, F, C> {
+impl<F, C> AsRawRef for DuplexDeviceBuilder<F, C> {
     type Raw = sys::ma_device_config;
 
     fn as_raw(&self) -> &Self::Raw {
@@ -269,7 +268,7 @@ impl<F, C> AsRawRef for DuplexDeviceBuilder<'_, F, C> {
     }
 }
 
-impl<F> AsRawRef for LoopbackDeviceBuilder<'_, F> {
+impl<F> AsRawRef for LoopbackDeviceBuilder<F> {
     type Raw = sys::ma_device_config;
 
     fn as_raw(&self) -> &Self::Raw {
@@ -277,25 +276,23 @@ impl<F> AsRawRef for LoopbackDeviceBuilder<'_, F> {
     }
 }
 
-pub trait AsDeviceBuilder<'a> {
-    type _DeviceBuilderProvider: private_device_b::DeviceBulderProvider<'a, Self>;
+pub trait AsDeviceBuilder {
+    type _DeviceBuilderProvider: private_device_b::DeviceBulderProvider<Self>;
 }
 
-impl<'a, F: PcmFormat> AsDeviceBuilder<'a> for PlaybackDeviceBuilder<'a, F> {
+impl<F: PcmFormat> AsDeviceBuilder for PlaybackDeviceBuilder<F> {
     type _DeviceBuilderProvider = private_device_b::PlaybackDeviceBuilderProvider;
 }
 
-impl<'a, F: PcmFormat> AsDeviceBuilder<'a> for CaptureDeviceBuilder<'a, F> {
+impl<F: PcmFormat> AsDeviceBuilder for CaptureDeviceBuilder<F> {
     type _DeviceBuilderProvider = private_device_b::CaptureDeviceBuilderProvider;
 }
 
-impl<'a, F: MaSampleFormat, P: MaSampleFormat> AsDeviceBuilder<'a>
-    for DuplexDeviceBuilder<'a, F, P>
-{
+impl<F: MaSampleFormat, P: MaSampleFormat> AsDeviceBuilder for DuplexDeviceBuilder<F, P> {
     type _DeviceBuilderProvider = private_device_b::DuplexDeviceBuilderProvider;
 }
 
-impl<'a, F: PcmFormat> AsDeviceBuilder<'a> for LoopbackDeviceBuilder<'a, F> {
+impl<F: PcmFormat> AsDeviceBuilder for LoopbackDeviceBuilder<F> {
     type _DeviceBuilderProvider = private_device_b::LoopbackDeviceBuilderProvider;
 }
 
@@ -312,23 +309,21 @@ pub(crate) mod private_device_b {
     pub trait SupportsCapture {}
 
     // We must assing Playback or Capture capabilities to each builder type
-    impl<'a, F: PcmFormat> SupportsPlayback for PlaybackDeviceBuilder<'a, F> {}
-    impl<'a, F: PcmFormat> SupportsCapture for CaptureDeviceBuilder<'a, F> {}
-    impl<'a, F: MaSampleFormat, P: MaSampleFormat> SupportsPlayback for DuplexDeviceBuilder<'a, F, P> {}
-    impl<'a, F: MaSampleFormat, P: MaSampleFormat> SupportsCapture for DuplexDeviceBuilder<'a, F, P> {}
-    impl<'a, F: PcmFormat> SupportsCapture for LoopbackDeviceBuilder<'a, F> {}
+    impl<F: PcmFormat> SupportsPlayback for PlaybackDeviceBuilder<F> {}
+    impl<F: PcmFormat> SupportsCapture for CaptureDeviceBuilder<F> {}
+    impl<F: MaSampleFormat, P: MaSampleFormat> SupportsPlayback for DuplexDeviceBuilder<F, P> {}
+    impl<F: MaSampleFormat, P: MaSampleFormat> SupportsCapture for DuplexDeviceBuilder<F, P> {}
+    impl<F: PcmFormat> SupportsCapture for LoopbackDeviceBuilder<F> {}
 
-    pub trait DeviceBulderProvider<'a, T: ?Sized> {
-        fn set_backends(t: &mut T, backends: Box<[Backend]>);
-        fn get_backends(t: &T) -> Option<&[Backend]>;
+    pub trait DeviceBulderProvider<T: ?Sized> {
+        fn set_context(t: &mut T, ctx: Option<DeviceContextStore>);
         fn set_backend_state(t: &mut T, state: ErasedBackendState);
         fn set_playback_channel_map(t: &mut T, map: Vec<RawChannel>);
         fn set_capture_channel_map(t: &mut T, map: Vec<RawChannel>);
-        fn set_context<'s>(t: &'s mut T, context: &'a ContextBuilder);
         fn get_callback_info(t: &T) -> Option<DeviceBuilderDataCallBack>;
         fn set_state_cb_info(t: &mut T);
         fn inner(t: &mut T) -> &mut sys::ma_device_config;
-        fn as_raw(t: &'a T) -> &'a sys::ma_device_config;
+        fn as_raw(t: &T) -> &sys::ma_device_config;
         fn as_raw_ptr(t: &T) -> *const sys::ma_device_config;
         fn set_playback_id(t: &mut T, id: DeviceId);
         fn set_capture_id(t: &mut T, id: DeviceId);
@@ -339,326 +334,262 @@ pub(crate) mod private_device_b {
     pub struct DuplexDeviceBuilderProvider;
     pub struct LoopbackDeviceBuilderProvider;
 
-    impl<'a, F: PcmFormat> DeviceBulderProvider<'a, PlaybackDeviceBuilder<'a, F>>
+    impl<F: PcmFormat> DeviceBulderProvider<PlaybackDeviceBuilder<F>>
         for PlaybackDeviceBuilderProvider
     {
-        fn set_backends(t: &mut PlaybackDeviceBuilder<'a, F>, backends: Box<[Backend]>) {
-            t.backends = Some(backends);
+        fn set_context(t: &mut PlaybackDeviceBuilder<F>, ctx: Option<DeviceContextStore>) {
+            t.ctx = ctx;
         }
 
-        fn get_backends<'s>(t: &'s PlaybackDeviceBuilder<'a, F>) -> Option<&'s [Backend]> {
-            t.backends.as_deref()
-        }
-
-        fn set_backend_state(t: &mut PlaybackDeviceBuilder<'a, F>, state: ErasedBackendState) {
+        fn set_backend_state(t: &mut PlaybackDeviceBuilder<F>, state: ErasedBackendState) {
             t.backend_state = Some(state);
         }
 
-        fn set_playback_channel_map(t: &mut PlaybackDeviceBuilder<'a, F>, map: Vec<RawChannel>) {
+        fn set_playback_channel_map(t: &mut PlaybackDeviceBuilder<F>, map: Vec<RawChannel>) {
             t.inner.playback.channels = map.len() as u32;
             t.playback_channel_map = map;
             t.inner.playback.pChannelMap = t.playback_channel_map.as_ptr() as *mut _;
         }
 
-        fn set_capture_channel_map(_t: &mut PlaybackDeviceBuilder<'a, F>, _map: Vec<RawChannel>) {
+        fn set_capture_channel_map(_t: &mut PlaybackDeviceBuilder<F>, _map: Vec<RawChannel>) {
             unreachable!()
         }
 
-        fn set_context<'s>(t: &'s mut PlaybackDeviceBuilder<'a, F>, context: &'a ContextBuilder) {
-            t.context = Some(context);
-        }
-
-        fn get_callback_info(
-            t: &PlaybackDeviceBuilder<'a, F>,
-        ) -> Option<DeviceBuilderDataCallBack> {
+        fn get_callback_info(t: &PlaybackDeviceBuilder<F>) -> Option<DeviceBuilderDataCallBack> {
             t.data_callback_info.clone()
         }
 
-        fn set_state_cb_info(t: &mut PlaybackDeviceBuilder<'a, F>) {
+        fn set_state_cb_info(t: &mut PlaybackDeviceBuilder<F>) {
             t.state_notifier = true;
         }
 
-        fn inner<'s>(t: &'s mut PlaybackDeviceBuilder<'a, F>) -> &'s mut sys::ma_device_config {
+        fn inner(t: &mut PlaybackDeviceBuilder<F>) -> &mut sys::ma_device_config {
             &mut t.inner
         }
 
-        fn as_raw(t: &'a PlaybackDeviceBuilder<'a, F>) -> &'a sys::ma_device_config {
+        fn as_raw(t: &PlaybackDeviceBuilder<F>) -> &sys::ma_device_config {
             t.as_raw()
         }
 
-        fn as_raw_ptr(t: &PlaybackDeviceBuilder<'a, F>) -> *const sys::ma_device_config {
+        fn as_raw_ptr(t: &PlaybackDeviceBuilder<F>) -> *const sys::ma_device_config {
             t.as_raw_ptr()
         }
 
-        fn set_playback_id(t: &mut PlaybackDeviceBuilder<'a, F>, id: DeviceId) {
+        fn set_playback_id(t: &mut PlaybackDeviceBuilder<F>, id: DeviceId) {
             t.playback_device_id = Some(id);
         }
 
-        fn set_capture_id(t: &mut PlaybackDeviceBuilder<'a, F>, id: DeviceId) {
+        fn set_capture_id(t: &mut PlaybackDeviceBuilder<F>, id: DeviceId) {
             t.capture_device_id = Some(id);
         }
     }
 
-    impl<'a, F: PcmFormat> DeviceBulderProvider<'a, CaptureDeviceBuilder<'a, F>>
-        for CaptureDeviceBuilderProvider
-    {
-        fn set_backends(t: &mut CaptureDeviceBuilder<'a, F>, backends: Box<[Backend]>) {
-            t.backends = Some(backends);
+    impl<F: PcmFormat> DeviceBulderProvider<CaptureDeviceBuilder<F>> for CaptureDeviceBuilderProvider {
+        fn set_context(t: &mut CaptureDeviceBuilder<F>, ctx: Option<DeviceContextStore>) {
+            t.ctx = ctx;
         }
 
-        fn get_backends<'s>(t: &'s CaptureDeviceBuilder<'a, F>) -> Option<&'s [Backend]> {
-            t.backends.as_deref()
-        }
-
-        fn set_backend_state(t: &mut CaptureDeviceBuilder<'a, F>, state: ErasedBackendState) {
+        fn set_backend_state(t: &mut CaptureDeviceBuilder<F>, state: ErasedBackendState) {
             t.backend_state = Some(state);
         }
 
-        fn set_playback_channel_map(_t: &mut CaptureDeviceBuilder<'a, F>, _map: Vec<RawChannel>) {
+        fn set_playback_channel_map(_t: &mut CaptureDeviceBuilder<F>, _map: Vec<RawChannel>) {
             unreachable!()
         }
 
-        fn set_capture_channel_map(t: &mut CaptureDeviceBuilder<'a, F>, map: Vec<RawChannel>) {
+        fn set_capture_channel_map(t: &mut CaptureDeviceBuilder<F>, map: Vec<RawChannel>) {
             t.inner.capture.channels = map.len() as u32;
             t.capture_channel_map = map;
             t.inner.capture.pChannelMap = t.capture_channel_map.as_ptr() as *mut _;
         }
 
-        fn set_context<'s>(t: &'s mut CaptureDeviceBuilder<'a, F>, context: &'a ContextBuilder) {
-            t.context = Some(context);
-        }
-
-        fn get_callback_info(t: &CaptureDeviceBuilder<'a, F>) -> Option<DeviceBuilderDataCallBack> {
+        fn get_callback_info(t: &CaptureDeviceBuilder<F>) -> Option<DeviceBuilderDataCallBack> {
             t.data_callback_info.clone()
         }
 
-        fn set_state_cb_info(t: &mut CaptureDeviceBuilder<'a, F>) {
+        fn set_state_cb_info(t: &mut CaptureDeviceBuilder<F>) {
             t.state_notifier = true;
         }
 
-        fn inner<'s>(t: &'s mut CaptureDeviceBuilder<'a, F>) -> &'s mut sys::ma_device_config {
+        fn inner(t: &mut CaptureDeviceBuilder<F>) -> &mut sys::ma_device_config {
             &mut t.inner
         }
 
-        fn as_raw(t: &'a CaptureDeviceBuilder<'a, F>) -> &'a sys::ma_device_config {
+        fn as_raw(t: &CaptureDeviceBuilder<F>) -> &sys::ma_device_config {
             t.as_raw()
         }
 
-        fn as_raw_ptr(t: &CaptureDeviceBuilder<'a, F>) -> *const sys::ma_device_config {
+        fn as_raw_ptr(t: &CaptureDeviceBuilder<F>) -> *const sys::ma_device_config {
             t.as_raw_ptr()
         }
 
-        fn set_playback_id(t: &mut CaptureDeviceBuilder<'a, F>, id: DeviceId) {
+        fn set_playback_id(t: &mut CaptureDeviceBuilder<F>, id: DeviceId) {
             t.playback_device_id = Some(id);
         }
 
-        fn set_capture_id(t: &mut CaptureDeviceBuilder<'a, F>, id: DeviceId) {
+        fn set_capture_id(t: &mut CaptureDeviceBuilder<F>, id: DeviceId) {
             t.capture_device_id = Some(id);
         }
     }
 
-    impl<'a, F: MaSampleFormat, P: MaSampleFormat>
-        DeviceBulderProvider<'a, DuplexDeviceBuilder<'a, F, P>> for DuplexDeviceBuilderProvider
+    impl<F: MaSampleFormat, P: MaSampleFormat> DeviceBulderProvider<DuplexDeviceBuilder<F, P>>
+        for DuplexDeviceBuilderProvider
     {
-        fn set_backends(t: &mut DuplexDeviceBuilder<'a, F, P>, backends: Box<[Backend]>) {
-            t.backends = Some(backends);
+        fn set_context(t: &mut DuplexDeviceBuilder<F, P>, ctx: Option<DeviceContextStore>) {
+            t.ctx = ctx;
         }
 
-        fn get_backends<'s>(t: &'s DuplexDeviceBuilder<'a, F, P>) -> Option<&'s [Backend]> {
-            t.backends.as_deref()
-        }
-
-        fn set_backend_state(t: &mut DuplexDeviceBuilder<'a, F, P>, state: ErasedBackendState) {
+        fn set_backend_state(t: &mut DuplexDeviceBuilder<F, P>, state: ErasedBackendState) {
             t.backend_state = Some(state);
         }
 
-        fn set_playback_channel_map(t: &mut DuplexDeviceBuilder<'a, F, P>, map: Vec<RawChannel>) {
+        fn set_playback_channel_map(t: &mut DuplexDeviceBuilder<F, P>, map: Vec<RawChannel>) {
             t.inner.playback.channels = map.len() as u32;
             t.playback_channel_map = map;
             t.inner.playback.pChannelMap = t.playback_channel_map.as_ptr() as *mut _;
         }
 
-        fn set_capture_channel_map(t: &mut DuplexDeviceBuilder<'a, F, P>, map: Vec<RawChannel>) {
+        fn set_capture_channel_map(t: &mut DuplexDeviceBuilder<F, P>, map: Vec<RawChannel>) {
             t.inner.capture.channels = map.len() as u32;
             t.capture_channel_map = map;
             t.inner.capture.pChannelMap = t.capture_channel_map.as_ptr() as *mut _;
         }
 
-        fn set_context<'s>(t: &'s mut DuplexDeviceBuilder<'a, F, P>, context: &'a ContextBuilder) {
-            t.context = Some(context);
-        }
-
-        fn get_callback_info(
-            t: &DuplexDeviceBuilder<'a, F, P>,
-        ) -> Option<DeviceBuilderDataCallBack> {
+        fn get_callback_info(t: &DuplexDeviceBuilder<F, P>) -> Option<DeviceBuilderDataCallBack> {
             t.data_callback_info.clone()
         }
 
-        fn set_state_cb_info(t: &mut DuplexDeviceBuilder<'a, F, P>) {
+        fn set_state_cb_info(t: &mut DuplexDeviceBuilder<F, P>) {
             t.state_notifier = true;
         }
 
-        fn inner<'s>(t: &'s mut DuplexDeviceBuilder<'a, F, P>) -> &'s mut sys::ma_device_config {
+        fn inner(t: &mut DuplexDeviceBuilder<F, P>) -> &mut sys::ma_device_config {
             &mut t.inner
         }
 
-        fn as_raw(t: &'a DuplexDeviceBuilder<'a, F, P>) -> &'a sys::ma_device_config {
+        fn as_raw(t: &DuplexDeviceBuilder<F, P>) -> &sys::ma_device_config {
             t.as_raw()
         }
 
-        fn as_raw_ptr(t: &DuplexDeviceBuilder<'a, F, P>) -> *const sys::ma_device_config {
+        fn as_raw_ptr(t: &DuplexDeviceBuilder<F, P>) -> *const sys::ma_device_config {
             t.as_raw_ptr()
         }
 
-        fn set_playback_id(t: &mut DuplexDeviceBuilder<'a, F, P>, id: DeviceId) {
+        fn set_playback_id(t: &mut DuplexDeviceBuilder<F, P>, id: DeviceId) {
             t.playback_device_id = Some(id);
         }
 
-        fn set_capture_id(t: &mut DuplexDeviceBuilder<'a, F, P>, id: DeviceId) {
+        fn set_capture_id(t: &mut DuplexDeviceBuilder<F, P>, id: DeviceId) {
             t.capture_device_id = Some(id);
         }
     }
 
-    impl<'a, F: PcmFormat> DeviceBulderProvider<'a, LoopbackDeviceBuilder<'a, F>>
+    impl<F: PcmFormat> DeviceBulderProvider<LoopbackDeviceBuilder<F>>
         for LoopbackDeviceBuilderProvider
     {
-        fn set_backends(t: &mut LoopbackDeviceBuilder<'a, F>, backends: Box<[Backend]>) {
-            t.backends = Some(backends);
+        fn set_context(t: &mut LoopbackDeviceBuilder<F>, ctx: Option<DeviceContextStore>) {
+            t.ctx = ctx;
         }
 
-        fn get_backends<'s>(t: &'s LoopbackDeviceBuilder<'a, F>) -> Option<&'s [Backend]> {
-            t.backends.as_deref()
-        }
-
-        fn set_backend_state(t: &mut LoopbackDeviceBuilder<'a, F>, state: ErasedBackendState) {
+        fn set_backend_state(t: &mut LoopbackDeviceBuilder<F>, state: ErasedBackendState) {
             t.backend_state = Some(state);
         }
 
-        fn set_playback_channel_map(t: &mut LoopbackDeviceBuilder<'a, F>, map: Vec<RawChannel>) {
+        fn set_playback_channel_map(t: &mut LoopbackDeviceBuilder<F>, map: Vec<RawChannel>) {
             t.inner.playback.channels = map.len() as u32;
             t.playback_channel_map = map;
             t.inner.playback.pChannelMap = t.playback_channel_map.as_ptr() as *mut _;
         }
 
-        fn set_capture_channel_map(_t: &mut LoopbackDeviceBuilder<'a, F>, _map: Vec<RawChannel>) {
+        fn set_capture_channel_map(_t: &mut LoopbackDeviceBuilder<F>, _map: Vec<RawChannel>) {
             unreachable!()
         }
 
-        fn set_context<'s>(t: &'s mut LoopbackDeviceBuilder<'a, F>, context: &'a ContextBuilder) {
-            t.context = Some(context);
-        }
-
-        fn get_callback_info(
-            t: &LoopbackDeviceBuilder<'a, F>,
-        ) -> Option<DeviceBuilderDataCallBack> {
+        fn get_callback_info(t: &LoopbackDeviceBuilder<F>) -> Option<DeviceBuilderDataCallBack> {
             t.data_callback_info.clone()
         }
 
-        fn set_state_cb_info(t: &mut LoopbackDeviceBuilder<'a, F>) {
+        fn set_state_cb_info(t: &mut LoopbackDeviceBuilder<F>) {
             t.state_notifier = true;
         }
 
-        fn inner<'s>(t: &'s mut LoopbackDeviceBuilder<'a, F>) -> &'s mut sys::ma_device_config {
+        fn inner(t: &mut LoopbackDeviceBuilder<F>) -> &mut sys::ma_device_config {
             &mut t.inner
         }
 
-        fn as_raw(t: &'a LoopbackDeviceBuilder<'a, F>) -> &'a sys::ma_device_config {
+        fn as_raw(t: &LoopbackDeviceBuilder<F>) -> &sys::ma_device_config {
             t.as_raw()
         }
 
-        fn as_raw_ptr(t: &LoopbackDeviceBuilder<'a, F>) -> *const sys::ma_device_config {
+        fn as_raw_ptr(t: &LoopbackDeviceBuilder<F>) -> *const sys::ma_device_config {
             t.as_raw_ptr()
         }
 
-        fn set_playback_id(t: &mut LoopbackDeviceBuilder<'a, F>, id: DeviceId) {
+        fn set_playback_id(t: &mut LoopbackDeviceBuilder<F>, id: DeviceId) {
             t.playback_device_id = Some(id);
         }
 
-        fn set_capture_id(t: &mut LoopbackDeviceBuilder<'a, F>, id: DeviceId) {
+        fn set_capture_id(t: &mut LoopbackDeviceBuilder<F>, id: DeviceId) {
             t.capture_device_id = Some(id);
         }
     }
 
-    pub fn set_backends<'a, T: AsDeviceBuilder<'a> + ?Sized>(t: &mut T, backends: Box<[Backend]>) {
-        <T as AsDeviceBuilder>::_DeviceBuilderProvider::set_backends(t, backends);
+    pub fn set_context<T: AsDeviceBuilder + ?Sized>(t: &mut T, ctx: Option<DeviceContextStore>) {
+        <T as AsDeviceBuilder>::_DeviceBuilderProvider::set_context(t, ctx);
     }
 
-    pub fn get_backends<'a, 's, T: AsDeviceBuilder<'a> + ?Sized>(
-        t: &'s T,
-    ) -> Option<&'s [Backend]> {
-        <T as AsDeviceBuilder>::_DeviceBuilderProvider::get_backends(t)
-    }
-
-    pub fn set_backend_state<'a, T: AsDeviceBuilder<'a> + ?Sized>(
-        t: &mut T,
-        state: ErasedBackendState,
-    ) {
+    pub fn set_backend_state<T: AsDeviceBuilder + ?Sized>(t: &mut T, state: ErasedBackendState) {
         <T as AsDeviceBuilder>::_DeviceBuilderProvider::set_backend_state(t, state);
     }
 
-    pub fn set_playback_channel_map<'a, T: AsDeviceBuilder<'a> + ?Sized>(
-        t: &mut T,
-        map: Vec<RawChannel>,
-    ) {
+    pub fn set_playback_channel_map<T: AsDeviceBuilder + ?Sized>(t: &mut T, map: Vec<RawChannel>) {
         <T as AsDeviceBuilder>::_DeviceBuilderProvider::set_playback_channel_map(t, map);
     }
 
-    pub fn set_capture_channel_map<'a, T: AsDeviceBuilder<'a> + ?Sized>(
-        t: &mut T,
-        map: Vec<RawChannel>,
-    ) {
+    pub fn set_capture_channel_map<T: AsDeviceBuilder + ?Sized>(t: &mut T, map: Vec<RawChannel>) {
         <T as AsDeviceBuilder>::_DeviceBuilderProvider::set_capture_channel_map(t, map);
     }
 
-    pub fn set_context<'a, 's, T: AsDeviceBuilder<'a> + ?Sized>(
-        t: &'s mut T,
-        context: &'a ContextBuilder,
-    ) {
-        <T as AsDeviceBuilder>::_DeviceBuilderProvider::set_context(t, context);
-    }
-
-    pub fn get_data_callback_info<'a, T: AsDeviceBuilder<'a> + ?Sized>(
+    pub fn get_data_callback_info<T: AsDeviceBuilder + ?Sized>(
         t: &T,
     ) -> Option<DeviceBuilderDataCallBack> {
         <T as AsDeviceBuilder>::_DeviceBuilderProvider::get_callback_info(t)
     }
 
-    pub fn set_state_cb_info<'a, 's, T: AsDeviceBuilder<'a> + ?Sized>(t: &'s mut T) {
+    pub fn set_state_cb_info<T: AsDeviceBuilder + ?Sized>(t: &mut T) {
         <T as AsDeviceBuilder>::_DeviceBuilderProvider::set_state_cb_info(t);
     }
 
-    pub fn inner<'a, 's, T: AsDeviceBuilder<'a> + ?Sized>(
-        t: &'s mut T,
-    ) -> &'s mut sys::ma_device_config {
-        <T as AsDeviceBuilder<'a>>::_DeviceBuilderProvider::inner(t)
+    pub fn inner<T: AsDeviceBuilder + ?Sized>(t: &mut T) -> &mut sys::ma_device_config {
+        <T as AsDeviceBuilder>::_DeviceBuilderProvider::inner(t)
     }
 
     #[allow(unused)]
-    pub fn as_raw<'a, T: AsDeviceBuilder<'a> + ?Sized>(t: &'a T) -> &'a sys::ma_device_config {
+    pub fn as_raw<T: AsDeviceBuilder + ?Sized>(t: &T) -> &sys::ma_device_config {
         <T as AsDeviceBuilder>::_DeviceBuilderProvider::as_raw(t)
     }
 
-    pub fn as_raw_ptr<'a, T: AsDeviceBuilder<'a> + ?Sized>(t: &T) -> *const sys::ma_device_config {
+    pub fn as_raw_ptr<T: AsDeviceBuilder + ?Sized>(t: &T) -> *const sys::ma_device_config {
         <T as AsDeviceBuilder>::_DeviceBuilderProvider::as_raw_ptr(t)
     }
 
-    pub fn set_playback_id<'a, T: AsDeviceBuilder<'a> + ?Sized>(t: &mut T, id: DeviceId) {
+    pub fn set_playback_id<T: AsDeviceBuilder + ?Sized>(t: &mut T, id: DeviceId) {
         <T as AsDeviceBuilder>::_DeviceBuilderProvider::set_playback_id(t, id);
     }
 
-    pub fn set_capture_id<'a, T: AsDeviceBuilder<'a> + ?Sized>(t: &mut T, id: DeviceId) {
+    pub fn set_capture_id<T: AsDeviceBuilder + ?Sized>(t: &mut T, id: DeviceId) {
         <T as AsDeviceBuilder>::_DeviceBuilderProvider::set_capture_id(t, id);
     }
 }
 
 // The first step in the builder processs
 // device format -> device type -> other methods -> build
-impl<'a> PlaybackDeviceBuilder<'a, Unknown> {
-    fn new_inner<F: PcmFormat>(&mut self) -> PlaybackDeviceBuilder<'a, F> {
+impl PlaybackDeviceBuilder<Unknown> {
+    fn new_inner<F: PcmFormat>(&mut self) -> PlaybackDeviceBuilder<F> {
         PlaybackDeviceBuilder {
             inner: self.inner,
-            context: None,
             backends: self.backends.take(),
+            ctx: None,
             data_callback_info: None,
             state_notifier: false,
             playback_device_id: None,
@@ -669,27 +600,27 @@ impl<'a> PlaybackDeviceBuilder<'a, Unknown> {
         }
     }
 
-    pub fn u8(&mut self) -> PlaybackDeviceBuilder<'a, u8> {
+    pub fn u8(&mut self) -> PlaybackDeviceBuilder<u8> {
         self.inner.playback.format = sys::ma_format_ma_format_u8;
         self.new_inner::<u8>()
     }
 
-    pub fn i16(&mut self) -> PlaybackDeviceBuilder<'a, i16> {
+    pub fn i16(&mut self) -> PlaybackDeviceBuilder<i16> {
         self.inner.playback.format = sys::ma_format_ma_format_s16;
         self.new_inner::<i16>()
     }
 
-    pub fn i32(&mut self) -> PlaybackDeviceBuilder<'a, i32> {
+    pub fn i32(&mut self) -> PlaybackDeviceBuilder<i32> {
         self.inner.playback.format = sys::ma_format_ma_format_s32;
         self.new_inner::<i32>()
     }
 
-    pub fn s24_packed(&mut self) -> PlaybackDeviceBuilder<'a, S24Packed> {
+    pub fn s24_packed(&mut self) -> PlaybackDeviceBuilder<S24Packed> {
         self.inner.playback.format = sys::ma_format_ma_format_s24;
         self.new_inner::<S24Packed>()
     }
 
-    pub fn f32(&mut self) -> PlaybackDeviceBuilder<'a, f32> {
+    pub fn f32(&mut self) -> PlaybackDeviceBuilder<f32> {
         self.inner.playback.format = sys::ma_format_ma_format_f32;
         self.new_inner::<f32>()
     }
@@ -697,12 +628,12 @@ impl<'a> PlaybackDeviceBuilder<'a, Unknown> {
 
 // The first step in the builder processs
 // device format -> device type -> other methods -> build
-impl<'a> CaptureDeviceBuilder<'a, Unknown> {
-    fn new_inner<F: PcmFormat>(&mut self) -> CaptureDeviceBuilder<'a, F> {
+impl CaptureDeviceBuilder<Unknown> {
+    fn new_inner<F: PcmFormat>(&mut self) -> CaptureDeviceBuilder<F> {
         CaptureDeviceBuilder {
             inner: self.inner,
-            context: None,
             backends: self.backends.take(),
+            ctx: None,
             data_callback_info: None,
             state_notifier: false,
             playback_device_id: None,
@@ -713,27 +644,27 @@ impl<'a> CaptureDeviceBuilder<'a, Unknown> {
         }
     }
 
-    pub fn u8(&mut self) -> CaptureDeviceBuilder<'a, u8> {
+    pub fn u8(&mut self) -> CaptureDeviceBuilder<u8> {
         self.inner.capture.format = sys::ma_format_ma_format_u8;
         self.new_inner::<u8>()
     }
 
-    pub fn i16(&mut self) -> CaptureDeviceBuilder<'a, i16> {
+    pub fn i16(&mut self) -> CaptureDeviceBuilder<i16> {
         self.inner.capture.format = sys::ma_format_ma_format_s16;
         self.new_inner::<i16>()
     }
 
-    pub fn i32(&mut self) -> CaptureDeviceBuilder<'a, i32> {
+    pub fn i32(&mut self) -> CaptureDeviceBuilder<i32> {
         self.inner.capture.format = sys::ma_format_ma_format_s32;
         self.new_inner::<i32>()
     }
 
-    pub fn s24_packed(&mut self) -> CaptureDeviceBuilder<'a, S24Packed> {
+    pub fn s24_packed(&mut self) -> CaptureDeviceBuilder<S24Packed> {
         self.inner.capture.format = sys::ma_format_ma_format_s24;
         self.new_inner::<S24Packed>()
     }
 
-    pub fn f32(&mut self) -> CaptureDeviceBuilder<'a, f32> {
+    pub fn f32(&mut self) -> CaptureDeviceBuilder<f32> {
         self.inner.capture.format = sys::ma_format_ma_format_f32;
         self.new_inner::<f32>()
     }
@@ -741,14 +672,14 @@ impl<'a> CaptureDeviceBuilder<'a, Unknown> {
 
 // The first step in the builder processs
 // device format -> device type -> other methods -> build
-impl<'a> DuplexDeviceBuilder<'a, Unknown, Unknown> {
-    pub fn new<F: MaSampleFormat, P: MaSampleFormat>(&mut self) -> DuplexDeviceBuilder<'a, F, P> {
+impl DuplexDeviceBuilder<Unknown, Unknown> {
+    pub fn new<F: MaSampleFormat, P: MaSampleFormat>(&mut self) -> DuplexDeviceBuilder<F, P> {
         self.inner.playback.format = F::STORE_FORMAT.into();
         self.inner.capture.format = P::STORE_FORMAT.into();
         DuplexDeviceBuilder {
             inner: self.inner,
-            context: None,
             backends: self.backends.take(),
+            ctx: None,
             data_callback_info: None,
             state_notifier: false,
             playback_device_id: None,
@@ -764,12 +695,12 @@ impl<'a> DuplexDeviceBuilder<'a, Unknown, Unknown> {
 
 // The first step in the builder processs
 // device format -> device type -> other methods -> build
-impl<'a> LoopbackDeviceBuilder<'a, Unknown> {
-    fn new_inner<F: PcmFormat>(&mut self) -> LoopbackDeviceBuilder<'a, F> {
+impl LoopbackDeviceBuilder<Unknown> {
+    fn new_inner<F: PcmFormat>(&mut self) -> LoopbackDeviceBuilder<F> {
         LoopbackDeviceBuilder {
             inner: self.inner,
-            context: None,
             backends: self.backends.take(),
+            ctx: None,
             data_callback_info: None,
             state_notifier: false,
             playback_device_id: None,
@@ -780,39 +711,36 @@ impl<'a> LoopbackDeviceBuilder<'a, Unknown> {
         }
     }
 
-    pub fn u8(&mut self) -> LoopbackDeviceBuilder<'a, u8> {
+    pub fn u8(&mut self) -> LoopbackDeviceBuilder<u8> {
         self.inner.capture.format = sys::ma_format_ma_format_u8;
         self.new_inner::<u8>()
     }
 
-    pub fn i16(&mut self) -> LoopbackDeviceBuilder<'a, i16> {
+    pub fn i16(&mut self) -> LoopbackDeviceBuilder<i16> {
         self.inner.capture.format = sys::ma_format_ma_format_s16;
         self.new_inner::<i16>()
     }
 
-    pub fn i32(&mut self) -> LoopbackDeviceBuilder<'a, i32> {
+    pub fn i32(&mut self) -> LoopbackDeviceBuilder<i32> {
         self.inner.capture.format = sys::ma_format_ma_format_s32;
         self.new_inner::<i32>()
     }
 
-    pub fn s24_packed(&mut self) -> LoopbackDeviceBuilder<'a, S24Packed> {
+    pub fn s24_packed(&mut self) -> LoopbackDeviceBuilder<S24Packed> {
         self.inner.capture.format = sys::ma_format_ma_format_s24;
         self.new_inner::<S24Packed>()
     }
 
-    pub fn f32(&mut self) -> LoopbackDeviceBuilder<'a, f32> {
+    pub fn f32(&mut self) -> LoopbackDeviceBuilder<f32> {
         self.inner.capture.format = sys::ma_format_ma_format_f32;
         self.new_inner::<f32>()
     }
 }
 
-impl<'a, F: PcmFormat> DeviceBuilderOps<'a> for PlaybackDeviceBuilder<'a, F> {}
-impl<'a, F: PcmFormat> DeviceBuilderOps<'a> for CaptureDeviceBuilder<'a, F> {}
-impl<'a, F: MaSampleFormat, P: MaSampleFormat> DeviceBuilderOps<'a>
-    for DuplexDeviceBuilder<'a, F, P>
-{
-}
-impl<'a, F: PcmFormat> DeviceBuilderOps<'a> for LoopbackDeviceBuilder<'a, F> {}
+impl<F: PcmFormat> DeviceBuilderOps for PlaybackDeviceBuilder<F> {}
+impl<F: PcmFormat> DeviceBuilderOps for CaptureDeviceBuilder<F> {}
+impl<F: MaSampleFormat, P: MaSampleFormat> DeviceBuilderOps for DuplexDeviceBuilder<F, P> {}
+impl<F: PcmFormat> DeviceBuilderOps for LoopbackDeviceBuilder<F> {}
 
 // The third step in the builder processs
 // device format -> device type -> other methods -> build
@@ -838,7 +766,7 @@ impl<'a, F: PcmFormat> DeviceBuilderOps<'a> for LoopbackDeviceBuilder<'a, F> {}
 ///
 /// Unless explicitly overridden, options use the defaults established by
 /// `ma_device_config_init()`.
-pub trait DeviceBuilderOps<'a>: AsDeviceBuilder<'a> {
+pub trait DeviceBuilderOps: AsDeviceBuilder {
     /// Sets the playback device to use.
     fn playback_device_id(&mut self, device_id: &DeviceId) -> &mut Self
     where
@@ -981,15 +909,6 @@ pub trait DeviceBuilderOps<'a>: AsDeviceBuilder<'a> {
         self
     }
 
-    /// Specifies the backend priority order for device initialization.
-    fn backends<I>(&mut self, backends: I) -> &mut Self
-    where
-        I: IntoIterator<Item = Backend>,
-    {
-        private_device_b::set_backends(self, backends.into_iter().collect());
-        self
-    }
-
     /// Sets the desired period size in frames.
     ///
     /// A *period* is the number of frames processed in one device callback.
@@ -1068,28 +987,36 @@ pub trait DeviceBuilderOps<'a>: AsDeviceBuilder<'a> {
     ) -> &mut Self {
         let context = ContextBuilder::new()
             .preferred_backends(prefered_backends)
-            .build_custom_engine::<B>()
+            .build_custom::<B>()
             .unwrap();
         let erased_state = CustomBackendState::new_erased(&context);
+        private_device_b::set_context(self, Some(DeviceContextStore::Custom(context.to_raw())));
         private_device_b::set_backend_state(self, erased_state);
         self
     }
 
-    fn context(&mut self, ctx: &'a ContextBuilder) -> &mut Self {
-        private_device_b::set_context(self, ctx);
+    fn custom_context<B: CustomBackend>(&mut self, context: &CustomContext<B>) -> &mut Self {
+        let erased_state = CustomBackendState::new_erased(context);
+        private_device_b::set_context(self, Some(DeviceContextStore::Custom(context.to_raw())));
+        private_device_b::set_backend_state(self, erased_state);
+        self
+    }
+
+    fn context(&mut self, context: &Context) -> &mut Self {
+        private_device_b::set_context(self, Some(DeviceContextStore::Ctx(context.0.clone())));
         self
     }
 }
 
 // The second step in the builder processs
 // device format -> device type -> other methods -> build
-impl<'a> DeviceBuilder {
-    pub fn playback() -> PlaybackDeviceBuilder<'a, Unknown> {
+impl DeviceBuilder {
+    pub fn playback() -> PlaybackDeviceBuilder<Unknown> {
         let ptr = unsafe { sys::ma_device_config_init(DeviceType::Playback.into()) };
         PlaybackDeviceBuilder {
             inner: ptr,
-            context: None,
             backends: None,
+            ctx: None,
             data_callback_info: None,
             state_notifier: false,
             playback_device_id: None,
@@ -1100,12 +1027,12 @@ impl<'a> DeviceBuilder {
         }
     }
 
-    pub fn capture() -> CaptureDeviceBuilder<'a, Unknown> {
+    pub fn capture() -> CaptureDeviceBuilder<Unknown> {
         let ptr = unsafe { sys::ma_device_config_init(DeviceType::Capture.into()) };
         CaptureDeviceBuilder {
             inner: ptr,
-            context: None,
             backends: None,
+            ctx: None,
             data_callback_info: None,
             state_notifier: false,
             playback_device_id: None,
@@ -1116,12 +1043,12 @@ impl<'a> DeviceBuilder {
         }
     }
 
-    pub fn duplex() -> DuplexDeviceBuilder<'a, Unknown, Unknown> {
+    pub fn duplex() -> DuplexDeviceBuilder<Unknown, Unknown> {
         let ptr = unsafe { sys::ma_device_config_init(DeviceType::Duplex.into()) };
         DuplexDeviceBuilder {
             inner: ptr,
-            context: None,
             backends: None,
+            ctx: None,
             data_callback_info: None,
             state_notifier: false,
             playback_device_id: None,
@@ -1134,12 +1061,12 @@ impl<'a> DeviceBuilder {
         }
     }
 
-    pub fn loopback() -> LoopbackDeviceBuilder<'a, Unknown> {
+    pub fn loopback() -> LoopbackDeviceBuilder<Unknown> {
         let ptr = unsafe { sys::ma_device_config_init(DeviceType::Loopback.into()) };
         LoopbackDeviceBuilder {
             inner: ptr,
-            context: None,
             backends: None,
+            ctx: None,
             data_callback_info: None,
             state_notifier: false,
             playback_device_id: None,
@@ -1153,7 +1080,7 @@ impl<'a> DeviceBuilder {
 
 // The last step in the builder processs
 // device format -> device type -> other methods -> build
-impl<'a, F: PcmFormat> PlaybackDeviceBuilder<'a, F> {
+impl<F: PcmFormat> PlaybackDeviceBuilder<F> {
     /// Builds the device and installs a playback callback.
     ///
     /// The callback is invoked on miniaudio's audio thread whenever the device
@@ -1196,64 +1123,14 @@ impl<'a, F: PcmFormat> PlaybackDeviceBuilder<'a, F> {
     where
         C: FnMut(CallBackDevice, &mut [F::StorageUnit]) + Send + 'static,
     {
+        let ctx = self.ctx.take();
         let (builder, callback_process_notifier) = self.configure_builder(f);
 
-        Device::new_ex_with_config(
-            builder,
-            builder.context,
-            private_device_b::get_backends(builder),
-            callback_process_notifier,
-            builder.playback_device_id.clone(),
-            builder.capture_device_id.clone(),
-        )
-    }
-
-    pub fn with_custom_backend<'device, B: CustomBackend>(
-        &mut self,
-        f: impl FnMut(CallBackDevice, &mut [F::StorageUnit]) + Send + 'static,
-    ) -> MaResult<CustomDevice<'device, F, B>> {
-        let (builder, callback_process_notifier) = self.configure_builder(f);
-        let context = ContextBuilder::new()
-            .preferred_backends([Backend::Custom])
-            .build_custom::<B>()?;
-
-        CustomDevice::new_with_config(
-            builder,
-            &context,
-            callback_process_notifier,
-            builder.playback_device_id.clone(),
-            builder.capture_device_id.clone(),
-        )
-    }
-
-    pub fn with_context<C>(&mut self, context: &Context, f: C) -> MaResult<Device<F>>
-    where
-        C: FnMut(CallBackDevice, &mut [F::StorageUnit]) + Send + 'static,
-    {
-        let (builder, callback_process_notifier) = self.configure_builder(f);
+        println!("ctx exists: {}", ctx.is_some());
 
         Device::new_with_config(
             builder,
-            context,
-            callback_process_notifier,
-            builder.playback_device_id.clone(),
-            builder.capture_device_id.clone(),
-        )
-    }
-
-    pub fn with_custom_context<'device, C, B: CustomBackend>(
-        &mut self,
-        context: &CustomContext<B>,
-        f: C,
-    ) -> MaResult<CustomDevice<'device, F, B>>
-    where
-        C: FnMut(CallBackDevice, &mut [F::StorageUnit]) + Send + 'static,
-    {
-        let (builder, callback_process_notifier) = self.configure_builder(f);
-
-        CustomDevice::new_with_config(
-            builder,
-            context,
+            ctx,
             callback_process_notifier,
             builder.playback_device_id.clone(),
             builder.capture_device_id.clone(),
@@ -1276,8 +1153,8 @@ impl<'a, F: PcmFormat> PlaybackDeviceBuilder<'a, F> {
         };
         let callback_process_notifier = state.frames_processed.clone();
 
-        let state = DeviceState::new(self.backend_state.take(), state);
-        let state_ptr = Box::into_raw(Box::new(state));
+        let state: DeviceState = DeviceState::new(self.backend_state.take(), state);
+        let state_ptr: *mut DeviceState = Box::into_raw(Box::new(state));
 
         let callback_info: DeviceBuilderDataCallBack = DeviceBuilderDataCallBack {
             data_callback: state_ptr.cast(),
@@ -1301,7 +1178,7 @@ impl<'a, F: PcmFormat> PlaybackDeviceBuilder<'a, F> {
 
 // The last step in the builder processs
 // device format -> device type -> other methods -> build
-impl<'a, F: PcmFormat> CaptureDeviceBuilder<'a, F> {
+impl<F: PcmFormat> CaptureDeviceBuilder<F> {
     /// Builds the device and installs a capture callback.
     ///
     /// The callback is invoked on miniaudio's audio thread whenever captured
@@ -1345,64 +1222,12 @@ impl<'a, F: PcmFormat> CaptureDeviceBuilder<'a, F> {
     where
         C: FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
     {
-        let (builder, callback_process_notifier) = self.configure_builder(f);
-
-        Device::new_ex_with_config(
-            builder,
-            builder.context,
-            private_device_b::get_backends(builder),
-            callback_process_notifier,
-            builder.playback_device_id.clone(),
-            builder.capture_device_id.clone(),
-        )
-    }
-
-    pub fn with_custom_backend<'device, B: CustomBackend>(
-        &mut self,
-        f: impl FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
-    ) -> MaResult<CustomDevice<'device, F, B>> {
-        let (builder, callback_process_notifier) = self.configure_builder(f);
-        let context = ContextBuilder::new()
-            .preferred_backends([Backend::Custom])
-            .build_custom::<B>()?;
-
-        CustomDevice::new_with_config(
-            builder,
-            &context,
-            callback_process_notifier,
-            builder.playback_device_id.clone(),
-            builder.capture_device_id.clone(),
-        )
-    }
-
-    pub fn with_context<C>(&mut self, context: &Context, f: C) -> MaResult<Device<F>>
-    where
-        C: FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
-    {
+        let ctx = self.ctx.take();
         let (builder, callback_process_notifier) = self.configure_builder(f);
 
         Device::new_with_config(
             builder,
-            context,
-            callback_process_notifier,
-            builder.playback_device_id.clone(),
-            builder.capture_device_id.clone(),
-        )
-    }
-
-    pub fn with_custom_context<'device, C, B: CustomBackend>(
-        &mut self,
-        context: &CustomContext<B>,
-        f: C,
-    ) -> MaResult<CustomDevice<'device, F, B>>
-    where
-        C: FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
-    {
-        let (builder, callback_process_notifier) = self.configure_builder(f);
-
-        CustomDevice::new_with_config(
-            builder,
-            context,
+            ctx,
             callback_process_notifier,
             builder.playback_device_id.clone(),
             builder.capture_device_id.clone(),
@@ -1451,7 +1276,7 @@ impl<'a, F: PcmFormat> CaptureDeviceBuilder<'a, F> {
 
 // The last step in the builder processs
 // device format -> device type -> other methods -> build
-impl<'a, F: MaSampleFormat, P: MaSampleFormat> DuplexDeviceBuilder<'a, F, P> {
+impl<F: MaSampleFormat, P: MaSampleFormat> DuplexDeviceBuilder<F, P> {
     /// Builds the device and installs a duplex callback.
     ///
     /// The callback is invoked on miniaudio's audio thread for full-duplex
@@ -1497,64 +1322,12 @@ impl<'a, F: MaSampleFormat, P: MaSampleFormat> DuplexDeviceBuilder<'a, F, P> {
     where
         C: FnMut(CallBackDevice, &mut [F::StorageUnit], &[P::StorageUnit]) + Send + 'static,
     {
-        let (builder, callback_process_notifier) = self.configure_builder(f);
-
-        Device::new_ex_with_config(
-            builder,
-            builder.context,
-            private_device_b::get_backends(builder),
-            callback_process_notifier,
-            builder.playback_device_id.clone(),
-            builder.capture_device_id.clone(),
-        )
-    }
-
-    pub fn with_custom_backend<'device, B: CustomBackend>(
-        &mut self,
-        f: impl FnMut(CallBackDevice, &mut [F::StorageUnit], &[P::StorageUnit]) + Send + 'static,
-    ) -> MaResult<CustomDevice<'device, F, B>> {
-        let (builder, callback_process_notifier) = self.configure_builder(f);
-        let context = ContextBuilder::new()
-            .preferred_backends([Backend::Custom])
-            .build_custom::<B>()?;
-
-        CustomDevice::new_with_config(
-            builder,
-            &context,
-            callback_process_notifier,
-            builder.playback_device_id.clone(),
-            builder.capture_device_id.clone(),
-        )
-    }
-
-    pub fn with_context<C>(&mut self, context: &Context, f: C) -> MaResult<Device<F>>
-    where
-        C: FnMut(CallBackDevice, &mut [F::StorageUnit], &[P::StorageUnit]) + Send + 'static,
-    {
+        let ctx = self.ctx.take();
         let (builder, callback_process_notifier) = self.configure_builder(f);
 
         Device::new_with_config(
             builder,
-            context,
-            callback_process_notifier,
-            builder.playback_device_id.clone(),
-            builder.capture_device_id.clone(),
-        )
-    }
-
-    pub fn with_custom_context<'device, C, B: CustomBackend>(
-        &mut self,
-        context: &CustomContext<B>,
-        f: C,
-    ) -> MaResult<CustomDevice<'device, F, B>>
-    where
-        C: FnMut(CallBackDevice, &mut [F::StorageUnit], &[P::StorageUnit]) + Send + 'static,
-    {
-        let (builder, callback_process_notifier) = self.configure_builder(f);
-
-        CustomDevice::new_with_config(
-            builder,
-            context,
+            ctx,
             callback_process_notifier,
             builder.playback_device_id.clone(),
             builder.capture_device_id.clone(),
@@ -1603,7 +1376,7 @@ impl<'a, F: MaSampleFormat, P: MaSampleFormat> DuplexDeviceBuilder<'a, F, P> {
 
 // The last step in the builder processs
 // device format -> device type -> other methods -> build
-impl<'a, F: PcmFormat> LoopbackDeviceBuilder<'a, F> {
+impl<F: PcmFormat> LoopbackDeviceBuilder<F> {
     /// Builds the device and installs a loopback callback.
     ///
     /// The callback is invoked on miniaudio's audio thread whenever loopback
@@ -1653,64 +1426,12 @@ impl<'a, F: PcmFormat> LoopbackDeviceBuilder<'a, F> {
     where
         C: FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
     {
-        let (builder, callback_process_notifier) = self.configure_builder(f);
-
-        Device::new_ex_with_config(
-            builder,
-            builder.context,
-            private_device_b::get_backends(builder),
-            callback_process_notifier,
-            builder.playback_device_id.clone(),
-            builder.capture_device_id.clone(),
-        )
-    }
-
-    pub fn with_custom_backend<'device, B: CustomBackend>(
-        &mut self,
-        f: impl FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
-    ) -> MaResult<CustomDevice<'device, F, B>> {
-        let (builder, callback_process_notifier) = self.configure_builder(f);
-        let context = ContextBuilder::new()
-            .preferred_backends([Backend::Custom])
-            .build_custom::<B>()?;
-
-        CustomDevice::new_with_config(
-            builder,
-            &context,
-            callback_process_notifier,
-            builder.playback_device_id.clone(),
-            builder.capture_device_id.clone(),
-        )
-    }
-
-    pub fn with_context<C>(&mut self, context: &Context, f: C) -> MaResult<Device<F>>
-    where
-        C: FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
-    {
+        let ctx = self.ctx.take();
         let (builder, callback_process_notifier) = self.configure_builder(f);
 
         Device::new_with_config(
             builder,
-            context,
-            callback_process_notifier,
-            builder.playback_device_id.clone(),
-            builder.capture_device_id.clone(),
-        )
-    }
-
-    pub fn with_custom_context<'device, C, B: CustomBackend>(
-        &mut self,
-        context: &CustomContext<B>,
-        f: C,
-    ) -> MaResult<CustomDevice<'device, F, B>>
-    where
-        C: FnMut(CallBackDevice, &[F::StorageUnit]) + Send + 'static,
-    {
-        let (builder, callback_process_notifier) = self.configure_builder(f);
-
-        CustomDevice::new_with_config(
-            builder,
-            context,
+            ctx,
             callback_process_notifier,
             builder.playback_device_id.clone(),
             builder.capture_device_id.clone(),
@@ -1757,11 +1478,18 @@ impl<'a, F: PcmFormat> LoopbackDeviceBuilder<'a, F> {
     }
 }
 
+#[doc(hidden)]
+pub enum DeviceContextStore {
+    Ctx(Arc<ContextInner>),
+    // The custom context is kept alive by the backend state
+    Custom(*mut sys::ma_context),
+}
+
 // Erased type for storage in the device pUserData
 pub(crate) struct DeviceState {
     // Custom backend state
     #[allow(unused)]
-    pub(crate) backend_state: Mutex<Option<ErasedBackendState>>,
+    pub(crate) backend_state: Option<ErasedBackendState>,
     // Device callback state
     pub(crate) callback_state: ErasedBackendState,
 }
@@ -1770,7 +1498,7 @@ impl DeviceState {
     fn new<T>(backend_state: Option<ErasedBackendState>, callback_state: T) -> Self {
         let callback_state = ErasedBackendState::new(callback_state);
         Self {
-            backend_state: Mutex::new(backend_state),
+            backend_state,
             callback_state,
         }
     }

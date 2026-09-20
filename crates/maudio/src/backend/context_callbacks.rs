@@ -8,11 +8,10 @@ use crate::{
         custom_context::{BackendDeviceConfig, CustomContextInner, DeviceDescriptor},
     },
     device::{
-        custom_device::{BackendDeviceHandle, CustomDeviceInner},
-        device_id::DeviceId,
-        device_info::DeviceInfo,
-        device_type::DeviceType,
+        custom_device::BackendDeviceHandle, device_builder::DeviceState, device_id::DeviceId,
+        device_info::DeviceInfo, device_type::DeviceType,
     },
+    engine::process_cb::CustomBackendState,
     logging::{LogOwner, LogRef},
     AsRawRef, MaResult,
 };
@@ -178,6 +177,17 @@ unsafe extern "C" fn custom_context_on_device_init<B: CustomBackend>(
         return sys::ma_result_MA_ERROR;
     };
 
+    let device_ref = unsafe { &*device };
+    let user_data_ptr = device_ref.pUserData.cast::<DeviceState>();
+    let user_data_ref = unsafe { &*user_data_ptr };
+
+    let Some(state_ref) = user_data_ref.backend_state.as_ref() else {
+        return sys::ma_result_MA_ERROR;
+    };
+
+    let backend_state_ptr = state_ref.data.cast::<CustomBackendState<B>>();
+    let backend_state_ref = unsafe { &*backend_state_ptr };
+
     let mut playback_descr: Option<DeviceDescriptor> = None;
     let mut capture_descr: Option<DeviceDescriptor> = None;
 
@@ -192,22 +202,18 @@ unsafe extern "C" fn custom_context_on_device_init<B: CustomBackend>(
         }
     }
 
-    let custom_device_ref = unsafe { &*device.cast::<CustomDeviceInner<B>>() };
+    let custom_context_ref = unsafe { &*device_ref.pContext.cast::<CustomContextInner<B>>() };
 
     let backend_device: BackendDeviceHandle<B> = BackendDeviceHandle {
         inner: device,
-        backend_device: &custom_device_ref.backend_device,
-        backend_context: &custom_device_ref.backend_context.backend_context,
+        backend_device: &backend_state_ref.backend_device,
+        backend_context: &custom_context_ref.backend_context,
     };
 
-    let log = custom_device_ref
-        .backend_context
-        .log
-        .as_ref()
-        .map(|l| LogRef {
-            inner: l.inner,
-            _owner: LogOwner::Log(l.clone()),
-        });
+    let log = custom_context_ref.log.as_ref().map(|l| LogRef {
+        inner: l.inner,
+        _owner: LogOwner::Log(l.clone()),
+    });
 
     let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
         B::device_init(
@@ -233,10 +239,7 @@ unsafe extern "C" fn custom_context_on_device_init<B: CustomBackend>(
         capt_descr.update_raw_descriptor(unsafe { &mut *capture_descriptor });
     }
 
-    match unsafe { &mut *device.cast::<CustomDeviceInner<B>>() }
-        .backend_device
-        .set(backend_device)
-    {
+    match backend_state_ref.backend_device.set(backend_device) {
         Ok(_) => sys::ma_result_MA_SUCCESS,
         Err(_) => sys::ma_result_MA_ERROR,
     }
@@ -249,22 +252,29 @@ unsafe extern "C" fn custom_context_on_device_start<B: CustomBackend>(
         return sys::ma_result_MA_ERROR;
     }
 
-    let custom_device_ref = unsafe { &*device.cast::<CustomDeviceInner<B>>() };
+    let device_ref = unsafe { &*device };
+    let user_data_ptr = device_ref.pUserData.cast::<DeviceState>();
+    let user_data_ref = unsafe { &*user_data_ptr };
+
+    let Some(state_ref) = user_data_ref.backend_state.as_ref() else {
+        return sys::ma_result_MA_ERROR;
+    };
+
+    let backend_state_ptr = state_ref.data.cast::<CustomBackendState<B>>();
+    let backend_state_ref = unsafe { &*backend_state_ptr };
+
+    let custom_context_ref = unsafe { &*device_ref.pContext.cast::<CustomContextInner<B>>() };
 
     let backend_device: BackendDeviceHandle<B> = BackendDeviceHandle {
         inner: device,
-        backend_device: &custom_device_ref.backend_device,
-        backend_context: &custom_device_ref.backend_context.backend_context,
+        backend_device: &backend_state_ref.backend_device,
+        backend_context: &custom_context_ref.backend_context,
     };
 
-    let log = custom_device_ref
-        .backend_context
-        .log
-        .as_ref()
-        .map(|l| LogRef {
-            inner: l.inner,
-            _owner: LogOwner::Log(l.clone()),
-        });
+    let log = custom_context_ref.log.as_ref().map(|l| LogRef {
+        inner: l.inner,
+        _owner: LogOwner::Log(l.clone()),
+    });
 
     let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
         B::device_start(&backend_device, log.as_ref())
@@ -284,22 +294,29 @@ unsafe extern "C" fn custom_context_on_device_stop<B: CustomBackend>(
         return sys::ma_result_MA_ERROR;
     }
 
-    let custom_device_ref = unsafe { &*device.cast::<CustomDeviceInner<B>>() };
+    let device_ref = unsafe { &*device };
+    let user_data_ptr = device_ref.pUserData.cast::<DeviceState>();
+    let user_data_ref = unsafe { &*user_data_ptr };
+
+    let Some(state_ref) = user_data_ref.backend_state.as_ref() else {
+        return sys::ma_result_MA_ERROR;
+    };
+
+    let backend_state_ptr = state_ref.data.cast::<CustomBackendState<B>>();
+    let backend_state_ref = unsafe { &*backend_state_ptr };
+
+    let custom_context_ref = unsafe { &*device_ref.pContext.cast::<CustomContextInner<B>>() };
 
     let backend_device: BackendDeviceHandle<B> = BackendDeviceHandle {
         inner: device,
-        backend_device: &custom_device_ref.backend_device,
-        backend_context: &custom_device_ref.backend_context.backend_context,
+        backend_device: &backend_state_ref.backend_device,
+        backend_context: &custom_context_ref.backend_context,
     };
 
-    let log = custom_device_ref
-        .backend_context
-        .log
-        .as_ref()
-        .map(|l| LogRef {
-            inner: l.inner,
-            _owner: LogOwner::Log(l.clone()),
-        });
+    let log = custom_context_ref.log.as_ref().map(|l| LogRef {
+        inner: l.inner,
+        _owner: LogOwner::Log(l.clone()),
+    });
 
     let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
         B::device_stop(&backend_device, log.as_ref())
@@ -321,24 +338,31 @@ unsafe extern "C" fn custom_context_device_get_info<B: CustomBackend>(
         return sys::ma_result_MA_ERROR;
     }
 
-    let custom_device_ref = unsafe { &*device.cast::<CustomDeviceInner<B>>() };
+    let device_ref = unsafe { &*device };
+    let user_data_ptr = device_ref.pUserData.cast::<DeviceState>();
+    let user_data_ref = unsafe { &*user_data_ptr };
+
+    let Some(state_ref) = user_data_ref.backend_state.as_ref() else {
+        return sys::ma_result_MA_ERROR;
+    };
+
+    let backend_state_ptr = state_ref.data.cast::<CustomBackendState<B>>();
+    let backend_state_ref = unsafe { &*backend_state_ptr };
+
+    let custom_context_ref = unsafe { &*device_ref.pContext.cast::<CustomContextInner<B>>() };
 
     let backend_device: BackendDeviceHandle<B> = BackendDeviceHandle {
         inner: device,
-        backend_device: &custom_device_ref.backend_device,
-        backend_context: &custom_device_ref.backend_context.backend_context,
+        backend_device: &backend_state_ref.backend_device,
+        backend_context: &custom_context_ref.backend_context,
     };
 
-    let log = custom_device_ref
-        .backend_context
-        .log
-        .as_ref()
-        .map(|l| LogRef {
-            inner: l.inner,
-            _owner: LogOwner::Log(l.clone()),
-        });
+    let log = custom_context_ref.log.as_ref().map(|l| LogRef {
+        inner: l.inner,
+        _owner: LogOwner::Log(l.clone()),
+    });
 
-    let Some(context) = &custom_device_ref.backend_context.backend_context.get() else {
+    let Some(context) = custom_context_ref.backend_context.get() else {
         return sys::ma_result_MA_INVALID_ARGS;
     };
 

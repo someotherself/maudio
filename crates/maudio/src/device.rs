@@ -12,11 +12,10 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     audio::channels::Channel,
-    backend::{custom_backend::CustomBackend, Backend},
-    context::{Context, ContextBuilder, ContextRef},
+    backend::Backend,
+    context::{ContextBuilder, ContextInner, ContextRef},
     device::{
-        custom_device::CustomDevice,
-        device_builder::{private_device_b, AsDeviceBuilder},
+        device_builder::{private_device_b, AsDeviceBuilder, DeviceContextStore},
         device_id::DeviceId,
         device_info::DeviceInfo,
         device_state::DeviceState,
@@ -52,6 +51,7 @@ pub struct DeviceInner {
     inner: *mut sys::ma_device,
     _playback_device_id: Option<DeviceId>, // Ref count. Needs to be kept alive.
     _capture_device_id: Option<DeviceId>,  // Ref count. Needs to be kept alive.
+    _context: Option<Arc<ContextInner>>,   // keep alive
     callback_user_data: *mut core::ffi::c_void, // userdata (self.inner.pUserData - ErasedBackendState)
     callback_user_data_drop: fn(*mut core::ffi::c_void), // destructor for the callback_user_data
     callback_panic: Arc<AtomicBool>,            // true = callback panicked and is now poisoned
@@ -133,8 +133,7 @@ pub(crate) mod private_device {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        backend::custom_backend::CustomBackend,
-        device::{custom_device::CustomDevice, AsDevicePtr, CallBackDevice, Device, DeviceRef},
+        device::{AsDevicePtr, CallBackDevice, Device, DeviceRef},
         pcm_frames::PcmFormat,
         Binding,
     };
@@ -142,7 +141,6 @@ pub(crate) mod private_device {
     // Controls the Device functions that can be called from the data callback
     pub trait DeviceControl {}
     impl<F: PcmFormat> DeviceControl for Device<F> {}
-    impl<'device, F: PcmFormat, B: CustomBackend> DeviceControl for CustomDevice<'device, F, B> {}
     impl DeviceControl for DeviceRef<'_> {}
 
     pub trait DevicePtrProvider<T: ?Sized> {
@@ -152,7 +150,6 @@ pub(crate) mod private_device {
     pub struct DeviceProvider;
     pub struct DeviceRefProvider;
     pub struct CallBackDeviceRefProvider;
-    pub struct CustomDeviceProvider;
 
     impl<F: PcmFormat> DevicePtrProvider<Device<F>> for DeviceProvider {
         fn as_device_ptr(t: &Device<F>) -> *mut sys::ma_device {
@@ -168,14 +165,6 @@ pub(crate) mod private_device {
 
     impl DevicePtrProvider<CallBackDevice> for CallBackDeviceRefProvider {
         fn as_device_ptr(t: &CallBackDevice) -> *mut sys::ma_device {
-            t.to_raw()
-        }
-    }
-
-    impl<'device, F: PcmFormat, B: CustomBackend> DevicePtrProvider<CustomDevice<'device, F, B>>
-        for CustomDeviceProvider
-    {
-        fn as_device_ptr(t: &CustomDevice<F, B>) -> *mut sys::ma_device {
             t.to_raw()
         }
     }
@@ -200,7 +189,6 @@ impl<'a> AsDevicePtr for DeviceRef<'a> {
 impl<F: PcmFormat> DeviceOps for Device<F> {}
 impl DeviceOps for DeviceRef<'_> {}
 impl DeviceOps for CallBackDevice {}
-impl<'device, F: PcmFormat, B: CustomBackend> DeviceOps for CustomDevice<'device, F, B> {}
 
 /// Methods shared between Device, DeviceRef and CallBackDevice
 pub trait DeviceOps: AsDevicePtr {
@@ -340,16 +328,30 @@ impl<F: PcmFormat> Device<F> {
 
 // Private methods
 impl<F: PcmFormat> Device<F> {
-    pub(crate) fn new_with_config<'a, B: AsDeviceBuilder<'a> + ?Sized>(
+    pub(crate) fn new_with_config<B: AsDeviceBuilder + ?Sized>(
         config: &B,
-        context: &Context,
+        context: Option<DeviceContextStore>,
         data_notif: ProcFramesNotif,
         playback_device_id: Option<DeviceId>,
         capture_device_id: Option<DeviceId>,
     ) -> MaResult<Self> {
         let mut mem: Box<MaybeUninit<sys::ma_device>> = Box::new(MaybeUninit::uninit());
 
-        device_ffi::ma_device_init(context.to_raw(), config, mem.as_mut_ptr())?;
+        let mut std_ctx = None;
+        let ctx = if let Some(ctx) = context {
+            match ctx {
+                DeviceContextStore::Ctx(inner) => {
+                    std_ctx = Some(inner.clone());
+                    Some(inner.to_raw())
+                }
+                DeviceContextStore::Custom(p) => Some(p),
+            }
+        } else {
+            None
+        };
+        device_ffi::ma_device_init(ctx, config, mem.as_mut_ptr())?;
+
+        println!("device init returned");
 
         let inner: *mut sys::ma_device = Box::into_raw(mem) as *mut sys::ma_device;
         let Some(cb_info) = private_device_b::get_data_callback_info(config) else {
@@ -363,6 +365,7 @@ impl<F: PcmFormat> Device<F> {
                 inner,
                 _playback_device_id: playback_device_id,
                 _capture_device_id: capture_device_id,
+                _context: std_ctx,
                 callback_user_data: cb_info.data_callback,
                 callback_user_data_drop: cb_info.data_callback_drop,
                 callback_panic: cb_info.data_callback_panic,
@@ -375,7 +378,8 @@ impl<F: PcmFormat> Device<F> {
         })
     }
 
-    pub(crate) fn new_ex_with_config<'a, B: AsDeviceBuilder<'a> + ?Sized>(
+    #[allow(unused)]
+    pub(crate) fn new_ex_with_config<B: AsDeviceBuilder + ?Sized>(
         config: &B,
         context_cfg: Option<&ContextBuilder>,
         backends: Option<&[Backend]>,
@@ -407,6 +411,7 @@ impl<F: PcmFormat> Device<F> {
                 inner,
                 _playback_device_id: playback_device_id,
                 _capture_device_id: capture_device_id,
+                _context: None,
                 callback_user_data: cb_info.data_callback,
                 callback_user_data_drop: cb_info.data_callback_drop,
                 callback_panic: cb_info.data_callback_panic,
@@ -440,17 +445,22 @@ pub(crate) mod device_ffi {
         AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
     };
 
-    pub fn ma_device_init<'a, B: AsDeviceBuilder<'a> + ?Sized>(
-        context: *mut sys::ma_context,
+    pub fn ma_device_init<B: AsDeviceBuilder + ?Sized>(
+        context: Option<*mut sys::ma_context>,
         config: &B,
         device: *mut sys::ma_device,
     ) -> MaResult<()> {
-        let res =
-            unsafe { sys::ma_device_init(context, private_device_b::as_raw_ptr(config), device) };
+        let res = unsafe {
+            sys::ma_device_init(
+                context.unwrap_or(std::ptr::null_mut()),
+                private_device_b::as_raw_ptr(config),
+                device,
+            )
+        };
         MaudioError::check(res)
     }
 
-    pub fn ma_device_init_ex<'a, B: AsDeviceBuilder<'a> + ?Sized>(
+    pub fn ma_device_init_ex<B: AsDeviceBuilder + ?Sized>(
         backends: Option<&[Backend]>,
         context_cfg: Option<&ContextBuilder>,
         config: &B,

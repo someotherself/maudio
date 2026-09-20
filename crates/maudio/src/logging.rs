@@ -666,12 +666,11 @@ mod test {
         log.print_level(LogLevel::Warning).unwrap();
         log.print_level(LogLevel::Error).unwrap();
 
-        let mut ctx = ContextBuilder::new();
-        let ctx = ctx.log(&log);
+        let ctx = ContextBuilder::new().log(&log).build().unwrap();
 
         let _device = DeviceBuilder::playback()
             .f32()
-            .context(ctx)
+            .context(&ctx)
             .with_callback(|_, a| a.fill(0.0))
             .unwrap();
     }
@@ -720,12 +719,11 @@ mod test {
         let log = Log::new().unwrap();
         let _listener = log.register_log(|_, msg| println!("{msg}")).unwrap();
 
-        let mut ctx = ContextBuilder::new();
-        let ctx = ctx.log(&log);
+        let ctx = ContextBuilder::new().log(&log).build().unwrap();
 
         let _device = DeviceBuilder::playback()
             .f32()
-            .context(ctx)
+            .context(&ctx)
             .with_callback(|_, a| a.fill(0.0))
             .unwrap();
 
