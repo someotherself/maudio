@@ -22,7 +22,7 @@ use sdl2::audio::{AudioCallback, AudioFormat, AudioFormatNum, AudioSpec, AudioSp
 
 // Note on SDL2:
 // 1. When testing with the PulseAudio backend, I have noticed some memory leaks on sdl2 2.26.5.
-// These are not related to the sdl2 crate.
+// These are not related to the sdl2 rust crate.
 //
 // This seems to be fixed in SDL 2.30.0
 // I have not tested backends other than PulseAudio
@@ -518,6 +518,7 @@ impl CustomBackend for SdlBackend {
 
 fn main() -> MaResult<()> {
     let log = Log::new()?;
+    // TODO: Investigate why the logger doesn't work
     log.print_level(LogLevel::Debug)?;
     log.print_level(LogLevel::Error)?;
     log.print_level(LogLevel::Info)?;
