@@ -63,3 +63,35 @@ jobs:
 
       - name: Run tests
         run: cargo test --features "${{ matrix.features }}" --all-targets
+
+  address-sanitizer:
+    name: AddressSanitizer
+    runs-on: ubuntu-latest
+
+    env:
+      RUSTFLAGS: "-Zsanitizer=address"
+      RUSTDOCFLAGS: "-Zsanitizer=address"
+      CFLAGS: "-fsanitize=address -fno-omit-frame-pointer"
+      CXXFLAGS: "-fsanitize=address -fno-omit-frame-pointer"
+      ASAN_OPTIONS: "detect_leaks=1:halt_on_error=1"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install nightly Rust
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run tests with AddressSanitizer
+        run: >
+          cargo test
+          -Zbuild-std
+          --target x86_64-unknown-linux-gnu
+          --features ci-tests
+          --all-targets
