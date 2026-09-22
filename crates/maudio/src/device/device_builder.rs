@@ -1141,8 +1141,6 @@ impl<F: PcmFormat> PlaybackDeviceBuilder<F> {
         let ctx = self.ctx.take();
         let (builder, callback_process_notifier) = self.configure_builder(f);
 
-        println!("ctx exists: {}", ctx.is_some());
-
         Device::new_with_config(
             builder,
             ctx,

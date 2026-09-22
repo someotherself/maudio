@@ -351,8 +351,6 @@ impl<F: PcmFormat> Device<F> {
         };
         device_ffi::ma_device_init(ctx, config, mem.as_mut_ptr())?;
 
-        println!("device init returned");
-
         let inner: *mut sys::ma_device = Box::into_raw(mem) as *mut sys::ma_device;
         let Some(cb_info) = private_device_b::get_data_callback_info(config) else {
             return Err(crate::MaudioError::from_ma_result(

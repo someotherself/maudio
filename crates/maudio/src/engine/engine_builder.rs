@@ -351,9 +351,8 @@ impl EngineBuilder {
     /// See [`Backend`] for more information
     pub fn custom_context<B: CustomBackend>(
         &mut self,
-        context_builder: ContextBuilder,
+        context_builder: &mut ContextBuilder,
     ) -> &mut Self {
-        let mut context_builder = context_builder;
         // TODO: figure out a way to remove the unwrap
         let context = context_builder.build_custom_engine::<B>().unwrap();
         self.inner.pContext = context.to_raw();
