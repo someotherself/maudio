@@ -8,7 +8,7 @@ autotests = false
 [dependencies]
 maudio = { path = "../maudio" }
 symphonia = { version = "0.6.0", optional = true, features = ["flac"] }
-sdl2 = { version = "0.38.0", optional = true, features = ["bundled"] }
+sdl2 = { version = "0.38.0", optional = true, features = ["bundled", "static-link"] }
 
 [features]
 symphonia-decoder = ["dep:symphonia"]
