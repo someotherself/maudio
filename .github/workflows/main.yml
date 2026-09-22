@@ -80,6 +80,7 @@ jobs:
           -p maudio-tests
           --bin sdl2_backend
           --features sdl2-backend
+
   address-sanitizer:
     name: AddressSanitizer
     runs-on: ubuntu-latest
@@ -126,6 +127,7 @@ jobs:
         env:
           SDL_AUDIODRIVER: dummy
           RUST_BACKTRACE: "1"
+          CARGO_TARGET_DIR: target/asan-sdl2
         run: >
           cargo run
           -Zbuild-std
