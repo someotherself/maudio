@@ -74,6 +74,7 @@ jobs:
       - name: Run SDL2 backend integration checks
         if: runner.os == 'Linux'
         env:
+          RUST_BACKTRACE: "1"
           SDL_AUDIODRIVER: dummy
         run: >
           cargo run
