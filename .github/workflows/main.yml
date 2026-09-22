@@ -72,12 +72,14 @@ jobs:
           --features symphonia-decoder
 
       - name: Run SDL2 backend integration checks
+        if: runner.os == 'Linux'
+        env:
+          SDL_AUDIODRIVER: dummy
         run: >
           cargo run
           -p maudio-tests
           --bin sdl2_backend
           --features sdl2-backend
-
   address-sanitizer:
     name: AddressSanitizer
     runs-on: ubuntu-latest
