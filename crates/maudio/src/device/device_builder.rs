@@ -1798,7 +1798,7 @@ unsafe extern "C" fn device_data_loopback_callback<F: PcmFormat, C>(
 
 // Functions to drop the pUserData from the device
 fn drop_erased_device_state(ptr: *mut core::ffi::c_void) {
-    let state: Box<ErasedBackendState> = unsafe { Box::from_raw(ptr as *mut ErasedBackendState) };
+    let state: Box<DeviceState> = unsafe { Box::from_raw(ptr as *mut DeviceState) };
     drop(state);
 }
 
