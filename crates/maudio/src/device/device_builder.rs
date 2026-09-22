@@ -981,6 +981,15 @@ pub trait DeviceBuilderOps: AsDeviceBuilder {
         self
     }
 
+    /// Add a custom backend to the engine
+    ///
+    /// This API will create a custom context for you, with default configuration.
+    ///
+    /// While providing the custom backend, you should also provide
+    /// the prefered backends, or otherwise, the custom backend may
+    /// not be used.
+    ///
+    /// See [`Backend`] for more information
     fn custom_backend<B: CustomBackend>(
         &mut self,
         prefered_backends: impl IntoIterator<Item = Backend>,
@@ -988,13 +997,19 @@ pub trait DeviceBuilderOps: AsDeviceBuilder {
         let context = ContextBuilder::new()
             .preferred_backends(prefered_backends)
             .build_custom::<B>()
-            .unwrap();
+            .unwrap(); // TODO: figure out a way to remove the unwrap
         let erased_state = CustomBackendState::new_erased(&context);
         private_device_b::set_context(self, Some(DeviceContextStore::Custom(context.to_raw())));
         private_device_b::set_backend_state(self, erased_state);
         self
     }
 
+    /// Add a custom backend to the device
+    ///
+    /// You may also want to provide a list of prefered backends to the context
+    /// builder, or otherwise, the custom backend may not be used.
+    ///
+    /// See [`Backend`] for more information
     fn custom_context<B: CustomBackend>(&mut self, context: &CustomContext<B>) -> &mut Self {
         let erased_state = CustomBackendState::new_erased(context);
         private_device_b::set_context(self, Some(DeviceContextStore::Custom(context.to_raw())));

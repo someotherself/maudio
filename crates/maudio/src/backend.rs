@@ -10,6 +10,18 @@ pub mod custom_context;
 /// Audio backend identifiers used for device and context initialization.
 ///
 /// Each variant maps directly to a `ma_backend` in miniaudio.
+///
+/// # Prefered Backends
+///
+/// Some API's in maudio will take a list of prefered backends.
+///
+/// By default, the built in backends (which exclude Custom and Null)
+/// take priority and miniaudio will attempt to initialize them first.
+///
+/// This means that if a custom backend is provided, without a list of
+/// prefered backends, it may not be used.
+///
+/// **If you want to only use the custom backend, provide only [`[Backend:Custom]`](crate::backend::Backend)**
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 #[repr(C)]

@@ -335,6 +335,46 @@ impl EngineBuilder {
         self
     }
 
+    /// Add a custom backend to the engine
+    ///
+    /// This API will create a custom context for you, with default configuration.
+    ///
+    /// This API takes a context builder, as it must create final configuration
+    /// for the custom backend.
+    ///
+    /// Only one custom backed may be provided at one time, however
+    /// this API allows you to easily change it.
+    ///
+    /// You may also want to provide a list of prefered backends to the context
+    /// builder, or otherwise, the custom backend may not be used.
+    ///
+    /// See [`Backend`] for more information
+    pub fn custom_context<B: CustomBackend>(
+        &mut self,
+        context_builder: ContextBuilder,
+    ) -> &mut Self {
+        let mut context_builder = context_builder;
+        // TODO: figure out a way to remove the unwrap
+        let context = context_builder.build_custom_engine::<B>().unwrap();
+        self.inner.pContext = context.to_raw();
+
+        let erased_state = CustomBackendState::new_erased(&context);
+        self.backend_state = Some(erased_state);
+        self
+    }
+
+    /// Add a custom backend to the engine
+    ///
+    /// This API will create a custom context for you, with default configuration.
+    ///
+    /// Only one custom backed may be provided at one time, however
+    /// this API allows you to easily change it.
+    ///
+    /// While providing the custom backend, you should also provide
+    /// the prefered backends, or otherwise, the custom backend may
+    /// not be used.
+    ///
+    /// See [`Backend`] for more information
     pub fn custom_backend<B: CustomBackend>(
         &mut self,
         prefered_backends: impl IntoIterator<Item = Backend>,

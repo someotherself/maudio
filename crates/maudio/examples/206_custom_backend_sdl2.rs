@@ -1,3 +1,31 @@
+//! This example implements a custom `maudio` audio backe dusing SDL2
+//!
+//! This example demonstrates how to connect a callback-driven audio API
+//! to [`CustomBackend`]. SDL2 owns the underlying playback and capture
+//! streams, while maudio continues to manage device callbacks, format
+//! conversion, resampling, and engine processing.
+//!
+//! The implementation steps:
+//! - Initialize SDL2's audio subsystem and the backend context
+//! - Use SDL2 to enumerate and query playback and capture devices
+//! - Open the requested SDL2 streams during the device initalizatioins
+//! - Report the audio configuration selected by SDL2 back to maudio.
+//! - Forward SDL2's audio callbacks through BackendDeviceHandle::handle_backend_data_callback
+//! - Start and stop the streams using SDL2's pause and resume operations
+//!
+//! The backend uses f32 samples for both playback and capture. maudio
+//! performs any conversion required between this backend format and the
+//! format requested by the application. Different formats, do not need
+//! different trait implementations
+//!
+//! This can then be used to start either a Device or an Engine
+//!
+//! When suplying maudio with a custom backend, it may be important to select
+//! the prefered backends (see [`Backend`](maudio::backend::Backend)).
+//! If no prefered backend information is provided, the built in backends will
+//! always take priority, if any are available.
+//! If you want to only use the custom backend, provide only [`[Backend:Custom]`](maudio::backend::Backend)
+//! Having a fallback to one of the built in backends is not possible.
 use std::{marker::PhantomData, path::PathBuf};
 
 use maudio::{
@@ -8,16 +36,17 @@ use maudio::{
     },
     device::{
         custom_device::BackendDeviceHandle,
-        device_builder::DeviceBuilderOps,
         device_id::DeviceId,
         device_info::{DeviceInfo, DeviceInfoBuilder},
         device_type::DeviceType,
     },
     logging::{Log, LogLevel, LogOps, LogRef},
-    pcm_frames::PcmFormat,
+    pcm_frames::MaSampleFormat,
     ErrorKinds, MaResult, MaudioError,
 };
-use sdl2::audio::{AudioCallback, AudioFormat, AudioFormatNum, AudioSpec, AudioSpecDesired};
+use sdl2::audio::{
+    AudioCallback, AudioDevice, AudioFormat, AudioFormatNum, AudioSpec, AudioSpecDesired,
+};
 
 // Note on SDL2:
 // 1. When testing with the PulseAudio backend, I have noticed some memory leaks on sdl2 2.26.5.
@@ -43,20 +72,20 @@ struct SdlDevice<'device>
 where
     BackendDeviceHandle<'device, SdlBackend>: Send,
 {
-    playback: Option<sdl2::audio::AudioDevice<PlaybackCallback<'device, f32, SdlBackend>>>,
+    playback: Option<AudioDevice<PlaybackCallback<'device, f32, SdlBackend>>>,
     playback_identity: Option<String>, // None if using default device
-    capture: Option<sdl2::audio::AudioDevice<CaptureCallback<'device, f32, SdlBackend>>>,
+    capture: Option<AudioDevice<CaptureCallback<'device, f32, SdlBackend>>>,
     capture_identity: Option<String>,
 }
 
-struct PlaybackCallback<'device, F: PcmFormat, B: CustomBackend> {
+struct PlaybackCallback<'device, F: MaSampleFormat, B: CustomBackend> {
     device: BackendDeviceHandle<'device, B>,
     format: PhantomData<fn() -> F>,
 }
 
 impl<'device, F, B> AudioCallback for PlaybackCallback<'device, F, B>
 where
-    F: PcmFormat,
+    F: MaSampleFormat,
     B: CustomBackend,
     F::StorageUnit: AudioFormatNum + 'static,
     BackendDeviceHandle<'device, B>: Send,
@@ -68,14 +97,14 @@ where
     }
 }
 
-struct CaptureCallback<'device, F: PcmFormat, B: CustomBackend> {
+struct CaptureCallback<'device, F: MaSampleFormat, B: CustomBackend> {
     device: BackendDeviceHandle<'device, B>,
     format: PhantomData<fn() -> F>,
 }
 
 impl<'device, F, B> AudioCallback for CaptureCallback<'device, F, B>
 where
-    F: PcmFormat,
+    F: MaSampleFormat,
     B: CustomBackend,
     F::StorageUnit: AudioFormatNum + 'static,
     BackendDeviceHandle<'device, B>: Send,
@@ -87,10 +116,11 @@ where
     }
 }
 
+/// Creates a AudioSpecDesired with our desired audio configuration
 fn desired_spec(
     descriptor: &DeviceDescriptor,
     config: &BackendDeviceConfig,
-) -> MaResult<sdl2::audio::AudioSpecDesired> {
+) -> MaResult<AudioSpecDesired> {
     let sample_rate = descriptor.sample_rate.unwrap_or(SampleRate::Sr48000).into();
 
     let freq = i32::try_from(sample_rate)
@@ -111,7 +141,8 @@ fn desired_spec(
     })
 }
 
-fn sdl_capture_callback<F: PcmFormat, B: CustomBackend>(
+/// Helper function to call the device data callback for capture
+fn sdl_capture_callback<F: MaSampleFormat, B: CustomBackend>(
     device: &BackendDeviceHandle<B>,
     buffer: &[F::StorageUnit],
 ) {
@@ -120,13 +151,15 @@ fn sdl_capture_callback<F: PcmFormat, B: CustomBackend>(
     let _ = device.handle_backend_data_callback::<F, F>(None, Some(buffer));
 }
 
-fn sdl_playback_callback<F: PcmFormat, B: CustomBackend>(
+/// Helper function to call the device data callback for playback
+fn sdl_playback_callback<F: MaSampleFormat, B: CustomBackend>(
     device: &BackendDeviceHandle<B>,
     buffer: &mut [F::StorageUnit],
 ) {
     let _ = device.handle_backend_data_callback::<F, F>(Some(buffer), None);
 }
 
+/// Helper to populate a DeviceDescriptor with the backends configuration
 fn apply_obtained_spec(descriptor: &mut DeviceDescriptor, sdl_spec: &AudioSpec) -> MaResult<()> {
     descriptor.format = Format::F32;
     descriptor.channels = Some(sdl_spec.channels as u32);
@@ -266,7 +299,7 @@ impl CustomBackend for SdlBackend {
         Err(MaudioError::other("SDL audio device was not found"))
     }
 
-    fn device_init<'device>(
+    fn init_device<'device>(
         device: BackendDeviceHandle<'device, Self>,
         config: BackendDeviceConfig,
         playback: Option<&mut DeviceDescriptor>,
@@ -515,40 +548,12 @@ impl CustomBackend for SdlBackend {
     }
 }
 
-// fn main() -> MaResult<()> {
-// use maudio::engine::engine_builder::EngineBuilder;
-// use maudio::backend::Backend;
-
-//     let log = Log::new()?;
-//     // TODO: Investigate why the logger doesn't work
-//     log.print_level(LogLevel::Debug)?;
-//     log.print_level(LogLevel::Error)?;
-//     log.print_level(LogLevel::Info)?;
-//     log.print_level(LogLevel::Warning)?;
-
-//     let path = PathBuf::from(concat!(
-//         env!("CARGO_MANIFEST_DIR"),
-//         "/../maudio-sys/native/miniaudio/data/16-44100-stereo.flac"
-//     ));
-
-//     let engine = EngineBuilder::new()
-//         .logger(&log)
-//         .custom_backend::<SdlBackend>([Backend::Custom])
-//         .build()?;
-
-//     engine.play_one_shot(&path)?;
-
-//     std::thread::sleep(std::time::Duration::from_secs(2));
-
-//     Ok(())
-// }
-
 fn main() -> MaResult<()> {
     use maudio::backend::Backend;
-    use maudio::data_source::sources::decoder::{DecoderBuilder, DecoderOps};
-    use maudio::device::device_builder::DeviceBuilder;
+    use maudio::engine::engine_builder::EngineBuilder;
 
-    let log: Log = Log::new()?;
+    let log = Log::new()?;
+    // TODO: Investigate why the logger doesn't work
     log.print_level(LogLevel::Debug)?;
     log.print_level(LogLevel::Error)?;
     log.print_level(LogLevel::Info)?;
@@ -559,30 +564,58 @@ fn main() -> MaResult<()> {
         "/../maudio-sys/native/miniaudio/data/16-44100-stereo.flac"
     ));
 
-    let mut decoder = DecoderBuilder::new_i16()
-        .channels(2)
-        .sample_rate(SampleRate::Sr44100)
-        .from_file(&path)?;
-
-    let data_format = decoder.data_format()?;
-
-    let mut device = DeviceBuilder::playback()
-        .i16()
+    let engine = EngineBuilder::new()
+        .logger(&log)
         .custom_backend::<SdlBackend>([Backend::Custom])
-        .with_callback(move |_, out| {
-            let frames_read = decoder.read_pcm_frames_into(out).unwrap_or(0);
+        .build()?;
 
-            let samples_read = frames_read * data_format.channels as usize;
+    engine.play_one_shot(&path)?;
 
-            if samples_read < out.len() {
-                out[samples_read..].fill(0);
-            }
-        })?;
-
-    device.device_start()?;
-
-    std::thread::sleep(std::time::Duration::from_secs(1));
-    device.device_stop()?;
+    std::thread::sleep(std::time::Duration::from_secs(2));
 
     Ok(())
 }
+
+// fn main() -> MaResult<()> {
+//     use maudio::backend::Backend;
+//     use maudio::data_source::sources::decoder::{DecoderBuilder, DecoderOps};
+//     use maudio::device::device_builder::DeviceBuilder;
+
+//     let log: Log = Log::new()?;
+//     log.print_level(LogLevel::Debug)?;
+//     log.print_level(LogLevel::Error)?;
+//     log.print_level(LogLevel::Info)?;
+//     log.print_level(LogLevel::Warning)?;
+
+//     let path = PathBuf::from(concat!(
+//         env!("CARGO_MANIFEST_DIR"),
+//         "/../maudio-sys/native/miniaudio/data/16-44100-stereo.flac"
+//     ));
+
+//     let mut decoder = DecoderBuilder::new_i16()
+//         .channels(2)
+//         .sample_rate(SampleRate::Sr44100)
+//         .from_file(&path)?;
+
+//     let data_format = decoder.data_format()?;
+
+//     let mut device = DeviceBuilder::playback()
+//         .i16()
+//         .custom_backend::<SdlBackend>([Backend::Custom])
+//         .with_callback(move |_, out| {
+//             let frames_read = decoder.read_pcm_frames_into(out).unwrap_or(0);
+
+//             let samples_read = frames_read * data_format.channels as usize;
+
+//             if samples_read < out.len() {
+//                 out[samples_read..].fill(0);
+//             }
+//         })?;
+
+//     device.device_start()?;
+
+//     std::thread::sleep(std::time::Duration::from_secs(1));
+//     device.device_stop()?;
+
+//     Ok(())
+// }

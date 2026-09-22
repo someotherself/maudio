@@ -1,3 +1,4 @@
+//! Context for a `CustomBackend`
 use std::{
     cell::UnsafeCell,
     marker::PhantomData,
@@ -22,6 +23,14 @@ use crate::{
     Binding, MaResult, MaudioError,
 };
 
+/// An owning handle to a custom miniaudio context.
+///
+/// A context is the entry point for backend-level audio operations such as:
+///
+/// - device enumeration
+/// - querying device information
+/// - checking backend capabilities
+/// - creating devices against a specific backend context
 pub struct CustomContext<B: CustomBackend>(pub(crate) Arc<CustomContextInner<B>>);
 
 #[repr(C)]
@@ -72,6 +81,12 @@ impl<B: CustomBackend> Drop for CustomContextInner<B> {
     }
 }
 
+/// Configuration representing the output format of a [`Device`](crate::device::Device)
+///
+/// This is the configuration provided by the user during to the [`DeviceBuilder`](crate::device::device_builder::DeviceBuilder)
+///
+/// If this is different from what the custom backend can supply,
+/// miniaudio will provide the necessary conversion
 pub struct BackendDeviceConfig {
     pub device_type: DeviceType,
     pub sample_rate: Option<SampleRate>,
@@ -106,6 +121,10 @@ impl TryFrom<sys::ma_device_config> for BackendDeviceConfig {
     }
 }
 
+/// Device configuration helper, used by a custom backend to provide information
+/// the configuration actually selected by the underlying audio system,
+///
+/// For more information, see [`CustomBackend::init_device`]
 pub struct DeviceDescriptor {
     pub device_id: Option<DeviceId>,
     pub share_mode: DeviceShareMode,

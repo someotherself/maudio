@@ -216,7 +216,7 @@ unsafe extern "C" fn custom_context_on_device_init<B: CustomBackend>(
     });
 
     let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
-        B::device_init(
+        B::init_device(
             backend_device,
             config,
             playback_descr.as_mut(),
