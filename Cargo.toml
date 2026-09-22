@@ -3,4 +3,10 @@ resolver = "2"
 members = [
     "crates/maudio-sys",
     "crates/maudio",
+    "crates/maudio-tests",
+]
+
+default-members = [
+    "crates/maudio-sys",
+    "crates/maudio",
 ]

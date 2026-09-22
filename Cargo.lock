@@ -179,6 +179,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "maudio-tests"
+version = "0.1.0"
+dependencies = [
+ "maudio",
+ "sdl2",
+ "symphonia",
+]
+
+[[package]]
 name = "memchr"
 version = "2.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
