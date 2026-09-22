@@ -152,7 +152,7 @@ fn custom_backend_engine_callback_invoked() -> MaResult<()> {
     let decoder = DecoderBuilder::new_f32().from_memory(MUSIC_FILE)?;
 
     // Create a sound using the decoder as its audio source.
-    let sound = engine.new_sound_from_source(&decoder)?;
+    let _sound = engine.new_sound_from_source(&decoder)?;
 
     callback_rx
         .recv_timeout(std::time::Duration::from_secs(2))
