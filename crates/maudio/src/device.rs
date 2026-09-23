@@ -298,7 +298,7 @@ impl<F: PcmFormat> Device<F> {
         device_ffi::ma_device_stop(self.to_raw())
     }
 
-    pub fn log(&self) -> LogRef {
+    pub fn log(&self) -> LogRef<'_> {
         device_ffi::ma_device_get_log(self)
     }
 
@@ -438,7 +438,7 @@ pub(crate) mod device_ffi {
             device_type::DeviceType,
             private_device, AsDevicePtr, Device,
         },
-        logging::{LogOwner, LogRef},
+        logging::LogRef,
         pcm_frames::PcmFormat,
         AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
     };
@@ -504,12 +504,12 @@ pub(crate) mod device_ffi {
     // Callback: not safe
     // Theadsafe: not safe
     #[inline]
-    pub fn ma_device_get_log<F: PcmFormat>(device: &Device<F>) -> LogRef {
+    pub fn ma_device_get_log<F: PcmFormat>(device: &Device<F>) -> LogRef<'_> {
         let ptr = unsafe { sys::ma_device_get_log(device.to_raw()) };
 
         LogRef {
             inner: ptr,
-            _owner: LogOwner::Device(device.inner.clone()),
+            logs: &device.inner.logs,
         }
     }
 

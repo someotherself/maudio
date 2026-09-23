@@ -545,7 +545,7 @@ impl Engine {
         engine_ffi::ma_engine_get_device(self)
     }
 
-    pub fn log(&self) -> LogRef {
+    pub fn log(&self) -> LogRef<'_> {
         engine_ffi::ma_engine_get_log(self)
     }
 
@@ -722,7 +722,7 @@ pub(crate) mod engine_ffi {
             resource::{ResourceManagerRef, RmOwner},
             AsEnginePtr, Binding, Engine, EngineInner, EngineReader,
         },
-        logging::{LogOwner, LogRef},
+        logging::LogRef,
         AsRawRef, MaResult, MaudioError,
     };
 
@@ -841,12 +841,12 @@ pub(crate) mod engine_ffi {
     }
 
     #[inline]
-    pub fn ma_engine_get_log(engine: &Engine) -> LogRef {
+    pub fn ma_engine_get_log(engine: &Engine) -> LogRef<'_> {
         let ptr = unsafe { sys::ma_engine_get_log(engine.to_raw()) };
 
         LogRef {
             inner: ptr,
-            _owner: LogOwner::Engine(engine.0.clone()),
+            logs: &engine.0.logs,
         }
     }
 

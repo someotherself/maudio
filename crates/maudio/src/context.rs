@@ -49,7 +49,7 @@ use crate::{
         device_type::DeviceType,
     },
     engine::backend_callbacks::engine_custom_backend_callbacks,
-    logging::{Log, LogInner, StoredLogs},
+    logging::{Log, LogInner, LogRef, StoredLogs},
     AllocationCallbacks, AsRawRef, Binding, ErrorKinds, MaResult, MaudioError,
 };
 
@@ -345,6 +345,12 @@ pub trait ContextOps: AsContextPtr {
     }
 }
 
+impl Context {
+    pub fn log(&self) -> LogRef<'_> {
+        context_ffi::ma_context_get_log(self)
+    }
+}
+
 // Private methods
 impl Context {
     fn new_with_config(config: &mut ContextBuilder) -> MaResult<Self> {
@@ -368,10 +374,10 @@ pub(crate) mod context_ffi {
     use maudio_sys::ffi as sys;
 
     use crate::{
-        backend::Backend,
+        backend::{custom_backend::CustomBackend, custom_context::CustomContext, Backend},
         context::{private_context, AsContextPtr, Context, ContextBuilder},
         device::{device_id::DeviceId, device_info::DeviceInfo, device_type::DeviceType},
-        logging::{LogOwner, LogRef},
+        logging::LogRef,
         AsRawRef, Binding, MaResult, MaudioError,
     };
 
@@ -408,12 +414,20 @@ pub(crate) mod context_ffi {
     }
 
     #[inline]
-    #[allow(dead_code)]
-    pub fn ma_context_get_log(context: &Context) -> LogRef {
+    pub fn ma_context_get_log(context: &Context) -> LogRef<'_> {
         let ptr = unsafe { sys::ma_context_get_log(context.to_raw()) };
         LogRef {
             inner: ptr,
-            _owner: LogOwner::Context(context.0.clone()),
+            logs: &context.0.logs,
+        }
+    }
+
+    #[inline]
+    pub fn ma_custom_context_get_log<B: CustomBackend>(context: &CustomContext<B>) -> LogRef<'_> {
+        let ptr = unsafe { sys::ma_context_get_log(context.to_raw()) };
+        LogRef {
+            inner: ptr,
+            logs: &context.0.logs,
         }
     }
 

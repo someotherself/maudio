@@ -12,7 +12,7 @@ use crate::{
         device_info::DeviceInfo, device_type::DeviceType,
     },
     engine::process_cb::CustomBackendState,
-    logging::{LogOwner, LogRef},
+    logging::LogRef,
     AsRawRef, MaResult,
 };
 
@@ -47,7 +47,7 @@ pub(crate) unsafe extern "C" fn custom_context_on_init<B: CustomBackend>(
 
     let log = custom.log.as_ref().map(|l| LogRef {
         inner: l.inner,
-        _owner: LogOwner::Log(l.clone()),
+        logs: &l.logs,
     });
 
     let res = std::panic::catch_unwind(AssertUnwindSafe(|| B::init_context(log.as_ref())));
@@ -81,7 +81,7 @@ pub(crate) unsafe extern "C" fn custom_context_enumerate_devices<B: CustomBacken
 
     let log = custom.log.as_ref().map(|l| LogRef {
         inner: l.inner,
-        _owner: LogOwner::Log(l.clone()),
+        logs: &l.logs,
     });
 
     let Some(backend_context) = custom.backend_context.get_mut() else {
@@ -135,7 +135,7 @@ pub(crate) unsafe extern "C" fn custom_context_device_info<B: CustomBackend>(
 
     let log = custom.log.as_ref().map(|l| LogRef {
         inner: l.inner,
-        _owner: LogOwner::Log(l.clone()),
+        logs: &l.logs,
     });
 
     let Some(backend_context) = custom.backend_context.get_mut() else {
@@ -212,7 +212,7 @@ unsafe extern "C" fn custom_context_on_device_init<B: CustomBackend>(
 
     let log = custom_context_ref.log.as_ref().map(|l| LogRef {
         inner: l.inner,
-        _owner: LogOwner::Log(l.clone()),
+        logs: &l.logs,
     });
 
     let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
@@ -273,7 +273,7 @@ unsafe extern "C" fn custom_context_on_device_start<B: CustomBackend>(
 
     let log = custom_context_ref.log.as_ref().map(|l| LogRef {
         inner: l.inner,
-        _owner: LogOwner::Log(l.clone()),
+        logs: &l.logs,
     });
 
     let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
@@ -315,7 +315,7 @@ unsafe extern "C" fn custom_context_on_device_stop<B: CustomBackend>(
 
     let log = custom_context_ref.log.as_ref().map(|l| LogRef {
         inner: l.inner,
-        _owner: LogOwner::Log(l.clone()),
+        logs: &l.logs,
     });
 
     let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
@@ -359,7 +359,7 @@ unsafe extern "C" fn custom_context_device_get_info<B: CustomBackend>(
 
     let log = custom_context_ref.log.as_ref().map(|l| LogRef {
         inner: l.inner,
-        _owner: LogOwner::Log(l.clone()),
+        logs: &l.logs,
     });
 
     let Some(context) = custom_context_ref.backend_context.get() else {

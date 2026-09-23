@@ -13,7 +13,7 @@ use crate::{
         process_cb::{CustomBackendState, EngineUserData},
         EngineInner,
     },
-    logging::{LogOwner, LogRef},
+    logging::LogRef,
     MaResult,
 };
 
@@ -88,7 +88,7 @@ unsafe extern "C" fn engine_custom_context_on_device_init<B: CustomBackend>(
 
     let log = engine_inner._logger.as_ref().map(|l| LogRef {
         inner: l.inner,
-        _owner: LogOwner::Log(l.clone()),
+        logs: &engine_inner.logs,
     });
 
     let custom_context_ref = unsafe { &*device_ref.pContext.cast::<CustomContextInner<B>>() };
@@ -155,7 +155,7 @@ unsafe extern "C" fn engine_custom_context_on_device_start<B: CustomBackend>(
 
     let log = engine_inner._logger.as_ref().map(|l| LogRef {
         inner: l.inner,
-        _owner: LogOwner::Log(l.clone()),
+        logs: &engine_inner.logs,
     });
 
     let custom_context_ref = unsafe { &*device_ref.pContext.cast::<CustomContextInner<B>>() };
@@ -203,7 +203,7 @@ unsafe extern "C" fn engine_custom_context_on_device_stop<B: CustomBackend>(
 
     let log = engine_inner._logger.as_ref().map(|l| LogRef {
         inner: l.inner,
-        _owner: LogOwner::Log(l.clone()),
+        logs: &engine_inner.logs,
     });
 
     let custom_context_ref = unsafe { &*device_ref.pContext.cast::<CustomContextInner<B>>() };

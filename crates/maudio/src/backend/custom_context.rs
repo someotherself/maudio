@@ -19,7 +19,7 @@ use crate::{
         device_id::DeviceId,
         device_type::{DeviceShareMode, DeviceType},
     },
-    logging::LogInner,
+    logging::{LogInner, LogRef, StoredLogs},
     Binding, MaResult, MaudioError,
 };
 
@@ -39,6 +39,7 @@ pub(crate) struct CustomContextInner<B: CustomBackend> {
     pub(crate) backend_context: OnceLock<B::Context>,
     pub(crate) log: Option<Arc<LogInner>>,
     pub(crate) backend: PhantomData<B>,
+    pub(crate) logs: StoredLogs,
 }
 
 impl<B: CustomBackend> Binding for CustomContext<B> {
@@ -53,6 +54,12 @@ impl<B: CustomBackend> AsContextPtr for CustomContext<B> {
     type __PtrProvider = private_context::CustomContextProvider;
 }
 
+impl<B: CustomBackend> CustomContext<B> {
+    pub fn log(&self) -> LogRef<'_> {
+        context_ffi::ma_custom_context_get_log(self)
+    }
+}
+
 // Private methods
 impl<B: CustomBackend> CustomContext<B> {
     pub(crate) fn new_with_config(config: &mut ContextBuilder) -> MaResult<Self> {
@@ -61,6 +68,7 @@ impl<B: CustomBackend> CustomContext<B> {
             backend_context: OnceLock::new(),
             log: config.log.take(),
             backend: PhantomData,
+            logs: StoredLogs::default(),
         });
 
         let base_ptr = core::ptr::addr_of!(inner.inner);
