@@ -72,9 +72,27 @@ impl<F: PcmFormat> ChannelConverter<F> {
     }
 }
 
-pub fn default_channel_map(channel_count: u32, map: Option<ChannelPosition>) -> Vec<Channel> {
+pub fn default_channel_map_into(map: &mut [Channel], position: Option<ChannelPosition>) {
+    let mut raw_channel_map = vec![RawChannel::from_raw(0); map.len()];
+    let map_type = position.unwrap_or(ChannelPosition::Default);
+
+    unsafe {
+        sys::ma_channel_map_init_standard(
+            map_type.into(),
+            raw_channel_map.as_mut_ptr().cast(),
+            map.len(),
+            map.len() as u32,
+        );
+    };
+
+    for (&raw_entry, entry) in raw_channel_map.iter().zip(map.iter_mut()) {
+        *entry = Channel::try_from(raw_entry).unwrap();
+    }
+}
+
+pub fn default_channel_map(channel_count: u32, position: Option<ChannelPosition>) -> Vec<Channel> {
     let mut raw_channel_map = vec![RawChannel::from_raw(0); channel_count as usize];
-    let map_type = map.unwrap_or(ChannelPosition::Default);
+    let map_type = position.unwrap_or(ChannelPosition::Default);
 
     unsafe {
         sys::ma_channel_map_init_standard(
@@ -86,8 +104,8 @@ pub fn default_channel_map(channel_count: u32, map: Option<ChannelPosition>) -> 
     };
 
     let mut map: Vec<Channel> = Vec::with_capacity(raw_channel_map.len());
-    for &entry in raw_channel_map.iter() {
-        map.push(Channel::try_from(entry).unwrap());
+    for (&raw_entry, entry) in raw_channel_map.iter().zip(map.iter_mut()) {
+        *entry = Channel::try_from(raw_entry).unwrap();
     }
 
     map
