@@ -239,7 +239,7 @@ A playback device exposes a `&mut out` slice where we pass in pcm frames for pla
             let samples_read = frames_read * data_format.channels as usize;
 
             if samples_read < out.len() {
-                out[samples_read..].fill(0);
+                out[samples_read..].fill(0.0);
             }
         })?;
 
