@@ -29,20 +29,15 @@
 use std::{marker::PhantomData, path::PathBuf};
 
 use maudio::{
-    audio::{formats::Format, sample_rate::SampleRate},
-    backend::{
+    ErrorKinds, MaResult, MaudioError, audio::{channels::target_channel_position, converters::channel_converter::default_channel_map_into, formats::Format, sample_rate::SampleRate}, backend::{
         custom_backend::CustomBackend,
         custom_context::{BackendDeviceConfig, DeviceDescriptor},
-    },
-    device::{
+    }, device::{
         custom_device::BackendDeviceHandle,
         device_id::DeviceId,
         device_info::{DeviceInfo, DeviceInfoBuilder},
         device_type::DeviceType,
-    },
-    logging::{Log, LogLevel, LogOps, LogRef},
-    pcm_frames::MaSampleFormat,
-    ErrorKinds, MaResult, MaudioError,
+    }, logging::{Log, LogLevel, LogOps, LogRef}, pcm_frames::MaSampleFormat,
 };
 use sdl2::audio::{
     AudioCallback, AudioDevice, AudioFormat, AudioFormatNum, AudioSpec, AudioSpecDesired,
@@ -167,6 +162,7 @@ fn apply_obtained_spec(descriptor: &mut DeviceDescriptor, sdl_spec: &AudioSpec) 
     descriptor.period_size_frames = sdl_spec.samples as u32;
     descriptor.period_size_millis = 0;
     descriptor.period_count = 1;
+    default_channel_map_into(&mut descriptor.channel_map, Some(target_channel_position()));
     Ok(())
 }
 
