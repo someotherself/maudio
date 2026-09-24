@@ -4,7 +4,7 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     audio::{
-        channels::{Channel, ChannelMixMode, RawChannel},
+        channels::{Channel, ChannelMixMode, ChannelPosition, RawChannel},
         formats::Format,
     },
     pcm_frames::{PcmFormat, S24Packed},
@@ -70,6 +70,27 @@ impl<F: PcmFormat> ChannelConverter<F> {
             _format: PhantomData,
         })
     }
+}
+
+pub fn default_channel_map(channel_count: u32, map: Option<ChannelPosition>) -> Vec<Channel> {
+    let mut raw_channel_map = vec![RawChannel::from_raw(0); channel_count as usize];
+    let map_type = map.unwrap_or(ChannelPosition::Default);
+
+    unsafe {
+        sys::ma_channel_map_init_standard(
+            map_type.into(),
+            raw_channel_map.as_mut_ptr().cast(),
+            channel_count as usize,
+            channel_count,
+        );
+    };
+
+    let mut map: Vec<Channel> = Vec::with_capacity(raw_channel_map.len());
+    for &entry in raw_channel_map.iter() {
+        map.push(Channel::try_from(entry).unwrap());
+    }
+
+    map
 }
 
 pub struct ChannelConverterBuilder {
