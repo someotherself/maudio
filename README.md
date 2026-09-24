@@ -65,7 +65,7 @@ Prebuilt static libraries can be found in the `Release` section on the Github re
 
 ## How to use
 
-See [Examples](./crates/maudio/examples/) for a tutorial style introduction into `maudio`
+See [Examples](https://github.com/someotherself/maudio/tree/main/crates/maudio/examples/) for a tutorial style introduction into `maudio`
 
 # Description
 
