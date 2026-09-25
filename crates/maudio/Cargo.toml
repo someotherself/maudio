@@ -26,6 +26,7 @@ worklet = ["maudio-sys/worklet"]
 # feature that enable examples
 example-sdl2 = ["dep:sdl2"]
 example-symphonia = ["dep:symphonia"]
+example-asio = ["dep:asio-sys"]
 
 [dependencies]
 maudio-sys = { path = "../maudio-sys", version = "0.1.9" }
@@ -39,6 +40,10 @@ features = ["bundled"]
 version= "0.6.0"
 optional = true
 features = ["aac"]
+
+[dependencies.asio-sys]
+version = "0.4.0"
+optional = true
 
 [[example]]
 name = "001_play_sound"
@@ -149,9 +154,13 @@ name = "111_decoder_symphonia"
 required-features = ["engine", "example-symphonia"]
 
 [[example]]
+name = "204_decoder_symphonia"
+required-features = ["example-symphonia"]
+
+[[example]]
 name = "206_custom_backend_sdl2"
 required-features = ["example-sdl2"]
 
 [[example]]
-name = "204_decoder_symphonia"
-required-features = ["example-symphonia"]
+name = "207_custom_backend_asio"
+required-features = ["example-asio"]
