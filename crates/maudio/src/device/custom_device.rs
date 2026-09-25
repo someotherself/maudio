@@ -91,7 +91,8 @@ unsafe impl<'device, B: CustomBackend> Send for BackendDeviceHandle<'device, B> 
 impl<'device, B: CustomBackend> BackendDeviceHandle<'device, B> {
     /// Clones this handle for use in an API that requires `'static`.
     ///
-    /// # SAFETY:
+    /// # Safety
+    ///
     /// The returned handle does not keep the underlying `ma_device` alive.
     ///
     /// The caller must ensure that:
