@@ -89,6 +89,36 @@ impl<'device, B: CustomBackend> Binding for BackendDeviceHandle<'device, B> {
 unsafe impl<'device, B: CustomBackend> Send for BackendDeviceHandle<'device, B> {}
 
 impl<'device, B: CustomBackend> BackendDeviceHandle<'device, B> {
+    /// Clones this handle for use in an API that requires `'static`.
+    ///
+    /// SAFETY:
+    /// The returned handle does not keep the underlying `ma_device` alive.
+    ///
+    /// The caller must ensure that:
+    /// - The callback registered with the custom backend is destroyed / unregisted.
+    /// - This handle does not outlive the maudio Device or Engine
+    ///
+    /// ### More notes
+    /// The maudio `Device` or `Engine` owns the custom backend and drop it.
+    /// However, droping the backend may not not necessarily destroy it (if ref counted)
+    /// or it may not unregister callbacks it registered with an external API automatically.
+    /// An implicit `unregister_callback` may be necessary.
+    ///
+    /// The backend stores the device handle in its device state so it can call
+    /// maudio's audio callback. The `'device` lifetime prevents that handle from
+    /// escaping into longer-lived storage after the maudio `Device` or `Engine` that
+    /// owns it is destroyed. Using the handle after that point would access an
+    /// invalid `ma_device` and may cause undefined behavior.
+    ///
+    /// If the backend API's has a `Send + 'static` requirement, this will be useful.
+    pub unsafe fn clone_static_unchecked(&self) -> BackendDeviceHandle<'static, B> {
+        unsafe {
+            std::mem::transmute::<BackendDeviceHandle<'device, B>, BackendDeviceHandle<'static, B>>(
+                self.clone(),
+            )
+        }
+    }
+
     /// Provides a reference to the [`CustomBackend::Device`]
     pub fn backend_device(&self) -> Option<&B::Device<'device>> {
         self.backend_device.get()
