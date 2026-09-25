@@ -29,15 +29,23 @@
 use std::{marker::PhantomData, path::PathBuf};
 
 use maudio::{
-    ErrorKinds, MaResult, MaudioError, audio::{channels::target_channel_position, converters::channel_converter::default_channel_map_into, formats::Format, sample_rate::SampleRate}, backend::{
+    audio::{
+        channels::target_channel_position, converters::channel_converter::default_channel_map_into,
+        formats::Format, sample_rate::SampleRate,
+    },
+    backend::{
         custom_backend::CustomBackend,
         custom_context::{BackendDeviceConfig, DeviceDescriptor},
-    }, device::{
+    },
+    device::{
         custom_device::BackendDeviceHandle,
         device_id::DeviceId,
         device_info::{DeviceInfo, DeviceInfoBuilder},
         device_type::DeviceType,
-    }, logging::{Log, LogLevel, LogOps, LogRef}, pcm_frames::MaSampleFormat,
+    },
+    logging::{Log, LogLevel, LogOps, LogRef},
+    pcm_frames::MaSampleFormat,
+    ErrorKinds, MaResult, MaudioError,
 };
 use sdl2::audio::{
     AudioCallback, AudioDevice, AudioFormat, AudioFormatNum, AudioSpec, AudioSpecDesired,

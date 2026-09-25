@@ -5,8 +5,12 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     audio::{channels::MonoExpansionMode, sample_rate::SampleRate},
-    backend::{custom_backend::CustomBackend, Backend},
-    context::{Context, ContextBuilder, ContextInner},
+    backend::{
+        custom_backend::CustomBackend,
+        custom_context::{ContextStorage, CustomContextUserData},
+        Backend,
+    },
+    context::{Context, ContextBuilder},
     device::{device_id::DeviceId, Device, DeviceInner},
     engine::{
         engine_cb_notif::engine_notification_callback,
@@ -26,7 +30,7 @@ pub struct EngineBuilder {
     pub(crate) inner: sys::ma_engine_config,
     pub(crate) playback_device_id: Option<DeviceId>,
     pub(crate) device: Option<Arc<DeviceInner>>, // a ref count, not ownership
-    pub(crate) context: Option<Arc<ContextInner>>, // a ref count, not ownership
+    pub(crate) context: ContextStorage,          // a ref count, not ownership
     pub(crate) log: Option<Arc<LogInner>>,       // a ref count, not ownership
     pub(crate) resource_manager: Option<ResourceManager<f32>>, // a ref count, not ownership
     pub(crate) process_data: EngineProcessCbData,
@@ -62,7 +66,7 @@ impl EngineBuilder {
             inner,
             playback_device_id: None,
             device: None,
-            context: None,
+            context: ContextStorage::default(),
             log: None,
             resource_manager: None,
             process_data: EngineProcessCbData {
@@ -196,6 +200,16 @@ impl EngineBuilder {
     }
 
     fn set_process_notifier(&mut self, f: Option<Box<EngineProcessCallback>>) -> ProcFramesNotif {
+        // Also set the custom device id if a custom context exists
+        if let ContextStorage::Custom(ctx) = self.context {
+            if let Some(device_id) = &self.playback_device_id {
+                let user_data = unsafe { &*ctx }.pUserData;
+                let custom_device_id =
+                    &unsafe { &*user_data.cast::<CustomContextUserData>() }.playback_device_id;
+                *custom_device_id.lock().unwrap() = Some(device_id.clone());
+            }
+        }
+
         let channels = self.inner.channels; // engine is init with 2 channels by default
         let state = EngineUserData::new(channels, f, self.backend_state.take());
 
@@ -331,7 +345,7 @@ impl EngineBuilder {
     /// is also passed into the builder, then the Context is ignored.
     pub fn context(&mut self, context: &Context) -> &mut Self {
         self.inner.pContext = context.to_raw();
-        self.context = Some(context.0.clone());
+        self.context = ContextStorage::BuiltIn(context.0.clone());
         self
     }
 
@@ -356,6 +370,7 @@ impl EngineBuilder {
         // TODO: figure out a way to remove the unwrap
         let context = context_builder.build_custom_engine::<B>().unwrap();
         self.inner.pContext = context.to_raw();
+        self.context = ContextStorage::Custom(context.to_raw());
 
         let erased_state = CustomBackendState::new_erased(&context);
         self.backend_state = Some(erased_state);
@@ -383,6 +398,7 @@ impl EngineBuilder {
             .build_custom_engine::<B>()
             .unwrap();
         self.inner.pContext = context.to_raw();
+        self.context = ContextStorage::Custom(context.to_raw());
 
         let erased_state = CustomBackendState::new_erased(&context);
         self.backend_state = Some(erased_state);

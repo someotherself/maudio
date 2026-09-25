@@ -40,8 +40,10 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     backend::{
-        context_callbacks::custom_backend_callbacks, custom_backend::CustomBackend,
-        custom_context::CustomContext, Backend,
+        context_callbacks::custom_backend_callbacks,
+        custom_backend::CustomBackend,
+        custom_context::{CustomContext, CustomContextUserData},
+        Backend,
     },
     device::{
         device_id::DeviceId,
@@ -579,11 +581,19 @@ impl ContextBuilder {
 
     pub fn build_custom<B: CustomBackend>(&mut self) -> MaResult<CustomContext<B>> {
         self.inner.custom = custom_backend_callbacks::<B>();
+        // Set the user data we will use for the device id
+        // But the device id only gets set when engine or device is built
+        let user_data = CustomContextUserData::default();
+        self.inner.pUserData = Box::into_raw(Box::new(user_data)).cast();
         CustomContext::new_with_config(self)
     }
 
     pub(crate) fn build_custom_engine<B: CustomBackend>(&mut self) -> MaResult<CustomContext<B>> {
         self.inner.custom = engine_custom_backend_callbacks::<B>();
+        // Set the user data we will use for the device id
+        // But the device id only gets set when engine or device is built
+        let user_data = CustomContextUserData::default();
+        self.inner.pUserData = Box::into_raw(Box::new(user_data)).cast();
         CustomContext::new_with_config(self)
     }
 
@@ -636,8 +646,9 @@ where
 
     let info = &*device_info;
     let name = core::ffi::CStr::from_ptr(info.name.as_ptr());
+    let id = DeviceId::from_raw(&info.id, name.to_string_lossy());
 
-    let basic = DeviceBasicInfo::new(&info.id, name, info.isDefault);
+    let basic = DeviceBasicInfo::new(id, name, info.isDefault);
 
     let Ok(device_type): Result<DeviceType, _> = device_type.try_into() else {
         state.err = Some(MaudioError::from_ma_result(sys::ma_result_MA_ERROR));

@@ -3,7 +3,7 @@ use std::{
     cell::UnsafeCell,
     marker::PhantomData,
     mem::MaybeUninit,
-    sync::{Arc, OnceLock},
+    sync::{Arc, Mutex, OnceLock},
 };
 
 use maudio_sys::ffi as sys;
@@ -14,9 +14,9 @@ use crate::{
         sample_rate::SampleRate,
     },
     backend::custom_backend::CustomBackend,
-    context::{context_ffi, private_context, AsContextPtr, ContextBuilder},
+    context::{context_ffi, private_context, AsContextPtr, ContextBuilder, ContextInner},
     device::{
-        device_id::DeviceId,
+        device_id::{CustomDeviceId, DeviceId},
         device_type::{DeviceShareMode, DeviceType},
     },
     logging::{LogInner, LogRef, StoredLogs},
@@ -40,6 +40,7 @@ pub(crate) struct CustomContextInner<B: CustomBackend> {
     pub(crate) log: Option<Arc<LogInner>>,
     pub(crate) backend: PhantomData<B>,
     pub(crate) logs: StoredLogs,
+    _user_data_drop: fn(*mut core::ffi::c_void),
 }
 
 impl<B: CustomBackend> Binding for CustomContext<B> {
@@ -69,6 +70,7 @@ impl<B: CustomBackend> CustomContext<B> {
             log: config.log.take(),
             backend: PhantomData,
             logs: StoredLogs::default(),
+            _user_data_drop: drop_custom_context_user_data,
         });
 
         let base_ptr = core::ptr::addr_of!(inner.inner);
@@ -87,6 +89,27 @@ impl<B: CustomBackend> Drop for CustomContextInner<B> {
     fn drop(&mut self) {
         let _ = context_ffi::ma_context_uninit(self.inner.get());
     }
+}
+
+#[derive(Default)]
+pub(crate) struct CustomContextUserData {
+    pub(crate) playback_device_id: Mutex<Option<DeviceId>>,
+    pub(crate) capture_device_id: Mutex<Option<DeviceId>>,
+}
+
+pub(crate) fn drop_custom_context_user_data(ptr: *mut std::ffi::c_void) {
+    let user_data: Box<CustomContextUserData> =
+        unsafe { Box::from_raw(ptr as *mut CustomContextUserData) };
+    drop(user_data);
+}
+
+#[derive(Default, Clone)]
+pub(crate) enum ContextStorage {
+    #[default]
+    None,
+    #[allow(unused)]
+    BuiltIn(Arc<ContextInner>), // keep alive
+    Custom(*mut sys::ma_context),
 }
 
 /// Configuration representing the output format of a [`Device`](crate::device::Device)
@@ -199,12 +222,11 @@ impl DeviceDescriptor {
             )
         }
     }
-}
 
-impl TryFrom<sys::ma_device_descriptor> for DeviceDescriptor {
-    type Error = MaudioError;
-
-    fn try_from(value: sys::ma_device_descriptor) -> Result<Self, Self::Error> {
+    pub(crate) fn from_raw(
+        value: sys::ma_device_descriptor,
+        custom_id: Option<DeviceId>,
+    ) -> MaResult<Self> {
         let mut channel_map: Vec<Channel> = vec![Channel::None; value.channels as usize];
         for (idx, &c) in value
             .channelMap
@@ -215,9 +237,14 @@ impl TryFrom<sys::ma_device_descriptor> for DeviceDescriptor {
             channel_map[idx] = c.try_into()?;
         }
 
+        let mut custom_id = custom_id;
+        if let Some(id) = custom_id {
+            assert!(!matches!(id.inner.custom_state, CustomDeviceId::Default));
+            custom_id = Some(id);
+        }
+
         Ok(Self {
-            device_id: (!value.pDeviceID.is_null())
-                .then(|| DeviceId::from_raw(unsafe { &*value.pDeviceID })),
+            device_id: custom_id,
             share_mode: value.shareMode.try_into()?,
             format: value.format.try_into()?,
             channels: (value.channels != 0).then_some(value.channels),

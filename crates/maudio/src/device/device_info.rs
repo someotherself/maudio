@@ -45,7 +45,8 @@ impl DeviceInfo {
     /// The returned ID can be stored and later supplied to device configuration to request
     /// this specific device instead of the system default.
     pub fn device_id(&self) -> DeviceId {
-        DeviceId::from_raw(&self.inner.id)
+        let name = self.device_name();
+        DeviceId::from_raw(&self.inner.id, name)
     }
 
     /// Returns the backend-provided display name for this device.
@@ -191,17 +192,13 @@ impl DeviceInfoBuilder {
 ///
 /// The returned references are only valid for as long as the underlying enumeration data lives.
 pub struct DeviceBasicInfo<'a> {
-    id: &'a sys::ma_device_id,
+    id: DeviceId,
     name: &'a core::ffi::CStr,
     is_default: bool,
 }
 
 impl<'a> DeviceBasicInfo<'a> {
-    pub(crate) fn new(
-        id: &'a sys::ma_device_id,
-        name: &'a core::ffi::CStr,
-        is_default: u32,
-    ) -> Self {
+    pub(crate) fn new(id: DeviceId, name: &'a core::ffi::CStr, is_default: u32) -> Self {
         Self {
             id,
             name,
@@ -211,7 +208,7 @@ impl<'a> DeviceBasicInfo<'a> {
 
     /// Returns the ID of this device.
     pub fn id(&self) -> DeviceId {
-        DeviceId::from_raw(self.id)
+        self.id.clone()
     }
 
     /// Returns the backend-provided display name of this device.

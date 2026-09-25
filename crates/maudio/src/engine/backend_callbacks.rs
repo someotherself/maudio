@@ -1,4 +1,4 @@
-use std::panic::AssertUnwindSafe;
+use std::{ops::Deref, panic::AssertUnwindSafe};
 
 use crate::{
     backend::{
@@ -6,7 +6,9 @@ use crate::{
             custom_context_device_info, custom_context_enumerate_devices, custom_context_on_init,
         },
         custom_backend::CustomBackend,
-        custom_context::{BackendDeviceConfig, CustomContextInner, DeviceDescriptor},
+        custom_context::{
+            BackendDeviceConfig, CustomContextInner, CustomContextUserData, DeviceDescriptor,
+        },
     },
     device::{custom_device::BackendDeviceHandle, device_type::DeviceType},
     engine::{
@@ -67,20 +69,25 @@ unsafe extern "C" fn engine_custom_context_on_device_init<B: CustomBackend>(
         return sys::ma_result_MA_ERROR;
     };
 
+    let custom_context_ref = unsafe { &*device_ref.pContext.cast::<CustomContextInner<B>>() };
+    let custom_context_user_data = unsafe { &*custom_context_ref.inner.get() }.pUserData;
+    let custom_context_user_data_ref =
+        unsafe { &*custom_context_user_data.cast::<CustomContextUserData>() };
+    let custom_device_id = custom_context_user_data_ref
+        .playback_device_id
+        .lock()
+        .unwrap();
+    let custom_device_id_ref = custom_device_id.deref();
+
     let backend_state_ptr = state_ref.data.cast::<CustomBackendState<B>>();
     let backend_state_ref = unsafe { &*backend_state_ptr };
 
     let mut playback_descr: Option<DeviceDescriptor> = None;
-    let mut capture_descr: Option<DeviceDescriptor> = None;
 
     if config.device_type == DeviceType::Duplex || config.device_type == DeviceType::Playback {
-        if let Ok(play) = unsafe { *playback_descriptor }.try_into() {
+        let raw = unsafe { *playback_descriptor };
+        if let Ok(play) = DeviceDescriptor::from_raw(raw, custom_device_id_ref.clone()) {
             playback_descr = Some(play);
-        }
-    }
-    if config.device_type == DeviceType::Duplex || config.device_type == DeviceType::Capture {
-        if let Ok(capt) = unsafe { *capture_descriptor }.try_into() {
-            capture_descr = Some(capt);
         }
     }
 
@@ -90,8 +97,6 @@ unsafe extern "C" fn engine_custom_context_on_device_init<B: CustomBackend>(
         inner: l.inner,
         logs: &engine_inner.logs,
     });
-
-    let custom_context_ref = unsafe { &*device_ref.pContext.cast::<CustomContextInner<B>>() };
 
     let backend_device: BackendDeviceHandle<B> = BackendDeviceHandle {
         inner: device,
@@ -104,7 +109,7 @@ unsafe extern "C" fn engine_custom_context_on_device_init<B: CustomBackend>(
             backend_device,
             config,
             playback_descr.as_mut(),
-            capture_descr.as_mut(),
+            None,
             log.as_ref(),
         )
     }));
@@ -117,10 +122,6 @@ unsafe extern "C" fn engine_custom_context_on_device_init<B: CustomBackend>(
 
     if let Some(play_descr) = playback_descr {
         play_descr.update_raw_descriptor(unsafe { &mut *playback_descriptor });
-    }
-
-    if let Some(capt_descr) = capture_descr {
-        capt_descr.update_raw_descriptor(unsafe { &mut *capture_descriptor });
     }
 
     match backend_state_ref.backend_device.set(backend_device) {

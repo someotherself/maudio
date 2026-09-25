@@ -88,7 +88,7 @@ use crate::{
     audio::{
         formats::SampleBuffer, math::vec3::Vec3, sample_rate::SampleRate, spatial::cone::Cone,
     },
-    context::ContextInner,
+    backend::custom_context::ContextStorage,
     data_source::AsSourcePtr,
     device::{device_id::DeviceId, DeviceInner, DeviceRef},
     engine::{
@@ -137,7 +137,7 @@ pub struct EngineInner {
     inner: *mut sys::ma_engine,
     _playback_device_id: Option<DeviceId>, // keep alive
     _device: Option<Arc<DeviceInner>>,     // keep alive
-    _context: Option<Arc<ContextInner>>,   // keep alive
+    _context: ContextStorage,              // keep alive
     _resource_manager: Option<ResourceManager<f32>>, // keep alive
     _logger: Option<Arc<LogInner>>,        // keep alive
     process_data_ptr: Option<*mut EngineUserData>, // userdata (self.inner.pProcessUserData)
@@ -287,7 +287,9 @@ impl Engine {
             config.log.take(),
         );
 
-        let context = device.as_ref().and_then(|_| config.context.take());
+        let context = device
+            .as_ref()
+            .map_or(ContextStorage::None, |_| config.context.clone());
 
         let mut mem: Box<MaybeUninit<sys::ma_engine>> = Box::new(MaybeUninit::uninit());
         engine_ffi::engine_init(config, mem.as_mut_ptr())?;
@@ -323,7 +325,10 @@ impl Engine {
         let mut mem: Box<MaybeUninit<sys::ma_engine>> = Box::new(MaybeUninit::uninit());
         engine_ffi::engine_init(config, mem.as_mut_ptr())?;
 
-        let context = config.device.as_ref().and_then(|_| config.context.take());
+        let context = config
+            .device
+            .as_ref()
+            .map_or(ContextStorage::None, |_| config.context.clone());
 
         let inner: *mut sys::ma_engine = Box::into_raw(mem) as *mut sys::ma_engine;
         Ok(Self(Arc::new(EngineInner {

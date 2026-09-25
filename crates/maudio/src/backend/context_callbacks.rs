@@ -5,7 +5,9 @@ use maudio_sys::ffi as sys;
 use crate::{
     backend::{
         custom_backend::CustomBackend,
-        custom_context::{BackendDeviceConfig, CustomContextInner, DeviceDescriptor},
+        custom_context::{
+            BackendDeviceConfig, CustomContextInner, CustomContextUserData, DeviceDescriptor,
+        },
     },
     device::{
         custom_device::BackendDeviceHandle, device_builder::DeviceState, device_id::DeviceId,
@@ -129,7 +131,8 @@ pub(crate) unsafe extern "C" fn custom_context_device_info<B: CustomBackend>(
         return sys::ma_result_MA_ERROR;
     };
 
-    let device_id = DeviceId::from_raw(unsafe { &*device_id });
+    // TODO: Should the name be missing
+    let device_id = DeviceId::from_raw(unsafe { &*device_id }, "");
 
     let custom = unsafe { &mut *context.cast::<CustomContextInner<B>>() };
 
@@ -185,6 +188,21 @@ unsafe extern "C" fn custom_context_on_device_init<B: CustomBackend>(
         return sys::ma_result_MA_ERROR;
     };
 
+    let custom_context_ref = unsafe { &*device_ref.pContext.cast::<CustomContextInner<B>>() };
+    let custom_context_user_data = unsafe { &*custom_context_ref.inner.get() }.pUserData;
+    let custom_context_user_data_ref =
+        unsafe { &*custom_context_user_data.cast::<CustomContextUserData>() };
+    let playback_device_id = custom_context_user_data_ref
+        .playback_device_id
+        .lock()
+        .unwrap()
+        .clone();
+    let capture_device_id = custom_context_user_data_ref
+        .capture_device_id
+        .lock()
+        .unwrap()
+        .clone();
+
     let backend_state_ptr = state_ref.data.cast::<CustomBackendState<B>>();
     let backend_state_ref = unsafe { &*backend_state_ptr };
 
@@ -192,17 +210,17 @@ unsafe extern "C" fn custom_context_on_device_init<B: CustomBackend>(
     let mut capture_descr: Option<DeviceDescriptor> = None;
 
     if config.device_type == DeviceType::Duplex || config.device_type == DeviceType::Playback {
-        if let Ok(play) = unsafe { *playback_descriptor }.try_into() {
+        let raw = unsafe { *playback_descriptor };
+        if let Ok(play) = DeviceDescriptor::from_raw(raw, playback_device_id) {
             playback_descr = Some(play);
         }
     }
     if config.device_type == DeviceType::Duplex || config.device_type == DeviceType::Capture {
-        if let Ok(capt) = unsafe { *capture_descriptor }.try_into() {
+        let raw = unsafe { *capture_descriptor };
+        if let Ok(capt) = DeviceDescriptor::from_raw(raw, capture_device_id) {
             capture_descr = Some(capt);
         }
     }
-
-    let custom_context_ref = unsafe { &*device_ref.pContext.cast::<CustomContextInner<B>>() };
 
     let backend_device: BackendDeviceHandle<B> = BackendDeviceHandle {
         inner: device,
