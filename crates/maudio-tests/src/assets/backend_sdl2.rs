@@ -38,6 +38,17 @@ where
     capture_identity: Option<String>,
 }
 
+impl<'device> Drop for SdlDevice<'device> {
+    fn drop(&mut self) {
+        if let Some(play) = self.playback.take() {
+            let _ = play.close_and_get_callback();
+        }
+        if let Some(capt) = self.capture.take() {
+            let _ = capt.close_and_get_callback();
+        }
+    }
+}
+
 pub struct PlaybackCallback<'device, F: MaSampleFormat, B: CustomBackend> {
     device: BackendDeviceHandle<'device, B>,
     format: PhantomData<fn() -> F>,
