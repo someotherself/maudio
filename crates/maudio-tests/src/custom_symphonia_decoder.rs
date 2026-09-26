@@ -1,10 +1,13 @@
 mod assets;
 
+use std::process::ExitCode;
+
 use maudio::{
     MaResult,
     audio::{channels::Channel, formats::Format, sample_rate::SampleRate},
     data_source::sources::decoder::{DecoderOps, custom_decoder::CustomDecoderBuilder},
 };
+use maudio_tests::check;
 
 use crate::assets::sympnonia_decoder::SymphoniaBackend;
 
@@ -13,16 +16,31 @@ const MUSIC_FILE: &[u8] = include_bytes!(concat!(
     "/../maudio-sys/native/miniaudio/data/16-44100-stereo.flac"
 ));
 
-fn main() -> MaResult<()> {
-    custom_decoder_basic_init()?;
+fn main() -> ExitCode {
+    let mut failures = 0;
 
-    custom_decoder_from_memory_f32_passthrough_data_format()?;
-    custom_decoder_from_memory_f32_change_data_format()?;
-    custom_decoder_from_memory_f32_get_input_data_format()?;
-    custom_decoder_from_memory_f32_change_channel_map()?;
-    custom_decoder_from_memory_f32_read_seek_cursor_length_available()?;
+    check!(failures, custom_decoder_basic_init);
+    check!(
+        failures,
+        custom_decoder_from_memory_f32_passthrough_data_format
+    );
+    check!(failures, custom_decoder_from_memory_f32_change_data_format);
+    check!(
+        failures,
+        custom_decoder_from_memory_f32_get_input_data_format
+    );
+    check!(failures, custom_decoder_from_memory_f32_change_channel_map);
+    check!(
+        failures,
+        custom_decoder_from_memory_f32_read_seek_cursor_length_available
+    );
 
-    Ok(())
+    if failures == 0 {
+        ExitCode::SUCCESS
+    } else {
+        eprintln!("{failures} check(s) failed");
+        ExitCode::FAILURE
+    }
 }
 
 fn custom_decoder_basic_init() -> MaResult<()> {

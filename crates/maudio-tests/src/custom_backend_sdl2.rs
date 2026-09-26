@@ -6,7 +6,9 @@ use maudio::{
     device::device_builder::{DeviceBuilder, DeviceBuilderOps},
     engine::engine_builder::EngineBuilder,
 };
-use maudio_tests::assets::backend_sdl2::SdlBackend;
+use maudio_tests::{assets::backend_sdl2::SdlBackend, check};
+
+use std::process::ExitCode;
 
 pub mod assets;
 
@@ -15,22 +17,26 @@ const MUSIC_FILE: &[u8] = include_bytes!(concat!(
     "/../maudio-sys/native/miniaudio/data/16-44100-stereo.flac"
 ));
 
-fn main() -> MaResult<()> {
-    custom_backend_basic_context_init()?;
-    custom_backed_context_enumerate()?;
+fn main() -> ExitCode {
+    let mut failures = 0;
 
-    custom_backend_basic_device_init_custom_backend()?;
-    custom_backend_basic_device_init_custom_context()?;
-    custom_backend_basic_engine_init_custom_backend()?;
-    custom_backend_basic_engine_init_custom_context()?;
+    check!(failures, custom_backend_basic_context_init);
+    check!(failures, custom_backend_context_enumerate);
+    check!(failures, custom_backend_basic_device_init_custom_backend);
+    check!(failures, custom_backend_basic_device_init_custom_context);
+    check!(failures, custom_backend_basic_engine_init_custom_backend);
+    check!(failures, custom_backend_basic_engine_init_custom_context);
+    check!(failures, custom_backend_basic_device_start_stop);
+    check!(failures, custom_backend_basic_engine_start_stop);
+    check!(failures, custom_backend_device_callback_invoked);
+    check!(failures, custom_backend_engine_callback_invoked);
 
-    custom_backend_basic_device_start_stop()?;
-    custom_backend_basic_engine_start_stop()?;
-
-    custom_backend_device_callback_invoked()?;
-    custom_backend_engine_callback_invoked()?;
-
-    Ok(())
+    if failures == 0 {
+        ExitCode::SUCCESS
+    } else {
+        eprintln!("{failures} check(s) failed");
+        ExitCode::FAILURE
+    }
 }
 
 fn custom_backend_basic_context_init() -> MaResult<()> {
@@ -41,7 +47,7 @@ fn custom_backend_basic_context_init() -> MaResult<()> {
     Ok(())
 }
 
-fn custom_backed_context_enumerate() -> MaResult<()> {
+fn custom_backend_context_enumerate() -> MaResult<()> {
     let context = ContextBuilder::new().build_custom::<SdlBackend>()?;
 
     context.enumerate_devices(|_, _| EnumerateControl::Stop)?;
