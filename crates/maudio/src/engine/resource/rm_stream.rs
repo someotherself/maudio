@@ -235,7 +235,7 @@ mod test {
             let _stream = guard.build_stream(RmSourceFlags::NONE, None).unwrap();
         });
 
-        let _ = handle.join();
+        handle.join().unwrap();
     }
 
     #[test]
@@ -298,6 +298,6 @@ mod test {
             let _buffer = guard.build_stream(RmSourceFlags::NONE, None).unwrap();
         });
 
-        let _ = handle.join();
+        handle.join().unwrap();
     }
 }

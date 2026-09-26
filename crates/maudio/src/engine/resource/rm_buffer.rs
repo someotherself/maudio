@@ -317,7 +317,7 @@ mod test {
             let _buffer = guard.build_buffer(RmSourceFlags::NONE, None).unwrap();
         });
 
-        let _ = handle.join();
+        handle.join().unwrap();
     }
 
     #[test]
@@ -380,6 +380,6 @@ mod test {
             let _buffer = guard.build_buffer(RmSourceFlags::NONE, None).unwrap();
         });
 
-        let _ = handle.join();
+        handle.join().unwrap();
     }
 }

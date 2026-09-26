@@ -273,7 +273,7 @@ mod test {
             let _source = guard.build_source(RmSourceFlags::NONE, None).unwrap();
         });
 
-        let _ = handle.join();
+        handle.join().unwrap();
     }
 
     #[test]
@@ -336,6 +336,6 @@ mod test {
             let _buffer = guard.build_source(RmSourceFlags::NONE, None).unwrap();
         });
 
-        let _ = handle.join();
+        handle.join().unwrap();
     }
 }
