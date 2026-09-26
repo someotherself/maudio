@@ -316,6 +316,7 @@ mod encoder_ffi {
     }
 
     #[inline]
+    #[cfg(not(windows))]
     pub fn ma_encoder_init_file<F: PcmFormat, E: CodecFormat>(
         path: std::ffi::CString,
         config: &EncoderBuilder<F, E>,
