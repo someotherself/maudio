@@ -2257,7 +2257,10 @@ mod test {
     fn test_resource_man_basic_register_file() {
         let rm = ResourceManagerBuilder::new_f32().build().unwrap();
         let wav = tiny_test_wav_mono(20);
-        let path_guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let path_guard = TempFileGuard::new(unique_tmp_path(
+            "test_resource_man_basic_register_file",
+            "wav",
+        ));
         std::fs::write(path_guard.path(), &wav).unwrap();
         let guard = rm
             .register_file(path_guard.path(), RmSourceFlags::NONE)
@@ -2363,7 +2366,10 @@ mod test {
         let rm = ResourceManagerBuilder::new_f32().build().unwrap();
 
         let wav = tiny_test_wav_mono(200);
-        let path_guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let path_guard = TempFileGuard::new(unique_tmp_path(
+            "test_resource_man_async_without_fence",
+            "wav",
+        ));
         let path = path_guard.path().to_path_buf();
         std::fs::write(&path, &wav).unwrap();
 

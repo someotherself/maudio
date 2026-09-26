@@ -1156,7 +1156,10 @@ mod tests {
         let frames_total: usize = 40;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path(
+            "test_decoder_from_file_reads_and_reports_length",
+            "wav",
+        ));
         std::fs::write(guard.path(), &wav).unwrap();
 
         let mut dec = DecoderBuilder::new_f32()
@@ -1342,7 +1345,7 @@ mod tests {
         let frames_total: usize = 40;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path("test_decoder_read_u8_path", "wav"));
         std::fs::write(guard.path(), &wav).unwrap();
 
         let mut dec = DecoderBuilder::new_u8()
@@ -1361,7 +1364,7 @@ mod tests {
         let frames_total: usize = 40;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path("test_decoder_read_i16_path", "wav"));
         std::fs::write(guard.path(), &wav).unwrap();
 
         let mut dec = DecoderBuilder::new_i16()
@@ -1380,7 +1383,7 @@ mod tests {
         let frames_total: usize = 40;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path("test_decoder_read_i32_path", "wav"));
         std::fs::write(guard.path(), &wav).unwrap();
 
         let mut dec = DecoderBuilder::new_i32()
@@ -1399,7 +1402,7 @@ mod tests {
         let frames_total: usize = 40;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path("test_decoder_read_s24_packed_path", "wav"));
         std::fs::write(guard.path(), &wav).unwrap();
 
         let mut dec = DecoderBuilder::new_s24_packed()
@@ -1418,7 +1421,7 @@ mod tests {
         let frames_total: usize = 40;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path("test_decoder_read_f32_path", "wav"));
         std::fs::write(guard.path(), &wav).unwrap();
 
         let mut dec = DecoderBuilder::new_f32()
@@ -1437,7 +1440,7 @@ mod tests {
         let frames_total: usize = 40;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path("test_decoder_read_u8_file", "wav"));
         std::fs::write(guard.path(), &wav).unwrap();
         let file = std::fs::File::open(guard.path()).unwrap();
 
@@ -1457,7 +1460,7 @@ mod tests {
         let frames_total: usize = 40;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path("test_decoder_read_i16_file", "wav"));
         std::fs::write(guard.path(), &wav).unwrap();
         let file = std::fs::File::open(guard.path()).unwrap();
 
@@ -1477,7 +1480,7 @@ mod tests {
         let frames_total: usize = 40;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path("test_decoder_read_i32_file", "wav"));
         std::fs::write(guard.path(), &wav).unwrap();
         let file = std::fs::File::open(guard.path()).unwrap();
 
@@ -1497,7 +1500,7 @@ mod tests {
         let frames_total: usize = 40;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path("test_decoder_read_s24_packed_file", "wav"));
         std::fs::write(guard.path(), &wav).unwrap();
         let file = std::fs::File::open(guard.path()).unwrap();
 
@@ -1517,7 +1520,7 @@ mod tests {
         let frames_total: usize = 40;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path("test_decoder_read_f32_file", "wav"));
         std::fs::write(guard.path(), &wav).unwrap();
         let file = std::fs::File::open(guard.path()).unwrap();
 

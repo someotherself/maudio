@@ -243,7 +243,10 @@ mod test {
         let frames_total: usize = 40;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path(
+            "test_rm_stream_multiple_path_load_stream_guards",
+            "wav",
+        ));
         std::fs::write(guard.path(), &wav).unwrap();
 
         let rm = ResourceManagerBuilder::new_f32().build().unwrap();
@@ -276,7 +279,10 @@ mod test {
         let frames_total: usize = 40;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path(
+            "test_rm_stream_thread_path_load_stream",
+            "wav",
+        ));
         std::fs::write(guard.path(), &wav).unwrap();
 
         let rm = ResourceManagerBuilder::new_f32().build().unwrap();

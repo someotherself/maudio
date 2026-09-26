@@ -131,13 +131,13 @@ pub mod temp_file {
         path: std::path::PathBuf,
     }
 
-    pub(crate) fn unique_tmp_path(ext: &str) -> std::path::PathBuf {
+    pub(crate) fn unique_tmp_path(test: &str, ext: &str) -> std::path::PathBuf {
         let mut p = std::env::temp_dir();
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        p.push(format!("miniaudio_decoder_test_{nanos}.{ext}"));
+        p.push(format!("test_{test}_{nanos}.{ext}"));
         p
     }
 

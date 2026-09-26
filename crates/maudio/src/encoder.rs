@@ -590,7 +590,7 @@ mod test {
         let frames_total: usize = 40;
         let data = asset_interleaved_u8(2, frames_total, 1);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path("test_encoder_write_from_path_u8", "wav"));
 
         let mut enc = EncoderBuilder::new_u8(2, SampleRate::Sr48000)
             .wav()
@@ -619,7 +619,7 @@ mod test {
         let frames_total: usize = 40;
         let data = asset_interleaved_i16(2, frames_total, 1);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path("test_encoder_write_from_path_i16", "wav"));
 
         let mut enc = EncoderBuilder::new_i16(2, SampleRate::Sr48000)
             .wav()
@@ -648,7 +648,7 @@ mod test {
         let frames_total: usize = 40;
         let data = asset_interleaved_i32(2, frames_total, 1);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path("test_encoder_write_from_path_i32", "wav"));
 
         let mut enc = EncoderBuilder::new_i32(2, SampleRate::Sr48000)
             .wav()
@@ -677,7 +677,10 @@ mod test {
         let frames_total: usize = 40;
         let data = asset_interleaved_s24_packed_le(2, frames_total, 1);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path(
+            "test_encoder_write_from_path_s24_packed",
+            "wav",
+        ));
 
         let mut enc = EncoderBuilder::new_s24_packed(2, SampleRate::Sr48000)
             .wav()
@@ -706,7 +709,7 @@ mod test {
         let frames_total: usize = 40;
         let data = asset_interleaved_f32(2, frames_total, 1.0);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path("test_encoder_write_from_path_f32", "wav"));
 
         let mut enc = EncoderBuilder::new_f32(2, SampleRate::Sr48000)
             .wav()
@@ -735,7 +738,7 @@ mod test {
         let frames_total: usize = 40;
         let data = asset_interleaved_u8(2, frames_total, 1);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path("test_encoder_write_from_file_u8", "wav"));
         let file = std::fs::File::create(guard.path()).unwrap();
 
         let mut enc = EncoderBuilder::new_u8(2, SampleRate::Sr48000)
@@ -765,7 +768,7 @@ mod test {
         let frames_total: usize = 40;
         let data = asset_interleaved_i16(2, frames_total, 1);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path("test_encoder_write_from_file_i16", "wav"));
         let file = std::fs::File::create(guard.path()).unwrap();
 
         let mut enc = EncoderBuilder::new_i16(2, SampleRate::Sr48000)
@@ -795,7 +798,7 @@ mod test {
         let frames_total: usize = 40;
         let data = asset_interleaved_i32(2, frames_total, 1);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path("test_encoder_write_from_file_i32", "wav"));
         let file = std::fs::File::create(guard.path()).unwrap();
 
         let mut enc = EncoderBuilder::new_i32(2, SampleRate::Sr48000)
@@ -825,7 +828,10 @@ mod test {
         let frames_total: usize = 40;
         let data = asset_interleaved_s24_packed_le(2, frames_total, 1);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path(
+            "test_encoder_write_from_file_s24_packed",
+            "wav",
+        ));
         let file = std::fs::File::create(guard.path()).unwrap();
 
         let mut enc = EncoderBuilder::new_s24_packed(2, SampleRate::Sr48000)
@@ -855,7 +861,7 @@ mod test {
         let frames_total: usize = 40;
         let data = asset_interleaved_f32(2, frames_total, 1.0);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path("test_encoder_write_from_file_f32", "wav"));
         let file = std::fs::File::create(guard.path()).unwrap();
 
         let mut enc = EncoderBuilder::new_f32(2, SampleRate::Sr48000)
