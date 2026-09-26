@@ -505,6 +505,60 @@ impl CustomBackend for AsioBackend {
 
         unreachable!() // we already checked for loopback
     }
+
+    fn device_start<'device>(
+        device: &BackendDeviceHandle<'device, Self>,
+        log: Option<&LogRef>,
+    ) -> MaResult<()>
+    where
+        Self: Sized,
+    {
+        let post = |level: LogLevel, message: &str| {
+            if let Some(log) = log.as_ref() {
+                let _ = log.post(level, message);
+            }
+        };
+
+        let Some(dev) = device.backend_device() else {
+            post(LogLevel::Error, "Backend device not available.");
+            return Err(MaudioError::other("Backend device not available"));
+        };
+
+        if let Err(e) = dev.driver.start() {
+            let message = format!("Failed to start backend device: {}", e);
+            post(LogLevel::Error, &message);
+            return Err(MaudioError::other(&message));
+        };
+
+        Ok(())
+    }
+
+    fn device_stop<'device>(
+        device: &BackendDeviceHandle<'device, Self>,
+        log: Option<&LogRef>,
+    ) -> MaResult<()>
+    where
+        Self: Sized,
+    {
+        let post = |level: LogLevel, message: &str| {
+            if let Some(log) = log.as_ref() {
+                let _ = log.post(level, message);
+            }
+        };
+
+        let Some(dev) = device.backend_device() else {
+            post(LogLevel::Error, "Backend device not available.");
+            return Err(MaudioError::other("Backend device not available"));
+        };
+
+        if let Err(e) = dev.driver.stop() {
+            let message = format!("Failed to stop backend device: {}", e);
+            post(LogLevel::Error, &message);
+            return Err(MaudioError::other(&message));
+        };
+
+        Ok(())
+    }
 }
 
 fn main() -> MaResult<()> {
