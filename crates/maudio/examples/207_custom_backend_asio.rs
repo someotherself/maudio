@@ -511,60 +511,87 @@ fn main() -> MaResult<()> {
     let log = Log::new()?;
     log.print_level(LogLevel::Info)?;
     log.print_level(LogLevel::Debug)?;
+    log.print_level(LogLevel::Error)?;
 
-    // ASIO has no concept of a default device
-    // so it's better for us to select a device before initializing it
-    let ctx = ContextBuilder::new().build_custom::<AsioBackend>()?;
+    println!("Enter command: \"enumerate\" or \"play\"");
 
-    let mut devices = vec![];
+    let mut command = String::new();
+    std::io::stdin().read_line(&mut command)?;
 
-    println!("Enter the ID of an output device:");
-    let mut id = 0;
-    ctx.enumerate_devices(|ty, info| {
-        if matches!(ty, DeviceType::Playback) {
-            id += 1;
-            devices.push((info.id(), info.name().to_string()));
-            println!("{}. {}", id, info.name());
+    match command.trim() {
+        "enumerate" => {
+            let ctx = ContextBuilder::new()
+                .log(&log)
+                .preferred_backends([Backend::Custom])
+                .build_custom::<AsioBackend>()?;
+
+            // Use the same numbering as the name-only lookup in play.
+            let asio = asio_sys::Asio::new();
+            let names = asio.driver_names();
+
+            ctx.enumerate_devices(|ty, info| {
+                if matches!(ty, DeviceType::Playback) {
+                    if let Some(index) = names.iter().position(|name| name == info.name()) {
+                        println!("{}. {}", index + 1, info.name());
+                    }
+                }
+
+                EnumerateControl::Continue
+            })?;
+
+            Ok(())
         }
-        EnumerateControl::Continue
-    })?;
 
-    let mut device_id = None;
+        "play" => {
+            // Query names only. Do not load drivers to query capabilities.
+            let asio = asio_sys::Asio::new();
+            let names = asio.driver_names();
 
-    for line in std::io::stdin().lines() {
-        let line = line?;
-        let Ok(num_id): Result<u32, _> = line.parse() else {
-            println!("Not a valid number.");
-            continue;
-        };
-        let Some((id, name)) = devices.get((num_id - 1) as usize) else {
-            println!("Id {} out of range.", num_id);
-            continue;
-        };
-        device_id = Some(id);
-        println!("Initializing ASIO backend on output: {name}",);
-        break;
+            if names.is_empty() {
+                return Err(MaudioError::other("No ASIO drivers found"));
+            }
+
+            println!("Enter the output device ID from the enumerate command:");
+
+            let name = loop {
+                let mut line = String::new();
+
+                if std::io::stdin().read_line(&mut line)? == 0 {
+                    return Err(MaudioError::other("No device ID provided"));
+                }
+
+                let Ok(number) = line.trim().parse::<usize>() else {
+                    println!("Not a valid number.");
+                    continue;
+                };
+
+                let Some(name) = number.checked_sub(1).and_then(|index| names.get(index)) else {
+                    println!("ID {number} out of range.");
+                    continue;
+                };
+
+                break name;
+            };
+
+            // Construct the same custom ID used by enumeration.
+            let info = DeviceInfoBuilder::from_name(name)?.build();
+            let device_id = info.device_id();
+
+            println!("Initializing ASIO backend on output: {name}");
+
+            let engine = EngineBuilder::new()
+                .device_id(&device_id)
+                .no_auto_start(true)
+                .custom_backend::<AsioBackend>([Backend::Custom])
+                .build()?;
+
+            drop(engine);
+
+            Ok(())
+        }
+
+        _ => Err(MaudioError::other(
+            "Unknown command. Expected enumerate or play",
+        )),
     }
-
-    assert!(device_id.is_some());
-
-    drop(ctx);
-
-    // let device = DeviceBuilder::playback()
-    //     .f32()
-    //     .playback_device_id(&device_id.unwrap())
-    //     .custom_backend::<AsioBackend>([Backend::Custom])
-    //     .with_callback(|_, out| out.fill(0.0))?;
-
-    // drop(device);
-
-    let engine = EngineBuilder::new()
-        .device_id(&device_id.unwrap())
-        .no_auto_start(true)
-        .custom_backend::<AsioBackend>([Backend::Custom])
-        .build()?;
-
-    drop(engine);
-
-    Ok(())
 }
