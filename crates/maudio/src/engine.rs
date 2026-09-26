@@ -79,7 +79,6 @@ use std::{
     cell::UnsafeCell,
     mem::MaybeUninit,
     path::Path,
-    ptr::NonNull,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
