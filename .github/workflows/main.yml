@@ -87,11 +87,11 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      RUSTFLAGS: "-Zsanitizer=address"
+      RUSTFLAGS: "-Zsanitizer=address -Cdebuginfo=2 -Cforce-frame-pointers=yes"
       RUSTDOCFLAGS: "-Zsanitizer=address"
-      CFLAGS: "-fsanitize=address -fno-omit-frame-pointer"
-      CXXFLAGS: "-fsanitize=address -fno-omit-frame-pointer"
-      ASAN_OPTIONS: "detect_leaks=1:halt_on_error=1"
+      CFLAGS: "-g -fsanitize=address -fno-omit-frame-pointer"
+      CXXFLAGS: "-g -fsanitize=address -fno-omit-frame-pointer"
+      ASAN_OPTIONS: "detect_leaks=1:halt_on_error=1:symbolize=1:malloc_context_size=30:fast_unwind_on_malloc=0"
 
     steps:
       - uses: actions/checkout@v4
@@ -102,6 +102,12 @@ jobs:
         uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
+
+      - name: Install ASan symbolizer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm
+          echo "ASAN_SYMBOLIZER_PATH=$(command -v llvm-symbolizer)" >> "$GITHUB_ENV"
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
@@ -129,7 +135,6 @@ jobs:
           SDL_AUDIODRIVER: dummy
           RUST_BACKTRACE: "1"
           CARGO_TARGET_DIR: target/asan-sdl2
-          ASAN_OPTIONS: "detect_odr_violation=1:symbolize=1:fast_unwind_on_malloc=0"
         run: >
           cargo run
           -Zbuild-std
