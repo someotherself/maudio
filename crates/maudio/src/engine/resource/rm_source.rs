@@ -326,16 +326,15 @@ mod test {
         let rm = ResourceManagerBuilder::new_f32().build().unwrap();
 
         let rm_clone = rm.clone();
-        let path_clone = guard.path().to_path_buf();
-
-        let _guard1 = rm.register_encoded("wav", &wav).unwrap();
+        let guard1 = rm.register_encoded("wav", &wav).unwrap();
 
         let handle = std::thread::spawn(move || {
-            let guard = rm_clone.load_path(&path_clone).unwrap();
+            let guard = rm_clone.load_name("wav").unwrap();
 
             let _buffer = guard.build_source(RmSourceFlags::NONE, None).unwrap();
         });
 
         handle.join().unwrap();
+        drop(guard1);
     }
 }
