@@ -4,7 +4,13 @@ Thank you for your interest in improving maudio. Bug reports, feature requests,q
 
 ## Before making changes
 
-Pull requests are currenly not public. If you are interested in contributing to maudio, please open an issue and explain your ideas or what you would like to do, before doing any work.
+Pull requests are open to everyone.
+
+However, before doing any work, please open an issue and explain your ideas or what you would like to do
+If you are interested in contributing to maudio, please open an issue and explain your ideas or what you would like to do, before doing any work.
+
+Maudio is a Rust interface to miniaudio, but its current API is not set in stone. Miniaudio's internal design does offer some freedom in chosing how the public interface works.
+If an existing interface makes something difficult or seems to rule out a useful feature, please bring it up. There may be a way to support it, including by changing maudio’s API.
 
 If you find a problem or have a feature you would like to request, please open an issue or contact me by email.
 
