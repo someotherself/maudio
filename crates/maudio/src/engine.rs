@@ -76,6 +76,7 @@
 //!
 //! For sample-accurate control, prefer the PCM-frame APIs.
 use std::{
+    cell::UnsafeCell,
     mem::MaybeUninit,
     path::Path,
     sync::{
@@ -133,8 +134,9 @@ pub mod resource;
 pub struct Engine(pub(crate) Arc<EngineInner>);
 
 #[doc(hidden)]
+#[repr(C)]
 pub struct EngineInner {
-    inner: *mut sys::ma_engine,
+    inner: UnsafeCell<sys::ma_engine>,
     _playback_device_id: Option<DeviceId>, // keep alive
     _device: Option<Arc<DeviceInner>>,     // keep alive
     _context: ContextStorage,              // keep alive
@@ -155,7 +157,7 @@ impl Binding for Engine {
     type Raw = *mut sys::ma_engine;
 
     fn to_raw(&self) -> Self::Raw {
-        self.0.inner
+        self.0.inner.get()
     }
 }
 
@@ -170,7 +172,7 @@ impl Binding for EngineReader {
     type Raw = *mut sys::ma_engine;
 
     fn to_raw(&self) -> Self::Raw {
-        self.0.inner
+        self.0.inner.get()
     }
 }
 impl EngineReader {
@@ -291,12 +293,8 @@ impl Engine {
             .as_ref()
             .map_or(ContextStorage::None, |_| config.context.clone());
 
-        let mut mem: Box<MaybeUninit<sys::ma_engine>> = Box::new(MaybeUninit::uninit());
-        engine_ffi::engine_init(config, mem.as_mut_ptr())?;
-
-        let inner: *mut sys::ma_engine = Box::into_raw(mem) as *mut sys::ma_engine;
-        Ok(Self(Arc::new(EngineInner {
-            inner,
+        let inner = Arc::new(EngineInner {
+            inner: unsafe { MaybeUninit::zeroed().assume_init() },
             _playback_device_id: dev_id,
             _device: device,
             _context: context,
@@ -308,7 +306,19 @@ impl Engine {
             state_notifier: None,
             reader_exists: Arc::new(AtomicBool::new(false)),
             logs: StoredLogs::default(),
-        })))
+        });
+
+        let base_ptr = core::ptr::addr_of!(inner.inner);
+
+        engine_ffi::engine_init(config, base_ptr as *mut sys::ma_engine)?;
+
+        let engine_ptr = inner.inner.get();
+        debug_assert_eq!(
+            engine_ptr.cast::<EngineInner>(),
+            Arc::as_ptr(&inner) as *mut EngineInner,
+        );
+
+        Ok(Self(inner))
     }
 
     fn new_with_process_data(
@@ -322,17 +332,13 @@ impl Engine {
             None
         };
 
-        let mut mem: Box<MaybeUninit<sys::ma_engine>> = Box::new(MaybeUninit::uninit());
-        engine_ffi::engine_init(config, mem.as_mut_ptr())?;
-
         let context = config
             .device
             .as_ref()
             .map_or(ContextStorage::None, |_| config.context.clone());
 
-        let inner: *mut sys::ma_engine = Box::into_raw(mem) as *mut sys::ma_engine;
-        Ok(Self(Arc::new(EngineInner {
-            inner,
+        let inner = Arc::new(EngineInner {
+            inner: unsafe { MaybeUninit::zeroed().assume_init() },
             _playback_device_id: config.playback_device_id.take(),
             _device: config.device.take(),
             _context: context,
@@ -344,7 +350,19 @@ impl Engine {
             state_notifier: state_notif,
             reader_exists: Arc::new(AtomicBool::new(false)),
             logs: StoredLogs::default(),
-        })))
+        });
+
+        let base_ptr = core::ptr::addr_of!(inner.inner);
+
+        engine_ffi::engine_init(config, base_ptr as *mut sys::ma_engine)?;
+
+        let engine_ptr = inner.inner.get();
+        debug_assert_eq!(
+            engine_ptr.cast::<EngineInner>(),
+            Arc::as_ptr(&inner) as *mut EngineInner,
+        );
+
+        Ok(Self(inner))
     }
 
     /// Equivalent to calling [`SoundBuilder::new()`]
@@ -701,7 +719,6 @@ impl Drop for EngineInner {
         if let Some(proc_data_ptr) = self.process_data_ptr {
             drop(unsafe { Box::from_raw(proc_data_ptr) });
         }
-        drop(unsafe { Box::from_raw(self.inner) });
     }
 }
 
@@ -740,7 +757,7 @@ pub(crate) mod engine_ffi {
     #[inline]
     pub fn engine_uninit(engine: &mut EngineInner) {
         unsafe {
-            sys::ma_engine_uninit(engine.inner);
+            sys::ma_engine_uninit(engine.inner.get());
         }
     }
 
