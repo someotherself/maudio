@@ -87,9 +87,11 @@ impl<B: CustomBackend> CustomContext<B> {
 
 impl<B: CustomBackend> Drop for CustomContextInner<B> {
     fn drop(&mut self) {
-        let _ = context_ffi::ma_context_uninit(self.inner.get());
         let user_data = unsafe { &*self.inner.get() }.pUserData;
-        (self._user_data_drop)(user_data)
+        let _ = context_ffi::ma_context_uninit(self.inner.get());
+        if !user_data.is_null() {
+            (self._user_data_drop)(user_data)
+        }
     }
 }
 
