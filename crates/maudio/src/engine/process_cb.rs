@@ -26,18 +26,6 @@ pub(crate) struct EngineUserData {
     pub(crate) backend_state: Mutex<Option<ErasedBackendState>>,
 }
 
-impl EngineUserData {
-    pub(crate) fn shutdown_custom_backend_audio(ptr: *mut EngineUserData) {
-        if ptr.is_null() {
-            return;
-        }
-        let engine_user_data_ref = unsafe { &*ptr };
-        if let Some(backend_state) = engine_user_data_ref.backend_state.lock().unwrap().take() {
-            drop(backend_state);
-        }
-    }
-}
-
 #[derive(Default)]
 struct FrameCounter {
     frames_processed: ProcFramesNotif,

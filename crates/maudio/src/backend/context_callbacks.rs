@@ -25,7 +25,7 @@ pub(crate) fn custom_backend_callbacks<B: CustomBackend>() -> sys::ma_backend_ca
         onContextEnumerateDevices: Some(custom_context_enumerate_devices::<B>),
         onContextGetDeviceInfo: Some(custom_context_device_info::<B>),
         onDeviceInit: Some(custom_context_on_device_init::<B>),
-        onDeviceUninit: None,
+        onDeviceUninit: Some(on_device_uninit::<B>),
         onDeviceStart: Some(custom_context_on_device_start::<B>),
         onDeviceStop: Some(custom_context_on_device_stop::<B>),
         onDeviceRead: None,
@@ -261,6 +261,26 @@ unsafe extern "C" fn custom_context_on_device_init<B: CustomBackend>(
         Ok(_) => sys::ma_result_MA_SUCCESS,
         Err(_) => sys::ma_result_MA_ERROR,
     }
+}
+
+pub(crate) unsafe extern "C" fn on_device_uninit<B: CustomBackend>(
+    device: *mut sys::ma_device,
+) -> sys::ma_result {
+    let device_ref = unsafe { &*device };
+    let user_data_ptr = device_ref.pUserData.cast::<DeviceBackendState>();
+    let user_data_ref = unsafe { &*user_data_ptr };
+
+    let Some(state_ref) = user_data_ref.backend_state.as_ref() else {
+        return sys::ma_result_MA_SUCCESS;
+    };
+
+    let backend_state_ptr = state_ref.data.cast::<CustomBackendState<B>>();
+    let backend_state_ref = unsafe { &mut *backend_state_ptr };
+    if let Some(backend_device) = backend_state_ref.backend_device.take() {
+        drop(backend_device);
+    }
+
+    sys::ma_result_MA_SUCCESS
 }
 
 unsafe extern "C" fn custom_context_on_device_start<B: CustomBackend>(

@@ -28,7 +28,7 @@ pub(crate) fn engine_custom_backend_callbacks<B: CustomBackend>() -> sys::ma_bac
         onContextEnumerateDevices: Some(custom_context_enumerate_devices::<B>),
         onContextGetDeviceInfo: Some(custom_context_device_info::<B>),
         onDeviceInit: Some(engine_custom_context_on_device_init::<B>),
-        onDeviceUninit: None,
+        onDeviceUninit: Some(on_device_uninit::<B>),
         onDeviceStart: Some(engine_custom_context_on_device_start::<B>),
         onDeviceStop: Some(engine_custom_context_on_device_stop::<B>),
         onDeviceRead: None,
@@ -128,6 +128,31 @@ unsafe extern "C" fn engine_custom_context_on_device_init<B: CustomBackend>(
         Ok(_) => sys::ma_result_MA_SUCCESS,
         Err(_) => sys::ma_result_MA_ERROR,
     }
+}
+
+pub(crate) unsafe extern "C" fn on_device_uninit<B: CustomBackend>(
+    device: *mut sys::ma_device,
+) -> sys::ma_result {
+    let device_ref = unsafe { &*device };
+    let engine_ptr = device_ref.pUserData.cast::<sys::ma_engine>();
+    let engine_user_data = unsafe { &*engine_ptr }
+        .pProcessUserData
+        .cast::<EngineUserData>();
+    let engine_user_data_ref = unsafe { &*engine_user_data };
+
+    let state_lock = &engine_user_data_ref.backend_state.lock().unwrap();
+    let Some(state_ref) = state_lock.as_ref() else {
+        return sys::ma_result_MA_ERROR;
+    };
+
+    let backend_state_ptr = state_ref.data.cast::<CustomBackendState<B>>();
+    let backend_state_ref = unsafe { &mut *backend_state_ptr };
+
+    if let Some(backend_device) = backend_state_ref.backend_device.take() {
+        drop(backend_device);
+    }
+
+    sys::ma_result_MA_SUCCESS
 }
 
 unsafe extern "C" fn engine_custom_context_on_device_start<B: CustomBackend>(

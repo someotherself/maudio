@@ -1508,16 +1508,6 @@ pub(crate) struct DeviceBackendState {
 }
 
 impl DeviceBackendState {
-    pub(crate) fn shutdown_custom_backend_audio(ptr: *mut DeviceBackendState) {
-        if ptr.is_null() {
-            return;
-        }
-        let device_state_ref = unsafe { &mut *ptr };
-        if let Some(backend_state) = device_state_ref.backend_state.take() {
-            drop(backend_state);
-        }
-    }
-
     fn new<T>(backend_state: Option<ErasedBackendState>, callback_state: T) -> Self {
         let callback_state = ErasedBackendState::new(callback_state);
         Self {
