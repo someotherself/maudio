@@ -91,7 +91,7 @@ impl<'device> Drop for SdlDevice<'device> {
         }
     }
 }
-``
+
 struct PlaybackCallback<'device, F: MaSampleFormat, B: CustomBackend> {
     device: BackendDeviceHandle<'device, B>,
     format: PhantomData<fn() -> F>,
