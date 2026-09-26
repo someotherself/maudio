@@ -2,7 +2,7 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     device::device_builder::{
-        CaptureDeviceState, DeviceState, DuplexDeviceState, LoopbackDeviceState,
+        CaptureDeviceState, DeviceBackendState, DuplexDeviceState, LoopbackDeviceState,
         PlaybackDeviceState,
     },
     pcm_frames::{MaSampleFormat, PcmFormat},
@@ -22,7 +22,7 @@ pub(crate) unsafe extern "C" fn device_notification_playback_callback<F: PcmForm
     }
 
     let device_ref = unsafe { &*device };
-    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceState>() };
+    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceBackendState>() };
     let state = unsafe {
         &*device_state_ref
             .callback_state
@@ -68,7 +68,7 @@ pub(crate) unsafe extern "C" fn device_notification_capture_callback<F: PcmForma
     }
 
     let device_ref = unsafe { &*device };
-    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceState>() };
+    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceBackendState>() };
     let state = unsafe {
         &*device_state_ref
             .callback_state
@@ -118,7 +118,7 @@ pub(crate) unsafe extern "C" fn device_notification_duplex_callback<
     }
 
     let device_ref = unsafe { &*device };
-    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceState>() };
+    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceBackendState>() };
     let state = unsafe {
         &*device_state_ref
             .callback_state
@@ -164,7 +164,7 @@ pub(crate) unsafe extern "C" fn device_notification_loopback_callback<F: PcmForm
     }
 
     let device_ref = unsafe { &*device };
-    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceState>() };
+    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceBackendState>() };
     let state = unsafe {
         &*device_state_ref
             .callback_state

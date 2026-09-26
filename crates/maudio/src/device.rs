@@ -15,7 +15,9 @@ use crate::{
     backend::Backend,
     context::{ContextBuilder, ContextInner, ContextRef},
     device::{
-        device_builder::{private_device_b, AsDeviceBuilder, DeviceContextStore},
+        device_builder::{
+            private_device_b, AsDeviceBuilder, DeviceBackendState, DeviceContextStore,
+        },
         device_id::DeviceId,
         device_info::DeviceInfo,
         device_state::DeviceState,
@@ -731,6 +733,10 @@ pub(crate) mod device_ffi {
 
 impl Drop for DeviceInner {
     fn drop(&mut self) {
+        // The custom backend lives in the callback_user_data
+        // It must be dropped before we call device_uninit
+        // But the rest of the data in callback_user_data must be dropped after
+        DeviceBackendState::shutdown_custom_backend_audio(self.callback_user_data.cast());
         device_ffi::ma_device_uninit(self.to_raw());
         (self.callback_user_data_drop)(self.callback_user_data);
         drop(unsafe { Box::from_raw(self.to_raw()) });

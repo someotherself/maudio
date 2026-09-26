@@ -1166,8 +1166,8 @@ impl<F: PcmFormat> PlaybackDeviceBuilder<F> {
         };
         let callback_process_notifier = state.frames_processed.clone();
 
-        let state: DeviceState = DeviceState::new(self.backend_state.take(), state);
-        let state_ptr: *mut DeviceState = Box::into_raw(Box::new(state));
+        let state: DeviceBackendState = DeviceBackendState::new(self.backend_state.take(), state);
+        let state_ptr: *mut DeviceBackendState = Box::into_raw(Box::new(state));
 
         let callback_info: DeviceBuilderDataCallBack = DeviceBuilderDataCallBack {
             data_callback: state_ptr.cast(),
@@ -1264,7 +1264,7 @@ impl<F: PcmFormat> CaptureDeviceBuilder<F> {
         };
         let callback_process_notifier = state.frames_processed.clone();
 
-        let state = DeviceState::new(self.backend_state.take(), state);
+        let state = DeviceBackendState::new(self.backend_state.take(), state);
         let state_ptr = Box::into_raw(Box::new(state));
 
         let callback_info: DeviceBuilderDataCallBack = DeviceBuilderDataCallBack {
@@ -1364,7 +1364,7 @@ impl<F: MaSampleFormat, P: MaSampleFormat> DuplexDeviceBuilder<F, P> {
         };
         let callback_process_notifier = state.frames_processed.clone();
 
-        let state = DeviceState::new(self.backend_state.take(), state);
+        let state = DeviceBackendState::new(self.backend_state.take(), state);
         let state_ptr = Box::into_raw(Box::new(state));
 
         let callback_info: DeviceBuilderDataCallBack = DeviceBuilderDataCallBack {
@@ -1468,7 +1468,7 @@ impl<F: PcmFormat> LoopbackDeviceBuilder<F> {
         };
         let callback_process_notifier = state.frames_processed.clone();
 
-        let state = DeviceState::new(self.backend_state.take(), state);
+        let state = DeviceBackendState::new(self.backend_state.take(), state);
         let state_ptr = Box::into_raw(Box::new(state));
 
         let callback_info: DeviceBuilderDataCallBack = DeviceBuilderDataCallBack {
@@ -1499,7 +1499,7 @@ pub enum DeviceContextStore {
 }
 
 // Erased type for storage in the device pUserData
-pub(crate) struct DeviceState {
+pub(crate) struct DeviceBackendState {
     // Custom backend state
     #[allow(unused)]
     pub(crate) backend_state: Option<ErasedBackendState>,
@@ -1507,7 +1507,17 @@ pub(crate) struct DeviceState {
     pub(crate) callback_state: ErasedBackendState,
 }
 
-impl DeviceState {
+impl DeviceBackendState {
+    pub(crate) fn shutdown_custom_backend_audio(ptr: *mut DeviceBackendState) {
+        if ptr.is_null() {
+            return;
+        }
+        let device_state_ref = unsafe { &mut *ptr };
+        if let Some(backend_state) = device_state_ref.backend_state.take() {
+            drop(backend_state);
+        }
+    }
+
     fn new<T>(backend_state: Option<ErasedBackendState>, callback_state: T) -> Self {
         let callback_state = ErasedBackendState::new(callback_state);
         Self {
@@ -1575,7 +1585,7 @@ unsafe extern "C" fn device_data_playback_callback<F: PcmFormat, C>(
     let cb_device = CallBackDevice::from_ptr(device);
 
     let device_ref = unsafe { &*device };
-    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceState>() };
+    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceBackendState>() };
     let state = unsafe {
         &*device_state_ref
             .callback_state
@@ -1637,7 +1647,7 @@ unsafe extern "C" fn device_data_capture_callback<F: PcmFormat, C>(
     let cb_device = CallBackDevice::from_ptr(device);
 
     let device_ref = unsafe { &*device };
-    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceState>() };
+    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceBackendState>() };
     let state = unsafe {
         &*device_state_ref
             .callback_state
@@ -1697,7 +1707,7 @@ unsafe extern "C" fn device_data_duplex_callback<F: MaSampleFormat, P: MaSampleF
     let cb_device = CallBackDevice::from_ptr(device);
 
     let device_ref = unsafe { &*device };
-    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceState>() };
+    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceBackendState>() };
     let state = unsafe {
         &*device_state_ref
             .callback_state
@@ -1761,7 +1771,7 @@ unsafe extern "C" fn device_data_loopback_callback<F: PcmFormat, C>(
     let cb_device = CallBackDevice::from_ptr(device);
 
     let device_ref = unsafe { &*device };
-    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceState>() };
+    let device_state_ref = unsafe { &*device_ref.pUserData.cast::<DeviceBackendState>() };
     let state = unsafe {
         &*device_state_ref
             .callback_state
@@ -1798,7 +1808,7 @@ unsafe extern "C" fn device_data_loopback_callback<F: PcmFormat, C>(
 
 // Functions to drop the pUserData from the device
 fn drop_erased_device_state(ptr: *mut core::ffi::c_void) {
-    let state: Box<DeviceState> = unsafe { Box::from_raw(ptr as *mut DeviceState) };
+    let state: Box<DeviceBackendState> = unsafe { Box::from_raw(ptr as *mut DeviceBackendState) };
     drop(state);
 }
 

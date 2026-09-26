@@ -10,8 +10,8 @@ use crate::{
         },
     },
     device::{
-        custom_device::BackendDeviceHandle, device_builder::DeviceState, device_id::DeviceId,
-        device_info::DeviceInfo, device_type::DeviceType,
+        custom_device::BackendDeviceHandle, device_builder::DeviceBackendState,
+        device_id::DeviceId, device_info::DeviceInfo, device_type::DeviceType,
     },
     engine::process_cb::CustomBackendState,
     logging::LogRef,
@@ -181,7 +181,7 @@ unsafe extern "C" fn custom_context_on_device_init<B: CustomBackend>(
     };
 
     let device_ref = unsafe { &*device };
-    let user_data_ptr = device_ref.pUserData.cast::<DeviceState>();
+    let user_data_ptr = device_ref.pUserData.cast::<DeviceBackendState>();
     let user_data_ref = unsafe { &*user_data_ptr };
 
     let Some(state_ref) = user_data_ref.backend_state.as_ref() else {
@@ -271,7 +271,7 @@ unsafe extern "C" fn custom_context_on_device_start<B: CustomBackend>(
     }
 
     let device_ref = unsafe { &*device };
-    let user_data_ptr = device_ref.pUserData.cast::<DeviceState>();
+    let user_data_ptr = device_ref.pUserData.cast::<DeviceBackendState>();
     let user_data_ref = unsafe { &*user_data_ptr };
 
     let Some(state_ref) = user_data_ref.backend_state.as_ref() else {
@@ -313,7 +313,7 @@ unsafe extern "C" fn custom_context_on_device_stop<B: CustomBackend>(
     }
 
     let device_ref = unsafe { &*device };
-    let user_data_ptr = device_ref.pUserData.cast::<DeviceState>();
+    let user_data_ptr = device_ref.pUserData.cast::<DeviceBackendState>();
     let user_data_ref = unsafe { &*user_data_ptr };
 
     let Some(state_ref) = user_data_ref.backend_state.as_ref() else {
@@ -357,7 +357,7 @@ unsafe extern "C" fn custom_context_device_get_info<B: CustomBackend>(
     }
 
     let device_ref = unsafe { &*device };
-    let user_data_ptr = device_ref.pUserData.cast::<DeviceState>();
+    let user_data_ptr = device_ref.pUserData.cast::<DeviceBackendState>();
     let user_data_ref = unsafe { &*user_data_ptr };
 
     let Some(state_ref) = user_data_ref.backend_state.as_ref() else {
