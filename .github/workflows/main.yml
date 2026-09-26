@@ -91,7 +91,7 @@ jobs:
       RUSTDOCFLAGS: "-Zsanitizer=address"
       CFLAGS: "-g -fsanitize=address -fno-omit-frame-pointer"
       CXXFLAGS: "-g -fsanitize=address -fno-omit-frame-pointer"
-      ASAN_OPTIONS: "detect_leaks=1:halt_on_error=1:symbolize=1:malloc_context_size=30:fast_unwind_on_malloc=0"
+      ASAN_OPTIONS: "detect_odr_violation=1:detect_leaks=1:halt_on_error=1:symbolize=1:malloc_context_size=30:fast_unwind_on_malloc=0"
 
     steps:
       - uses: actions/checkout@v4
