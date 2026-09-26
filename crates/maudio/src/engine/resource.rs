@@ -452,6 +452,14 @@ impl<F: PcmFormat, I> ResourceGuard<F, I> {
         flags: RmSourceFlags,
         notif: Option<NotificationPipeline>,
     ) -> MaResult<PendingResource<ResourceManagerStream<F, I>>> {
+        if matches!(
+            self.0.data_name,
+            RegisteredDataName::RegisteredData { name: _ }
+        ) {
+            return Err(MaudioError::from_ma_result(
+                sys::ma_result_MA_DOES_NOT_EXIST,
+            ));
+        };
         let mut builder = ResourceManagerStreamBuilder::new(self);
         let mut flags_check = flags;
         if !flags_check.intersects(RmSourceFlags::STREAM) {
