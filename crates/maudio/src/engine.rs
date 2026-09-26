@@ -79,6 +79,7 @@ use std::{
     cell::UnsafeCell,
     mem::MaybeUninit,
     path::Path,
+    ptr::NonNull,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc,
@@ -715,6 +716,12 @@ impl Engine {
 
 impl Drop for EngineInner {
     fn drop(&mut self) {
+        // The custom backend lives in the proc_data_ptr
+        // It must be dropped before we call engine_uninit
+        // But the rest of the data in proc_data_ptr must be dropped after
+        if let Some(proc_data_ptr) = self.process_data_ptr {
+            EngineUserData::shutdown_custom_backend_audio(proc_data_ptr);
+        }
         engine_ffi::engine_uninit(self);
         if let Some(proc_data_ptr) = self.process_data_ptr {
             drop(unsafe { Box::from_raw(proc_data_ptr) });
