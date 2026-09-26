@@ -203,7 +203,7 @@ impl<'device, B: CustomBackend> CustomBackendState<'device, B> {
     }
 }
 
-// The device must be destroyed before the context !!!
+// The device must be destroyed before the context
 impl<'device, B: CustomBackend> Drop for CustomBackendState<'device, B> {
     fn drop(&mut self) {
         drop(self.backend_device.take());
