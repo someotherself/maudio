@@ -1859,7 +1859,7 @@ mod test {
         let mut device = DeviceBuilder::loopback()
             .f32()
             .capture_channels(2)
-            .with_callback(|_a, _b, _c| return)
+            .with_callback(|_a, _b| return)
             .unwrap();
         device.device_start().unwrap();
         device.device_stop().unwrap();
@@ -2029,8 +2029,8 @@ mod test {
         ];
         let device = DeviceBuilder::loopback()
             .f32()
-            .playback_channel_map(map)
-            .with_callback(|_a, out| out.fill(0.0))
+            .capture_channel_map(map)
+            .with_callback(|_a, _b| {})
             .unwrap();
         let channels = device.channels_playback();
         let playback_ch_map = device.channel_map_playback().unwrap();
@@ -2074,7 +2074,7 @@ mod test {
             .f32()
             .capture_channels(2)
             .state_notifier()
-            .with_callback(|_a, _b, _c| {})
+            .with_callback(|_a, _b| {})
             .unwrap();
         let notif = device.get_state_notifier().unwrap();
         assert!(!notif.contains(DeviceNotificationType::Started));
