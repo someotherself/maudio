@@ -4,8 +4,7 @@
 //! Logs associated with an existing engine, context or device can be accessed through
 //! [`LogRef`].
 //!
-//! Use [`LogOps::print_level`] for simple printing to standard error, or
-//! [`LogOps::register_log`] to process log messages with a custom callback.
+//! Use [`LogOps::print_level`] for simple printing to standard error.
 use std::sync::{Mutex, OnceLock};
 use std::{fmt::Display, mem::MaybeUninit, sync::Arc};
 
@@ -18,8 +17,6 @@ use crate::{Binding, ErrorKinds, MaResult, MaudioError};
 /// An independently owned miniaudio log.
 ///
 /// A `Log` can be shared with engines and contexts during their construction.
-/// Logs remain associated with the log until they are removed
-/// or their corresponding [`LogListener`] is dropped.
 ///
 /// In order to pass a `Log` to a [`Device`](crate::device::Device),
 /// a `Log` must first be passed to a [`ContextBuilder`](crate::context::ContextBuilder)
@@ -139,8 +136,6 @@ pub trait LogOps: AsLogPtr {
     /// Removes the standard-error callback registered for `level`.
     ///
     /// This only removes the callback installed by [`LogOps::print_level`].
-    /// Custom callbacks registered with [`LogOps::register_log`] are removed by
-    /// dropping their [`LogListener`].
     fn remove_level(&self, level: LogLevel) -> MaResult<()> {
         let logs = private_log::stored_logs(self);
         let logs = logs
