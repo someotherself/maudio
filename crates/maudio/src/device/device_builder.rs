@@ -227,7 +227,7 @@ pub struct LoopbackDeviceBuilder<F = Unknown> {
     state_notifier: bool,
     playback_device_id: Option<DeviceId>,
     capture_device_id: Option<DeviceId>,
-    playback_channel_map: Vec<RawChannel>,
+    capture_channel_map: Vec<RawChannel>,
     // State that captures the pUserData storage, including
     // device or cb related (device state, cb) and optional custom backend
     pub(crate) backend_state: Option<ErasedBackendState>,
@@ -495,14 +495,14 @@ pub(crate) mod private_device_b {
             t.backend_state = Some(state);
         }
 
-        fn set_playback_channel_map(t: &mut LoopbackDeviceBuilder<F>, map: Vec<RawChannel>) {
-            t.inner.playback.channels = map.len() as u32;
-            t.playback_channel_map = map;
-            t.inner.playback.pChannelMap = t.playback_channel_map.as_ptr() as *mut _;
+        fn set_playback_channel_map(_t: &mut LoopbackDeviceBuilder<F>, _map: Vec<RawChannel>) {
+            unreachable!()
         }
 
-        fn set_capture_channel_map(_t: &mut LoopbackDeviceBuilder<F>, _map: Vec<RawChannel>) {
-            unreachable!()
+        fn set_capture_channel_map(t: &mut LoopbackDeviceBuilder<F>, map: Vec<RawChannel>) {
+            t.inner.capture.channels = map.len() as u32;
+            t.capture_channel_map = map;
+            t.inner.capture.pChannelMap = t.capture_channel_map.as_ptr() as *mut _;
         }
 
         fn get_callback_info(t: &LoopbackDeviceBuilder<F>) -> Option<DeviceBuilderDataCallBack> {
@@ -705,7 +705,7 @@ impl LoopbackDeviceBuilder<Unknown> {
             state_notifier: false,
             playback_device_id: None,
             capture_device_id: None,
-            playback_channel_map: Vec::new(),
+            capture_channel_map: Vec::new(),
             backend_state: None,
             _format: PhantomData,
         }
@@ -1086,7 +1086,7 @@ impl DeviceBuilder {
             state_notifier: false,
             playback_device_id: None,
             capture_device_id: None,
-            playback_channel_map: Vec::new(),
+            capture_channel_map: Vec::new(),
             backend_state: None,
             _format: PhantomData,
         }
@@ -2032,12 +2032,12 @@ mod test {
             .capture_channel_map(map)
             .with_callback(|_a, _b| {})
             .unwrap();
-        let channels = device.channels_playback();
+        let channels = device.channels_capture();
         let playback_ch_map = device.channel_map_playback().unwrap();
         let capture_ch_map = device.channel_map_capture().unwrap();
         assert_eq!(channels, 4);
-        assert_eq!(playback_ch_map, map);
-        assert!(capture_ch_map.is_empty());
+        assert_eq!(capture_ch_map, map);
+        assert!(playback_ch_map.is_empty());
     }
 
     #[cfg(not(feature = "ci-tests"))]
