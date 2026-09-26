@@ -91,8 +91,25 @@ use crate::{
 /// 2. Device enumeration or information queries may be performed.
 /// 3. [`Self::init_device`] opens the requested device streams.
 /// 4. [`Self::device_start`] and [`Self::device_stop`] control processing.
-/// 5. The device state is dropped.
-/// 6. The context state is dropped after its devices are no longer in use.
+/// 5. The device state is dropped. Maudio odevice is unitialized and drops Self::Device
+/// 6. maudio context is uninitialized, `Self::Context` is dropped,
+///    after its devices are no longer in use.
+///
+/// # Safety considerations
+///
+/// The custom backend exposes an interface that is, for the most part, safe.
+/// However, a backend that registers callbacks through FFI must manage their lifetime carefully.
+///
+/// This mostly exposes potential for use after free bugs.
+/// If a callback uses a [`BackendDeviceHandle`], the backend must unregister
+/// the callback and ensure any callbacks already running have finished before
+/// `Self::Device` is dropped. Otherwise, a callback could access a device that
+/// has already been freed.
+///
+/// If dropping the Self::Device doesn't implicitly release the callbacks, or
+/// if the Self::Device require [`BackendDeviceHandle`] to have static lifetime,
+/// you may need to write a `Drop` implementation for Self::Device to manually
+/// release the callbacks.
 pub trait CustomBackend {
     /// State shared by devices created through this backend.
     ///
