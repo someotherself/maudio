@@ -906,7 +906,7 @@ impl CustomBackend for AsioBackend {
         device: BackendDeviceHandle<'device, Self>,
         context: &'device Self::Context,
         device_type: DeviceType,
-        _log: Option<&LogRef>,
+        log: Option<&LogRef>,
     ) -> MaResult<maudio::device::device_info::DeviceInfo>
     where
         Self: Sized,
