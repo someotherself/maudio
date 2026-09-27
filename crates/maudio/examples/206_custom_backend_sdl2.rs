@@ -45,7 +45,7 @@ use maudio::{
     },
     logging::{Log, LogLevel, LogOps, LogRef},
     pcm_frames::MaSampleFormat,
-    ErrorKinds, MaResult, MaudioError,
+    MaResult, MaudioError,
 };
 use sdl2::audio::{
     AudioCallback, AudioDevice, AudioFormat, AudioFormatNum, AudioSpec, AudioSpecDesired,
@@ -62,6 +62,19 @@ use sdl2::audio::{
 // (missing interface for SDL_GetDefaultAudioInfo)
 // Devices can still be enumerated, and if a DeviceId is passed to the device builder,
 // functions such as device.get_name will work.
+
+fn post(log: Option<&LogRef>, level: LogLevel, message: &str) {
+    if let Some(log) = log.as_ref() {
+        let _ = log.post(level, message);
+    }
+}
+
+fn fail(log: Option<&LogRef>, message: &str) -> MaudioError {
+    if let Some(log) = log.as_ref() {
+        let _ = log.post(LogLevel::Error, message);
+    };
+    MaudioError::invalid_backend()
+}
 
 struct SdlBackend;
 
@@ -190,15 +203,17 @@ impl CustomBackend for SdlBackend {
     type Device<'device> = SdlDevice<'device>;
 
     fn init_context(log: Option<&LogRef>) -> MaResult<Self::Context> {
-        if let Some(ref log) = log {
-            log.post(LogLevel::Debug, "Attempting to initialize SDL2 backend")?;
-        }
+        post(
+            log,
+            LogLevel::Debug,
+            "Attempting to initialize SDL2 backend",
+        );
         let sdl = sdl2::init().map_err(MaudioError::other)?;
         let audio = sdl.audio().map_err(|e| {
-            if let Some(ref log) = log {
+            if let Some(log) = log {
                 let _ = log.post(
                     LogLevel::Error,
-                    format!("Failed to initialize SDL2 subsystem: {:?}", &e),
+                    format!("Failed to initialize SDL2 subsystem: {:?}", e),
                 );
             }
             MaudioError::other(e)
@@ -248,13 +263,13 @@ impl CustomBackend for SdlBackend {
         context: &mut Self::Context,
         device_type: DeviceType,
         device_id: DeviceId,
-        _log: Option<&LogRef>,
+        log: Option<&LogRef>,
     ) -> MaResult<DeviceInfo> {
         let capture = match device_type {
             DeviceType::Playback => false,
             DeviceType::Capture => true,
             _ => {
-                return Err(MaudioError::new_ma_error(ErrorKinds::NotImplemented));
+                return Err(fail(log, "Only playback and capture modes are supported"));
             }
         };
 
@@ -263,7 +278,7 @@ impl CustomBackend for SdlBackend {
         } else {
             context.audio.num_audio_playback_devices()
         }
-        .ok_or_else(|| MaudioError::other("SDL cannot enumerate audio devices"))?;
+        .ok_or_else(|| fail(log, "SDL cannot enumerate audio devices"))?;
 
         for index in 0..count {
             let name = if capture {
@@ -271,7 +286,7 @@ impl CustomBackend for SdlBackend {
             } else {
                 context.audio.audio_playback_device_name(index)
             }
-            .map_err(MaudioError::other)?;
+            .map_err(|_| fail(log, "Cannot retrieve device name"))?;
 
             // Use the same ID construction as enumerate_devices.
             if DeviceId::custom_from_name(name.clone())? != device_id {
@@ -298,9 +313,7 @@ impl CustomBackend for SdlBackend {
             };
 
             if spec.freq <= 0 || spec.channels == 0 {
-                return Err(MaudioError::other(
-                    "SDL returned an invalid audio specification",
-                ));
+                return Err(fail(log, "SDL returned an invalid audio specification"));
             }
 
             let sample_rate = SampleRate::try_from(spec.freq as u32)?;
@@ -324,16 +337,9 @@ impl CustomBackend for SdlBackend {
     where
         Self: Sized,
     {
-        let post = |level: LogLevel, message: &str| {
-            if let Some(log) = log.as_ref() {
-                let _ = log.post(level, message);
-            }
-        };
-
         if config.device_type == DeviceType::Loopback {
             let message = "SDL2 backend does not support loopback";
-            post(LogLevel::Error, message);
-            return Err(MaudioError::other("SDL2 backend does not support loopback"));
+            return Err(fail(log, message));
         }
 
         // Proposed accessor returning &SdlContext.
@@ -349,13 +355,14 @@ impl CustomBackend for SdlBackend {
                 None => None,
                 Some(id) => Some(
                     id.get_custom_name()
-                        .ok_or_else(|| MaudioError::other("Expected an SDL device name"))?,
+                        .ok_or_else(|| fail(log, "Expected an SDL device name"))?,
                 ),
             };
 
             let desired: AudioSpecDesired = desired_spec(descriptor, &config)?;
 
             post(
+                log,
                 LogLevel::Debug,
                 &format!(
                     "Opening SDL2 capture device '{:?}': \
@@ -372,25 +379,24 @@ impl CustomBackend for SdlBackend {
             let opened = audio
                 .open_capture(name.as_deref(), &desired, move |_| callback)
                 .map_err(|error| {
-                    post(
-                        LogLevel::Error,
+                    fail(
+                        log,
                         &format!("Failed to open SDL2 capture device '{:?}': {}", name, error),
-                    );
-                    MaudioError::other(error)
+                    )
                 })?;
 
             debug_assert_eq!(opened.spec().format, AudioFormat::f32_sys());
 
             apply_obtained_spec(descriptor, opened.spec()).map_err(|error| {
-                post(
-                    LogLevel::Error,
+                fail(
+                    log,
                     &format!("Failed to apply SDL2 capture specification: {}", error),
-                );
-                error
+                )
             })?;
 
             let spec = opened.spec();
             post(
+                log,
                 LogLevel::Debug,
                 &format!(
                     "SDL2 capture device initialized: \
@@ -421,6 +427,7 @@ impl CustomBackend for SdlBackend {
             let desired = desired_spec(descriptor, &config)?;
 
             post(
+                log,
                 LogLevel::Debug,
                 &format!(
                     "Opening SDL2 playback device '{:?}': \
@@ -436,32 +443,31 @@ impl CustomBackend for SdlBackend {
             let opened = audio
                 .open_playback(name.as_deref(), &desired, move |_| callback)
                 .map_err(|error| {
-                    post(
-                        LogLevel::Error,
+                    fail(
+                        log,
                         &format!(
                             "Failed to open SDL2 playback device '{:?}': {}",
                             name, error
                         ),
-                    );
-                    MaudioError::other(error)
+                    )
                 })?;
 
             debug_assert_eq!(opened.spec().format, AudioFormat::f32_sys());
 
             apply_obtained_spec(descriptor, opened.spec()).map_err(|error| {
-                post(
-                    LogLevel::Error,
+                fail(
+                    log,
                     &format!("Failed to apply SDL2 playback specification: {}", error),
-                );
-                error
+                )
             })?;
 
             let spec = opened.spec();
             post(
+                log,
                 LogLevel::Debug,
                 &format!(
                     "SDL2 playback device initialized: \
-         format={:?}, sample_rate={}, channels={}, period_size_frames={}",
+                    format={:?}, sample_rate={}, channels={}, period_size_frames={}",
                     spec.format, spec.freq, spec.channels, spec.samples,
                 ),
             );
@@ -474,16 +480,14 @@ impl CustomBackend for SdlBackend {
     }
 
     fn device_start<'device>(
-        device: &'device BackendDeviceHandle<Self>,
-        _log: Option<&LogRef>,
+        device: &BackendDeviceHandle<Self>,
+        log: Option<&LogRef>,
     ) -> MaResult<()>
     where
         Self: Sized,
     {
         let Some(device) = device.backend_device() else {
-            return Err(MaudioError::new_ma_error(ErrorKinds::Other(
-                "Backend device not available".to_string(),
-            )));
+            return Err(fail(log, "Backend device not available"));
         };
 
         if let Some(playback) = &device.playback {
@@ -499,15 +503,13 @@ impl CustomBackend for SdlBackend {
 
     fn device_stop<'device>(
         device: &BackendDeviceHandle<'device, Self>,
-        _log: Option<&LogRef>,
+        log: Option<&LogRef>,
     ) -> MaResult<()>
     where
         Self: Sized,
     {
         let Some(device) = device.backend_device() else {
-            return Err(MaudioError::new_ma_error(ErrorKinds::Other(
-                "Backend device not available".to_string(),
-            )));
+            return Err(fail(log, "Backend device not available"));
         };
 
         if let Some(playback) = &device.playback {
@@ -525,24 +527,20 @@ impl CustomBackend for SdlBackend {
         device: BackendDeviceHandle<'device, Self>,
         _context: &'device Self::Context,
         device_type: DeviceType,
-        _log: Option<&LogRef>,
+        log: Option<&LogRef>,
     ) -> MaResult<DeviceInfo>
     where
         Self: Sized,
     {
         let Some(device) = device.backend_device() else {
-            return Err(MaudioError::new_ma_error(ErrorKinds::Other(
-                "Backend device not available".to_string(),
-            )));
+            return Err(fail(log, "Backend device not available"));
         };
 
         if device_type == DeviceType::Playback {
             if let Some(name) = &device.playback_identity {
                 return Ok(DeviceInfoBuilder::from_name(name)?.build());
             } else {
-                return Err(MaudioError::new_ma_error(ErrorKinds::Other(
-                    "Querying the default device is not supported".to_string(),
-                )));
+                return Err(fail(log, "Querying the default device is not supported"));
             }
         };
 
@@ -551,15 +549,11 @@ impl CustomBackend for SdlBackend {
                 let id = DeviceId::custom_from_name(name)?;
                 return Ok(DeviceInfoBuilder::new(id, name.clone()).build());
             } else {
-                return Err(MaudioError::new_ma_error(ErrorKinds::Other(
-                    "Querying the default device is not supported".to_string(),
-                )));
+                return Err(fail(log, "Querying the default device is not supported"));
             }
         }
 
-        return Err(MaudioError::new_ma_error(ErrorKinds::Other(
-            "Unsupported device type".to_string(),
-        )));
+        Err(fail(log, "Only playback and capture modes are supported"))
     }
 }
 
@@ -568,7 +562,6 @@ fn main() -> MaResult<()> {
     use maudio::engine::engine_builder::EngineBuilder;
 
     let log = Log::new()?;
-    // TODO: Investigate why the logger doesn't work
     log.print_level(LogLevel::Debug)?;
     log.print_level(LogLevel::Error)?;
     log.print_level(LogLevel::Info)?;

@@ -1,4 +1,4 @@
-use asio_sys::{AsioSampleType, BufferCallbackId, Driver};
+use asio_sys::{Asio, AsioSampleType, BufferCallbackId, Driver};
 use maudio::{
     audio::{
         channels::target_channel_position, converters::channel_converter::default_channel_map_into,
@@ -17,29 +17,45 @@ use maudio::{
     engine::engine_builder::EngineBuilder,
     logging::{Log, LogLevel, LogOps, LogRef},
     pcm_frames::MaSampleFormat,
-    ErrorKinds, MaResult, MaudioError,
+    MaResult, MaudioError,
 };
+
+// Logging helpers
+fn post(log: Option<&LogRef>, level: LogLevel, message: &str) {
+    if let Some(log) = log.as_ref() {
+        let _ = log.post(level, message);
+    }
+}
+
+fn fail(log: Option<&LogRef>, message: &str) -> MaudioError {
+    if let Some(log) = log.as_ref() {
+        let _ = log.post(LogLevel::Error, message);
+    };
+    MaudioError::invalid_backend()
+}
 
 struct AsioBackend;
 
-// ASIO can only represent one opened maudio device
-// Whether is playback, capture or duplex depends on streams opened
+/// ASIO can only represent one opened maudio device
+/// Whether is playback, capture or duplex depends on streams opened
 struct AsioDriver {
     driver: Driver,
     callback_id: BufferCallbackId,
 }
 
+// We need to explicitly remove the callbacks
 impl Drop for AsioDriver {
     fn drop(&mut self) {
         self.driver.remove_callback(self.callback_id);
     }
 }
 
+/// Helper to report the asio configuration to maudio
 fn report_stream_spec(
     sample_rate: u32,
     buffer_size: usize,
     channels: u32,
-    sample_type: AsioSampleType,
+    sample_type: &AsioSampleType,
     descriptor: &mut DeviceDescriptor,
 ) -> MaResult<()> {
     descriptor.channels = Some(channels);
@@ -51,6 +67,7 @@ fn report_stream_spec(
     Ok(())
 }
 
+/// Helper to calculate the buffer size, if the user requests a specific one
 fn requested_asio_buffer_size(
     config: &BackendDeviceConfig,
     sample_rate: u32,
@@ -59,22 +76,25 @@ fn requested_asio_buffer_size(
         u64::from(config.period_size_frames)
     } else if config.period_size_millis != 0 {
         // Round up so the period is at least the requested duration.
-        (u64::from(config.period_size_millis) * u64::from(sample_rate)).div_ceil(1000)
+        let numerator = u64::from(config.period_size_millis) * u64::from(sample_rate);
+        numerator / 1000 + u64::from(numerator % 1000 != 0)
     } else {
         return Ok(None); // ASIO's preferred buffer size
     };
 
     let frames =
-        i32::try_from(frames).map_err(|_| MaudioError::other("ASIO period size is too large"))?;
+        i32::try_from(frames).map_err(|_| MaudioError::other("ASIO buffer size is too large"))?;
 
     if frames == 0 {
-        return Err(MaudioError::other("ASIO period size is zero"));
+        return Err(MaudioError::other("ASIO buffer size is zero"));
     }
 
     Ok(Some(frames))
 }
 
-fn direct_asio_format(sample_type: asio_sys::AsioSampleType) -> MaResult<Format> {
+/// Helper to convert between asio and maudio sample formats
+/// We reject formats not supported by the miniaudio device
+fn direct_asio_format(sample_type: &asio_sys::AsioSampleType) -> MaResult<Format> {
     use asio_sys::AsioSampleType::*;
 
     match sample_type {
@@ -85,6 +105,108 @@ fn direct_asio_format(sample_type: asio_sys::AsioSampleType) -> MaResult<Format>
             "ASIO sample type {other:?} is not supported by this example"
         ))),
     }
+}
+
+/// Function responsible for creating a playback AsioDriver
+/// Either opens an AsioStream, or re-uses an existing one
+fn create_playback_driver<'device>(
+    context: &Asio,
+    device: BackendDeviceHandle<'device, AsioBackend>,
+    config: &BackendDeviceConfig,
+    playback: Option<&mut DeviceDescriptor>,
+    log: Option<&LogRef<'_>>,
+) -> MaResult<AsioDriver> {
+    let descriptor = playback.ok_or_else(|| fail(log, "Missing capture descriptor"))?;
+
+    let Some(device_id) = descriptor.device_id.as_ref() else {
+        return Err(fail(log, "A device id must be provided."));
+    };
+
+    let Some(name) = device_id.get_custom_name() else {
+        return Err(fail(log, "A device id must be provided."));
+    };
+
+    post(log, LogLevel::Debug, &format!("Opening device: {}.", name));
+
+    let driver = match context.load_driver(&name) {
+        Ok(driver) => driver,
+        Err(e) => {
+            return Err(fail(log, &format!("Could not load device: {}.", e)));
+        }
+    };
+
+    let asio_streams = driver.streams();
+    let Ok(mut streams) = asio_streams.lock() else {
+        return Err(fail(log, "Stream lock poisoned"));
+    };
+
+    let channels = config.playback_channels.unwrap_or(2);
+
+    let sample_rate = driver
+        .sample_rate()
+        .ok()
+        .map(|s| s as u32)
+        .or(config.sample_rate.map(|s| s.into()))
+        .unwrap_or(44_100);
+    let buffer_size = requested_asio_buffer_size(config, sample_rate)?;
+
+    // TODO: If this uses en existing stream, make sure to report sample rate and channels
+    let frames = match streams.output {
+        Some(ref output) => Ok(output.buffer_size as usize),
+        None => {
+            let output = streams.input.take();
+            driver
+                .prepare_output_stream(output, channels as usize, buffer_size)
+                .map(|new_streams| {
+                    let bs = match new_streams.output {
+                        Some(ref out) => out.buffer_size as usize,
+                        None => unreachable!(),
+                    };
+                    *streams = new_streams;
+                    bs
+                })
+        }
+    };
+    let Ok(frames) = frames else {
+        return Err(fail(log, "Could not create output stream"));
+    };
+
+    let sample_type = driver.output_data_type().map_err(MaudioError::other)?;
+
+    post(log, LogLevel::Debug, &format!(
+                    "ASIO playback stream opened on driver: {}.\nChannels: {channels}, sample rate: {sample_rate}, format: {sample_type:?}, buffer size: {frames}",
+                    driver.name(),
+                ));
+
+    // Safety: We call `unregister_callback` when the AsioDriver is dropped
+    let device = unsafe { device.clone_static_unchecked() };
+
+    let callback_id = match sample_type {
+        AsioSampleType::ASIOSTFloat32LSB => {
+            register_playback_callback::<f32>(device, &driver, frames, channels as usize)
+        }
+
+        AsioSampleType::ASIOSTInt16LSB => {
+            register_playback_callback::<i16>(device, &driver, frames, channels as usize)
+        }
+
+        AsioSampleType::ASIOSTInt32LSB => {
+            register_playback_callback::<i32>(device, &driver, frames, channels as usize)
+        }
+
+        other => {
+            return Err(MaudioError::other(format!(
+                "Unsupported ASIO sample type: {other:?}"
+            )))
+        }
+    };
+
+    report_stream_spec(sample_rate, frames, channels, &sample_type, descriptor)?;
+
+    Ok(AsioDriver {
+        driver,
+        callback_id,
+    })
 }
 
 fn register_playback_callback<F: MaSampleFormat>(
@@ -134,6 +256,112 @@ where
             }
         }
     })
+}
+
+/// Function responsible for creating a capture AsioDriver
+/// Either opens an AsioStream, or re-uses an existing one
+fn create_capture_driver<'device>(
+    context: &Asio,
+    device: BackendDeviceHandle<'device, AsioBackend>,
+    config: &BackendDeviceConfig,
+    capture: Option<&mut DeviceDescriptor>,
+    log: Option<&LogRef<'_>>,
+) -> MaResult<AsioDriver> {
+    let descriptor = capture.ok_or_else(|| fail(log, "Missing capture descriptor"))?;
+
+    // TODO: How to handle picking a 'default' device?
+    let Some(device_id) = descriptor.device_id.as_ref() else {
+        return Err(fail(log, "A device id must be provided."));
+    };
+
+    let Some(name) = device_id.get_custom_name() else {
+        return Err(fail(log, "A device id must be provided."));
+    };
+
+    let Ok(driver) = context.load_driver(&name) else {
+        return Err(fail(log, "Could not load device."));
+    };
+
+    let asio_streams = driver.streams();
+    let Ok(mut streams) = asio_streams.lock() else {
+        return Err(fail(log, "Stream lock poisoned"));
+    };
+
+    let channels = config.capture_channels.unwrap_or(2);
+
+    let sample_rate = driver
+        .sample_rate()
+        .ok()
+        .map(|s| s as u32)
+        .or(config.sample_rate.map(|s| s.into()))
+        .unwrap_or(44_100);
+    let buffer_size = requested_asio_buffer_size(config, sample_rate)?;
+
+    // TODO: If this uses en existing stream, make sure to report sample rate and channels output
+    let frames = match streams.input {
+        Some(ref input) => Ok(input.buffer_size as usize),
+        None => {
+            let input = streams.input.take();
+            driver
+                .prepare_input_stream(input, channels as usize, buffer_size)
+                .map(|new_streams| {
+                    let bs = match new_streams.input {
+                        Some(ref input) => input.buffer_size as usize,
+                        None => unreachable!(),
+                    };
+                    *streams = new_streams;
+                    bs
+                })
+        }
+    };
+
+    let Ok(frames) = frames else {
+        return Err(fail(log, "Could not create input stream"));
+    };
+
+    let sample_type = driver.input_data_type().map_err(MaudioError::other)?;
+
+    post(log, LogLevel::Debug, &format!(
+                    "ASIO capture stream opened on driver: {}.\nChannels: {channels}, sample rate: {sample_rate}, format: {sample_type:?}, buffer size: {frames}",
+                    driver.name(),
+                ));
+
+    // Safety: We call `unregister_callback` when the AsioDriver is dropped
+    let device = unsafe { device.clone_static_unchecked() };
+
+    let callback_id = match sample_type {
+        AsioSampleType::ASIOSTFloat32LSB => {
+            register_capture_callback::<f32>(device, &driver, frames, channels as usize)
+        }
+
+        AsioSampleType::ASIOSTInt16LSB => {
+            register_capture_callback::<i16>(device, &driver, frames, channels as usize)
+        }
+
+        AsioSampleType::ASIOSTInt32LSB => {
+            register_capture_callback::<i32>(device, &driver, frames, channels as usize)
+        }
+
+        other => {
+            return Err(MaudioError::other(format!(
+                "Unsupported ASIO sample type: {other:?}"
+            )))
+        }
+    };
+
+    report_stream_spec(sample_rate, frames, channels, &sample_type, descriptor)?;
+
+    Ok(AsioDriver {
+        driver,
+        callback_id,
+    })
+}
+
+fn playback_callback<F: MaSampleFormat>(
+    handle: BackendDeviceHandle<'static, AsioBackend>,
+    buffer: &mut [F::StorageUnit],
+) {
+    let _ = handle.handle_backend_data_callback::<F, F>(Some(buffer), None);
 }
 
 fn register_capture_callback<F: MaSampleFormat>(
@@ -189,13 +417,6 @@ where
     })
 }
 
-fn playback_callback<F: MaSampleFormat>(
-    handle: BackendDeviceHandle<'static, AsioBackend>,
-    buffer: &mut [F::StorageUnit],
-) {
-    let _ = handle.handle_backend_data_callback::<F, F>(Some(buffer), None);
-}
-
 fn capture_callback<F: MaSampleFormat>(
     handle: BackendDeviceHandle<'static, AsioBackend>,
     buffer: &[F::StorageUnit],
@@ -203,11 +424,297 @@ fn capture_callback<F: MaSampleFormat>(
     let _ = handle.handle_backend_data_callback::<F, F>(None, Some(buffer));
 }
 
+/// Function responsible for creating a duplex AsioDriver
+///
+/// Either opens an AsioStream, or re-uses an existing one
+///
+/// Re-uses `playback_callback` and `capture_callback` functions
+fn create_duplex_driver<'device>(
+    context: &Asio,
+    device: BackendDeviceHandle<'device, AsioBackend>,
+    config: &BackendDeviceConfig,
+    playback: Option<&mut DeviceDescriptor>,
+    capture: Option<&mut DeviceDescriptor>,
+    log: Option<&LogRef<'_>>,
+) -> MaResult<AsioDriver> {
+    let playback = playback.ok_or_else(|| fail(log, "Missing playback descriptor"))?;
+    let capture = capture.ok_or_else(|| fail(log, "Missing capture descriptor"))?;
+
+    let playback_id = playback
+        .device_id
+        .as_ref()
+        .ok_or_else(|| fail(log, "A playback device ID is required"))?;
+
+    let capture_id = capture
+        .device_id
+        .as_ref()
+        .ok_or_else(|| fail(log, "A capture device ID is required"))?;
+
+    if playback_id != capture_id {
+        return Err(MaudioError::other(
+            "ASIO duplex requires the same driver for playback and capture",
+        ));
+    }
+
+    let name = playback_id
+        .get_custom_name()
+        .ok_or_else(|| fail(log, "Invalid ASIO device ID"))?;
+
+    let driver = context.load_driver(&name).map_err(MaudioError::other)?;
+
+    let playback_channels = config.playback_channels.unwrap_or(2);
+    let capture_channels = config.capture_channels.unwrap_or(2);
+
+    let available = driver.channels().map_err(MaudioError::other)?;
+
+    if playback_channels == 0 || i64::from(playback_channels) > i64::from(available.outs) {
+        return Err(MaudioError::other(
+            "Requested playback channel count is unavailable",
+        ));
+    }
+
+    if capture_channels == 0 || i64::from(capture_channels) > i64::from(available.ins) {
+        return Err(MaudioError::other(
+            "Requested capture channel count is unavailable",
+        ));
+    }
+
+    // Use and report the driver's current rate for both directions.
+    let rate = driver.sample_rate().map_err(MaudioError::other)?;
+    if !rate.is_finite() || rate <= 0.0 || rate > u32::MAX as f64 {
+        return Err(MaudioError::other("Invalid ASIO sample rate"));
+    }
+    let sample_rate = rate as u32;
+
+    let playback_type = driver.output_data_type().map_err(MaudioError::other)?;
+    let capture_type = driver.input_data_type().map_err(MaudioError::other)?;
+
+    // Reject unsupported formats before preparing streams.
+    direct_asio_format(&playback_type)?;
+    direct_asio_format(&capture_type)?;
+
+    let buffer_size = requested_asio_buffer_size(config, sample_rate)?;
+
+    // TODO: Try to re-use existing streams
+    let frames = {
+        let asio_streams = driver.streams();
+        let mut streams = asio_streams
+            .lock()
+            .map_err(|_| MaudioError::other("Stream lock poisoned"))?;
+
+        if streams.input.is_some() || streams.output.is_some() {
+            return Err(MaudioError::other(
+                "ASIO driver already has prepared streams",
+            ));
+        }
+
+        // Prepare input, then recreate the buffers with output added.
+        *streams = driver
+            .prepare_input_stream(None, capture_channels as usize, buffer_size)
+            .map_err(MaudioError::other)?;
+
+        let input = streams
+            .input
+            .take()
+            .ok_or_else(|| fail(log, "Missing prepared input stream"))?;
+
+        let shared_buffer_size = input.buffer_size;
+
+        *streams = driver
+            .prepare_output_stream(
+                Some(input),
+                playback_channels as usize,
+                Some(shared_buffer_size),
+            )
+            .map_err(MaudioError::other)?;
+
+        let input = streams
+            .input
+            .as_ref()
+            .ok_or_else(|| fail(log, "Missing duplex input stream"))?;
+        let output = streams
+            .output
+            .as_ref()
+            .ok_or_else(|| fail(log, "Missing duplex output stream"))?;
+
+        if input.buffer_size <= 0
+            || input.buffer_size != output.buffer_size
+            || input.buffer_infos.len() != capture_channels as usize
+            || output.buffer_infos.len() != playback_channels as usize
+        {
+            return Err(fail(
+                log,
+                "Prepared ASIO duplex streams do not match the requested configuration",
+            ));
+        }
+
+        input.buffer_size as usize
+    };
+
+    let message = format!(
+                    "ASIO duplex stream opened on driver: {}.\n
+                    Playback channels: {playback_channels}, Capture channels: {capture_channels},\n
+                    sample rate: {sample_rate}, playback format: {:?}, capture format: {:?}, buffer size: {frames}",
+                    driver.name(), playback_type, capture_type,
+                );
+    post(log, LogLevel::Info, &message);
+
+    report_stream_spec(
+        sample_rate,
+        frames,
+        playback_channels,
+        &playback_type,
+        playback,
+    )?;
+
+    report_stream_spec(
+        sample_rate,
+        frames,
+        capture_channels,
+        &capture_type,
+        capture,
+    )?;
+
+    // SAFETY: The backend must remove the callback and ensure any invocation
+    // has completed before the maudio device is destroyed.
+    let device = unsafe { device.clone_static_unchecked() };
+
+    use AsioSampleType::{ASIOSTFloat32LSB, ASIOSTInt16LSB, ASIOSTInt32LSB};
+
+    let register = match (&playback_type, &capture_type) {
+        (ASIOSTFloat32LSB, ASIOSTFloat32LSB) => register_duplex_callback::<f32, f32>,
+        (ASIOSTFloat32LSB, ASIOSTInt16LSB) => register_duplex_callback::<f32, i16>,
+        (ASIOSTFloat32LSB, ASIOSTInt32LSB) => register_duplex_callback::<f32, i32>,
+
+        (ASIOSTInt16LSB, ASIOSTFloat32LSB) => register_duplex_callback::<i16, f32>,
+        (ASIOSTInt16LSB, ASIOSTInt16LSB) => register_duplex_callback::<i16, i16>,
+        (ASIOSTInt16LSB, ASIOSTInt32LSB) => register_duplex_callback::<i16, i32>,
+
+        (ASIOSTInt32LSB, ASIOSTFloat32LSB) => register_duplex_callback::<i32, f32>,
+        (ASIOSTInt32LSB, ASIOSTInt16LSB) => register_duplex_callback::<i32, i16>,
+        (ASIOSTInt32LSB, ASIOSTInt32LSB) => register_duplex_callback::<i32, i32>,
+
+        _ => return Err(fail(log, "Unsupported ASIO duplex formats")),
+    };
+
+    let callback_id = register(
+        device,
+        &driver,
+        frames,
+        playback_channels as usize,
+        capture_channels as usize,
+    );
+
+    Ok(AsioDriver {
+        driver,
+        callback_id,
+    })
+}
+
+fn register_duplex_callback<P: MaSampleFormat, C: MaSampleFormat>(
+    handle: BackendDeviceHandle<'static, AsioBackend>,
+    driver: &asio_sys::Driver,
+    frames: usize,
+    playback_channels: usize,
+    capture_channels: usize,
+) -> BufferCallbackId
+where
+    P::StorageUnit: 'static + Send,
+    C::StorageUnit: 'static + Send,
+{
+    let streams = driver.streams();
+
+    let mut playback = vec![P::STORE_SILENCE; frames * playback_channels];
+    let mut capture = vec![C::STORE_SILENCE; frames * capture_channels];
+
+    driver.add_callback(move |callback_info| {
+        let Ok(buffer_index) = usize::try_from(callback_info.buffer_index) else {
+            return;
+        };
+        if buffer_index >= 2 {
+            return;
+        }
+
+        {
+            let Ok(streams) = streams.lock() else {
+                return;
+            };
+            let Some(input) = streams.input.as_ref() else {
+                return;
+            };
+
+            if input.buffer_size as usize != frames || input.buffer_infos.len() != capture_channels
+            {
+                return;
+            }
+
+            for (channel_index, channel_info) in input.buffer_infos.iter().enumerate() {
+                let buffers = channel_info.buffers;
+                let ptr = buffers[buffer_index].cast::<C::StorageUnit>();
+                if ptr.is_null() {
+                    return;
+                }
+
+                // SAFETY: Preparation established a readable input buffer
+                // containing `frames` samples of the selected capture format.
+                let channel = unsafe { std::slice::from_raw_parts(ptr.cast_const(), frames) };
+
+                for (frame_index, &sample) in channel.iter().enumerate() {
+                    capture[frame_index * capture_channels + channel_index] = sample;
+                }
+            }
+        }
+
+        playback.fill(P::STORE_SILENCE);
+
+        if handle
+            .handle_backend_data_callback::<P, C>(Some(&mut playback), Some(&capture))
+            .is_err()
+        {
+            playback.fill(P::STORE_SILENCE);
+        }
+
+        {
+            let Ok(streams) = streams.lock() else {
+                return;
+            };
+            let Some(output) = streams.output.as_ref() else {
+                return;
+            };
+
+            if output.buffer_size as usize != frames
+                || output.buffer_infos.len() != playback_channels
+            {
+                return;
+            }
+
+            for (channel_index, channel_info) in output.buffer_infos.iter().enumerate() {
+                let buffers = channel_info.buffers;
+                let ptr = buffers[buffer_index].cast::<P::StorageUnit>();
+                if ptr.is_null() {
+                    return;
+                }
+
+                let channel = unsafe { std::slice::from_raw_parts_mut(ptr, frames) };
+
+                for (frame_index, sample) in channel.iter_mut().enumerate() {
+                    *sample = playback[frame_index * playback_channels + channel_index];
+                }
+            }
+        }
+    })
+}
+
 impl CustomBackend for AsioBackend {
     type Context = asio_sys::Asio;
     type Device<'device> = AsioDriver;
 
-    fn init_context(_log: Option<&LogRef>) -> maudio::MaResult<Self::Context> {
+    fn init_context(log: Option<&LogRef>) -> maudio::MaResult<Self::Context> {
+        post(
+            log,
+            LogLevel::Debug,
+            "Attempting to initialize ASIO backend",
+        );
         Ok(asio_sys::Asio::new())
     }
 
@@ -218,10 +725,7 @@ impl CustomBackend for AsioBackend {
         log: Option<&maudio::logging::LogRef>,
     ) -> maudio::MaResult<maudio::device::device_info::DeviceInfo> {
         if matches!(device_type, DeviceType::Loopback) {
-            if let Some(log) = log.as_ref() {
-                let _ = log.post(LogLevel::Error, "Loopback is not supported");
-            }
-            return Err(MaudioError::new_ma_error(ErrorKinds::NotImplemented));
+            return Err(fail(log, "Loopback is not supported"));
         }
 
         for name in context.driver_names() {
@@ -241,7 +745,6 @@ impl CustomBackend for AsioBackend {
     where
         F: FnMut(DeviceType, &maudio::device::device_info::DeviceInfo) -> bool,
     {
-        eprintln!("before enumeration: {}", context.driver_names().len());
         for name in context.driver_names() {
             let Ok(driver) = context.load_driver(&name) else {
                 continue;
@@ -262,7 +765,6 @@ impl CustomBackend for AsioBackend {
             }
             let _ = driver.destroy();
         }
-        eprintln!("after enumeration: {}", context.driver_names().len());
 
         Ok(())
     }
@@ -277,226 +779,22 @@ impl CustomBackend for AsioBackend {
     where
         Self: Sized,
     {
-        eprintln!("init device - 1");
-        let post = |level: LogLevel, message: &str| {
-            if let Some(log) = log.as_ref() {
-                let _ = log.post(level, message);
-            }
-        };
-
         if config.device_type == DeviceType::Loopback {
-            post(LogLevel::Error, "Loopback is not supported.");
-            return Err(MaudioError::other("Loopback is not supported"));
+            return Err(fail(log, "Loopback is not supported"));
         }
-        eprintln!("init device - 2");
 
         let context = device.backend_context();
 
         if matches!(config.device_type, DeviceType::Duplex) {
-            // TODO later
-        }
-
-        eprintln!("found {} names", context.driver_names().len());
-        for name_check in context.driver_names() {
-            eprintln!("name check: {}", name_check);
+            return create_duplex_driver(context, device.clone(), &config, playback, capture, log);
         }
 
         if matches!(config.device_type, DeviceType::Playback) {
-            eprintln!("init device - 3");
-            let descriptor =
-                playback.ok_or_else(|| MaudioError::other("Missing capture descriptor"))?;
-
-            // TODO: How to handle picking a 'default' device?
-            let Some(device_id) = descriptor.device_id.as_ref() else {
-                eprintln!("No device id");
-                post(LogLevel::Error, "A device id must be provided.");
-                return Err(MaudioError::other("A device id must be provided."));
-            };
-            eprintln!("init device - 4");
-
-            let Some(name) = device_id.get_custom_name() else {
-                post(LogLevel::Error, "A device id must be provided.");
-                return Err(MaudioError::other("A device id must be provided."));
-            };
-            eprintln!("init device - 5");
-
-            let message = format!("Opening device: {}.", &name);
-            eprintln!("{}", &message);
-            post(LogLevel::Debug, &message);
-
-            let driver = match context.load_driver(&name) {
-                Ok(driver) => driver,
-                Err(e) => {
-                    let message = format!("Could not load device: {}.", e);
-                    eprintln!("{}", &message);
-                    post(LogLevel::Error, &message);
-                    return Err(MaudioError::other(message));
-                }
-            };
-
-            eprintln!("init device - 6");
-            let asio_streams = driver.streams();
-            let Ok(mut streams) = asio_streams.lock() else {
-                post(LogLevel::Error, "Stream lock poisoned");
-                return Err(MaudioError::other("Stream lock poisoned"));
-            };
-            eprintln!("init device - 7");
-
-            let channels = config.playback_channels.unwrap_or(2);
-
-            let sample_rate = driver
-                .sample_rate()
-                .ok()
-                .and_then(|s| Some(s as u32))
-                .or(config.sample_rate.map(|s| s.into()))
-                .unwrap_or(44_100);
-            let buffer_size = requested_asio_buffer_size(&config, sample_rate)?;
-
-            // TODO: If this uses en existing stream, make sure to report sample rate and channels
-            let frames = match streams.output {
-                Some(ref output) => Ok(output.buffer_size as usize),
-                None => {
-                    let output = streams.input.take();
-                    driver
-                        .prepare_output_stream(output, channels as usize, buffer_size)
-                        .map(|new_streams| {
-                            let bs = match new_streams.output {
-                                Some(ref out) => out.buffer_size as usize,
-                                None => unreachable!(),
-                            };
-                            *streams = new_streams;
-                            bs
-                        })
-                }
-            };
-            let Ok(frames) = frames else {
-                post(LogLevel::Error, "Could not create output stream");
-                return Err(MaudioError::other("Could not create output stream"));
-            };
-
-            let sample_type = driver.output_data_type().map_err(MaudioError::other)?;
-
-            // Safety: We call `unregister_callback` when the AsioDriver is dropped
-            let device = unsafe { device.clone_static_unchecked() };
-
-            let callback_id = match sample_type {
-                AsioSampleType::ASIOSTFloat32LSB => {
-                    register_playback_callback::<f32>(device, &driver, frames, channels as usize)
-                }
-
-                AsioSampleType::ASIOSTInt16LSB => {
-                    register_playback_callback::<i16>(device, &driver, frames, channels as usize)
-                }
-
-                AsioSampleType::ASIOSTInt32LSB => {
-                    register_playback_callback::<i32>(device, &driver, frames, channels as usize)
-                }
-
-                other => {
-                    return Err(MaudioError::other(format!(
-                        "Unsupported ASIO sample type: {other:?}"
-                    )))
-                }
-            };
-
-            report_stream_spec(sample_rate, frames, channels, sample_type, descriptor)?;
-
-            return Ok(AsioDriver {
-                driver,
-                callback_id,
-            });
+            return create_playback_driver(context, device.clone(), &config, playback, log);
         }
 
         if matches!(config.device_type, DeviceType::Capture) {
-            let descriptor =
-                capture.ok_or_else(|| MaudioError::other("Missing capture descriptor"))?;
-
-            // TODO: How to handle picking a 'default' device?
-            let Some(device_id) = descriptor.device_id.as_ref() else {
-                post(LogLevel::Error, "A device id must be provided.");
-                return Err(MaudioError::other("A device id must be provided."));
-            };
-
-            let Some(name) = device_id.get_custom_name() else {
-                post(LogLevel::Error, "A device id must be provided.");
-                return Err(MaudioError::other("A device id must be provided."));
-            };
-
-            let Ok(driver) = context.load_driver(&name) else {
-                post(LogLevel::Error, "Could not load device.");
-                return Err(MaudioError::other("Could not load device."));
-            };
-
-            let asio_streams = driver.streams();
-            let Ok(mut streams) = asio_streams.lock() else {
-                post(LogLevel::Error, "Stream lock poisoned");
-                return Err(MaudioError::other("Stream lock poisoned"));
-            };
-
-            let channels = config.capture_channels.unwrap_or(2);
-
-            let sample_rate = driver
-                .sample_rate()
-                .ok()
-                .and_then(|s| Some(s as u32))
-                .or(config.sample_rate.map(|s| s.into()))
-                .unwrap_or(44_100);
-            let buffer_size = requested_asio_buffer_size(&config, sample_rate)?;
-
-            // TODO: If this uses en existing stream, make sure to report sample rate and channels output
-            let frames = match streams.input {
-                Some(ref input) => Ok(input.buffer_size as usize),
-                None => {
-                    let input = streams.input.take();
-                    driver
-                        .prepare_input_stream(input, channels as usize, buffer_size)
-                        .map(|new_streams| {
-                            let bs = match new_streams.input {
-                                Some(ref input) => input.buffer_size as usize,
-                                None => unreachable!(),
-                            };
-                            *streams = new_streams;
-                            bs
-                        })
-                }
-            };
-
-            let Ok(frames) = frames else {
-                post(LogLevel::Error, "Could not create input stream");
-                return Err(MaudioError::other("Could not create input stream"));
-            };
-
-            let sample_type = driver.input_data_type().map_err(MaudioError::other)?;
-
-            // Safety: We call `unregister_callback` when the AsioDriver is dropped
-            let device = unsafe { device.clone_static_unchecked() };
-
-            let callback_id = match sample_type {
-                AsioSampleType::ASIOSTFloat32LSB => {
-                    register_capture_callback::<f32>(device, &driver, frames, channels as usize)
-                }
-
-                AsioSampleType::ASIOSTInt16LSB => {
-                    register_capture_callback::<i16>(device, &driver, frames, channels as usize)
-                }
-
-                AsioSampleType::ASIOSTInt32LSB => {
-                    register_capture_callback::<i32>(device, &driver, frames, channels as usize)
-                }
-
-                other => {
-                    return Err(MaudioError::other(format!(
-                        "Unsupported ASIO sample type: {other:?}"
-                    )))
-                }
-            };
-
-            report_stream_spec(sample_rate, frames, channels, sample_type, descriptor)?;
-
-            return Ok(AsioDriver {
-                driver,
-                callback_id,
-            });
+            return create_capture_driver(context, device.clone(), &config, capture, log);
         }
 
         unreachable!() // we already checked for loopback
@@ -509,21 +807,12 @@ impl CustomBackend for AsioBackend {
     where
         Self: Sized,
     {
-        let post = |level: LogLevel, message: &str| {
-            if let Some(log) = log.as_ref() {
-                let _ = log.post(level, message);
-            }
-        };
-
         let Some(dev) = device.backend_device() else {
-            post(LogLevel::Error, "Backend device not available.");
-            return Err(MaudioError::other("Backend device not available"));
+            return Err(fail(log, "Backend device not available"));
         };
 
         if let Err(e) = dev.driver.start() {
-            let message = format!("Failed to start backend device: {}", e);
-            post(LogLevel::Error, &message);
-            return Err(MaudioError::other(&message));
+            return Err(fail(log, &format!("Failed to start backend device: {}", e)));
         };
 
         Ok(())
@@ -536,21 +825,12 @@ impl CustomBackend for AsioBackend {
     where
         Self: Sized,
     {
-        let post = |level: LogLevel, message: &str| {
-            if let Some(log) = log.as_ref() {
-                let _ = log.post(level, message);
-            }
-        };
-
         let Some(dev) = device.backend_device() else {
-            post(LogLevel::Error, "Backend device not available.");
-            return Err(MaudioError::other("Backend device not available"));
+            return Err(fail(log, "Backend device not available"));
         };
 
         if let Err(e) = dev.driver.stop() {
-            let message = format!("Failed to stop backend device: {}", e);
-            post(LogLevel::Error, &message);
-            return Err(MaudioError::other(&message));
+            return Err(fail(log, &format!("Failed to stop backend device: {}", e)));
         };
 
         Ok(())
