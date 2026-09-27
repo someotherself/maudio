@@ -140,26 +140,37 @@ fn create_playback_driver<'device>(
         return Err(fail(log, "Stream lock poisoned"));
     };
 
+    // This is the channel count requested by the user
+    // If we can open a new stream, we will use it
     let channels = config.playback_channels.unwrap_or(2);
 
-    let sample_rate = driver
+    let rate = driver
         .sample_rate()
-        .ok()
-        .map(|s| s as u32)
-        .or(config.sample_rate.map(|s| s.into()))
-        .unwrap_or(44_100);
+        .map_err(|e| fail(log, &format!("Could not get ASIO sample rate: {e}")))?;
+    if !rate.is_finite() || rate <= 0.0 || rate > u32::MAX as f64 {
+        return Err(fail(log, "Invalid ASIO sample rate"));
+    }
+
+    let sample_rate = rate as u32;
+
     let buffer_size = requested_asio_buffer_size(config, sample_rate)?;
 
-    // TODO: If this uses en existing stream, make sure to report sample rate and channels
-    let frames = match streams.output {
-        Some(ref output) => Ok(output.buffer_size as usize),
+    // We try to open a new stream
+    // However, if a stream already exists, we re-use that and update the format and channel count
+    let stream_info = match streams.output {
+        Some(ref output) => {
+            let frames = usize::try_from(output.buffer_size)
+                .map_err(|_| fail(log, "Invalid ASIO output buffer size"))?;
+            let channels = output.buffer_infos.len() as u32;
+            Ok((frames, channels))
+        }
         None => {
-            let output = streams.input.take();
+            let input = streams.input.take();
             driver
-                .prepare_output_stream(output, channels as usize, buffer_size)
+                .prepare_output_stream(input, channels as usize, buffer_size)
                 .map(|new_streams| {
                     let bs = match new_streams.output {
-                        Some(ref out) => out.buffer_size as usize,
+                        Some(ref out) => (out.buffer_size as usize, out.buffer_infos.len() as u32),
                         None => unreachable!(),
                     };
                     *streams = new_streams;
@@ -167,7 +178,10 @@ fn create_playback_driver<'device>(
                 })
         }
     };
-    let Ok(frames) = frames else {
+
+    drop(streams);
+
+    let Ok((frames, channels)) = stream_info else {
         return Err(fail(log, "Could not create output stream"));
     };
 
@@ -287,26 +301,39 @@ fn create_capture_driver<'device>(
         return Err(fail(log, "Stream lock poisoned"));
     };
 
+    // This is the channel count requested by the user
+    // If we can open a new stream, we will use it
     let channels = config.capture_channels.unwrap_or(2);
 
-    let sample_rate = driver
+    let rate = driver
         .sample_rate()
-        .ok()
-        .map(|s| s as u32)
-        .or(config.sample_rate.map(|s| s.into()))
-        .unwrap_or(44_100);
+        .map_err(|e| fail(log, &format!("Could not get ASIO sample rate: {e}")))?;
+    if !rate.is_finite() || rate <= 0.0 || rate > u32::MAX as f64 {
+        return Err(fail(log, "Invalid ASIO sample rate"));
+    }
+
+    let sample_rate = rate as u32;
+
     let buffer_size = requested_asio_buffer_size(config, sample_rate)?;
 
-    // TODO: If this uses en existing stream, make sure to report sample rate and channels output
-    let frames = match streams.input {
-        Some(ref input) => Ok(input.buffer_size as usize),
+    // We try to open a new stream
+    // However, if a stream already exists, we re-use that and update the format and channel count
+    let stream_info = match streams.input {
+        Some(ref input) => {
+            let frames = usize::try_from(input.buffer_size)
+                .map_err(|_| fail(log, "Invalid ASIO output buffer size"))?;
+            let channels = input.buffer_infos.len() as u32;
+            Ok((frames, channels))
+        }
         None => {
-            let input = streams.input.take();
+            let output = streams.output.take();
             driver
-                .prepare_input_stream(input, channels as usize, buffer_size)
+                .prepare_input_stream(output, channels as usize, buffer_size)
                 .map(|new_streams| {
                     let bs = match new_streams.input {
-                        Some(ref input) => input.buffer_size as usize,
+                        Some(ref input) => {
+                            (input.buffer_size as usize, input.buffer_infos.len() as u32)
+                        }
                         None => unreachable!(),
                     };
                     *streams = new_streams;
@@ -315,7 +342,9 @@ fn create_capture_driver<'device>(
         }
     };
 
-    let Ok(frames) = frames else {
+    drop(streams);
+
+    let Ok((frames, channels)) = stream_info else {
         return Err(fail(log, "Could not create input stream"));
     };
 
@@ -462,6 +491,8 @@ fn create_duplex_driver<'device>(
 
     let driver = context.load_driver(&name).map_err(MaudioError::other)?;
 
+    // This are the channel counts requested by the user
+    // If we can open a new stream, we will use them
     let playback_channels = config.playback_channels.unwrap_or(2);
     let capture_channels = config.capture_channels.unwrap_or(2);
 
@@ -480,10 +511,13 @@ fn create_duplex_driver<'device>(
     }
 
     // Use and report the driver's current rate for both directions.
-    let rate = driver.sample_rate().map_err(MaudioError::other)?;
+    let rate = driver
+        .sample_rate()
+        .map_err(|e| fail(log, &format!("Could not get ASIO sample rate: {e}")))?;
     if !rate.is_finite() || rate <= 0.0 || rate > u32::MAX as f64 {
-        return Err(MaudioError::other("Invalid ASIO sample rate"));
+        return Err(fail(log, "Invalid ASIO sample rate"));
     }
+
     let sample_rate = rate as u32;
 
     let playback_type = driver.output_data_type().map_err(MaudioError::other)?;
@@ -495,61 +529,91 @@ fn create_duplex_driver<'device>(
 
     let buffer_size = requested_asio_buffer_size(config, sample_rate)?;
 
-    // TODO: Try to re-use existing streams
-    let frames = {
-        let asio_streams = driver.streams();
-        let mut streams = asio_streams
-            .lock()
-            .map_err(|_| MaudioError::other("Stream lock poisoned"))?;
+    let asio_streams = driver.streams();
+    let Ok(mut streams) = asio_streams.lock() else {
+        return Err(fail(log, "Stream lock poisoned"));
+    };
+    let (frames, playback_channels, capture_channels) = {
+        // We use the calculated buffer size for playback
+        // We then user the buffer size returned by prepare_output_stream to prepare the input stream
+        let play_stream_info = match streams.output {
+            Some(ref output) => {
+                let channels = output.buffer_infos.len() as u32;
+                assert!(output.buffer_size.is_positive());
+                Ok((output.buffer_size as usize, channels))
+            }
+            None => {
+                // We check if input exists first, and if it does, we use that buffer size
+                let size = streams
+                    .input
+                    .as_ref()
+                    .map(|input| input.buffer_size)
+                    .or(buffer_size);
 
-        if streams.input.is_some() || streams.output.is_some() {
-            return Err(MaudioError::other(
-                "ASIO driver already has prepared streams",
-            ));
-        }
+                let input = streams.input.take();
+                driver
+                    .prepare_output_stream(input, playback_channels as usize, size)
+                    .map(|new_streams| {
+                        let bs = match new_streams.output {
+                            Some(ref out) => {
+                                assert!(out.buffer_size.is_positive());
+                                (out.buffer_size as usize, out.buffer_infos.len() as u32)
+                            }
+                            None => unreachable!(),
+                        };
+                        *streams = new_streams;
+                        bs
+                    })
+            }
+        };
 
-        // Prepare input, then recreate the buffers with output added.
-        *streams = driver
-            .prepare_input_stream(None, capture_channels as usize, buffer_size)
-            .map_err(MaudioError::other)?;
+        let Ok((playback_frames, playback_channels)) = play_stream_info else {
+            return Err(fail(log, "Could not create output stream"));
+        };
 
-        let input = streams
-            .input
-            .take()
-            .ok_or_else(|| fail(log, "Missing prepared input stream"))?;
+        let capt_stream_info = match streams.input {
+            Some(ref input) => {
+                let channels = input.buffer_infos.len() as u32;
+                assert!(input.buffer_size.is_positive());
+                Ok((input.buffer_size as usize, channels))
+            }
+            None => {
+                let output = streams.output.take();
+                driver
+                    .prepare_input_stream(
+                        output,
+                        capture_channels as usize,
+                        Some(playback_frames as i32),
+                    )
+                    .map(|new_streams| {
+                        let bs = match new_streams.input {
+                            Some(ref input) => {
+                                assert!(input.buffer_size.is_positive());
+                                (input.buffer_size as usize, input.buffer_infos.len() as u32)
+                            }
+                            None => unreachable!(),
+                        };
+                        *streams = new_streams;
+                        bs
+                    })
+            }
+        };
 
-        let shared_buffer_size = input.buffer_size;
+        let Ok((capture_frames, capture_channels)) = capt_stream_info else {
+            return Err(fail(log, "Could not create input stream"));
+        };
 
-        *streams = driver
-            .prepare_output_stream(
-                Some(input),
-                playback_channels as usize,
-                Some(shared_buffer_size),
-            )
-            .map_err(MaudioError::other)?;
-
-        let input = streams
-            .input
-            .as_ref()
-            .ok_or_else(|| fail(log, "Missing duplex input stream"))?;
-        let output = streams
-            .output
-            .as_ref()
-            .ok_or_else(|| fail(log, "Missing duplex output stream"))?;
-
-        if input.buffer_size <= 0
-            || input.buffer_size != output.buffer_size
-            || input.buffer_infos.len() != capture_channels as usize
-            || output.buffer_infos.len() != playback_channels as usize
-        {
+        if playback_frames != capture_frames {
             return Err(fail(
                 log,
                 "Prepared ASIO duplex streams do not match the requested configuration",
             ));
         }
 
-        input.buffer_size as usize
+        (playback_frames, playback_channels, capture_channels)
     };
+
+    drop(streams);
 
     let message = format!(
                     "ASIO duplex stream opened on driver: {}.\n
