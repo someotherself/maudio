@@ -28,6 +28,7 @@ fn main() -> ExitCode {
     check!(failures, custom_backend_basic_engine_init_custom_context);
     check!(failures, custom_backend_basic_device_start_stop);
     check!(failures, custom_backend_basic_engine_start_stop);
+    check!(failures, custom_backend_device_capture_works);
     check!(failures, custom_backend_device_callback_invoked);
     check!(failures, custom_backend_engine_callback_invoked);
 
@@ -120,6 +121,18 @@ fn custom_backend_basic_engine_start_stop() -> MaResult<()> {
 
     engine.start()?;
     engine.stop()?;
+
+    Ok(())
+}
+
+fn custom_backend_device_capture_works() -> MaResult<()> {
+    let mut device = DeviceBuilder::capture()
+        .f32()
+        .custom_backend::<SdlBackend>([Backend::Custom])
+        .with_callback(|_, _| {})?;
+
+    device.device_start()?;
+    device.device_stop()?;
 
     Ok(())
 }
