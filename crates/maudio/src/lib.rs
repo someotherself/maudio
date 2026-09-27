@@ -242,6 +242,15 @@ impl MaudioError {
             ma_result: MaError(sys::ma_result_MA_ERROR),
         }
     }
+
+    // Generic error during initialization or operation of a custom backend
+    // Maps to miniaudio error MA_NO_BACKEND
+    pub fn invalid_backend() -> Self {
+        Self {
+            native: Some(ErrorKinds::InvalidBackend),
+            ma_result: MaError(sys::ma_result_MA_NO_BACKEND),
+        }
+    }
 }
 
 impl PartialEq<MaError> for MaudioError {
@@ -327,6 +336,7 @@ impl std::fmt::Display for ErrorKinds {
             ErrorKinds::Other(error) => write!(f, "{error}",),
             ErrorKinds::NotImplemented => write!(f, "Not implemented"),
             ErrorKinds::ReaderExists => write!(f, "Reader already exists"),
+            ErrorKinds::InvalidBackend => write!(f, "Custom backend error"),
         }
     }
 }
@@ -491,6 +501,7 @@ pub enum ErrorKinds {
     },
     NotImplemented,
     ReaderExists,
+    InvalidBackend,
 }
 
 impl std::error::Error for MaudioError {}
