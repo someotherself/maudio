@@ -107,36 +107,32 @@ where
             return;
         }
 
-        {
-            let Ok(streams) = streams.lock() else {
-                return;
-            };
-            let Some(output) = streams.output.as_ref() else {
-                return;
-            };
-            if output.buffer_size as usize != frames || output.buffer_infos.len() != channels {
-                return;
-            }
-
-            for (channel_index, channel_info) in output.buffer_infos.iter().enumerate() {
-                // Copy the field out: AsioBufferInfo is packed.
-                let buffers = channel_info.buffers;
-                let ptr = buffers[buffer_index].cast::<F::StorageUnit>();
-                if ptr.is_null() {
-                    return;
-                }
-
-                // SAFETY: ASIO owns this selected channel buffer; stream
-                // preparation established `frames` f32 samples for it.
-                let channel = unsafe { std::slice::from_raw_parts(ptr.cast_const(), frames) };
-
-                for (frame_index, &sample) in channel.iter().enumerate() {
-                    interleaved[frame_index * channels + channel_index] = sample;
-                }
-            }
-        } // Release the ASIO stream lock before calling maudio.
-
+        interleaved.fill(F::STORE_SILENCE);
         playback_callback::<F>(handle.clone(), &mut interleaved);
+
+        let Ok(streams) = streams.lock() else {
+            return;
+        };
+        let Some(output) = streams.output.as_ref() else {
+            return;
+        };
+        if output.buffer_size as usize != frames || output.buffer_infos.len() != channels {
+            return;
+        }
+
+        for (channel_index, channel_info) in output.buffer_infos.iter().enumerate() {
+            let buffers = channel_info.buffers;
+            let ptr = buffers[buffer_index].cast::<F::StorageUnit>();
+            if ptr.is_null() {
+                return;
+            }
+
+            let channel = unsafe { std::slice::from_raw_parts_mut(ptr, frames) };
+
+            for (frame_index, sample) in channel.iter_mut().enumerate() {
+                *sample = interleaved[frame_index * channels + channel_index];
+            }
+        }
     })
 }
 
