@@ -63,6 +63,10 @@ Prebuilt static libraries can be found in the `Release` section on the Github re
 - OpenSL|ES (Android only)
 - Web Audio (Emscripten)
 
+## Custom audio backends (see examples)
+- ASIO
+- SDL2
+
 ## How to use
 
 See [Examples](https://github.com/someotherself/maudio/tree/main/crates/maudio/examples/) for a tutorial style introduction into `maudio`
@@ -116,7 +120,8 @@ The low level API includes:
 - **Audio buffers** for working with decoded PCM data in memory.
 - **Utility primitives** such as ring buffers, fences, and notification systems for real-time and asynchronous coordination.
 
-## Custom types
+## Custom types and interfaces
+- **Custom backends**: Implements an inteface for custom audio backends, either expanding the list of audio backends (like adding ASIO) or modifying existing ones. Example implementations exist for ASIO and SDL2.
 - **Custom nodes**: Allows creating nodes with functionality beyond what already exists in miniaudio. This includes sources, passthrough (for inspecting frames), transformers (for dsp) or resampling nodes
 - **Custom audio sources**: Allows exposing any source of PCM frames through miniaudio’s standard data-source interface. Custom sources can support operations such as reading, seeking, looping, and querying their format, and can be used anywhere another data source—such as a decoder—would be accepted.
 - **Custom decoders**: Allows using any decoding library to create a decoder that integrates seamlessly with the rest of the library. This can extend the supported formats beyond mp3, flac, wav and ogg (for example adding symphonia to maudio).
