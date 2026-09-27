@@ -9,10 +9,12 @@ autotests = false
 maudio = { path = "../maudio" }
 symphonia = { version = "0.6.0", optional = true, features = ["flac"] }
 sdl2 = { version = "0.38.0", optional = true, features = ["bundled", "static-link"] }
+asio-sys = { version = "0.4.0", optional = true }
 
 [features]
 symphonia-decoder = ["dep:symphonia"]
 sdl2-backend = ["dep:sdl2"]
+asio-backend = ["dep:asio-sys"]
 
 [[bin]]
 name = "symphonia_decoder"
@@ -24,3 +26,7 @@ name = "sdl2_backend"
 path = "src/custom_backend_sdl2.rs"
 required-features = ["sdl2-backend"]
 
+[[bin]]
+name = "asio_backend"
+path = "src/custom_backend_asio.rs"
+required-features = ["asio-backend"]

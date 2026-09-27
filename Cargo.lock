@@ -196,6 +196,7 @@ dependencies = [
 name = "maudio-tests"
 version = "0.1.0"
 dependencies = [
+ "asio-sys",
  "maudio",
  "sdl2",
  "symphonia",
