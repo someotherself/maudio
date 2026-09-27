@@ -11,8 +11,10 @@ use maudio::{
     },
     context::{ContextBuilder, ContextOps, EnumerateControl},
     device::{
-        custom_device::BackendDeviceHandle, device_id::DeviceId, device_info::DeviceInfoBuilder,
-        device_type::DeviceType,
+        custom_device::BackendDeviceHandle,
+        device_id::DeviceId,
+        device_info::DeviceInfoBuilder,
+        device_type::{self, DeviceType},
     },
     engine::engine_builder::EngineBuilder,
     logging::{Log, LogLevel, LogOps, LogRef},
@@ -898,6 +900,23 @@ impl CustomBackend for AsioBackend {
         };
 
         Ok(())
+    }
+
+    fn device_get_info<'device>(
+        device: BackendDeviceHandle<'device, Self>,
+        context: &'device Self::Context,
+        device_type: DeviceType,
+        _log: Option<&LogRef>,
+    ) -> MaResult<maudio::device::device_info::DeviceInfo>
+    where
+        Self: Sized,
+    {
+        let Some(device) = device.backend_device() else {
+            return Err(fail(log, "Backend device not available"));
+        };
+
+        let driver = &device.driver;
+        return Ok(DeviceInfoBuilder::from_name(driver.name())?.build());
     }
 }
 

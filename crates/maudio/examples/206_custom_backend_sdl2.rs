@@ -540,7 +540,7 @@ impl CustomBackend for SdlBackend {
             if let Some(name) = &device.playback_identity {
                 return Ok(DeviceInfoBuilder::from_name(name)?.build());
             } else {
-                return Err(fail(log, "Querying the default device is not supported"));
+                return Err(fail(log, "Can only query a playback or capture device."));
             }
         };
 
@@ -549,11 +549,11 @@ impl CustomBackend for SdlBackend {
                 let id = DeviceId::custom_from_name(name)?;
                 return Ok(DeviceInfoBuilder::new(id, name.clone()).build());
             } else {
-                return Err(fail(log, "Querying the default device is not supported"));
+                return Err(fail(log, "Can only query a playback or capture device."));
             }
         }
 
-        Err(fail(log, "Only playback and capture modes are supported"))
+        Err(fail(log, "Only playback and capture modes can be queried."))
     }
 }
 
