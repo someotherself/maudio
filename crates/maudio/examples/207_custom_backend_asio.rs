@@ -916,7 +916,7 @@ impl CustomBackend for AsioBackend {
         };
 
         let driver = &device.driver;
-        return Ok(DeviceInfoBuilder::from_name(driver.name())?.build());
+        Ok(DeviceInfoBuilder::from_name(driver.name())?.build())
     }
 }
 
