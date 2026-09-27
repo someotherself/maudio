@@ -9,7 +9,7 @@ homepage = "https://github.com/someotherself/maudio"
 documentation = "https://docs.rs/maudio/latest/maudio/"
 description = "All-in-one cross-platform audio library for Rust, powered by miniaudio."
 categories = ["multimedia::audio", "multimedia"]
-keywords = ["audio", "miniaudio", "playback", "recording", "dsp"]
+keywords = ["audio", "miniaudio", "playback", "recording", "dsp", "sdl2", "asio"]
 
 [features]
 default = ["engine"]
