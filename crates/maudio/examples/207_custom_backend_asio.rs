@@ -904,8 +904,8 @@ impl CustomBackend for AsioBackend {
 
     fn device_get_info<'device>(
         device: BackendDeviceHandle<'device, Self>,
-        context: &'device Self::Context,
-        device_type: DeviceType,
+        _context: &'device Self::Context,
+        _device_type: DeviceType,
         log: Option<&LogRef>,
     ) -> MaResult<maudio::device::device_info::DeviceInfo>
     where
