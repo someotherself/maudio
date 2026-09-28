@@ -17,6 +17,9 @@ use maudio::{
     pcm_frames::MaSampleFormat,
 };
 
+#[allow(unused)]
+pub static TEST_DEVICE_NAME: &'static str = "Steinberg built-in ASIO Driver";
+
 // Logging helpers
 fn post(log: Option<&LogRef>, level: LogLevel, message: &str) {
     if let Some(log) = log.as_ref() {
@@ -92,12 +95,10 @@ fn requested_asio_buffer_size(
 /// Helper to convert between asio and maudio sample formats
 /// We reject formats not supported by the miniaudio device
 fn direct_asio_format(sample_type: &asio_sys::AsioSampleType) -> MaResult<Format> {
-    use asio_sys::AsioSampleType::*;
-
     match sample_type {
-        ASIOSTInt16LSB => Ok(Format::S16),
-        ASIOSTInt32LSB => Ok(Format::S32),
-        ASIOSTFloat32LSB => Ok(Format::F32),
+        AsioSampleType::ASIOSTInt16LSB => Ok(Format::S16),
+        AsioSampleType::ASIOSTInt32LSB => Ok(Format::S32),
+        AsioSampleType::ASIOSTFloat32LSB => Ok(Format::F32),
         other => Err(MaudioError::other(format!(
             "ASIO sample type {other:?} is not supported by this example"
         ))),
