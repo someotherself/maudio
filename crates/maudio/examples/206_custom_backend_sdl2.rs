@@ -1,5 +1,8 @@
 //! This example implements a custom `maudio` audio backe dusing SDL2
 //!
+//! This example uses the sdl2 crate version 0.38.0
+//! https://crates.io/crates/sdl2/0.38.0
+//!
 //! This example demonstrates how to connect a callback-driven audio API
 //! to [`CustomBackend`]. SDL2 owns the underlying playback and capture
 //! streams, while maudio continues to manage device callbacks, format

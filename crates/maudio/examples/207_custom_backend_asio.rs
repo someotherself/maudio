@@ -14,13 +14,26 @@ use maudio::{
         custom_device::BackendDeviceHandle,
         device_id::DeviceId,
         device_info::DeviceInfoBuilder,
-        device_type::{self, DeviceType},
+        device_type::DeviceType,
     },
     engine::engine_builder::EngineBuilder,
     logging::{Log, LogLevel, LogOps, LogRef},
     pcm_frames::MaSampleFormat,
     MaResult, MaudioError,
 };
+
+// This example uses the crate asio-sys version 0.4.0
+// https://crates.io/crates/asio-sys/0.4.0
+//
+// It is build to work on both an maudio engine and a device
+// It supports playback, capture and duplex modes
+//
+// Since asio does not does not have a concept of a default device,
+// a DeviceId must be provided to an Engine or Device when started.
+//
+// However I've had issues with loading asio drivers twice in the same process.
+// Logging these failures is difficult with the current API of asio-sys.
+// This example handles enumeration and playback as separate steps
 
 // Logging helpers
 fn post(log: Option<&LogRef>, level: LogLevel, message: &str) {
@@ -36,11 +49,11 @@ fn fail(log: Option<&LogRef>, message: &str) -> MaudioError {
     MaudioError::invalid_backend()
 }
 
-struct AsioBackend;
+pub struct AsioBackend;
 
 /// ASIO can only represent one opened maudio device
 /// Whether is playback, capture or duplex depends on streams opened
-struct AsioDriver {
+pub struct AsioDriver {
     driver: Driver,
     callback_id: BufferCallbackId,
 }
@@ -285,7 +298,6 @@ fn create_capture_driver<'device>(
 ) -> MaResult<AsioDriver> {
     let descriptor = capture.ok_or_else(|| fail(log, "Missing capture descriptor"))?;
 
-    // TODO: How to handle picking a 'default' device?
     let Some(device_id) = descriptor.device_id.as_ref() else {
         return Err(fail(log, "A device id must be provided."));
     };
