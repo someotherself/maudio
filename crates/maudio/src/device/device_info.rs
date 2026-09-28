@@ -10,6 +10,8 @@ use crate::{
     AsRawRef, MaResult,
 };
 
+const EXCLUSIVE_MODE: u32 = 1 << 1; // 0b0000_0010
+
 /// Detailed information about a playback or capture device returned by enumeration.
 ///
 /// `DeviceInfo` is an owned snapshot of the information reported by the backend at the time of
@@ -20,7 +22,7 @@ use crate::{
 #[repr(transparent)]
 #[derive(Clone, Copy)]
 pub struct DeviceInfo {
-    inner: sys::ma_device_info,
+    pub(crate) inner: sys::ma_device_info,
 }
 
 impl AsRawRef for DeviceInfo {
@@ -43,7 +45,8 @@ impl DeviceInfo {
     /// The returned ID can be stored and later supplied to device configuration to request
     /// this specific device instead of the system default.
     pub fn device_id(&self) -> DeviceId {
-        DeviceId::from_raw(&self.inner.id)
+        let name = self.device_name();
+        DeviceId::from_raw(&self.inner.id, name)
     }
 
     /// Returns the backend-provided display name for this device.
@@ -85,6 +88,102 @@ impl DeviceInfo {
     }
 }
 
+pub struct DeviceInfoBuilder {
+    id: DeviceId,
+    name: String, // Needs to be max 255
+    is_default: bool,
+    data_formats: Vec<sys::ma_device_info__bindgen_ty_1>,
+}
+
+impl DeviceInfoBuilder {
+    pub fn from_index(id: i32, name: String) -> Self {
+        let id = DeviceId::custom_from_id(id);
+        Self {
+            id,
+            name,
+            is_default: false,
+            data_formats: Vec::new(),
+        }
+    }
+
+    pub fn from_name(name: impl ToString) -> MaResult<Self> {
+        let name = name.to_string();
+        let id = DeviceId::custom_from_name(name.clone())?;
+        Ok(Self {
+            id,
+            name,
+            is_default: false,
+            data_formats: Vec::new(),
+        })
+    }
+
+    pub fn new(id: DeviceId, name: String) -> Self {
+        Self {
+            id,
+            name,
+            is_default: false,
+            data_formats: Vec::new(),
+        }
+    }
+
+    pub fn default(&mut self, yes: bool) -> &mut Self {
+        self.is_default = yes;
+        self
+    }
+
+    pub fn add_data_formats(
+        &mut self,
+        format: Format,
+        channels: u32,
+        sample_rate: SampleRate,
+        exclusive_mode: bool,
+    ) -> &mut Self {
+        let flags = if exclusive_mode { EXCLUSIVE_MODE } else { 0 };
+        let df = sys::ma_device_info__bindgen_ty_1 {
+            format: format.into(),
+            channels,
+            sampleRate: sample_rate.into(),
+            flags,
+        };
+        self.data_formats.push(df);
+        self
+    }
+
+    pub fn build(&self) -> DeviceInfo {
+        // convert the name to c_char
+        let bytes = self.name.as_bytes();
+
+        let mut buffer = [0 as core::ffi::c_char; 256];
+
+        for (dest, &src) in buffer.iter_mut().take(255).zip(bytes) {
+            *dest = src as core::ffi::c_char;
+        }
+
+        let zero_df: sys::ma_device_info__bindgen_ty_1 = sys::ma_device_info__bindgen_ty_1 {
+            format: 0,
+            channels: 0,
+            sampleRate: 0,
+            flags: 0,
+        };
+        let mut formats = [zero_df; 64];
+
+        // TODO: Check we don't overfloww the array
+        for (idx, &f) in self.data_formats.iter().enumerate() {
+            formats[idx] = f;
+        }
+
+        let info = sys::ma_device_info {
+            id: self.id.inner.id,
+            name: buffer,
+            isDefault: self.is_default as u32,
+            nativeDataFormatCount: self.data_formats.len() as u32,
+            nativeDataFormats: formats,
+        };
+
+        DeviceInfo { inner: info }
+    }
+}
+
 /// A lightweight borrowed view of a device entry.
 ///
 /// Unlike [`DeviceInfo`], this type borrows its underlying ID and name data instead of owning
@@ -93,17 +192,13 @@ impl DeviceInfo {
 ///
 /// The returned references are only valid for as long as the underlying enumeration data lives.
 pub struct DeviceBasicInfo<'a> {
-    id: &'a sys::ma_device_id,
+    id: DeviceId,
     name: &'a core::ffi::CStr,
     is_default: bool,
 }
 
 impl<'a> DeviceBasicInfo<'a> {
-    pub(crate) fn new(
-        id: &'a sys::ma_device_id,
-        name: &'a core::ffi::CStr,
-        is_default: u32,
-    ) -> Self {
+    pub(crate) fn new(id: DeviceId, name: &'a core::ffi::CStr, is_default: u32) -> Self {
         Self {
             id,
             name,
@@ -113,7 +208,7 @@ impl<'a> DeviceBasicInfo<'a> {
 
     /// Returns the ID of this device.
     pub fn id(&self) -> DeviceId {
-        DeviceId::from_raw(self.id)
+        self.id.clone()
     }
 
     /// Returns the backend-provided display name of this device.
@@ -166,6 +261,7 @@ impl Devices {
 ///
 /// Support for `exclusive` mode is backend specific and is primarily relevant to WASAPI.
 #[allow(unused)]
+#[derive(Debug)]
 pub struct DeviceFormat {
     format: Format,
     channels: u32,

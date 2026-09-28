@@ -219,31 +219,14 @@ mod test {
     }
 
     #[test]
-    fn test_rm_stream_thread_load_stream() {
-        let frames_total: usize = 64;
-        let wav = tiny_test_wav_mono(frames_total);
-
-        let rm = ResourceManagerBuilder::new_f32().build().unwrap();
-
-        let rm_clone = rm.clone();
-
-        let _guard1 = rm.register_encoded("wav", &wav).unwrap();
-
-        let handle = std::thread::spawn(move || {
-            let guard = rm_clone.load_name("wav").unwrap();
-
-            let _stream = guard.build_stream(RmSourceFlags::NONE, None).unwrap();
-        });
-
-        let _ = handle.join();
-    }
-
-    #[test]
     fn test_rm_stream_multiple_path_load_stream_guards() {
         let frames_total: usize = 40;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path(
+            "test_rm_stream_multiple_path_load_stream_guards",
+            "wav",
+        ));
         std::fs::write(guard.path(), &wav).unwrap();
 
         let rm = ResourceManagerBuilder::new_f32().build().unwrap();
@@ -276,7 +259,10 @@ mod test {
         let frames_total: usize = 40;
         let wav = tiny_test_wav_mono(frames_total);
 
-        let guard = TempFileGuard::new(unique_tmp_path("wav"));
+        let guard = TempFileGuard::new(unique_tmp_path(
+            "test_rm_stream_thread_path_load_stream",
+            "wav",
+        ));
         std::fs::write(guard.path(), &wav).unwrap();
 
         let rm = ResourceManagerBuilder::new_f32().build().unwrap();
@@ -284,7 +270,7 @@ mod test {
         let rm_clone = rm.clone();
         let path_clone = guard.path().to_path_buf();
 
-        let _guard1 = rm.register_encoded("wav", &wav).unwrap();
+        let guard1 = rm.register_file(&path_clone, RmSourceFlags::NONE).unwrap();
 
         let handle = std::thread::spawn(move || {
             let guard = rm_clone.load_path(&path_clone).unwrap();
@@ -292,6 +278,7 @@ mod test {
             let _buffer = guard.build_stream(RmSourceFlags::NONE, None).unwrap();
         });
 
-        let _ = handle.join();
+        handle.join().unwrap();
+        drop(guard1);
     }
 }

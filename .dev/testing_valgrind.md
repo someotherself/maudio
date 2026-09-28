@@ -60,3 +60,25 @@ It can be traced by using the flag:
 ```
 --show-leak-kinds=possible
 ```
+
+## Related to sdl2 examples
+
+Some older versions of sdl2 may show memory leaks on PulseAudio
+
+They can be removed by running with:
+```bash
+SDL_AUDIODRIVER=dummy
+```
+
+Or they can be isolated by forcing pulseaudio
+```bash
+SDL_AUDIODRIVER=pulseaudio
+```
+
+If a newer version of sdl2 is installed separately, it can be ran with:
+```bash
+LD_LIBRARY_PATH="$HOME/location/to/sdl2/lib" \
+SDL_AUDIODRIVER=pulseaudio \
+valgrind \
+....
+```

@@ -1,0 +1,87 @@
+[package]
+name = "maudio-tests"
+version = "0.1.0"
+edition = "2024"
+publish = false
+autotests = false
+
+[dependencies]
+maudio = { path = "../maudio" }
+symphonia = { version = "0.6.0", optional = true, features = ["flac"] }
+sdl2 = { version = "0.38.0", optional = true, features = ["bundled", "static-link"] }
+asio-sys = { version = "0.4.0", optional = true }
+
+[features]
+symphonia-decoder = ["dep:symphonia"]
+sdl2-backend = ["dep:sdl2"]
+asio-backend = ["dep:asio-sys"]
+
+# Running in CI
+[[bin]]
+name = "symphonia_decoder"
+path = "src/custom_symphonia_decoder.rs"
+required-features = ["symphonia-decoder"]
+
+# Running in CI
+[[bin]]
+name = "sdl2_backend"
+path = "src/custom_backend_sdl2.rs"
+required-features = ["sdl2-backend"]
+
+# ASIO tests.
+# Not running in the CI. Must be ran manually on window mvsc
+
+[[test]]
+name = "asio_backend_basic_context_init"
+path = "tests/asio_backend_basic_context_init.rs"
+required-features = ["asio-backend"]
+
+[[test]]
+name = "asio_backend_context_enumerate"
+path = "tests/asio_backend_context_enumerate.rs"
+required-features = ["asio-backend"]
+
+[[test]]
+name = "asio_backend_basic_device_init"
+path = "tests/asio_backend_basic_device_init.rs"
+required-features = ["asio-backend"]
+
+[[test]]
+name = "asio_backend_basic_device_init_ctx"
+path = "tests/asio_backend_basic_device_init_ctx.rs"
+required-features = ["asio-backend"]
+
+[[test]]
+name = "asio_backend_basic_engine_init_backend"
+path = "tests/asio_backend_basic_engine_init_backend.rs"
+required-features = ["asio-backend"]
+
+[[test]]
+name = "asio_backend_basic_engine_init_ctx"
+path = "tests/asio_backend_basic_engine_init_ctx.rs"
+required-features = ["asio-backend"]
+
+[[test]]
+name = "asio_backend_device_start_stop"
+path = "tests/asio_backend_device_start_stop.rs"
+required-features = ["asio-backend"]
+
+[[test]]
+name = "asio_backend_engine_start_stop"
+path = "tests/asio_backend_engine_start_stop.rs"
+required-features = ["asio-backend"]
+
+[[test]]
+name = "asio_backend_device_capture"
+path = "tests/asio_backend_device_capture.rs"
+required-features = ["asio-backend"]
+
+[[test]]
+name = "asio_backend_device_cb_invoked"
+path = "tests/asio_backend_device_cb_invoked.rs"
+required-features = ["asio-backend"]
+
+[[test]]
+name = "asio_backend_engine_cb_invoked"
+path = "tests/asio_backend_engine_cb_invoked.rs"
+required-features = ["asio-backend"]

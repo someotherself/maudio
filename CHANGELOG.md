@@ -1,3 +1,11 @@
+# maudio v0.1.15 - 28 Sept 2026 (breaking)
+- interface for custom audio interfaces added (breaking)
+- CustomContext added
+- LogListener removed, lifetime added to LogRef (breaking)
+- default_channel_map and default_channel_map_into helpers added
+- target_channel_position helper added
+- custom decoder / backend examples are now feature gated
+
 # maudio v0.1.14 - 02 Sept 2026 (non-breaking)
 - device backends now passed as IntoInterator
 - inline sounds added (engine.play_one_shot)

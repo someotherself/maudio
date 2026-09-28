@@ -76,6 +76,7 @@
 //!
 //! For sample-accurate control, prefer the PCM-frame APIs.
 use std::{
+    cell::UnsafeCell,
     mem::MaybeUninit,
     path::Path,
     sync::{
@@ -88,13 +89,14 @@ use crate::{
     audio::{
         formats::SampleBuffer, math::vec3::Vec3, sample_rate::SampleRate, spatial::cone::Cone,
     },
+    backend::custom_context::ContextStorage,
     data_source::AsSourcePtr,
     device::{device_id::DeviceId, DeviceInner, DeviceRef},
     engine::{
         engine_builder::EngineBuilder,
         engine_cb_notif::engine_notification_callback,
         node_graph::{nodes::NodeRef, NodeGraphRef},
-        process_cb::ProcessState,
+        process_cb::EngineUserData,
         resource::{ResourceManager, ResourceManagerRef},
     },
     logging::{LogInner, LogRef, StoredLogs},
@@ -111,8 +113,8 @@ use crate::{
 
 use maudio_sys::ffi as sys;
 
+pub(crate) mod backend_callbacks;
 pub mod engine_builder;
-
 pub(crate) mod engine_cb_notif;
 pub mod node_graph;
 pub(crate) mod process_cb;
@@ -132,13 +134,15 @@ pub mod resource;
 pub struct Engine(pub(crate) Arc<EngineInner>);
 
 #[doc(hidden)]
+#[repr(C)]
 pub struct EngineInner {
-    inner: *mut sys::ma_engine,
+    inner: UnsafeCell<sys::ma_engine>,
     _playback_device_id: Option<DeviceId>, // keep alive
     _device: Option<Arc<DeviceInner>>,     // keep alive
+    _context: ContextStorage,              // keep alive
     _resource_manager: Option<ResourceManager<f32>>, // keep alive
     _logger: Option<Arc<LogInner>>,        // keep alive
-    process_data_ptr: Option<*mut ProcessState>, // userdata (self.inner.pProcessUserData)
+    process_data_ptr: Option<*mut EngineUserData>, // userdata (self.inner.pProcessUserData)
     process_data_panic: Option<Arc<AtomicBool>>, // true = callback panicked and is now poisoned
     process_data_notif: Option<ProcFramesNotif>,
     state_notifier: Option<DeviceStateNotifier>,
@@ -153,7 +157,7 @@ impl Binding for Engine {
     type Raw = *mut sys::ma_engine;
 
     fn to_raw(&self) -> Self::Raw {
-        self.0.inner
+        self.0.inner.get()
     }
 }
 
@@ -168,7 +172,7 @@ impl Binding for EngineReader {
     type Raw = *mut sys::ma_engine;
 
     fn to_raw(&self) -> Self::Raw {
-        self.0.inner
+        self.0.inner.get()
     }
 }
 impl EngineReader {
@@ -251,8 +255,8 @@ impl Engine {
     ///
     /// Most applications should start with this method.
     pub fn new() -> MaResult<Self> {
-        let builder = EngineBuilder::new();
-        Self::new_with_config(&builder)
+        let mut builder = EngineBuilder::new();
+        Self::new_with_config(&mut builder)
     }
 
     /// Retrieves a [`ProcFramesNotif`] if one is present.
@@ -277,21 +281,23 @@ impl Engine {
         self.0.state_notifier.clone()
     }
 
-    fn new_with_config(config: &EngineBuilder) -> MaResult<Self> {
+    fn new_with_config(config: &mut EngineBuilder) -> MaResult<Self> {
         let (device, rm, dev_id, log) = (
-            config.device.clone(),
-            config.resource_manager.clone(),
-            config.playback_device_id.clone(),
-            config.log.clone(),
+            config.device.take(),
+            config.resource_manager.take(),
+            config.playback_device_id.take(),
+            config.log.take(),
         );
-        let mut mem: Box<MaybeUninit<sys::ma_engine>> = Box::new(MaybeUninit::uninit());
-        engine_ffi::engine_init(config, mem.as_mut_ptr())?;
 
-        let inner: *mut sys::ma_engine = Box::into_raw(mem) as *mut sys::ma_engine;
-        Ok(Self(Arc::new(EngineInner {
-            inner,
+        let context = device
+            .as_ref()
+            .map_or(ContextStorage::None, |_| config.context.clone());
+
+        let inner = Arc::new(EngineInner {
+            inner: unsafe { MaybeUninit::zeroed().assume_init() },
             _playback_device_id: dev_id,
             _device: device,
+            _context: context,
             _resource_manager: rm,
             _logger: log,
             process_data_ptr: None,
@@ -300,7 +306,19 @@ impl Engine {
             state_notifier: None,
             reader_exists: Arc::new(AtomicBool::new(false)),
             logs: StoredLogs::default(),
-        })))
+        });
+
+        let base_ptr = core::ptr::addr_of!(inner.inner);
+
+        engine_ffi::engine_init(config, base_ptr as *mut sys::ma_engine)?;
+
+        let engine_ptr = inner.inner.get();
+        debug_assert_eq!(
+            engine_ptr.cast::<EngineInner>(),
+            Arc::as_ptr(&inner) as *mut EngineInner,
+        );
+
+        Ok(Self(inner))
     }
 
     fn new_with_process_data(
@@ -314,14 +332,16 @@ impl Engine {
             None
         };
 
-        let mut mem: Box<MaybeUninit<sys::ma_engine>> = Box::new(MaybeUninit::uninit());
-        engine_ffi::engine_init(config, mem.as_mut_ptr())?;
+        let context = config
+            .device
+            .as_ref()
+            .map_or(ContextStorage::None, |_| config.context.clone());
 
-        let inner: *mut sys::ma_engine = Box::into_raw(mem) as *mut sys::ma_engine;
-        Ok(Self(Arc::new(EngineInner {
-            inner,
+        let inner = Arc::new(EngineInner {
+            inner: unsafe { MaybeUninit::zeroed().assume_init() },
             _playback_device_id: config.playback_device_id.take(),
             _device: config.device.take(),
+            _context: context,
             _resource_manager: config.resource_manager.take(),
             _logger: config.log.clone(),
             process_data_ptr: config.process_data.process_data_ptr,
@@ -330,7 +350,19 @@ impl Engine {
             state_notifier: state_notif,
             reader_exists: Arc::new(AtomicBool::new(false)),
             logs: StoredLogs::default(),
-        })))
+        });
+
+        let base_ptr = core::ptr::addr_of!(inner.inner);
+
+        engine_ffi::engine_init(config, base_ptr as *mut sys::ma_engine)?;
+
+        let engine_ptr = inner.inner.get();
+        debug_assert_eq!(
+            engine_ptr.cast::<EngineInner>(),
+            Arc::as_ptr(&inner) as *mut EngineInner,
+        );
+
+        Ok(Self(inner))
     }
 
     /// Equivalent to calling [`SoundBuilder::new()`]
@@ -536,7 +568,7 @@ impl Engine {
         engine_ffi::ma_engine_get_device(self)
     }
 
-    pub fn log(&self) -> LogRef {
+    pub fn log(&self) -> LogRef<'_> {
         engine_ffi::ma_engine_get_log(self)
     }
 
@@ -687,7 +719,6 @@ impl Drop for EngineInner {
         if let Some(proc_data_ptr) = self.process_data_ptr {
             drop(unsafe { Box::from_raw(proc_data_ptr) });
         }
-        drop(unsafe { Box::from_raw(self.inner) });
     }
 }
 
@@ -713,7 +744,7 @@ pub(crate) mod engine_ffi {
             resource::{ResourceManagerRef, RmOwner},
             AsEnginePtr, Binding, Engine, EngineInner, EngineReader,
         },
-        logging::{LogOwner, LogRef},
+        logging::LogRef,
         AsRawRef, MaResult, MaudioError,
     };
 
@@ -726,7 +757,7 @@ pub(crate) mod engine_ffi {
     #[inline]
     pub fn engine_uninit(engine: &mut EngineInner) {
         unsafe {
-            sys::ma_engine_uninit(engine.inner);
+            sys::ma_engine_uninit(engine.inner.get());
         }
     }
 
@@ -832,12 +863,12 @@ pub(crate) mod engine_ffi {
     }
 
     #[inline]
-    pub fn ma_engine_get_log(engine: &Engine) -> LogRef {
+    pub fn ma_engine_get_log(engine: &Engine) -> LogRef<'_> {
         let ptr = unsafe { sys::ma_engine_get_log(engine.to_raw()) };
 
         LogRef {
             inner: ptr,
-            _owner: LogOwner::Engine(engine.0.clone()),
+            logs: &engine.0.logs,
         }
     }
 

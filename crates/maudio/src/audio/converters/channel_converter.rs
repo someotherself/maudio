@@ -4,7 +4,7 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     audio::{
-        channels::{Channel, ChannelMixMode, RawChannel},
+        channels::{Channel, ChannelMixMode, ChannelPosition, RawChannel},
         formats::Format,
     },
     pcm_frames::{PcmFormat, S24Packed},
@@ -70,6 +70,45 @@ impl<F: PcmFormat> ChannelConverter<F> {
             _format: PhantomData,
         })
     }
+}
+
+pub fn default_channel_map_into(map: &mut [Channel], position: Option<ChannelPosition>) {
+    let mut raw_channel_map = vec![RawChannel::from_raw(0); map.len()];
+    let map_type = position.unwrap_or(ChannelPosition::Default);
+
+    unsafe {
+        sys::ma_channel_map_init_standard(
+            map_type.into(),
+            raw_channel_map.as_mut_ptr().cast(),
+            map.len(),
+            map.len() as u32,
+        );
+    };
+
+    for (&raw_entry, entry) in raw_channel_map.iter().zip(map.iter_mut()) {
+        *entry = Channel::try_from(raw_entry).unwrap();
+    }
+}
+
+pub fn default_channel_map(channel_count: u32, position: Option<ChannelPosition>) -> Vec<Channel> {
+    let mut raw_channel_map = vec![RawChannel::from_raw(0); channel_count as usize];
+    let map_type = position.unwrap_or(ChannelPosition::Default);
+
+    unsafe {
+        sys::ma_channel_map_init_standard(
+            map_type.into(),
+            raw_channel_map.as_mut_ptr().cast(),
+            channel_count as usize,
+            channel_count,
+        );
+    };
+
+    let mut map: Vec<Channel> = Vec::with_capacity(raw_channel_map.len());
+    for (&raw_entry, entry) in raw_channel_map.iter().zip(map.iter_mut()) {
+        *entry = Channel::try_from(raw_entry).unwrap();
+    }
+
+    map
 }
 
 pub struct ChannelConverterBuilder {

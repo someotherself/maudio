@@ -10,19 +10,11 @@ fn main() -> MaResult<()> {
     // create a log and add it in the builder.
     let log = Log::new()?;
 
-    // When miniaudio calls our register_log, it passes the
-    // level and the message of that event. We can then use
-    // them to print our own logs.
-    //
-    // Dropping the listener will remove our logging hook.
-    // For a permanent log, `Log::print_level`:
-    // log.print_level(LogLevel::Warning)?;
-
-    let _listener = log.register_log(|level, msg| {
-        if matches!(level, LogLevel::Info | LogLevel::Warning | LogLevel::Error) {
-            eprintln!("[{level}] {msg}");
-        }
-    })?;
+    // We use `print_level` to enable specific log levels.
+    // Later on, these levels can also be removed usign `remove_level`
+    log.print_level(LogLevel::Info)?;
+    log.print_level(LogLevel::Warning)?;
+    log.print_level(LogLevel::Error)?;
 
     let _engine = EngineBuilder::new().logger(&log).build()?;
 

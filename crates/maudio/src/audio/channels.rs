@@ -155,6 +155,26 @@ pub enum ChannelPosition {
     Default,
 }
 
+/// Returns the channel ordering typically used by the target's audio system.
+///
+/// This is a platform-based guess. Prefer the channel map reported by the
+/// selected backend or decoder when one is available.
+pub const fn target_channel_position() -> ChannelPosition {
+    if cfg!(target_os = "windows") {
+        ChannelPosition::Microsoft
+    } else if cfg!(target_os = "linux") {
+        ChannelPosition::Alsa
+    } else if cfg!(target_os = "freebsd") {
+        ChannelPosition::Sound4
+    } else if cfg!(target_os = "openbsd") {
+        ChannelPosition::Sndio
+    } else if cfg!(target_os = "emscripten") {
+        ChannelPosition::Webaudio
+    } else {
+        ChannelPosition::Default
+    }
+}
+
 impl From<ChannelPosition> for sys::ma_standard_channel_map {
     fn from(value: ChannelPosition) -> Self {
         match value {

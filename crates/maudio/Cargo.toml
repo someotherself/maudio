@@ -1,6 +1,6 @@
 [package]
 name = "maudio"
-version = "0.1.14"
+version = "0.1.15"
 license = "MIT"
 rust-version = "1.70" # required by bindgen 0.72.1
 edition = "2021"
@@ -9,7 +9,7 @@ homepage = "https://github.com/someotherself/maudio"
 documentation = "https://docs.rs/maudio/latest/maudio/"
 description = "All-in-one cross-platform audio library for Rust, powered by miniaudio."
 categories = ["multimedia::audio", "multimedia"]
-keywords = ["audio", "miniaudio", "playback", "recording", "dsp"]
+keywords = ["audio", "miniaudio", "playback", "recording", "asio"]
 
 [features]
 default = ["engine"]
@@ -23,11 +23,27 @@ supplybin = ["maudio-sys/supplybin"]
 external-lib = ["maudio-sys/external-lib"]
 worklet = ["maudio-sys/worklet"]
 
+# feature that enable examples
+example-sdl2 = ["dep:sdl2"]
+example-symphonia = ["dep:symphonia"]
+example-asio = ["dep:asio-sys"]
+
 [dependencies]
 maudio-sys = { path = "../maudio-sys", version = "0.1.9" }
 
-[dev-dependencies]
-symphonia = { version = "0.6.0", features = ["aac"] }
+[dependencies.sdl2]
+version= "0.38.0"
+optional = true
+features = ["bundled"]
+
+[dependencies.symphonia]
+version= "0.6.0"
+optional = true
+features = ["aac"]
+
+[dependencies.asio-sys]
+version = "0.4.0"
+optional = true
 
 [[example]]
 name = "001_play_sound"
@@ -135,4 +151,16 @@ required-features = ["engine"]
 
 [[example]]
 name = "111_decoder_symphonia"
-required-features = ["engine"]
+required-features = ["engine", "example-symphonia"]
+
+[[example]]
+name = "204_decoder_symphonia"
+required-features = ["example-symphonia"]
+
+[[example]]
+name = "206_custom_backend_sdl2"
+required-features = ["example-sdl2"]
+
+[[example]]
+name = "207_custom_backend_asio"
+required-features = ["example-asio"]

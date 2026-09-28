@@ -5,10 +5,19 @@ use maudio_sys::ffi as sys;
 
 use crate::{
     audio::{channels::MonoExpansionMode, sample_rate::SampleRate},
+    backend::{
+        custom_backend::CustomBackend,
+        custom_context::{ContextStorage, CustomContextUserData},
+        Backend,
+    },
+    context::{Context, ContextBuilder},
     device::{device_id::DeviceId, Device, DeviceInner},
     engine::{
         engine_cb_notif::engine_notification_callback,
-        process_cb::{on_process_callback, EngineProcessCallback, ProcessState},
+        process_cb::{
+            on_process_callback, CustomBackendState, EngineProcessCallback, EngineUserData,
+            ErasedBackendState,
+        },
         resource::{private_rm, ResourceManager},
         Engine,
     },
@@ -21,13 +30,15 @@ pub struct EngineBuilder {
     pub(crate) inner: sys::ma_engine_config,
     pub(crate) playback_device_id: Option<DeviceId>,
     pub(crate) device: Option<Arc<DeviceInner>>, // a ref count, not ownership
+    pub(crate) context: ContextStorage,          // a ref count, not ownership
     pub(crate) log: Option<Arc<LogInner>>,       // a ref count, not ownership
     pub(crate) resource_manager: Option<ResourceManager<f32>>, // a ref count, not ownership
     pub(crate) process_data: EngineProcessCbData,
+    pub(crate) backend_state: Option<ErasedBackendState>,
 }
 
 pub(crate) struct EngineProcessCbData {
-    pub(crate) process_data_ptr: Option<*mut ProcessState>,
+    pub(crate) process_data_ptr: Option<*mut EngineUserData>,
     pub(crate) process_data_panic: Option<Arc<AtomicBool>>,
     pub(crate) state_notif_exists: bool,
     pub(crate) state_notif: Option<DeviceStateNotifier>, // Always set by set_process_notifier. Dropped if state_notif_exists is false
@@ -55,6 +66,7 @@ impl EngineBuilder {
             inner,
             playback_device_id: None,
             device: None,
+            context: ContextStorage::default(),
             log: None,
             resource_manager: None,
             process_data: EngineProcessCbData {
@@ -63,6 +75,7 @@ impl EngineBuilder {
                 state_notif_exists: false,
                 state_notif: None,
             },
+            backend_state: None,
         }
     }
 
@@ -187,8 +200,18 @@ impl EngineBuilder {
     }
 
     fn set_process_notifier(&mut self, f: Option<Box<EngineProcessCallback>>) -> ProcFramesNotif {
+        // Also set the custom device id if a custom context exists
+        if let ContextStorage::Custom(ctx) = self.context {
+            if let Some(device_id) = &self.playback_device_id {
+                let user_data = unsafe { &*ctx }.pUserData;
+                let custom_device_id =
+                    &unsafe { &*user_data.cast::<CustomContextUserData>() }.playback_device_id;
+                *custom_device_id.lock().unwrap() = Some(device_id.clone());
+            }
+        }
+
         let channels = self.inner.channels; // engine is init with 2 channels by default
-        let state = ProcessState::new(channels, f);
+        let state = EngineUserData::new(channels, f, self.backend_state.take());
 
         let proc_notif = state.clone_proc_notif();
         let proc_data_panic = state.clone_panic_flag();
@@ -313,6 +336,72 @@ impl EngineBuilder {
     /// It can be retrieved by calling [`Engine::get_state_notifier()`] after building the `Engine`.
     pub fn state_notifier(&mut self) -> &mut Self {
         self.process_data.state_notif_exists = true;
+        self
+    }
+
+    /// Pass in a custom [`Context`] to the Engine
+    ///
+    /// This is used by the Engine when initializing the Device. If a [`Device`]
+    /// is also passed into the builder, then the Context is ignored.
+    pub fn context(&mut self, context: &Context) -> &mut Self {
+        self.inner.pContext = context.to_raw();
+        self.context = ContextStorage::BuiltIn(context.0.clone());
+        self
+    }
+
+    /// Add a custom backend to the engine
+    ///
+    /// This API will create a custom context for you, with default configuration.
+    ///
+    /// This API takes a context builder, as it must create final configuration
+    /// for the custom backend.
+    ///
+    /// Only one custom backed may be provided at one time, however
+    /// this API allows you to easily change it.
+    ///
+    /// You may also want to provide a list of prefered backends to the context
+    /// builder, or otherwise, the custom backend may not be used.
+    ///
+    /// See [`Backend`] for more information
+    pub fn custom_context<B: CustomBackend>(
+        &mut self,
+        context_builder: &mut ContextBuilder,
+    ) -> &mut Self {
+        // TODO: figure out a way to remove the unwrap
+        let context = context_builder.build_custom_engine::<B>().unwrap();
+        self.inner.pContext = context.to_raw();
+        self.context = ContextStorage::Custom(context.to_raw());
+
+        let erased_state = CustomBackendState::new_erased(&context);
+        self.backend_state = Some(erased_state);
+        self
+    }
+
+    /// Add a custom backend to the engine
+    ///
+    /// This API will create a custom context for you, with default configuration.
+    ///
+    /// Only one custom backed may be provided at one time, however
+    /// this API allows you to easily change it.
+    ///
+    /// While providing the custom backend, you should also provide
+    /// the prefered backends, or otherwise, the custom backend may
+    /// not be used.
+    ///
+    /// See [`Backend`] for more information
+    pub fn custom_backend<B: CustomBackend>(
+        &mut self,
+        prefered_backends: impl IntoIterator<Item = Backend>,
+    ) -> &mut Self {
+        let context = ContextBuilder::new()
+            .preferred_backends(prefered_backends)
+            .build_custom_engine::<B>()
+            .unwrap();
+        self.inner.pContext = context.to_raw();
+        self.context = ContextStorage::Custom(context.to_raw());
+
+        let erased_state = CustomBackendState::new_erased(&context);
+        self.backend_state = Some(erased_state);
         self
     }
 
@@ -513,7 +602,7 @@ mod test {
 
     #[test]
     fn test_engine_builder_with_process_notifier_multiple_builds_no_double_free() -> MaResult<()> {
-        // This targets the `process_notifier: Option<Arc<ProcessState>>` in the builder and the `take()`.
+        // This targets the `process_notifier: Option<Arc<EngineUserData>>` in the builder and the `take()`.
         let mut b = EngineBuilder::new();
 
         let engine1 = b.with_process_notifier()?;

@@ -63,3 +63,83 @@ jobs:
 
       - name: Run tests
         run: cargo test --features "${{ matrix.features }}" --all-targets
+
+      - name: Run Symphonia decoder integration checks
+        run: >
+          cargo run
+          -p maudio-tests
+          --bin symphonia_decoder
+          --features symphonia-decoder
+
+      - name: Run SDL2 backend integration checks
+        if: runner.os == 'Linux'
+        env:
+          RUST_BACKTRACE: "1"
+          SDL_AUDIODRIVER: dummy
+        run: >
+          cargo run
+          -p maudio-tests
+          --bin sdl2_backend
+          --features sdl2-backend
+
+  address-sanitizer:
+    name: AddressSanitizer
+    runs-on: ubuntu-latest
+
+    env:
+      RUSTFLAGS: "-Zsanitizer=address -Cdebuginfo=2 -Cforce-frame-pointers=yes"
+      RUSTDOCFLAGS: "-Zsanitizer=address"
+      CFLAGS: "-g -fsanitize=address -fno-omit-frame-pointer"
+      CXXFLAGS: "-g -fsanitize=address -fno-omit-frame-pointer"
+      ASAN_OPTIONS: "detect_odr_violation=1:detect_leaks=1:halt_on_error=1:symbolize=1:malloc_context_size=30:fast_unwind_on_malloc=0"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install nightly Rust
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rust-src
+
+      - name: Install ASan symbolizer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y llvm
+          echo "ASAN_SYMBOLIZER_PATH=$(command -v llvm-symbolizer)" >> "$GITHUB_ENV"
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run tests with AddressSanitizer
+        run: >
+          cargo test
+          -Zbuild-std
+          --target x86_64-unknown-linux-gnu
+          --features ci-tests
+          --all-targets
+
+      - name: Run Symphonia decoder checks with AddressSanitizer
+        run: >
+          cargo run
+          -Zbuild-std
+          --target x86_64-unknown-linux-gnu
+          -p maudio-tests
+          --bin symphonia_decoder
+          --features symphonia-decoder
+
+      - name: Run SDL2 checks with AddressSanitizer
+        timeout-minutes: 10
+        env:
+          SDL_AUDIODRIVER: dummy
+          RUST_BACKTRACE: "1"
+          CARGO_TARGET_DIR: target/asan-sdl2
+        run: >
+          cargo run
+          -Zbuild-std
+          --target x86_64-unknown-linux-gnu
+          -p maudio-tests
+          --bin sdl2_backend
+          --features sdl2-backend
+          --locked
