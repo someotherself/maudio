@@ -31,7 +31,7 @@ fn write_bindings(out_bindings: &std::path::Path) {
             .blocklist_type("max_align_t");
     } else if target.contains("apple-ios") {
         builder = builder.clang_arg("-x").clang_arg("objective-c");
-    } else {
+    } else if !target.contains("msvc") {
         builder = builder.clang_arg("-std=c99"); // stb_vorbis is c99
     }
 
