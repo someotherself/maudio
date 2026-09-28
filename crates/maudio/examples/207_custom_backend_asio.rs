@@ -11,9 +11,7 @@ use maudio::{
     },
     context::{ContextBuilder, ContextOps, EnumerateControl},
     device::{
-        custom_device::BackendDeviceHandle,
-        device_id::DeviceId,
-        device_info::DeviceInfoBuilder,
+        custom_device::BackendDeviceHandle, device_id::DeviceId, device_info::DeviceInfoBuilder,
         device_type::DeviceType,
     },
     engine::engine_builder::EngineBuilder,
