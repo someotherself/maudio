@@ -285,6 +285,8 @@ pub trait ContextOps: AsContextPtr {
     /// Returns whether the active backend configuration supports loopback devices.
     ///
     /// Loopback support is backend and platform specific.
+    ///
+    /// Always returns false for a custom backend
     fn is_loopback_supported(&self) -> bool {
         context_ffi::ma_context_is_loopback_supported(self)
     }
