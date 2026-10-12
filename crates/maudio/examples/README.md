@@ -42,3 +42,5 @@ If you already cloned it without submodules, run:
 - 203_device_record           - Record a 3 second sound and then play it back
 - 204_decoder_symphonia       - Custom decoder implementation using symphonia
 - 205_res_man                 - Use a resource manager to pass sounds to an engine in another thread
+- 206_custom_backend_sdl2     - Custom backend implementation for sdl2
+- 207_custom_backend_asio     - Custom backend implementation for asio
