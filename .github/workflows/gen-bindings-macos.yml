@@ -69,7 +69,7 @@ jobs:
 
       - name: Generate bindings
         env:
-          CARGO_TARGET_DIR: target/bindgen-${{ matrix.target }}
+          CARGO_TARGET_DIR: target/${{ matrix.target }}
         run: |
           cargo build \
             -p maudio-sys \

@@ -37,7 +37,7 @@ jobs:
       - name: Generate bindings
         shell: pwsh
         env:
-          CARGO_TARGET_DIR: target/bindgen-aarch64-pc-windows-msvc
+          CARGO_TARGET_DIR: target/aarch64-pc-windows-msvc
         run: |
           $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
 
