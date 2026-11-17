@@ -14,7 +14,7 @@ jobs:
 
     env:
       TARGET: x86_64-unknown-linux-gnu
-      CARGO_TARGET_DIR: target/x86_64-unknown-linux-gnu
+      CARGO_TARGET_DIR: target
 
     steps:
       - name: Check out repository
