@@ -69,7 +69,7 @@ jobs:
 
       - name: Generate bindings
         env:
-          CARGO_TARGET_DIR: target/${{ matrix.target }}
+          CARGO_TARGET_DIR: target/bindgen-${{ matrix.target }}
         run: |
           cargo build \
             -p maudio-sys \
@@ -80,7 +80,7 @@ jobs:
         run: |
           binding_file="$(
             find "target/bindgen-${{ matrix.target }}" \
-              -path "*/build/maudio-sys-*/out/bindings.rs" \
+              -path "*/build/maudio-sys/*/out/bindings.rs" \
               -print \
               -quit
           )"

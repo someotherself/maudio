@@ -14,7 +14,7 @@ jobs:
 
     env:
       TARGET: x86_64-unknown-linux-gnu
-      CARGO_TARGET_DIR: target
+      CARGO_TARGET_DIR: target/bindgen-x86_64-unknown-linux-gnu
 
     steps:
       - name: Check out repository
@@ -51,7 +51,7 @@ jobs:
 
       - name: Generate bindings
         run: |
-          cargo build -vv \
+          cargo build \
             -p maudio-sys \
             --target "$TARGET" \
             --features generate-bindings
