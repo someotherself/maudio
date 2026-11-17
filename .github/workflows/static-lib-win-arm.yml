@@ -7,7 +7,7 @@ permissions:
   contents: read
 
 env:
-  MINIAUDIO_VERSION: 0.11.23
+  MINIAUDIO_VERSION: 0.11.26
   TARGET: aarch64-pc-windows-msvc
   SOURCE_FILE: crates/maudio-sys/native/miniaudio.c
 
