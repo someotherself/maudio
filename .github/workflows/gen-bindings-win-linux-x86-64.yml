@@ -51,7 +51,7 @@ jobs:
 
       - name: Generate bindings
         run: |
-          cargo build \
+          cargo build -vv \
             -p maudio-sys \
             --target "$TARGET" \
             --features generate-bindings
