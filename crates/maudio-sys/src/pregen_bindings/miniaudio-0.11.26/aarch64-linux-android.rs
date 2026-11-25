@@ -12,87 +12,515 @@ impl<T: Copy + Default, const N: usize> Default for __BindgenOpaqueArray<T, N> {
 }
 pub const MA_VERSION_MAJOR: u32 = 0;
 pub const MA_VERSION_MINOR: u32 = 11;
-pub const MA_VERSION_REVISION: u32 = 23;
+pub const MA_VERSION_REVISION: u32 = 26;
 pub const MA_SIZEOF_PTR: u32 = 8;
 pub const MA_TRUE: u32 = 1;
 pub const MA_FALSE: u32 = 0;
 pub const MA_SIZE_MAX: u32 = 4294967295;
-pub const _PTHREAD_H: u32 = 1;
-pub const _FEATURES_H: u32 = 1;
-pub const __GLIBC_USE_ISOC2X: u32 = 0;
-pub const __USE_ISOC99: u32 = 1;
-pub const __USE_ISOC95: u32 = 1;
+pub const __BIONIC__: u32 = 1;
 pub const __WORDSIZE: u32 = 64;
-pub const __WORDSIZE_TIME64_COMPAT32: u32 = 0;
-pub const __TIMESIZE: u32 = 64;
-pub const __USE_FORTIFY_LEVEL: u32 = 0;
-pub const __GLIBC_USE_DEPRECATED_GETS: u32 = 1;
-pub const __GLIBC_USE_DEPRECATED_SCANF: u32 = 0;
-pub const __GLIBC_USE_C2X_STRTOL: u32 = 0;
-pub const _STDC_PREDEF_H: u32 = 1;
-pub const __STDC_IEC_559__: u32 = 1;
-pub const __STDC_IEC_60559_BFP__: u32 = 201404;
-pub const __STDC_IEC_559_COMPLEX__: u32 = 1;
-pub const __STDC_IEC_60559_COMPLEX__: u32 = 201404;
-pub const __STDC_ISO_10646__: u32 = 201706;
-pub const __GNU_LIBRARY__: u32 = 6;
-pub const __GLIBC__: u32 = 2;
-pub const __GLIBC_MINOR__: u32 = 39;
-pub const _SYS_CDEFS_H: u32 = 1;
-pub const __glibc_c99_flexarr_available: u32 = 1;
-pub const __LDOUBLE_REDIRECTS_TO_FLOAT128_ABI: u32 = 0;
-pub const __HAVE_GENERIC_SELECTION: u32 = 1;
-pub const _SCHED_H: u32 = 1;
-pub const _BITS_TYPES_H: u32 = 1;
-pub const _BITS_TYPESIZES_H: u32 = 1;
-pub const __OFF_T_MATCHES_OFF64_T: u32 = 1;
-pub const __INO_T_MATCHES_INO64_T: u32 = 1;
-pub const __RLIM_T_MATCHES_RLIM64_T: u32 = 1;
-pub const __STATFS_MATCHES_STATFS64: u32 = 1;
+pub const __bos_level: u32 = 0;
+pub const __ANDROID_API_FUTURE__: u32 = 10000;
+pub const __ANDROID_API__: u32 = 10000;
+pub const __ANDROID_API_G__: u32 = 9;
+pub const __ANDROID_API_I__: u32 = 14;
+pub const __ANDROID_API_J__: u32 = 16;
+pub const __ANDROID_API_J_MR1__: u32 = 17;
+pub const __ANDROID_API_J_MR2__: u32 = 18;
+pub const __ANDROID_API_K__: u32 = 19;
+pub const __ANDROID_API_L__: u32 = 21;
+pub const __ANDROID_API_L_MR1__: u32 = 22;
+pub const __ANDROID_API_M__: u32 = 23;
+pub const __ANDROID_API_N__: u32 = 24;
+pub const __ANDROID_API_N_MR1__: u32 = 25;
+pub const __ANDROID_API_O__: u32 = 26;
+pub const __ANDROID_API_O_MR1__: u32 = 27;
+pub const __ANDROID_API_P__: u32 = 28;
+pub const __ANDROID_API_Q__: u32 = 29;
+pub const __ANDROID_API_R__: u32 = 30;
+pub const __ANDROID_API_S__: u32 = 31;
+pub const __ANDROID_API_T__: u32 = 33;
+pub const __ANDROID_API_U__: u32 = 34;
+pub const __ANDROID_API_V__: u32 = 35;
+pub const __ANDROID_NDK__: u32 = 1;
+pub const __NDK_MAJOR__: u32 = 27;
+pub const __NDK_MINOR__: u32 = 2;
+pub const __NDK_BETA__: u32 = 0;
+pub const __NDK_BUILD__: u32 = 12479018;
+pub const __NDK_CANARY__: u32 = 0;
+pub const NR_OPEN: u32 = 1024;
+pub const NGROUPS_MAX: u32 = 65536;
+pub const ARG_MAX: u32 = 131072;
+pub const LINK_MAX: u32 = 127;
+pub const MAX_CANON: u32 = 255;
+pub const MAX_INPUT: u32 = 255;
+pub const NAME_MAX: u32 = 255;
+pub const PATH_MAX: u32 = 4096;
+pub const PIPE_BUF: u32 = 4096;
+pub const XATTR_NAME_MAX: u32 = 255;
+pub const XATTR_SIZE_MAX: u32 = 65536;
+pub const XATTR_LIST_MAX: u32 = 65536;
+pub const RTSIG_MAX: u32 = 32;
+pub const PASS_MAX: u32 = 128;
+pub const NL_ARGMAX: u32 = 9;
+pub const NL_LANGMAX: u32 = 14;
+pub const NL_MSGMAX: u32 = 32767;
+pub const NL_NMAX: u32 = 1;
+pub const NL_SETMAX: u32 = 255;
+pub const NL_TEXTMAX: u32 = 255;
+pub const TMP_MAX: u32 = 308915776;
+pub const CHAR_BIT: u32 = 8;
+pub const LONG_BIT: u32 = 64;
+pub const WORD_BIT: u32 = 32;
+pub const SCHAR_MAX: u32 = 127;
+pub const SCHAR_MIN: i32 = -128;
+pub const UCHAR_MAX: u32 = 255;
+pub const CHAR_MIN: u32 = 0;
+pub const CHAR_MAX: u32 = 255;
+pub const USHRT_MAX: u32 = 65535;
+pub const SHRT_MAX: u32 = 32767;
+pub const SHRT_MIN: i32 = -32768;
+pub const UINT_MAX: u32 = 4294967295;
+pub const INT_MAX: u32 = 2147483647;
+pub const INT_MIN: i32 = -2147483648;
+pub const ULONG_MAX: i32 = -1;
+pub const LONG_MAX: u64 = 9223372036854775807;
+pub const LONG_MIN: i64 = -9223372036854775808;
+pub const ULLONG_MAX: i32 = -1;
+pub const LLONG_MAX: u64 = 9223372036854775807;
+pub const LLONG_MIN: i64 = -9223372036854775808;
+pub const LONG_LONG_MIN: i64 = -9223372036854775808;
+pub const LONG_LONG_MAX: u64 = 9223372036854775807;
+pub const ULONG_LONG_MAX: i32 = -1;
+pub const UID_MAX: u32 = 4294967295;
+pub const GID_MAX: u32 = 4294967295;
+pub const SIZE_T_MAX: i32 = -1;
+pub const SSIZE_MAX: u64 = 9223372036854775807;
+pub const MB_LEN_MAX: u32 = 4;
+pub const NZERO: u32 = 20;
+pub const IOV_MAX: u32 = 1024;
+pub const SEM_VALUE_MAX: u32 = 1073741823;
+pub const _POSIX_VERSION: u32 = 200809;
+pub const _POSIX2_VERSION: u32 = 200809;
+pub const _XOPEN_VERSION: u32 = 700;
+pub const __BIONIC_POSIX_FEATURE_MISSING: i32 = -1;
+pub const _POSIX_ASYNCHRONOUS_IO: i32 = -1;
+pub const _POSIX_CHOWN_RESTRICTED: u32 = 1;
+pub const _POSIX_CPUTIME: u32 = 200809;
+pub const _POSIX_FSYNC: u32 = 200809;
+pub const _POSIX_IPV6: u32 = 200809;
+pub const _POSIX_MAPPED_FILES: u32 = 200809;
+pub const _POSIX_MEMLOCK_RANGE: u32 = 200809;
+pub const _POSIX_MEMORY_PROTECTION: u32 = 200809;
+pub const _POSIX_MESSAGE_PASSING: i32 = -1;
+pub const _POSIX_MONOTONIC_CLOCK: u32 = 200809;
+pub const _POSIX_NO_TRUNC: u32 = 1;
+pub const _POSIX_PRIORITIZED_IO: i32 = -1;
+pub const _POSIX_PRIORITY_SCHEDULING: u32 = 200809;
+pub const _POSIX_RAW_SOCKETS: u32 = 200809;
+pub const _POSIX_READER_WRITER_LOCKS: u32 = 200809;
+pub const _POSIX_REGEXP: u32 = 1;
+pub const _POSIX_SAVED_IDS: u32 = 1;
+pub const _POSIX_SEMAPHORES: u32 = 200809;
+pub const _POSIX_SHARED_MEMORY_OBJECTS: i32 = -1;
+pub const _POSIX_SHELL: u32 = 1;
+pub const _POSIX_SPORADIC_SERVER: i32 = -1;
+pub const _POSIX_SYNCHRONIZED_IO: u32 = 200809;
+pub const _POSIX_THREAD_ATTR_STACKADDR: u32 = 200809;
+pub const _POSIX_THREAD_ATTR_STACKSIZE: u32 = 200809;
+pub const _POSIX_THREAD_CPUTIME: u32 = 200809;
+pub const _POSIX_THREAD_PRIO_INHERIT: i32 = -1;
+pub const _POSIX_THREAD_PRIO_PROTECT: i32 = -1;
+pub const _POSIX_THREAD_PRIORITY_SCHEDULING: u32 = 200809;
+pub const _POSIX_THREAD_PROCESS_SHARED: u32 = 200809;
+pub const _POSIX_THREAD_ROBUST_PRIO_INHERIT: i32 = -1;
+pub const _POSIX_THREAD_ROBUST_PRIO_PROTECT: i32 = -1;
+pub const _POSIX_THREAD_SAFE_FUNCTIONS: u32 = 200809;
+pub const _POSIX_THREAD_SPORADIC_SERVER: i32 = -1;
+pub const _POSIX_THREADS: u32 = 200809;
+pub const _POSIX_TIMERS: u32 = 200809;
+pub const _POSIX_TRACE: i32 = -1;
+pub const _POSIX_TRACE_EVENT_FILTER: i32 = -1;
+pub const _POSIX_TRACE_INHERIT: i32 = -1;
+pub const _POSIX_TRACE_LOG: i32 = -1;
+pub const _POSIX_TYPED_MEMORY_OBJECTS: i32 = -1;
+pub const _POSIX_VDISABLE: u8 = 0u8;
+pub const _POSIX2_C_BIND: u32 = 200809;
+pub const _POSIX2_C_DEV: i32 = -1;
+pub const _POSIX2_CHAR_TERM: u32 = 200809;
+pub const _POSIX2_FORT_DEV: i32 = -1;
+pub const _POSIX2_FORT_RUN: i32 = -1;
+pub const _POSIX2_LOCALEDEF: i32 = -1;
+pub const _POSIX2_SW_DEV: i32 = -1;
+pub const _POSIX2_UPE: i32 = -1;
+pub const _POSIX_V7_ILP32_OFF32: i32 = -1;
+pub const _POSIX_V7_ILP32_OFFBIG: i32 = -1;
+pub const _POSIX_V7_LP64_OFF64: u32 = 1;
+pub const _POSIX_V7_LPBIG_OFFBIG: u32 = 1;
+pub const _XOPEN_CRYPT: i32 = -1;
+pub const _XOPEN_ENH_I18N: u32 = 1;
+pub const _XOPEN_LEGACY: i32 = -1;
+pub const _XOPEN_REALTIME: u32 = 1;
+pub const _XOPEN_REALTIME_THREADS: u32 = 1;
+pub const _XOPEN_SHM: u32 = 1;
+pub const _XOPEN_STREAMS: i32 = -1;
+pub const _XOPEN_UNIX: u32 = 1;
+pub const _POSIX_AIO_LISTIO_MAX: u32 = 2;
+pub const _POSIX_AIO_MAX: u32 = 1;
+pub const _POSIX_ARG_MAX: u32 = 4096;
+pub const _POSIX_CHILD_MAX: u32 = 25;
+pub const _POSIX_CLOCKRES_MIN: u32 = 20000000;
+pub const _POSIX_DELAYTIMER_MAX: u32 = 32;
+pub const _POSIX_HOST_NAME_MAX: u32 = 255;
+pub const _POSIX_LINK_MAX: u32 = 8;
+pub const _POSIX_LOGIN_NAME_MAX: u32 = 9;
+pub const _POSIX_MAX_CANON: u32 = 255;
+pub const _POSIX_MAX_INPUT: u32 = 255;
+pub const _POSIX_MQ_OPEN_MAX: u32 = 8;
+pub const _POSIX_MQ_PRIO_MAX: u32 = 32;
+pub const _POSIX_NAME_MAX: u32 = 14;
+pub const _POSIX_NGROUPS_MAX: u32 = 8;
+pub const _POSIX_OPEN_MAX: u32 = 20;
+pub const _POSIX_PATH_MAX: u32 = 256;
+pub const _POSIX_PIPE_BUF: u32 = 512;
+pub const _POSIX_RE_DUP_MAX: u32 = 255;
+pub const _POSIX_RTSIG_MAX: u32 = 8;
+pub const _POSIX_SEM_NSEMS_MAX: u32 = 256;
+pub const _POSIX_SEM_VALUE_MAX: u32 = 32767;
+pub const _POSIX_SIGQUEUE_MAX: u32 = 32;
+pub const _POSIX_SSIZE_MAX: u32 = 32767;
+pub const _POSIX_STREAM_MAX: u32 = 8;
+pub const _POSIX_SS_REPL_MAX: u32 = 4;
+pub const _POSIX_SYMLINK_MAX: u32 = 255;
+pub const _POSIX_SYMLOOP_MAX: u32 = 8;
+pub const _POSIX_THREAD_DESTRUCTOR_ITERATIONS: u32 = 4;
+pub const _POSIX_THREAD_KEYS_MAX: u32 = 128;
+pub const _POSIX_THREAD_THREADS_MAX: u32 = 64;
+pub const _POSIX_TIMER_MAX: u32 = 32;
+pub const _POSIX_TRACE_EVENT_NAME_MAX: u32 = 30;
+pub const _POSIX_TRACE_NAME_MAX: u32 = 8;
+pub const _POSIX_TRACE_SYS_MAX: u32 = 8;
+pub const _POSIX_TRACE_USER_EVENT_MAX: u32 = 32;
+pub const _POSIX_TTY_NAME_MAX: u32 = 9;
+pub const _POSIX_TZNAME_MAX: u32 = 6;
+pub const _POSIX2_BC_BASE_MAX: u32 = 99;
+pub const _POSIX2_BC_DIM_MAX: u32 = 2048;
+pub const _POSIX2_BC_SCALE_MAX: u32 = 99;
+pub const _POSIX2_BC_STRING_MAX: u32 = 1000;
+pub const _POSIX2_CHARCLASS_NAME_MAX: u32 = 14;
+pub const _POSIX2_COLL_WEIGHTS_MAX: u32 = 2;
+pub const _POSIX2_EXPR_NEST_MAX: u32 = 32;
+pub const _POSIX2_LINE_MAX: u32 = 2048;
+pub const _POSIX2_RE_DUP_MAX: u32 = 255;
+pub const _XOPEN_IOV_MAX: u32 = 16;
+pub const _XOPEN_NAME_MAX: u32 = 255;
+pub const _XOPEN_PATH_MAX: u32 = 1024;
+pub const HOST_NAME_MAX: u32 = 255;
+pub const LOGIN_NAME_MAX: u32 = 256;
+pub const TTY_NAME_MAX: u32 = 32;
+pub const PTHREAD_DESTRUCTOR_ITERATIONS: u32 = 4;
+pub const PTHREAD_KEYS_MAX: u32 = 128;
+pub const PAGE_SIZE: u32 = 4096;
+pub const PAGE_MASK: i32 = -4096;
+pub const WCHAR_MIN: u8 = 0u8;
+pub const INT8_MIN: i32 = -128;
+pub const INT8_MAX: u32 = 127;
+pub const INT_LEAST8_MIN: i32 = -128;
+pub const INT_LEAST8_MAX: u32 = 127;
+pub const INT_FAST8_MIN: i32 = -128;
+pub const INT_FAST8_MAX: u32 = 127;
+pub const UINT8_MAX: u32 = 255;
+pub const UINT_LEAST8_MAX: u32 = 255;
+pub const UINT_FAST8_MAX: u32 = 255;
+pub const INT16_MIN: i32 = -32768;
+pub const INT16_MAX: u32 = 32767;
+pub const INT_LEAST16_MIN: i32 = -32768;
+pub const INT_LEAST16_MAX: u32 = 32767;
+pub const UINT16_MAX: u32 = 65535;
+pub const UINT_LEAST16_MAX: u32 = 65535;
+pub const INT32_MIN: i32 = -2147483648;
+pub const INT32_MAX: u32 = 2147483647;
+pub const INT_LEAST32_MIN: i32 = -2147483648;
+pub const INT_LEAST32_MAX: u32 = 2147483647;
+pub const INT_FAST32_MIN: i32 = -2147483648;
+pub const INT_FAST32_MAX: u32 = 2147483647;
+pub const UINT32_MAX: u32 = 4294967295;
+pub const UINT_LEAST32_MAX: u32 = 4294967295;
+pub const UINT_FAST32_MAX: u32 = 4294967295;
+pub const SIG_ATOMIC_MAX: u32 = 2147483647;
+pub const SIG_ATOMIC_MIN: i32 = -2147483648;
+pub const WINT_MAX: u32 = 4294967295;
+pub const WINT_MIN: u32 = 0;
+pub const __BITS_PER_LONG: u32 = 64;
 pub const __FD_SETSIZE: u32 = 1024;
-pub const _BITS_TIME64_H: u32 = 1;
-pub const __time_t_defined: u32 = 1;
-pub const _STRUCT_TIMESPEC: u32 = 1;
-pub const _BITS_ENDIAN_H: u32 = 1;
-pub const __LITTLE_ENDIAN: u32 = 1234;
-pub const __BIG_ENDIAN: u32 = 4321;
-pub const __PDP_ENDIAN: u32 = 3412;
-pub const _BITS_ENDIANNESS_H: u32 = 1;
-pub const __BYTE_ORDER: u32 = 1234;
-pub const __FLOAT_WORD_ORDER: u32 = 1234;
-pub const _TIME_H: u32 = 1;
-pub const _BITS_TIME_H: u32 = 1;
-pub const __clock_t_defined: u32 = 1;
-pub const __struct_tm_defined: u32 = 1;
-pub const _BITS_SCHED_H: u32 = 1;
-pub const SCHED_OTHER: u32 = 0;
+pub const CSIGNAL: u32 = 255;
+pub const CLONE_VM: u32 = 256;
+pub const CLONE_FS: u32 = 512;
+pub const CLONE_FILES: u32 = 1024;
+pub const CLONE_SIGHAND: u32 = 2048;
+pub const CLONE_PIDFD: u32 = 4096;
+pub const CLONE_PTRACE: u32 = 8192;
+pub const CLONE_VFORK: u32 = 16384;
+pub const CLONE_PARENT: u32 = 32768;
+pub const CLONE_THREAD: u32 = 65536;
+pub const CLONE_NEWNS: u32 = 131072;
+pub const CLONE_SYSVSEM: u32 = 262144;
+pub const CLONE_SETTLS: u32 = 524288;
+pub const CLONE_PARENT_SETTID: u32 = 1048576;
+pub const CLONE_CHILD_CLEARTID: u32 = 2097152;
+pub const CLONE_DETACHED: u32 = 4194304;
+pub const CLONE_UNTRACED: u32 = 8388608;
+pub const CLONE_CHILD_SETTID: u32 = 16777216;
+pub const CLONE_NEWCGROUP: u32 = 33554432;
+pub const CLONE_NEWUTS: u32 = 67108864;
+pub const CLONE_NEWIPC: u32 = 134217728;
+pub const CLONE_NEWUSER: u32 = 268435456;
+pub const CLONE_NEWPID: u32 = 536870912;
+pub const CLONE_NEWNET: u32 = 1073741824;
+pub const CLONE_IO: u32 = 2147483648;
+pub const CLONE_CLEAR_SIGHAND: u64 = 4294967296;
+pub const CLONE_INTO_CGROUP: u64 = 8589934592;
+pub const CLONE_NEWTIME: u32 = 128;
+pub const CLONE_ARGS_SIZE_VER0: u32 = 64;
+pub const CLONE_ARGS_SIZE_VER1: u32 = 80;
+pub const CLONE_ARGS_SIZE_VER2: u32 = 88;
+pub const SCHED_NORMAL: u32 = 0;
 pub const SCHED_FIFO: u32 = 1;
 pub const SCHED_RR: u32 = 2;
-pub const _BITS_TYPES_STRUCT_SCHED_PARAM: u32 = 1;
-pub const _BITS_CPU_SET_H: u32 = 1;
-pub const __CPU_SETSIZE: u32 = 1024;
-pub const _BITS_PTHREADTYPES_COMMON_H: u32 = 1;
-pub const _THREAD_SHARED_TYPES_H: u32 = 1;
-pub const _BITS_PTHREADTYPES_ARCH_H: u32 = 1;
-pub const __SIZEOF_PTHREAD_ATTR_T: u32 = 64;
-pub const __SIZEOF_PTHREAD_MUTEX_T: u32 = 48;
-pub const __SIZEOF_PTHREAD_MUTEXATTR_T: u32 = 8;
-pub const __SIZEOF_PTHREAD_CONDATTR_T: u32 = 8;
-pub const __SIZEOF_PTHREAD_RWLOCK_T: u32 = 56;
-pub const __SIZEOF_PTHREAD_BARRIER_T: u32 = 32;
-pub const __SIZEOF_PTHREAD_BARRIERATTR_T: u32 = 8;
-pub const __SIZEOF_PTHREAD_COND_T: u32 = 48;
-pub const __SIZEOF_PTHREAD_RWLOCKATTR_T: u32 = 8;
-pub const _THREAD_MUTEX_INTERNAL_H: u32 = 1;
-pub const __PTHREAD_MUTEX_HAVE_PREV: u32 = 1;
-pub const __have_pthread_attr_t: u32 = 1;
-pub const _BITS_SETJMP_H: u32 = 1;
-pub const __jmp_buf_tag_defined: u32 = 1;
+pub const SCHED_BATCH: u32 = 3;
+pub const SCHED_IDLE: u32 = 5;
+pub const SCHED_DEADLINE: u32 = 6;
+pub const SCHED_RESET_ON_FORK: u32 = 1073741824;
+pub const SCHED_FLAG_RESET_ON_FORK: u32 = 1;
+pub const SCHED_FLAG_RECLAIM: u32 = 2;
+pub const SCHED_FLAG_DL_OVERRUN: u32 = 4;
+pub const SCHED_FLAG_KEEP_POLICY: u32 = 8;
+pub const SCHED_FLAG_KEEP_PARAMS: u32 = 16;
+pub const SCHED_FLAG_UTIL_CLAMP_MIN: u32 = 32;
+pub const SCHED_FLAG_UTIL_CLAMP_MAX: u32 = 64;
+pub const SCHED_FLAG_KEEP_ALL: u32 = 24;
+pub const SCHED_FLAG_UTIL_CLAMP: u32 = 96;
+pub const SCHED_FLAG_ALL: u32 = 127;
+pub const SCHED_OTHER: u32 = 0;
+pub const ITIMER_REAL: u32 = 0;
+pub const ITIMER_VIRTUAL: u32 = 1;
+pub const ITIMER_PROF: u32 = 2;
+pub const CLOCK_REALTIME: u32 = 0;
+pub const CLOCK_MONOTONIC: u32 = 1;
+pub const CLOCK_PROCESS_CPUTIME_ID: u32 = 2;
+pub const CLOCK_THREAD_CPUTIME_ID: u32 = 3;
+pub const CLOCK_MONOTONIC_RAW: u32 = 4;
+pub const CLOCK_REALTIME_COARSE: u32 = 5;
+pub const CLOCK_MONOTONIC_COARSE: u32 = 6;
+pub const CLOCK_BOOTTIME: u32 = 7;
+pub const CLOCK_REALTIME_ALARM: u32 = 8;
+pub const CLOCK_BOOTTIME_ALARM: u32 = 9;
+pub const CLOCK_SGI_CYCLE: u32 = 10;
+pub const CLOCK_TAI: u32 = 11;
+pub const MAX_CLOCKS: u32 = 16;
+pub const CLOCKS_MASK: u32 = 1;
+pub const CLOCKS_MONO: u32 = 1;
+pub const TIMER_ABSTIME: u32 = 1;
+pub const FPSIMD_MAGIC: u32 = 1179680769;
+pub const ESR_MAGIC: u32 = 1163088385;
+pub const EXTRA_MAGIC: u32 = 1163416577;
+pub const SVE_MAGIC: u32 = 1398162689;
+pub const SVE_SIG_FLAG_SM: u32 = 1;
+pub const TPIDR2_MAGIC: u32 = 1414547714;
+pub const ZA_MAGIC: u32 = 1412850501;
+pub const ZT_MAGIC: u32 = 1515474433;
+pub const __SVE_VQ_BYTES: u32 = 16;
+pub const __SVE_VQ_MIN: u32 = 1;
+pub const __SVE_VQ_MAX: u32 = 512;
+pub const __SVE_VL_MIN: u32 = 16;
+pub const __SVE_VL_MAX: u32 = 8192;
+pub const __SVE_NUM_ZREGS: u32 = 32;
+pub const __SVE_NUM_PREGS: u32 = 16;
+pub const __SVE_ZREGS_OFFSET: u32 = 0;
+pub const SVE_VQ_BYTES: u32 = 16;
+pub const SVE_VQ_MIN: u32 = 1;
+pub const SVE_VQ_MAX: u32 = 512;
+pub const SVE_VL_MIN: u32 = 16;
+pub const SVE_VL_MAX: u32 = 8192;
+pub const SVE_NUM_ZREGS: u32 = 32;
+pub const SVE_NUM_PREGS: u32 = 16;
+pub const ZT_SIG_REG_SIZE: u32 = 512;
+pub const ZT_SIG_REG_BYTES: u32 = 64;
+pub const SA_RESTORER: u32 = 67108864;
+pub const MINSIGSTKSZ: u32 = 5120;
+pub const SIGSTKSZ: u32 = 16384;
+pub const _KERNEL__NSIG: u32 = 64;
+pub const _NSIG_BPW: u32 = 64;
+pub const _NSIG_WORDS: u32 = 1;
+pub const SIGHUP: u32 = 1;
+pub const SIGINT: u32 = 2;
+pub const SIGQUIT: u32 = 3;
+pub const SIGILL: u32 = 4;
+pub const SIGTRAP: u32 = 5;
+pub const SIGABRT: u32 = 6;
+pub const SIGIOT: u32 = 6;
+pub const SIGBUS: u32 = 7;
+pub const SIGFPE: u32 = 8;
+pub const SIGKILL: u32 = 9;
+pub const SIGUSR1: u32 = 10;
+pub const SIGSEGV: u32 = 11;
+pub const SIGUSR2: u32 = 12;
+pub const SIGPIPE: u32 = 13;
+pub const SIGALRM: u32 = 14;
+pub const SIGTERM: u32 = 15;
+pub const SIGSTKFLT: u32 = 16;
+pub const SIGCHLD: u32 = 17;
+pub const SIGCONT: u32 = 18;
+pub const SIGSTOP: u32 = 19;
+pub const SIGTSTP: u32 = 20;
+pub const SIGTTIN: u32 = 21;
+pub const SIGTTOU: u32 = 22;
+pub const SIGURG: u32 = 23;
+pub const SIGXCPU: u32 = 24;
+pub const SIGXFSZ: u32 = 25;
+pub const SIGVTALRM: u32 = 26;
+pub const SIGPROF: u32 = 27;
+pub const SIGWINCH: u32 = 28;
+pub const SIGIO: u32 = 29;
+pub const SIGPOLL: u32 = 29;
+pub const SIGPWR: u32 = 30;
+pub const SIGSYS: u32 = 31;
+pub const SIGUNUSED: u32 = 31;
+pub const __SIGRTMIN: u32 = 32;
+pub const __SIGRTMAX: u32 = 64;
+pub const SA_NOCLDSTOP: u32 = 1;
+pub const SA_NOCLDWAIT: u32 = 2;
+pub const SA_SIGINFO: u32 = 4;
+pub const SA_UNSUPPORTED: u32 = 1024;
+pub const SA_EXPOSE_TAGBITS: u32 = 2048;
+pub const SA_ONSTACK: u32 = 134217728;
+pub const SA_RESTART: u32 = 268435456;
+pub const SA_NODEFER: u32 = 1073741824;
+pub const SA_RESETHAND: u32 = 2147483648;
+pub const SA_NOMASK: u32 = 1073741824;
+pub const SA_ONESHOT: u32 = 2147483648;
+pub const SIG_BLOCK: u32 = 0;
+pub const SIG_UNBLOCK: u32 = 1;
+pub const SIG_SETMASK: u32 = 2;
+pub const SI_MAX_SIZE: u32 = 128;
+pub const SI_USER: u32 = 0;
+pub const SI_KERNEL: u32 = 128;
+pub const SI_QUEUE: i32 = -1;
+pub const SI_TIMER: i32 = -2;
+pub const SI_MESGQ: i32 = -3;
+pub const SI_ASYNCIO: i32 = -4;
+pub const SI_SIGIO: i32 = -5;
+pub const SI_TKILL: i32 = -6;
+pub const SI_DETHREAD: i32 = -7;
+pub const SI_ASYNCNL: i32 = -60;
+pub const ILL_ILLOPC: u32 = 1;
+pub const ILL_ILLOPN: u32 = 2;
+pub const ILL_ILLADR: u32 = 3;
+pub const ILL_ILLTRP: u32 = 4;
+pub const ILL_PRVOPC: u32 = 5;
+pub const ILL_PRVREG: u32 = 6;
+pub const ILL_COPROC: u32 = 7;
+pub const ILL_BADSTK: u32 = 8;
+pub const ILL_BADIADDR: u32 = 9;
+pub const __ILL_BREAK: u32 = 10;
+pub const __ILL_BNDMOD: u32 = 11;
+pub const NSIGILL: u32 = 11;
+pub const FPE_INTDIV: u32 = 1;
+pub const FPE_INTOVF: u32 = 2;
+pub const FPE_FLTDIV: u32 = 3;
+pub const FPE_FLTOVF: u32 = 4;
+pub const FPE_FLTUND: u32 = 5;
+pub const FPE_FLTRES: u32 = 6;
+pub const FPE_FLTINV: u32 = 7;
+pub const FPE_FLTSUB: u32 = 8;
+pub const __FPE_DECOVF: u32 = 9;
+pub const __FPE_DECDIV: u32 = 10;
+pub const __FPE_DECERR: u32 = 11;
+pub const __FPE_INVASC: u32 = 12;
+pub const __FPE_INVDEC: u32 = 13;
+pub const FPE_FLTUNK: u32 = 14;
+pub const FPE_CONDTRAP: u32 = 15;
+pub const NSIGFPE: u32 = 15;
+pub const SEGV_MAPERR: u32 = 1;
+pub const SEGV_ACCERR: u32 = 2;
+pub const SEGV_BNDERR: u32 = 3;
+pub const SEGV_PKUERR: u32 = 4;
+pub const SEGV_ACCADI: u32 = 5;
+pub const SEGV_ADIDERR: u32 = 6;
+pub const SEGV_ADIPERR: u32 = 7;
+pub const SEGV_MTEAERR: u32 = 8;
+pub const SEGV_MTESERR: u32 = 9;
+pub const SEGV_CPERR: u32 = 10;
+pub const NSIGSEGV: u32 = 10;
+pub const BUS_ADRALN: u32 = 1;
+pub const BUS_ADRERR: u32 = 2;
+pub const BUS_OBJERR: u32 = 3;
+pub const BUS_MCEERR_AR: u32 = 4;
+pub const BUS_MCEERR_AO: u32 = 5;
+pub const NSIGBUS: u32 = 5;
+pub const TRAP_BRKPT: u32 = 1;
+pub const TRAP_TRACE: u32 = 2;
+pub const TRAP_BRANCH: u32 = 3;
+pub const TRAP_HWBKPT: u32 = 4;
+pub const TRAP_UNK: u32 = 5;
+pub const TRAP_PERF: u32 = 6;
+pub const NSIGTRAP: u32 = 6;
+pub const TRAP_PERF_FLAG_ASYNC: u32 = 1;
+pub const CLD_EXITED: u32 = 1;
+pub const CLD_KILLED: u32 = 2;
+pub const CLD_DUMPED: u32 = 3;
+pub const CLD_TRAPPED: u32 = 4;
+pub const CLD_STOPPED: u32 = 5;
+pub const CLD_CONTINUED: u32 = 6;
+pub const NSIGCHLD: u32 = 6;
+pub const POLL_IN: u32 = 1;
+pub const POLL_OUT: u32 = 2;
+pub const POLL_MSG: u32 = 3;
+pub const POLL_ERR: u32 = 4;
+pub const POLL_PRI: u32 = 5;
+pub const POLL_HUP: u32 = 6;
+pub const NSIGPOLL: u32 = 6;
+pub const SYS_SECCOMP: u32 = 1;
+pub const SYS_USER_DISPATCH: u32 = 2;
+pub const NSIGSYS: u32 = 2;
+pub const EMT_TAGOVF: u32 = 1;
+pub const NSIGEMT: u32 = 1;
+pub const SIGEV_SIGNAL: u32 = 0;
+pub const SIGEV_NONE: u32 = 1;
+pub const SIGEV_THREAD: u32 = 2;
+pub const SIGEV_THREAD_ID: u32 = 4;
+pub const SIGEV_MAX_SIZE: u32 = 64;
+pub const SS_ONSTACK: u32 = 1;
+pub const SS_DISABLE: u32 = 2;
+pub const SS_AUTODISARM: u32 = 2147483648;
+pub const SS_FLAG_BITS: u32 = 2147483648;
+pub const _NSIG: u32 = 65;
+pub const NSIG: u32 = 65;
+pub const NGREG: u32 = 34;
+pub const FD_SETSIZE: u32 = 1024;
+pub const CLOCKS_PER_SEC: u32 = 1000000;
+pub const TIME_UTC: u32 = 1;
+pub const TIME_MONOTONIC: u32 = 2;
+pub const TIME_ACTIVE: u32 = 3;
+pub const TIME_THREAD_ACTIVE: u32 = 4;
 pub const PTHREAD_ONCE_INIT: u32 = 0;
+pub const PTHREAD_BARRIER_SERIAL_THREAD: i32 = -1;
+pub const PTHREAD_STACK_MIN: u32 = 16384;
+pub const PTHREAD_CREATE_DETACHED: u32 = 1;
+pub const PTHREAD_CREATE_JOINABLE: u32 = 0;
+pub const PTHREAD_EXPLICIT_SCHED: u32 = 0;
+pub const PTHREAD_INHERIT_SCHED: u32 = 1;
+pub const PTHREAD_PRIO_NONE: u32 = 0;
+pub const PTHREAD_PRIO_INHERIT: u32 = 1;
+pub const PTHREAD_PROCESS_PRIVATE: u32 = 0;
+pub const PTHREAD_PROCESS_SHARED: u32 = 1;
+pub const PTHREAD_SCOPE_SYSTEM: u32 = 0;
+pub const PTHREAD_SCOPE_PROCESS: u32 = 1;
 pub const MA_SIMD_ALIGNMENT: u32 = 32;
 pub const MA_MIN_CHANNELS: u32 = 1;
 pub const MA_MAX_CHANNELS: u32 = 254;
 pub const MA_MAX_FILTER_ORDER: u32 = 8;
+pub const __GNUC_VA_LIST: u32 = 1;
 pub const MA_MAX_LOG_CALLBACKS: u32 = 4;
 pub const MA_CHANNEL_INDEX_NULL: u32 = 255;
 pub const MA_DATA_SOURCE_SELF_MANAGED_RANGE_AND_LOOP_POINT: u32 = 1;
@@ -121,10 +549,12 @@ pub type ma_double = f64;
 pub type ma_handle = *mut core::ffi::c_void;
 pub type ma_ptr = *mut core::ffi::c_void;
 pub type ma_proc = ::core::option::Option<unsafe extern "C" fn()>;
-pub type __u_char = core::ffi::c_uchar;
-pub type __u_short = core::ffi::c_ushort;
-pub type __u_int = core::ffi::c_uint;
-pub type __u_long = core::ffi::c_ulong;
+unsafe extern "C" {
+    pub fn android_get_application_target_sdk_version() -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn android_get_device_api_level() -> core::ffi::c_int;
+}
 pub type __int8_t = core::ffi::c_schar;
 pub type __uint8_t = core::ffi::c_uchar;
 pub type __int16_t = core::ffi::c_short;
@@ -133,73 +563,255 @@ pub type __int32_t = core::ffi::c_int;
 pub type __uint32_t = core::ffi::c_uint;
 pub type __int64_t = core::ffi::c_long;
 pub type __uint64_t = core::ffi::c_ulong;
-pub type __int_least8_t = __int8_t;
-pub type __uint_least8_t = __uint8_t;
-pub type __int_least16_t = __int16_t;
-pub type __uint_least16_t = __uint16_t;
-pub type __int_least32_t = __int32_t;
-pub type __uint_least32_t = __uint32_t;
-pub type __int_least64_t = __int64_t;
-pub type __uint_least64_t = __uint64_t;
-pub type __quad_t = core::ffi::c_long;
-pub type __u_quad_t = core::ffi::c_ulong;
-pub type __intmax_t = core::ffi::c_long;
-pub type __uintmax_t = core::ffi::c_ulong;
-pub type __dev_t = core::ffi::c_ulong;
-pub type __uid_t = core::ffi::c_uint;
-pub type __gid_t = core::ffi::c_uint;
-pub type __ino_t = core::ffi::c_ulong;
-pub type __ino64_t = core::ffi::c_ulong;
-pub type __mode_t = core::ffi::c_uint;
-pub type __nlink_t = core::ffi::c_uint;
-pub type __off_t = core::ffi::c_long;
-pub type __off64_t = core::ffi::c_long;
-pub type __pid_t = core::ffi::c_int;
+pub type __intptr_t = core::ffi::c_long;
+pub type __uintptr_t = core::ffi::c_ulong;
+pub type int_least8_t = i8;
+pub type uint_least8_t = u8;
+pub type int_least16_t = i16;
+pub type uint_least16_t = u16;
+pub type int_least32_t = i32;
+pub type uint_least32_t = u32;
+pub type int_least64_t = i64;
+pub type uint_least64_t = u64;
+pub type int_fast8_t = i8;
+pub type uint_fast8_t = u8;
+pub type int_fast64_t = i64;
+pub type uint_fast64_t = u64;
+pub type int_fast16_t = i64;
+pub type uint_fast16_t = u64;
+pub type int_fast32_t = i64;
+pub type uint_fast32_t = u64;
+pub type uintmax_t = u64;
+pub type intmax_t = i64;
+pub type __s8 = core::ffi::c_schar;
+pub type __u8 = core::ffi::c_uchar;
+pub type __s16 = core::ffi::c_short;
+pub type __u16 = core::ffi::c_ushort;
+pub type __s32 = core::ffi::c_int;
+pub type __u32 = core::ffi::c_uint;
+pub type __s64 = core::ffi::c_longlong;
+pub type __u64 = core::ffi::c_ulonglong;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
-pub struct __fsid_t {
-    pub __val: [core::ffi::c_int; 2usize],
+pub struct __kernel_fd_set {
+    pub fds_bits: [core::ffi::c_ulong; 16usize],
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of __fsid_t"][::core::mem::size_of::<__fsid_t>() - 8usize];
-    ["Alignment of __fsid_t"][::core::mem::align_of::<__fsid_t>() - 4usize];
-    ["Offset of field: __fsid_t::__val"][::core::mem::offset_of!(__fsid_t, __val) - 0usize];
+    ["Size of __kernel_fd_set"][::core::mem::size_of::<__kernel_fd_set>() - 128usize];
+    ["Alignment of __kernel_fd_set"][::core::mem::align_of::<__kernel_fd_set>() - 8usize];
+    ["Offset of field: __kernel_fd_set::fds_bits"]
+        [::core::mem::offset_of!(__kernel_fd_set, fds_bits) - 0usize];
 };
-pub type __clock_t = core::ffi::c_long;
-pub type __rlim_t = core::ffi::c_ulong;
-pub type __rlim64_t = core::ffi::c_ulong;
-pub type __id_t = core::ffi::c_uint;
-pub type __time_t = core::ffi::c_long;
-pub type __useconds_t = core::ffi::c_uint;
-pub type __suseconds_t = core::ffi::c_long;
-pub type __suseconds64_t = core::ffi::c_long;
-pub type __daddr_t = core::ffi::c_int;
-pub type __key_t = core::ffi::c_int;
-pub type __clockid_t = core::ffi::c_int;
+pub type __kernel_sighandler_t =
+    ::core::option::Option<unsafe extern "C" fn(arg1: core::ffi::c_int)>;
+pub type __kernel_key_t = core::ffi::c_int;
+pub type __kernel_mqd_t = core::ffi::c_int;
+pub type __kernel_old_uid_t = core::ffi::c_ushort;
+pub type __kernel_old_gid_t = core::ffi::c_ushort;
+pub type __kernel_long_t = core::ffi::c_long;
+pub type __kernel_ulong_t = core::ffi::c_ulong;
+pub type __kernel_ino_t = __kernel_ulong_t;
+pub type __kernel_mode_t = core::ffi::c_uint;
+pub type __kernel_pid_t = core::ffi::c_int;
+pub type __kernel_ipc_pid_t = core::ffi::c_int;
+pub type __kernel_uid_t = core::ffi::c_uint;
+pub type __kernel_gid_t = core::ffi::c_uint;
+pub type __kernel_suseconds_t = __kernel_long_t;
+pub type __kernel_daddr_t = core::ffi::c_int;
+pub type __kernel_uid32_t = core::ffi::c_uint;
+pub type __kernel_gid32_t = core::ffi::c_uint;
+pub type __kernel_old_dev_t = core::ffi::c_uint;
+pub type __kernel_size_t = __kernel_ulong_t;
+pub type __kernel_ssize_t = __kernel_long_t;
+pub type __kernel_ptrdiff_t = __kernel_long_t;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct __kernel_fsid_t {
+    pub val: [core::ffi::c_int; 2usize],
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of __kernel_fsid_t"][::core::mem::size_of::<__kernel_fsid_t>() - 8usize];
+    ["Alignment of __kernel_fsid_t"][::core::mem::align_of::<__kernel_fsid_t>() - 4usize];
+    ["Offset of field: __kernel_fsid_t::val"]
+        [::core::mem::offset_of!(__kernel_fsid_t, val) - 0usize];
+};
+pub type __kernel_off_t = __kernel_long_t;
+pub type __kernel_loff_t = core::ffi::c_longlong;
+pub type __kernel_old_time_t = __kernel_long_t;
+pub type __kernel_time_t = __kernel_long_t;
+pub type __kernel_time64_t = core::ffi::c_longlong;
+pub type __kernel_clock_t = __kernel_long_t;
+pub type __kernel_timer_t = core::ffi::c_int;
+pub type __kernel_clockid_t = core::ffi::c_int;
+pub type __kernel_caddr_t = *mut core::ffi::c_char;
+pub type __kernel_uid16_t = core::ffi::c_ushort;
+pub type __kernel_gid16_t = core::ffi::c_ushort;
+pub type __s128 = i128;
+pub type __u128 = u128;
+pub type __le16 = __u16;
+pub type __be16 = __u16;
+pub type __le32 = __u32;
+pub type __be32 = __u32;
+pub type __le64 = __u64;
+pub type __be64 = __u64;
+pub type __sum16 = __u16;
+pub type __wsum = __u32;
+pub type __poll_t = core::ffi::c_uint;
+pub type __gid_t = __kernel_gid32_t;
+pub type gid_t = __gid_t;
+pub type __uid_t = __kernel_uid32_t;
+pub type uid_t = __uid_t;
+pub type __pid_t = __kernel_pid_t;
+pub type pid_t = __pid_t;
+pub type __id_t = u32;
+pub type id_t = __id_t;
+pub type blkcnt_t = core::ffi::c_ulong;
+pub type blksize_t = core::ffi::c_ulong;
+pub type caddr_t = __kernel_caddr_t;
+pub type clock_t = __kernel_clock_t;
+pub type __clockid_t = __kernel_clockid_t;
+pub type clockid_t = __clockid_t;
+pub type daddr_t = __kernel_daddr_t;
+pub type fsblkcnt_t = core::ffi::c_ulong;
+pub type fsfilcnt_t = core::ffi::c_ulong;
+pub type __mode_t = __kernel_mode_t;
+pub type mode_t = __mode_t;
+pub type __key_t = __kernel_key_t;
+pub type key_t = __key_t;
+pub type __ino_t = __kernel_ino_t;
+pub type ino_t = __ino_t;
+pub type ino64_t = u64;
+pub type __nlink_t = u32;
+pub type nlink_t = __nlink_t;
 pub type __timer_t = *mut core::ffi::c_void;
-pub type __blksize_t = core::ffi::c_int;
-pub type __blkcnt_t = core::ffi::c_long;
-pub type __blkcnt64_t = core::ffi::c_long;
-pub type __fsblkcnt_t = core::ffi::c_ulong;
-pub type __fsblkcnt64_t = core::ffi::c_ulong;
-pub type __fsfilcnt_t = core::ffi::c_ulong;
-pub type __fsfilcnt64_t = core::ffi::c_ulong;
-pub type __fsword_t = core::ffi::c_long;
-pub type __ssize_t = core::ffi::c_long;
-pub type __syscall_slong_t = core::ffi::c_long;
-pub type __syscall_ulong_t = core::ffi::c_ulong;
-pub type __loff_t = __off64_t;
-pub type __caddr_t = *mut core::ffi::c_char;
-pub type __intptr_t = core::ffi::c_long;
-pub type __socklen_t = core::ffi::c_uint;
-pub type __sig_atomic_t = core::ffi::c_int;
+pub type timer_t = __timer_t;
+pub type __suseconds_t = __kernel_suseconds_t;
+pub type suseconds_t = __suseconds_t;
+pub type __useconds_t = u32;
+pub type useconds_t = __useconds_t;
+pub type dev_t = u64;
+pub type __time_t = __kernel_time_t;
 pub type time_t = __time_t;
+pub type off_t = i64;
+pub type loff_t = off_t;
+pub type off64_t = loff_t;
+pub type __socklen_t = u32;
+pub type socklen_t = __socklen_t;
+pub type __va_list = __BindgenOpaqueArray<u64, 4usize>;
+pub type uint_t = core::ffi::c_uint;
+pub type uint = core::ffi::c_uint;
+pub type u_char = core::ffi::c_uchar;
+pub type u_short = core::ffi::c_ushort;
+pub type u_int = core::ffi::c_uint;
+pub type u_long = core::ffi::c_ulong;
+pub type u_int32_t = u32;
+pub type u_int16_t = u16;
+pub type u_int8_t = u8;
+pub type u_int64_t = u64;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct pthread_attr_t {
+    pub flags: u32,
+    pub stack_base: *mut core::ffi::c_void,
+    pub stack_size: usize,
+    pub guard_size: usize,
+    pub sched_policy: i32,
+    pub sched_priority: i32,
+    pub __reserved: [core::ffi::c_char; 16usize],
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of pthread_attr_t"][::core::mem::size_of::<pthread_attr_t>() - 56usize];
+    ["Alignment of pthread_attr_t"][::core::mem::align_of::<pthread_attr_t>() - 8usize];
+    ["Offset of field: pthread_attr_t::flags"]
+        [::core::mem::offset_of!(pthread_attr_t, flags) - 0usize];
+    ["Offset of field: pthread_attr_t::stack_base"]
+        [::core::mem::offset_of!(pthread_attr_t, stack_base) - 8usize];
+    ["Offset of field: pthread_attr_t::stack_size"]
+        [::core::mem::offset_of!(pthread_attr_t, stack_size) - 16usize];
+    ["Offset of field: pthread_attr_t::guard_size"]
+        [::core::mem::offset_of!(pthread_attr_t, guard_size) - 24usize];
+    ["Offset of field: pthread_attr_t::sched_policy"]
+        [::core::mem::offset_of!(pthread_attr_t, sched_policy) - 32usize];
+    ["Offset of field: pthread_attr_t::sched_priority"]
+        [::core::mem::offset_of!(pthread_attr_t, sched_priority) - 36usize];
+    ["Offset of field: pthread_attr_t::__reserved"]
+        [::core::mem::offset_of!(pthread_attr_t, __reserved) - 40usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct pthread_barrier_t {
+    pub __private: [i64; 4usize],
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of pthread_barrier_t"][::core::mem::size_of::<pthread_barrier_t>() - 32usize];
+    ["Alignment of pthread_barrier_t"][::core::mem::align_of::<pthread_barrier_t>() - 8usize];
+    ["Offset of field: pthread_barrier_t::__private"]
+        [::core::mem::offset_of!(pthread_barrier_t, __private) - 0usize];
+};
+pub type pthread_barrierattr_t = core::ffi::c_int;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct pthread_cond_t {
+    pub __private: [i32; 12usize],
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of pthread_cond_t"][::core::mem::size_of::<pthread_cond_t>() - 48usize];
+    ["Alignment of pthread_cond_t"][::core::mem::align_of::<pthread_cond_t>() - 4usize];
+    ["Offset of field: pthread_cond_t::__private"]
+        [::core::mem::offset_of!(pthread_cond_t, __private) - 0usize];
+};
+pub type pthread_condattr_t = core::ffi::c_long;
+pub type pthread_key_t = core::ffi::c_int;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct pthread_mutex_t {
+    pub __private: [i32; 10usize],
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of pthread_mutex_t"][::core::mem::size_of::<pthread_mutex_t>() - 40usize];
+    ["Alignment of pthread_mutex_t"][::core::mem::align_of::<pthread_mutex_t>() - 4usize];
+    ["Offset of field: pthread_mutex_t::__private"]
+        [::core::mem::offset_of!(pthread_mutex_t, __private) - 0usize];
+};
+pub type pthread_mutexattr_t = core::ffi::c_long;
+pub type pthread_once_t = core::ffi::c_int;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct pthread_rwlock_t {
+    pub __private: [i32; 14usize],
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of pthread_rwlock_t"][::core::mem::size_of::<pthread_rwlock_t>() - 56usize];
+    ["Alignment of pthread_rwlock_t"][::core::mem::align_of::<pthread_rwlock_t>() - 4usize];
+    ["Offset of field: pthread_rwlock_t::__private"]
+        [::core::mem::offset_of!(pthread_rwlock_t, __private) - 0usize];
+};
+pub type pthread_rwlockattr_t = core::ffi::c_long;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct pthread_spinlock_t {
+    pub __private: i64,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of pthread_spinlock_t"][::core::mem::size_of::<pthread_spinlock_t>() - 8usize];
+    ["Alignment of pthread_spinlock_t"][::core::mem::align_of::<pthread_spinlock_t>() - 8usize];
+    ["Offset of field: pthread_spinlock_t::__private"]
+        [::core::mem::offset_of!(pthread_spinlock_t, __private) - 0usize];
+};
+pub type pthread_t = core::ffi::c_long;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct timespec {
-    pub tv_sec: __time_t,
-    pub tv_nsec: __syscall_slong_t,
+    pub tv_sec: time_t,
+    pub tv_nsec: core::ffi::c_long,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
@@ -208,7 +820,1246 @@ const _: () = {
     ["Offset of field: timespec::tv_sec"][::core::mem::offset_of!(timespec, tv_sec) - 0usize];
     ["Offset of field: timespec::tv_nsec"][::core::mem::offset_of!(timespec, tv_nsec) - 8usize];
 };
-pub type clock_t = __clock_t;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct clone_args {
+    pub flags: __u64,
+    pub pidfd: __u64,
+    pub child_tid: __u64,
+    pub parent_tid: __u64,
+    pub exit_signal: __u64,
+    pub stack: __u64,
+    pub stack_size: __u64,
+    pub tls: __u64,
+    pub set_tid: __u64,
+    pub set_tid_size: __u64,
+    pub cgroup: __u64,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of clone_args"][::core::mem::size_of::<clone_args>() - 88usize];
+    ["Alignment of clone_args"][::core::mem::align_of::<clone_args>() - 8usize];
+    ["Offset of field: clone_args::flags"][::core::mem::offset_of!(clone_args, flags) - 0usize];
+    ["Offset of field: clone_args::pidfd"][::core::mem::offset_of!(clone_args, pidfd) - 8usize];
+    ["Offset of field: clone_args::child_tid"]
+        [::core::mem::offset_of!(clone_args, child_tid) - 16usize];
+    ["Offset of field: clone_args::parent_tid"]
+        [::core::mem::offset_of!(clone_args, parent_tid) - 24usize];
+    ["Offset of field: clone_args::exit_signal"]
+        [::core::mem::offset_of!(clone_args, exit_signal) - 32usize];
+    ["Offset of field: clone_args::stack"][::core::mem::offset_of!(clone_args, stack) - 40usize];
+    ["Offset of field: clone_args::stack_size"]
+        [::core::mem::offset_of!(clone_args, stack_size) - 48usize];
+    ["Offset of field: clone_args::tls"][::core::mem::offset_of!(clone_args, tls) - 56usize];
+    ["Offset of field: clone_args::set_tid"]
+        [::core::mem::offset_of!(clone_args, set_tid) - 64usize];
+    ["Offset of field: clone_args::set_tid_size"]
+        [::core::mem::offset_of!(clone_args, set_tid_size) - 72usize];
+    ["Offset of field: clone_args::cgroup"][::core::mem::offset_of!(clone_args, cgroup) - 80usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct sched_param {
+    pub sched_priority: core::ffi::c_int,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of sched_param"][::core::mem::size_of::<sched_param>() - 4usize];
+    ["Alignment of sched_param"][::core::mem::align_of::<sched_param>() - 4usize];
+    ["Offset of field: sched_param::sched_priority"]
+        [::core::mem::offset_of!(sched_param, sched_priority) - 0usize];
+};
+unsafe extern "C" {
+    pub fn sched_setscheduler(
+        __pid: pid_t,
+        __policy: core::ffi::c_int,
+        __param: *const sched_param,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sched_getscheduler(__pid: pid_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sched_yield() -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sched_get_priority_max(__policy: core::ffi::c_int) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sched_get_priority_min(__policy: core::ffi::c_int) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sched_setparam(__pid: pid_t, __param: *const sched_param) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sched_getparam(__pid: pid_t, __param: *mut sched_param) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sched_rr_get_interval(__pid: pid_t, __quantum: *mut timespec) -> core::ffi::c_int;
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct __kernel_timespec {
+    pub tv_sec: __kernel_time64_t,
+    pub tv_nsec: core::ffi::c_longlong,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of __kernel_timespec"][::core::mem::size_of::<__kernel_timespec>() - 16usize];
+    ["Alignment of __kernel_timespec"][::core::mem::align_of::<__kernel_timespec>() - 8usize];
+    ["Offset of field: __kernel_timespec::tv_sec"]
+        [::core::mem::offset_of!(__kernel_timespec, tv_sec) - 0usize];
+    ["Offset of field: __kernel_timespec::tv_nsec"]
+        [::core::mem::offset_of!(__kernel_timespec, tv_nsec) - 8usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct __kernel_itimerspec {
+    pub it_interval: __kernel_timespec,
+    pub it_value: __kernel_timespec,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of __kernel_itimerspec"][::core::mem::size_of::<__kernel_itimerspec>() - 32usize];
+    ["Alignment of __kernel_itimerspec"][::core::mem::align_of::<__kernel_itimerspec>() - 8usize];
+    ["Offset of field: __kernel_itimerspec::it_interval"]
+        [::core::mem::offset_of!(__kernel_itimerspec, it_interval) - 0usize];
+    ["Offset of field: __kernel_itimerspec::it_value"]
+        [::core::mem::offset_of!(__kernel_itimerspec, it_value) - 16usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct __kernel_old_timespec {
+    pub tv_sec: __kernel_old_time_t,
+    pub tv_nsec: core::ffi::c_long,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of __kernel_old_timespec"][::core::mem::size_of::<__kernel_old_timespec>() - 16usize];
+    ["Alignment of __kernel_old_timespec"]
+        [::core::mem::align_of::<__kernel_old_timespec>() - 8usize];
+    ["Offset of field: __kernel_old_timespec::tv_sec"]
+        [::core::mem::offset_of!(__kernel_old_timespec, tv_sec) - 0usize];
+    ["Offset of field: __kernel_old_timespec::tv_nsec"]
+        [::core::mem::offset_of!(__kernel_old_timespec, tv_nsec) - 8usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct __kernel_sock_timeval {
+    pub tv_sec: __s64,
+    pub tv_usec: __s64,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of __kernel_sock_timeval"][::core::mem::size_of::<__kernel_sock_timeval>() - 16usize];
+    ["Alignment of __kernel_sock_timeval"]
+        [::core::mem::align_of::<__kernel_sock_timeval>() - 8usize];
+    ["Offset of field: __kernel_sock_timeval::tv_sec"]
+        [::core::mem::offset_of!(__kernel_sock_timeval, tv_sec) - 0usize];
+    ["Offset of field: __kernel_sock_timeval::tv_usec"]
+        [::core::mem::offset_of!(__kernel_sock_timeval, tv_usec) - 8usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct timeval {
+    pub tv_sec: __kernel_old_time_t,
+    pub tv_usec: __kernel_suseconds_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of timeval"][::core::mem::size_of::<timeval>() - 16usize];
+    ["Alignment of timeval"][::core::mem::align_of::<timeval>() - 8usize];
+    ["Offset of field: timeval::tv_sec"][::core::mem::offset_of!(timeval, tv_sec) - 0usize];
+    ["Offset of field: timeval::tv_usec"][::core::mem::offset_of!(timeval, tv_usec) - 8usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct itimerspec {
+    pub it_interval: timespec,
+    pub it_value: timespec,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of itimerspec"][::core::mem::size_of::<itimerspec>() - 32usize];
+    ["Alignment of itimerspec"][::core::mem::align_of::<itimerspec>() - 8usize];
+    ["Offset of field: itimerspec::it_interval"]
+        [::core::mem::offset_of!(itimerspec, it_interval) - 0usize];
+    ["Offset of field: itimerspec::it_value"]
+        [::core::mem::offset_of!(itimerspec, it_value) - 16usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct itimerval {
+    pub it_interval: timeval,
+    pub it_value: timeval,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of itimerval"][::core::mem::size_of::<itimerval>() - 32usize];
+    ["Alignment of itimerval"][::core::mem::align_of::<itimerval>() - 8usize];
+    ["Offset of field: itimerval::it_interval"]
+        [::core::mem::offset_of!(itimerval, it_interval) - 0usize];
+    ["Offset of field: itimerval::it_value"]
+        [::core::mem::offset_of!(itimerval, it_value) - 16usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct timezone {
+    pub tz_minuteswest: core::ffi::c_int,
+    pub tz_dsttime: core::ffi::c_int,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of timezone"][::core::mem::size_of::<timezone>() - 8usize];
+    ["Alignment of timezone"][::core::mem::align_of::<timezone>() - 4usize];
+    ["Offset of field: timezone::tz_minuteswest"]
+        [::core::mem::offset_of!(timezone, tz_minuteswest) - 0usize];
+    ["Offset of field: timezone::tz_dsttime"]
+        [::core::mem::offset_of!(timezone, tz_dsttime) - 4usize];
+};
+#[repr(C)]
+#[repr(align(16))]
+#[derive(Debug, Copy, Clone)]
+pub struct sigcontext {
+    pub fault_address: __u64,
+    pub regs: [__u64; 31usize],
+    pub sp: __u64,
+    pub pc: __u64,
+    pub pstate: __u64,
+    pub __bindgen_padding_0: [u8; 8usize],
+    pub __reserved: [__u8; 4096usize],
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of sigcontext"][::core::mem::size_of::<sigcontext>() - 4384usize];
+    ["Alignment of sigcontext"][::core::mem::align_of::<sigcontext>() - 16usize];
+    ["Offset of field: sigcontext::fault_address"]
+        [::core::mem::offset_of!(sigcontext, fault_address) - 0usize];
+    ["Offset of field: sigcontext::regs"][::core::mem::offset_of!(sigcontext, regs) - 8usize];
+    ["Offset of field: sigcontext::sp"][::core::mem::offset_of!(sigcontext, sp) - 256usize];
+    ["Offset of field: sigcontext::pc"][::core::mem::offset_of!(sigcontext, pc) - 264usize];
+    ["Offset of field: sigcontext::pstate"][::core::mem::offset_of!(sigcontext, pstate) - 272usize];
+    ["Offset of field: sigcontext::__reserved"]
+        [::core::mem::offset_of!(sigcontext, __reserved) - 288usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct _aarch64_ctx {
+    pub magic: __u32,
+    pub size: __u32,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of _aarch64_ctx"][::core::mem::size_of::<_aarch64_ctx>() - 8usize];
+    ["Alignment of _aarch64_ctx"][::core::mem::align_of::<_aarch64_ctx>() - 4usize];
+    ["Offset of field: _aarch64_ctx::magic"][::core::mem::offset_of!(_aarch64_ctx, magic) - 0usize];
+    ["Offset of field: _aarch64_ctx::size"][::core::mem::offset_of!(_aarch64_ctx, size) - 4usize];
+};
+#[repr(C)]
+#[repr(align(16))]
+#[derive(Debug, Copy, Clone)]
+pub struct fpsimd_context {
+    pub head: _aarch64_ctx,
+    pub fpsr: __u32,
+    pub fpcr: __u32,
+    pub vregs: [__uint128_t; 32usize],
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of fpsimd_context"][::core::mem::size_of::<fpsimd_context>() - 528usize];
+    ["Alignment of fpsimd_context"][::core::mem::align_of::<fpsimd_context>() - 16usize];
+    ["Offset of field: fpsimd_context::head"]
+        [::core::mem::offset_of!(fpsimd_context, head) - 0usize];
+    ["Offset of field: fpsimd_context::fpsr"]
+        [::core::mem::offset_of!(fpsimd_context, fpsr) - 8usize];
+    ["Offset of field: fpsimd_context::fpcr"]
+        [::core::mem::offset_of!(fpsimd_context, fpcr) - 12usize];
+    ["Offset of field: fpsimd_context::vregs"]
+        [::core::mem::offset_of!(fpsimd_context, vregs) - 16usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct esr_context {
+    pub head: _aarch64_ctx,
+    pub esr: __u64,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of esr_context"][::core::mem::size_of::<esr_context>() - 16usize];
+    ["Alignment of esr_context"][::core::mem::align_of::<esr_context>() - 8usize];
+    ["Offset of field: esr_context::head"][::core::mem::offset_of!(esr_context, head) - 0usize];
+    ["Offset of field: esr_context::esr"][::core::mem::offset_of!(esr_context, esr) - 8usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct extra_context {
+    pub head: _aarch64_ctx,
+    pub datap: __u64,
+    pub size: __u32,
+    pub __reserved: [__u32; 3usize],
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of extra_context"][::core::mem::size_of::<extra_context>() - 32usize];
+    ["Alignment of extra_context"][::core::mem::align_of::<extra_context>() - 8usize];
+    ["Offset of field: extra_context::head"][::core::mem::offset_of!(extra_context, head) - 0usize];
+    ["Offset of field: extra_context::datap"]
+        [::core::mem::offset_of!(extra_context, datap) - 8usize];
+    ["Offset of field: extra_context::size"]
+        [::core::mem::offset_of!(extra_context, size) - 16usize];
+    ["Offset of field: extra_context::__reserved"]
+        [::core::mem::offset_of!(extra_context, __reserved) - 20usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct sve_context {
+    pub head: _aarch64_ctx,
+    pub vl: __u16,
+    pub flags: __u16,
+    pub __reserved: [__u16; 2usize],
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of sve_context"][::core::mem::size_of::<sve_context>() - 16usize];
+    ["Alignment of sve_context"][::core::mem::align_of::<sve_context>() - 4usize];
+    ["Offset of field: sve_context::head"][::core::mem::offset_of!(sve_context, head) - 0usize];
+    ["Offset of field: sve_context::vl"][::core::mem::offset_of!(sve_context, vl) - 8usize];
+    ["Offset of field: sve_context::flags"][::core::mem::offset_of!(sve_context, flags) - 10usize];
+    ["Offset of field: sve_context::__reserved"]
+        [::core::mem::offset_of!(sve_context, __reserved) - 12usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct tpidr2_context {
+    pub head: _aarch64_ctx,
+    pub tpidr2: __u64,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of tpidr2_context"][::core::mem::size_of::<tpidr2_context>() - 16usize];
+    ["Alignment of tpidr2_context"][::core::mem::align_of::<tpidr2_context>() - 8usize];
+    ["Offset of field: tpidr2_context::head"]
+        [::core::mem::offset_of!(tpidr2_context, head) - 0usize];
+    ["Offset of field: tpidr2_context::tpidr2"]
+        [::core::mem::offset_of!(tpidr2_context, tpidr2) - 8usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct za_context {
+    pub head: _aarch64_ctx,
+    pub vl: __u16,
+    pub __reserved: [__u16; 3usize],
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of za_context"][::core::mem::size_of::<za_context>() - 16usize];
+    ["Alignment of za_context"][::core::mem::align_of::<za_context>() - 4usize];
+    ["Offset of field: za_context::head"][::core::mem::offset_of!(za_context, head) - 0usize];
+    ["Offset of field: za_context::vl"][::core::mem::offset_of!(za_context, vl) - 8usize];
+    ["Offset of field: za_context::__reserved"]
+        [::core::mem::offset_of!(za_context, __reserved) - 10usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct zt_context {
+    pub head: _aarch64_ctx,
+    pub nregs: __u16,
+    pub __reserved: [__u16; 3usize],
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of zt_context"][::core::mem::size_of::<zt_context>() - 16usize];
+    ["Alignment of zt_context"][::core::mem::align_of::<zt_context>() - 4usize];
+    ["Offset of field: zt_context::head"][::core::mem::offset_of!(zt_context, head) - 0usize];
+    ["Offset of field: zt_context::nregs"][::core::mem::offset_of!(zt_context, nregs) - 8usize];
+    ["Offset of field: zt_context::__reserved"]
+        [::core::mem::offset_of!(zt_context, __reserved) - 10usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct sigset_t {
+    pub sig: [core::ffi::c_ulong; 1usize],
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of sigset_t"][::core::mem::size_of::<sigset_t>() - 8usize];
+    ["Alignment of sigset_t"][::core::mem::align_of::<sigset_t>() - 8usize];
+    ["Offset of field: sigset_t::sig"][::core::mem::offset_of!(sigset_t, sig) - 0usize];
+};
+pub type old_sigset_t = core::ffi::c_ulong;
+pub type __signalfn_t = ::core::option::Option<unsafe extern "C" fn(arg1: core::ffi::c_int)>;
+pub type __sighandler_t = __signalfn_t;
+pub type __restorefn_t = ::core::option::Option<unsafe extern "C" fn()>;
+pub type __sigrestore_t = __restorefn_t;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct __kernel_sigaction {
+    pub sa_handler: __sighandler_t,
+    pub sa_flags: core::ffi::c_ulong,
+    pub sa_restorer: __sigrestore_t,
+    pub sa_mask: sigset_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of __kernel_sigaction"][::core::mem::size_of::<__kernel_sigaction>() - 32usize];
+    ["Alignment of __kernel_sigaction"][::core::mem::align_of::<__kernel_sigaction>() - 8usize];
+    ["Offset of field: __kernel_sigaction::sa_handler"]
+        [::core::mem::offset_of!(__kernel_sigaction, sa_handler) - 0usize];
+    ["Offset of field: __kernel_sigaction::sa_flags"]
+        [::core::mem::offset_of!(__kernel_sigaction, sa_flags) - 8usize];
+    ["Offset of field: __kernel_sigaction::sa_restorer"]
+        [::core::mem::offset_of!(__kernel_sigaction, sa_restorer) - 16usize];
+    ["Offset of field: __kernel_sigaction::sa_mask"]
+        [::core::mem::offset_of!(__kernel_sigaction, sa_mask) - 24usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct sigaltstack {
+    pub ss_sp: *mut core::ffi::c_void,
+    pub ss_flags: core::ffi::c_int,
+    pub ss_size: __kernel_size_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of sigaltstack"][::core::mem::size_of::<sigaltstack>() - 24usize];
+    ["Alignment of sigaltstack"][::core::mem::align_of::<sigaltstack>() - 8usize];
+    ["Offset of field: sigaltstack::ss_sp"][::core::mem::offset_of!(sigaltstack, ss_sp) - 0usize];
+    ["Offset of field: sigaltstack::ss_flags"]
+        [::core::mem::offset_of!(sigaltstack, ss_flags) - 8usize];
+    ["Offset of field: sigaltstack::ss_size"]
+        [::core::mem::offset_of!(sigaltstack, ss_size) - 16usize];
+};
+pub type stack_t = sigaltstack;
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union sigval {
+    pub sival_int: core::ffi::c_int,
+    pub sival_ptr: *mut core::ffi::c_void,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of sigval"][::core::mem::size_of::<sigval>() - 8usize];
+    ["Alignment of sigval"][::core::mem::align_of::<sigval>() - 8usize];
+    ["Offset of field: sigval::sival_int"][::core::mem::offset_of!(sigval, sival_int) - 0usize];
+    ["Offset of field: sigval::sival_ptr"][::core::mem::offset_of!(sigval, sival_ptr) - 0usize];
+};
+pub type sigval_t = sigval;
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union __sifields {
+    pub _kill: __sifields__bindgen_ty_1,
+    pub _timer: __sifields__bindgen_ty_2,
+    pub _rt: __sifields__bindgen_ty_3,
+    pub _sigchld: __sifields__bindgen_ty_4,
+    pub _sigfault: __sifields__bindgen_ty_5,
+    pub _sigpoll: __sifields__bindgen_ty_6,
+    pub _sigsys: __sifields__bindgen_ty_7,
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct __sifields__bindgen_ty_1 {
+    pub _pid: __kernel_pid_t,
+    pub _uid: __kernel_uid32_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of __sifields__bindgen_ty_1"]
+        [::core::mem::size_of::<__sifields__bindgen_ty_1>() - 8usize];
+    ["Alignment of __sifields__bindgen_ty_1"]
+        [::core::mem::align_of::<__sifields__bindgen_ty_1>() - 4usize];
+    ["Offset of field: __sifields__bindgen_ty_1::_pid"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_1, _pid) - 0usize];
+    ["Offset of field: __sifields__bindgen_ty_1::_uid"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_1, _uid) - 4usize];
+};
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct __sifields__bindgen_ty_2 {
+    pub _tid: __kernel_timer_t,
+    pub _overrun: core::ffi::c_int,
+    pub _sigval: sigval_t,
+    pub _sys_private: core::ffi::c_int,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of __sifields__bindgen_ty_2"]
+        [::core::mem::size_of::<__sifields__bindgen_ty_2>() - 24usize];
+    ["Alignment of __sifields__bindgen_ty_2"]
+        [::core::mem::align_of::<__sifields__bindgen_ty_2>() - 8usize];
+    ["Offset of field: __sifields__bindgen_ty_2::_tid"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_2, _tid) - 0usize];
+    ["Offset of field: __sifields__bindgen_ty_2::_overrun"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_2, _overrun) - 4usize];
+    ["Offset of field: __sifields__bindgen_ty_2::_sigval"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_2, _sigval) - 8usize];
+    ["Offset of field: __sifields__bindgen_ty_2::_sys_private"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_2, _sys_private) - 16usize];
+};
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct __sifields__bindgen_ty_3 {
+    pub _pid: __kernel_pid_t,
+    pub _uid: __kernel_uid32_t,
+    pub _sigval: sigval_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of __sifields__bindgen_ty_3"]
+        [::core::mem::size_of::<__sifields__bindgen_ty_3>() - 16usize];
+    ["Alignment of __sifields__bindgen_ty_3"]
+        [::core::mem::align_of::<__sifields__bindgen_ty_3>() - 8usize];
+    ["Offset of field: __sifields__bindgen_ty_3::_pid"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_3, _pid) - 0usize];
+    ["Offset of field: __sifields__bindgen_ty_3::_uid"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_3, _uid) - 4usize];
+    ["Offset of field: __sifields__bindgen_ty_3::_sigval"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_3, _sigval) - 8usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct __sifields__bindgen_ty_4 {
+    pub _pid: __kernel_pid_t,
+    pub _uid: __kernel_uid32_t,
+    pub _status: core::ffi::c_int,
+    pub _utime: __kernel_clock_t,
+    pub _stime: __kernel_clock_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of __sifields__bindgen_ty_4"]
+        [::core::mem::size_of::<__sifields__bindgen_ty_4>() - 32usize];
+    ["Alignment of __sifields__bindgen_ty_4"]
+        [::core::mem::align_of::<__sifields__bindgen_ty_4>() - 8usize];
+    ["Offset of field: __sifields__bindgen_ty_4::_pid"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_4, _pid) - 0usize];
+    ["Offset of field: __sifields__bindgen_ty_4::_uid"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_4, _uid) - 4usize];
+    ["Offset of field: __sifields__bindgen_ty_4::_status"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_4, _status) - 8usize];
+    ["Offset of field: __sifields__bindgen_ty_4::_utime"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_4, _utime) - 16usize];
+    ["Offset of field: __sifields__bindgen_ty_4::_stime"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_4, _stime) - 24usize];
+};
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct __sifields__bindgen_ty_5 {
+    pub _addr: *mut core::ffi::c_void,
+    pub __bindgen_anon_1: __sifields__bindgen_ty_5__bindgen_ty_1,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union __sifields__bindgen_ty_5__bindgen_ty_1 {
+    pub _trapno: core::ffi::c_int,
+    pub _addr_lsb: core::ffi::c_short,
+    pub _addr_bnd: __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_1,
+    pub _addr_pkey: __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_2,
+    pub _perf: __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_3,
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_1 {
+    pub _dummy_bnd: [core::ffi::c_char; 8usize],
+    pub _lower: *mut core::ffi::c_void,
+    pub _upper: *mut core::ffi::c_void,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_1"]
+        [::core::mem::size_of::<__sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_1>() - 24usize];
+    ["Alignment of __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_1"]
+        [::core::mem::align_of::<__sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_1>() - 8usize];
+    ["Offset of field: __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_1::_dummy_bnd"][::core::mem::offset_of!(
+        __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_1,
+        _dummy_bnd
+    )
+        - 0usize];
+    ["Offset of field: __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_1::_lower"][::core::mem::offset_of!(
+        __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_1,
+        _lower
+    ) - 8usize];
+    ["Offset of field: __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_1::_upper"][::core::mem::offset_of!(
+        __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_1,
+        _upper
+    ) - 16usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_2 {
+    pub _dummy_pkey: [core::ffi::c_char; 8usize],
+    pub _pkey: __u32,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_2"]
+        [::core::mem::size_of::<__sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_2>() - 12usize];
+    ["Alignment of __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_2"]
+        [::core::mem::align_of::<__sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_2>() - 4usize];
+    ["Offset of field: __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_2::_dummy_pkey"][::core::mem::offset_of!(
+        __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_2,
+        _dummy_pkey
+    )
+        - 0usize];
+    ["Offset of field: __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_2::_pkey"][::core::mem::offset_of!(
+        __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_2,
+        _pkey
+    ) - 8usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_3 {
+    pub _data: core::ffi::c_ulong,
+    pub _type: __u32,
+    pub _flags: __u32,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_3"]
+        [::core::mem::size_of::<__sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_3>() - 16usize];
+    ["Alignment of __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_3"]
+        [::core::mem::align_of::<__sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_3>() - 8usize];
+    ["Offset of field: __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_3::_data"][::core::mem::offset_of!(
+        __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_3,
+        _data
+    ) - 0usize];
+    ["Offset of field: __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_3::_type"][::core::mem::offset_of!(
+        __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_3,
+        _type
+    ) - 8usize];
+    ["Offset of field: __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_3::_flags"][::core::mem::offset_of!(
+        __sifields__bindgen_ty_5__bindgen_ty_1__bindgen_ty_3,
+        _flags
+    ) - 12usize];
+};
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of __sifields__bindgen_ty_5__bindgen_ty_1"]
+        [::core::mem::size_of::<__sifields__bindgen_ty_5__bindgen_ty_1>() - 24usize];
+    ["Alignment of __sifields__bindgen_ty_5__bindgen_ty_1"]
+        [::core::mem::align_of::<__sifields__bindgen_ty_5__bindgen_ty_1>() - 8usize];
+    ["Offset of field: __sifields__bindgen_ty_5__bindgen_ty_1::_trapno"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_5__bindgen_ty_1, _trapno) - 0usize];
+    ["Offset of field: __sifields__bindgen_ty_5__bindgen_ty_1::_addr_lsb"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_5__bindgen_ty_1, _addr_lsb) - 0usize];
+    ["Offset of field: __sifields__bindgen_ty_5__bindgen_ty_1::_addr_bnd"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_5__bindgen_ty_1, _addr_bnd) - 0usize];
+    ["Offset of field: __sifields__bindgen_ty_5__bindgen_ty_1::_addr_pkey"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_5__bindgen_ty_1, _addr_pkey) - 0usize];
+    ["Offset of field: __sifields__bindgen_ty_5__bindgen_ty_1::_perf"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_5__bindgen_ty_1, _perf) - 0usize];
+};
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of __sifields__bindgen_ty_5"]
+        [::core::mem::size_of::<__sifields__bindgen_ty_5>() - 32usize];
+    ["Alignment of __sifields__bindgen_ty_5"]
+        [::core::mem::align_of::<__sifields__bindgen_ty_5>() - 8usize];
+    ["Offset of field: __sifields__bindgen_ty_5::_addr"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_5, _addr) - 0usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct __sifields__bindgen_ty_6 {
+    pub _band: core::ffi::c_long,
+    pub _fd: core::ffi::c_int,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of __sifields__bindgen_ty_6"]
+        [::core::mem::size_of::<__sifields__bindgen_ty_6>() - 16usize];
+    ["Alignment of __sifields__bindgen_ty_6"]
+        [::core::mem::align_of::<__sifields__bindgen_ty_6>() - 8usize];
+    ["Offset of field: __sifields__bindgen_ty_6::_band"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_6, _band) - 0usize];
+    ["Offset of field: __sifields__bindgen_ty_6::_fd"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_6, _fd) - 8usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct __sifields__bindgen_ty_7 {
+    pub _call_addr: *mut core::ffi::c_void,
+    pub _syscall: core::ffi::c_int,
+    pub _arch: core::ffi::c_uint,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of __sifields__bindgen_ty_7"]
+        [::core::mem::size_of::<__sifields__bindgen_ty_7>() - 16usize];
+    ["Alignment of __sifields__bindgen_ty_7"]
+        [::core::mem::align_of::<__sifields__bindgen_ty_7>() - 8usize];
+    ["Offset of field: __sifields__bindgen_ty_7::_call_addr"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_7, _call_addr) - 0usize];
+    ["Offset of field: __sifields__bindgen_ty_7::_syscall"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_7, _syscall) - 8usize];
+    ["Offset of field: __sifields__bindgen_ty_7::_arch"]
+        [::core::mem::offset_of!(__sifields__bindgen_ty_7, _arch) - 12usize];
+};
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of __sifields"][::core::mem::size_of::<__sifields>() - 32usize];
+    ["Alignment of __sifields"][::core::mem::align_of::<__sifields>() - 8usize];
+    ["Offset of field: __sifields::_kill"][::core::mem::offset_of!(__sifields, _kill) - 0usize];
+    ["Offset of field: __sifields::_timer"][::core::mem::offset_of!(__sifields, _timer) - 0usize];
+    ["Offset of field: __sifields::_rt"][::core::mem::offset_of!(__sifields, _rt) - 0usize];
+    ["Offset of field: __sifields::_sigchld"]
+        [::core::mem::offset_of!(__sifields, _sigchld) - 0usize];
+    ["Offset of field: __sifields::_sigfault"]
+        [::core::mem::offset_of!(__sifields, _sigfault) - 0usize];
+    ["Offset of field: __sifields::_sigpoll"]
+        [::core::mem::offset_of!(__sifields, _sigpoll) - 0usize];
+    ["Offset of field: __sifields::_sigsys"][::core::mem::offset_of!(__sifields, _sigsys) - 0usize];
+};
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct siginfo {
+    pub __bindgen_anon_1: siginfo__bindgen_ty_1,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union siginfo__bindgen_ty_1 {
+    pub __bindgen_anon_1: siginfo__bindgen_ty_1__bindgen_ty_1,
+    pub _si_pad: [core::ffi::c_int; 32usize],
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct siginfo__bindgen_ty_1__bindgen_ty_1 {
+    pub si_signo: core::ffi::c_int,
+    pub si_errno: core::ffi::c_int,
+    pub si_code: core::ffi::c_int,
+    pub _sifields: __sifields,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of siginfo__bindgen_ty_1__bindgen_ty_1"]
+        [::core::mem::size_of::<siginfo__bindgen_ty_1__bindgen_ty_1>() - 48usize];
+    ["Alignment of siginfo__bindgen_ty_1__bindgen_ty_1"]
+        [::core::mem::align_of::<siginfo__bindgen_ty_1__bindgen_ty_1>() - 8usize];
+    ["Offset of field: siginfo__bindgen_ty_1__bindgen_ty_1::si_signo"]
+        [::core::mem::offset_of!(siginfo__bindgen_ty_1__bindgen_ty_1, si_signo) - 0usize];
+    ["Offset of field: siginfo__bindgen_ty_1__bindgen_ty_1::si_errno"]
+        [::core::mem::offset_of!(siginfo__bindgen_ty_1__bindgen_ty_1, si_errno) - 4usize];
+    ["Offset of field: siginfo__bindgen_ty_1__bindgen_ty_1::si_code"]
+        [::core::mem::offset_of!(siginfo__bindgen_ty_1__bindgen_ty_1, si_code) - 8usize];
+    ["Offset of field: siginfo__bindgen_ty_1__bindgen_ty_1::_sifields"]
+        [::core::mem::offset_of!(siginfo__bindgen_ty_1__bindgen_ty_1, _sifields) - 16usize];
+};
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of siginfo__bindgen_ty_1"][::core::mem::size_of::<siginfo__bindgen_ty_1>() - 128usize];
+    ["Alignment of siginfo__bindgen_ty_1"]
+        [::core::mem::align_of::<siginfo__bindgen_ty_1>() - 8usize];
+    ["Offset of field: siginfo__bindgen_ty_1::_si_pad"]
+        [::core::mem::offset_of!(siginfo__bindgen_ty_1, _si_pad) - 0usize];
+};
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of siginfo"][::core::mem::size_of::<siginfo>() - 128usize];
+    ["Alignment of siginfo"][::core::mem::align_of::<siginfo>() - 8usize];
+};
+pub type siginfo_t = siginfo;
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct sigevent {
+    pub sigev_value: sigval_t,
+    pub sigev_signo: core::ffi::c_int,
+    pub sigev_notify: core::ffi::c_int,
+    pub _sigev_un: sigevent__bindgen_ty_1,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union sigevent__bindgen_ty_1 {
+    pub _pad: [core::ffi::c_int; 12usize],
+    pub _tid: core::ffi::c_int,
+    pub _sigev_thread: sigevent__bindgen_ty_1__bindgen_ty_1,
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct sigevent__bindgen_ty_1__bindgen_ty_1 {
+    pub _function: ::core::option::Option<unsafe extern "C" fn(arg1: sigval_t)>,
+    pub _attribute: *mut core::ffi::c_void,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of sigevent__bindgen_ty_1__bindgen_ty_1"]
+        [::core::mem::size_of::<sigevent__bindgen_ty_1__bindgen_ty_1>() - 16usize];
+    ["Alignment of sigevent__bindgen_ty_1__bindgen_ty_1"]
+        [::core::mem::align_of::<sigevent__bindgen_ty_1__bindgen_ty_1>() - 8usize];
+    ["Offset of field: sigevent__bindgen_ty_1__bindgen_ty_1::_function"]
+        [::core::mem::offset_of!(sigevent__bindgen_ty_1__bindgen_ty_1, _function) - 0usize];
+    ["Offset of field: sigevent__bindgen_ty_1__bindgen_ty_1::_attribute"]
+        [::core::mem::offset_of!(sigevent__bindgen_ty_1__bindgen_ty_1, _attribute) - 8usize];
+};
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of sigevent__bindgen_ty_1"][::core::mem::size_of::<sigevent__bindgen_ty_1>() - 48usize];
+    ["Alignment of sigevent__bindgen_ty_1"]
+        [::core::mem::align_of::<sigevent__bindgen_ty_1>() - 8usize];
+    ["Offset of field: sigevent__bindgen_ty_1::_pad"]
+        [::core::mem::offset_of!(sigevent__bindgen_ty_1, _pad) - 0usize];
+    ["Offset of field: sigevent__bindgen_ty_1::_tid"]
+        [::core::mem::offset_of!(sigevent__bindgen_ty_1, _tid) - 0usize];
+    ["Offset of field: sigevent__bindgen_ty_1::_sigev_thread"]
+        [::core::mem::offset_of!(sigevent__bindgen_ty_1, _sigev_thread) - 0usize];
+};
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of sigevent"][::core::mem::size_of::<sigevent>() - 64usize];
+    ["Alignment of sigevent"][::core::mem::align_of::<sigevent>() - 8usize];
+    ["Offset of field: sigevent::sigev_value"]
+        [::core::mem::offset_of!(sigevent, sigev_value) - 0usize];
+    ["Offset of field: sigevent::sigev_signo"]
+        [::core::mem::offset_of!(sigevent, sigev_signo) - 8usize];
+    ["Offset of field: sigevent::sigev_notify"]
+        [::core::mem::offset_of!(sigevent, sigev_notify) - 12usize];
+    ["Offset of field: sigevent::_sigev_un"]
+        [::core::mem::offset_of!(sigevent, _sigev_un) - 16usize];
+};
+pub type sigevent_t = sigevent;
+pub type sig_atomic_t = core::ffi::c_int;
+pub type sig_t = __sighandler_t;
+pub type sighandler_t = __sighandler_t;
+pub type sigset64_t = sigset_t;
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct sigaction {
+    pub sa_flags: core::ffi::c_int,
+    pub __bindgen_anon_1: sigaction__bindgen_ty_1,
+    pub sa_mask: sigset_t,
+    pub sa_restorer: ::core::option::Option<unsafe extern "C" fn()>,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union sigaction__bindgen_ty_1 {
+    pub sa_handler: sighandler_t,
+    pub sa_sigaction: ::core::option::Option<
+        unsafe extern "C" fn(
+            arg1: core::ffi::c_int,
+            arg2: *mut siginfo,
+            arg3: *mut core::ffi::c_void,
+        ),
+    >,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of sigaction__bindgen_ty_1"][::core::mem::size_of::<sigaction__bindgen_ty_1>() - 8usize];
+    ["Alignment of sigaction__bindgen_ty_1"]
+        [::core::mem::align_of::<sigaction__bindgen_ty_1>() - 8usize];
+    ["Offset of field: sigaction__bindgen_ty_1::sa_handler"]
+        [::core::mem::offset_of!(sigaction__bindgen_ty_1, sa_handler) - 0usize];
+    ["Offset of field: sigaction__bindgen_ty_1::sa_sigaction"]
+        [::core::mem::offset_of!(sigaction__bindgen_ty_1, sa_sigaction) - 0usize];
+};
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of sigaction"][::core::mem::size_of::<sigaction>() - 32usize];
+    ["Alignment of sigaction"][::core::mem::align_of::<sigaction>() - 8usize];
+    ["Offset of field: sigaction::sa_flags"][::core::mem::offset_of!(sigaction, sa_flags) - 0usize];
+    ["Offset of field: sigaction::sa_mask"][::core::mem::offset_of!(sigaction, sa_mask) - 16usize];
+    ["Offset of field: sigaction::sa_restorer"]
+        [::core::mem::offset_of!(sigaction, sa_restorer) - 24usize];
+};
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct sigaction64 {
+    pub sa_flags: core::ffi::c_int,
+    pub __bindgen_anon_1: sigaction64__bindgen_ty_1,
+    pub sa_mask: sigset_t,
+    pub sa_restorer: ::core::option::Option<unsafe extern "C" fn()>,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union sigaction64__bindgen_ty_1 {
+    pub sa_handler: sighandler_t,
+    pub sa_sigaction: ::core::option::Option<
+        unsafe extern "C" fn(
+            arg1: core::ffi::c_int,
+            arg2: *mut siginfo,
+            arg3: *mut core::ffi::c_void,
+        ),
+    >,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of sigaction64__bindgen_ty_1"]
+        [::core::mem::size_of::<sigaction64__bindgen_ty_1>() - 8usize];
+    ["Alignment of sigaction64__bindgen_ty_1"]
+        [::core::mem::align_of::<sigaction64__bindgen_ty_1>() - 8usize];
+    ["Offset of field: sigaction64__bindgen_ty_1::sa_handler"]
+        [::core::mem::offset_of!(sigaction64__bindgen_ty_1, sa_handler) - 0usize];
+    ["Offset of field: sigaction64__bindgen_ty_1::sa_sigaction"]
+        [::core::mem::offset_of!(sigaction64__bindgen_ty_1, sa_sigaction) - 0usize];
+};
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of sigaction64"][::core::mem::size_of::<sigaction64>() - 32usize];
+    ["Alignment of sigaction64"][::core::mem::align_of::<sigaction64>() - 8usize];
+    ["Offset of field: sigaction64::sa_flags"]
+        [::core::mem::offset_of!(sigaction64, sa_flags) - 0usize];
+    ["Offset of field: sigaction64::sa_mask"]
+        [::core::mem::offset_of!(sigaction64, sa_mask) - 16usize];
+    ["Offset of field: sigaction64::sa_restorer"]
+        [::core::mem::offset_of!(sigaction64, sa_restorer) - 24usize];
+};
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct user_regs_struct {
+    pub regs: [u64; 31usize],
+    pub sp: u64,
+    pub pc: u64,
+    pub pstate: u64,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of user_regs_struct"][::core::mem::size_of::<user_regs_struct>() - 272usize];
+    ["Alignment of user_regs_struct"][::core::mem::align_of::<user_regs_struct>() - 8usize];
+    ["Offset of field: user_regs_struct::regs"]
+        [::core::mem::offset_of!(user_regs_struct, regs) - 0usize];
+    ["Offset of field: user_regs_struct::sp"]
+        [::core::mem::offset_of!(user_regs_struct, sp) - 248usize];
+    ["Offset of field: user_regs_struct::pc"]
+        [::core::mem::offset_of!(user_regs_struct, pc) - 256usize];
+    ["Offset of field: user_regs_struct::pstate"]
+        [::core::mem::offset_of!(user_regs_struct, pstate) - 264usize];
+};
+#[repr(C)]
+#[repr(align(16))]
+#[derive(Debug, Copy, Clone)]
+pub struct user_fpsimd_struct {
+    pub vregs: [__uint128_t; 32usize],
+    pub fpsr: u32,
+    pub fpcr: u32,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of user_fpsimd_struct"][::core::mem::size_of::<user_fpsimd_struct>() - 528usize];
+    ["Alignment of user_fpsimd_struct"][::core::mem::align_of::<user_fpsimd_struct>() - 16usize];
+    ["Offset of field: user_fpsimd_struct::vregs"]
+        [::core::mem::offset_of!(user_fpsimd_struct, vregs) - 0usize];
+    ["Offset of field: user_fpsimd_struct::fpsr"]
+        [::core::mem::offset_of!(user_fpsimd_struct, fpsr) - 512usize];
+    ["Offset of field: user_fpsimd_struct::fpcr"]
+        [::core::mem::offset_of!(user_fpsimd_struct, fpcr) - 516usize];
+};
+pub type greg_t = core::ffi::c_ulong;
+pub type gregset_t = [greg_t; 34usize];
+pub type fpregset_t = user_fpsimd_struct;
+pub type mcontext_t = sigcontext;
+#[repr(C)]
+#[repr(align(16))]
+#[derive(Copy, Clone)]
+pub struct ucontext {
+    pub uc_flags: core::ffi::c_ulong,
+    pub uc_link: *mut ucontext,
+    pub uc_stack: stack_t,
+    pub __bindgen_anon_1: ucontext__bindgen_ty_1,
+    pub __padding: [core::ffi::c_char; 120usize],
+    pub __bindgen_padding_0: u64,
+    pub uc_mcontext: mcontext_t,
+}
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub union ucontext__bindgen_ty_1 {
+    pub uc_sigmask: sigset_t,
+    pub uc_sigmask64: sigset64_t,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of ucontext__bindgen_ty_1"][::core::mem::size_of::<ucontext__bindgen_ty_1>() - 8usize];
+    ["Alignment of ucontext__bindgen_ty_1"]
+        [::core::mem::align_of::<ucontext__bindgen_ty_1>() - 8usize];
+    ["Offset of field: ucontext__bindgen_ty_1::uc_sigmask"]
+        [::core::mem::offset_of!(ucontext__bindgen_ty_1, uc_sigmask) - 0usize];
+    ["Offset of field: ucontext__bindgen_ty_1::uc_sigmask64"]
+        [::core::mem::offset_of!(ucontext__bindgen_ty_1, uc_sigmask64) - 0usize];
+};
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of ucontext"][::core::mem::size_of::<ucontext>() - 4560usize];
+    ["Alignment of ucontext"][::core::mem::align_of::<ucontext>() - 16usize];
+    ["Offset of field: ucontext::uc_flags"][::core::mem::offset_of!(ucontext, uc_flags) - 0usize];
+    ["Offset of field: ucontext::uc_link"][::core::mem::offset_of!(ucontext, uc_link) - 8usize];
+    ["Offset of field: ucontext::uc_stack"][::core::mem::offset_of!(ucontext, uc_stack) - 16usize];
+    ["Offset of field: ucontext::__padding"]
+        [::core::mem::offset_of!(ucontext, __padding) - 48usize];
+    ["Offset of field: ucontext::uc_mcontext"]
+        [::core::mem::offset_of!(ucontext, uc_mcontext) - 176usize];
+};
+pub type ucontext_t = ucontext;
+unsafe extern "C" {
+    pub fn __libc_current_sigrtmin() -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn __libc_current_sigrtmax() -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub static sys_siglist: [*const core::ffi::c_char; 65usize];
+}
+unsafe extern "C" {
+    pub static sys_signame: [*const core::ffi::c_char; 65usize];
+}
+unsafe extern "C" {
+    pub fn sigaction(
+        __signal: core::ffi::c_int,
+        __new_action: *const sigaction,
+        __old_action: *mut sigaction,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigaction64(
+        __signal: core::ffi::c_int,
+        __new_action: *const sigaction64,
+        __old_action: *mut sigaction64,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn siginterrupt(__signal: core::ffi::c_int, __flag: core::ffi::c_int) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn signal(__signal: core::ffi::c_int, __handler: sighandler_t) -> sighandler_t;
+}
+unsafe extern "C" {
+    pub fn sigaddset(__set: *mut sigset_t, __signal: core::ffi::c_int) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigaddset64(__set: *mut sigset64_t, __signal: core::ffi::c_int) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigdelset(__set: *mut sigset_t, __signal: core::ffi::c_int) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigdelset64(__set: *mut sigset64_t, __signal: core::ffi::c_int) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigemptyset(__set: *mut sigset_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigemptyset64(__set: *mut sigset64_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigfillset(__set: *mut sigset_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigfillset64(__set: *mut sigset64_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigismember(__set: *const sigset_t, __signal: core::ffi::c_int) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigismember64(__set: *const sigset64_t, __signal: core::ffi::c_int) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigpending(__set: *mut sigset_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigpending64(__set: *mut sigset64_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigprocmask(
+        __how: core::ffi::c_int,
+        __new_set: *const sigset_t,
+        __old_set: *mut sigset_t,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigprocmask64(
+        __how: core::ffi::c_int,
+        __new_set: *const sigset64_t,
+        __old_set: *mut sigset64_t,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigsuspend(__mask: *const sigset_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigsuspend64(__mask: *const sigset64_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigwait(__set: *const sigset_t, __signal: *mut core::ffi::c_int) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigwait64(__set: *const sigset64_t, __signal: *mut core::ffi::c_int)
+    -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sighold(__signal: core::ffi::c_int) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigignore(__signal: core::ffi::c_int) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigpause(__signal: core::ffi::c_int) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigrelse(__signal: core::ffi::c_int) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigset(__signal: core::ffi::c_int, __handler: sighandler_t) -> sighandler_t;
+}
+unsafe extern "C" {
+    pub fn raise(__signal: core::ffi::c_int) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn kill(__pid: pid_t, __signal: core::ffi::c_int) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn killpg(__pgrp: core::ffi::c_int, __signal: core::ffi::c_int) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn tgkill(
+        __tgid: core::ffi::c_int,
+        __tid: core::ffi::c_int,
+        __signal: core::ffi::c_int,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigaltstack(
+        __new_signal_stack: *const stack_t,
+        __old_signal_stack: *mut stack_t,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn psiginfo(__info: *const siginfo_t, __msg: *const core::ffi::c_char);
+}
+unsafe extern "C" {
+    pub fn psignal(__signal: core::ffi::c_int, __msg: *const core::ffi::c_char);
+}
+unsafe extern "C" {
+    pub fn pthread_kill(__pthread: pthread_t, __signal: core::ffi::c_int) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_sigmask(
+        __how: core::ffi::c_int,
+        __new_set: *const sigset_t,
+        __old_set: *mut sigset_t,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_sigmask64(
+        __how: core::ffi::c_int,
+        __new_set: *const sigset64_t,
+        __old_set: *mut sigset64_t,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigqueue(__pid: pid_t, __signal: core::ffi::c_int, __value: sigval) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigtimedwait(
+        __set: *const sigset_t,
+        __info: *mut siginfo_t,
+        __timeout: *const timespec,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigtimedwait64(
+        __set: *const sigset64_t,
+        __info: *mut siginfo_t,
+        __timeout: *const timespec,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigwaitinfo(__set: *const sigset_t, __info: *mut siginfo_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn sigwaitinfo64(__set: *const sigset64_t, __info: *mut siginfo_t) -> core::ffi::c_int;
+}
+pub type fd_mask = core::ffi::c_ulong;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct fd_set {
+    pub fds_bits: [fd_mask; 16usize],
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of fd_set"][::core::mem::size_of::<fd_set>() - 128usize];
+    ["Alignment of fd_set"][::core::mem::align_of::<fd_set>() - 8usize];
+    ["Offset of field: fd_set::fds_bits"][::core::mem::offset_of!(fd_set, fds_bits) - 0usize];
+};
+unsafe extern "C" {
+    pub fn __FD_CLR_chk(arg1: core::ffi::c_int, arg2: *mut fd_set, arg3: usize);
+}
+unsafe extern "C" {
+    pub fn __FD_SET_chk(arg1: core::ffi::c_int, arg2: *mut fd_set, arg3: usize);
+}
+unsafe extern "C" {
+    pub fn __FD_ISSET_chk(
+        arg1: core::ffi::c_int,
+        arg2: *const fd_set,
+        arg3: usize,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn select(
+        __max_fd_plus_one: core::ffi::c_int,
+        __read_fds: *mut fd_set,
+        __write_fds: *mut fd_set,
+        __exception_fds: *mut fd_set,
+        __timeout: *mut timeval,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pselect(
+        __max_fd_plus_one: core::ffi::c_int,
+        __read_fds: *mut fd_set,
+        __write_fds: *mut fd_set,
+        __exception_fds: *mut fd_set,
+        __timeout: *const timespec,
+        __mask: *const sigset_t,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pselect64(
+        __max_fd_plus_one: core::ffi::c_int,
+        __read_fds: *mut fd_set,
+        __write_fds: *mut fd_set,
+        __exception_fds: *mut fd_set,
+        __timeout: *const timespec,
+        __mask: *const sigset64_t,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn gettimeofday(__tv: *mut timeval, __tz: *mut timezone) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn settimeofday(__tv: *const timeval, __tz: *const timezone) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn getitimer(
+        __which: core::ffi::c_int,
+        __current_value: *mut itimerval,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn setitimer(
+        __which: core::ffi::c_int,
+        __new_value: *const itimerval,
+        __old_value: *mut itimerval,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn utimes(__path: *const core::ffi::c_char, __times: *const timeval) -> core::ffi::c_int;
+}
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct __locale_t {
+    _unused: [u8; 0],
+}
+pub type locale_t = *mut __locale_t;
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct __timezone_t {
+    _unused: [u8; 0],
+}
+pub type timezone_t = *mut __timezone_t;
+unsafe extern "C" {
+    pub static mut tzname: [*mut core::ffi::c_char; 0usize];
+}
+unsafe extern "C" {
+    pub static mut daylight: core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub static mut timezone: core::ffi::c_long;
+}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct tm {
@@ -221,8 +2072,8 @@ pub struct tm {
     pub tm_wday: core::ffi::c_int,
     pub tm_yday: core::ffi::c_int,
     pub tm_isdst: core::ffi::c_int,
-    pub __tm_gmtoff: core::ffi::c_long,
-    pub __tm_zone: *const core::ffi::c_char,
+    pub tm_gmtoff: core::ffi::c_long,
+    pub tm_zone: *const core::ffi::c_char,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
@@ -237,485 +2088,167 @@ const _: () = {
     ["Offset of field: tm::tm_wday"][::core::mem::offset_of!(tm, tm_wday) - 24usize];
     ["Offset of field: tm::tm_yday"][::core::mem::offset_of!(tm, tm_yday) - 28usize];
     ["Offset of field: tm::tm_isdst"][::core::mem::offset_of!(tm, tm_isdst) - 32usize];
-    ["Offset of field: tm::__tm_gmtoff"][::core::mem::offset_of!(tm, __tm_gmtoff) - 40usize];
-    ["Offset of field: tm::__tm_zone"][::core::mem::offset_of!(tm, __tm_zone) - 48usize];
+    ["Offset of field: tm::tm_gmtoff"][::core::mem::offset_of!(tm, tm_gmtoff) - 40usize];
+    ["Offset of field: tm::tm_zone"][::core::mem::offset_of!(tm, tm_zone) - 48usize];
 };
+unsafe extern "C" {
+    pub fn time(__t: *mut time_t) -> time_t;
+}
+unsafe extern "C" {
+    pub fn nanosleep(__duration: *const timespec, __remainder: *mut timespec) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn asctime(__tm: *const tm) -> *mut core::ffi::c_char;
+}
+unsafe extern "C" {
+    pub fn asctime_r(__tm: *const tm, __buf: *mut core::ffi::c_char) -> *mut core::ffi::c_char;
+}
+unsafe extern "C" {
+    pub fn difftime(__lhs: time_t, __rhs: time_t) -> f64;
+}
+unsafe extern "C" {
+    pub fn mktime(__tm: *mut tm) -> time_t;
+}
+unsafe extern "C" {
+    pub fn mktime_z(__tz: timezone_t, __tm: *mut tm) -> time_t;
+}
+unsafe extern "C" {
+    pub fn localtime(__t: *const time_t) -> *mut tm;
+}
+unsafe extern "C" {
+    pub fn localtime_r(__t: *const time_t, __tm: *mut tm) -> *mut tm;
+}
+unsafe extern "C" {
+    pub fn localtime_rz(__tz: timezone_t, __t: *const time_t, __tm: *mut tm) -> *mut tm;
+}
+unsafe extern "C" {
+    pub fn timelocal(__tm: *mut tm) -> time_t;
+}
+unsafe extern "C" {
+    pub fn gmtime(__t: *const time_t) -> *mut tm;
+}
+unsafe extern "C" {
+    pub fn gmtime_r(__t: *const time_t, __tm: *mut tm) -> *mut tm;
+}
+unsafe extern "C" {
+    pub fn timegm(__tm: *mut tm) -> time_t;
+}
+unsafe extern "C" {
+    pub fn strptime(
+        __s: *const core::ffi::c_char,
+        __fmt: *const core::ffi::c_char,
+        __tm: *mut tm,
+    ) -> *mut core::ffi::c_char;
+}
+unsafe extern "C" {
+    pub fn strptime_l(
+        __s: *const core::ffi::c_char,
+        __fmt: *const core::ffi::c_char,
+        __tm: *mut tm,
+        __l: locale_t,
+    ) -> *mut core::ffi::c_char;
+}
+unsafe extern "C" {
+    pub fn strftime(
+        __buf: *mut core::ffi::c_char,
+        __n: usize,
+        __fmt: *const core::ffi::c_char,
+        __tm: *const tm,
+    ) -> usize;
+}
+unsafe extern "C" {
+    pub fn strftime_l(
+        __buf: *mut core::ffi::c_char,
+        __n: usize,
+        __fmt: *const core::ffi::c_char,
+        __tm: *const tm,
+        __l: locale_t,
+    ) -> usize;
+}
+unsafe extern "C" {
+    pub fn ctime(__t: *const time_t) -> *mut core::ffi::c_char;
+}
+unsafe extern "C" {
+    pub fn ctime_r(__t: *const time_t, __buf: *mut core::ffi::c_char) -> *mut core::ffi::c_char;
+}
+unsafe extern "C" {
+    pub fn tzset();
+}
+unsafe extern "C" {
+    pub fn tzalloc(__id: *const core::ffi::c_char) -> timezone_t;
+}
+unsafe extern "C" {
+    pub fn tzfree(__tz: timezone_t);
+}
 unsafe extern "C" {
     pub fn clock() -> clock_t;
 }
 unsafe extern "C" {
-    pub fn time(__timer: *mut time_t) -> time_t;
+    pub fn clock_getcpuclockid(__pid: pid_t, __clock: *mut clockid_t) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn difftime(__time1: time_t, __time0: time_t) -> f64;
+    pub fn clock_getres(__clock: clockid_t, __resolution: *mut timespec) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn mktime(__tp: *mut tm) -> time_t;
+    pub fn clock_gettime(__clock: clockid_t, __ts: *mut timespec) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn strftime(
-        __s: *mut core::ffi::c_char,
-        __maxsize: usize,
-        __format: *const core::ffi::c_char,
-        __tp: *const tm,
-    ) -> usize;
-}
-unsafe extern "C" {
-    pub fn gmtime(__timer: *const time_t) -> *mut tm;
-}
-unsafe extern "C" {
-    pub fn localtime(__timer: *const time_t) -> *mut tm;
-}
-unsafe extern "C" {
-    pub fn asctime(__tp: *const tm) -> *mut core::ffi::c_char;
-}
-unsafe extern "C" {
-    pub fn ctime(__timer: *const time_t) -> *mut core::ffi::c_char;
-}
-unsafe extern "C" {
-    pub static mut __tzname: [*mut core::ffi::c_char; 2usize];
-}
-unsafe extern "C" {
-    pub static mut __daylight: core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub static mut __timezone: core::ffi::c_long;
-}
-pub type pid_t = __pid_t;
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct sched_param {
-    pub sched_priority: core::ffi::c_int,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of sched_param"][::core::mem::size_of::<sched_param>() - 4usize];
-    ["Alignment of sched_param"][::core::mem::align_of::<sched_param>() - 4usize];
-    ["Offset of field: sched_param::sched_priority"]
-        [::core::mem::offset_of!(sched_param, sched_priority) - 0usize];
-};
-pub type __cpu_mask = core::ffi::c_ulong;
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct cpu_set_t {
-    pub __bits: [__cpu_mask; 16usize],
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of cpu_set_t"][::core::mem::size_of::<cpu_set_t>() - 128usize];
-    ["Alignment of cpu_set_t"][::core::mem::align_of::<cpu_set_t>() - 8usize];
-    ["Offset of field: cpu_set_t::__bits"][::core::mem::offset_of!(cpu_set_t, __bits) - 0usize];
-};
-unsafe extern "C" {
-    pub fn __sched_cpucount(__setsize: usize, __setp: *const cpu_set_t) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn __sched_cpualloc(__count: usize) -> *mut cpu_set_t;
-}
-unsafe extern "C" {
-    pub fn __sched_cpufree(__set: *mut cpu_set_t);
-}
-unsafe extern "C" {
-    pub fn sched_setparam(__pid: __pid_t, __param: *const sched_param) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn sched_getparam(__pid: __pid_t, __param: *mut sched_param) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn sched_setscheduler(
-        __pid: __pid_t,
-        __policy: core::ffi::c_int,
-        __param: *const sched_param,
+    pub fn clock_nanosleep(
+        __clock: clockid_t,
+        __flags: core::ffi::c_int,
+        __time: *const timespec,
+        __remainder: *mut timespec,
     ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn sched_getscheduler(__pid: __pid_t) -> core::ffi::c_int;
+    pub fn clock_settime(__clock: clockid_t, __ts: *const timespec) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn sched_yield() -> core::ffi::c_int;
+    pub fn timer_create(
+        __clock: clockid_t,
+        __event: *mut sigevent,
+        __timer_ptr: *mut timer_t,
+    ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn sched_get_priority_max(__algorithm: core::ffi::c_int) -> core::ffi::c_int;
+    pub fn timer_delete(__timer: timer_t) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn sched_get_priority_min(__algorithm: core::ffi::c_int) -> core::ffi::c_int;
+    pub fn timer_settime(
+        __timer: timer_t,
+        __flags: core::ffi::c_int,
+        __new_value: *const itimerspec,
+        __old_value: *mut itimerspec,
+    ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn sched_rr_get_interval(__pid: __pid_t, __t: *mut timespec) -> core::ffi::c_int;
+    pub fn timer_gettime(_timer: timer_t, __ts: *mut itimerspec) -> core::ffi::c_int;
 }
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub union __atomic_wide_counter {
-    pub __value64: core::ffi::c_ulonglong,
-    pub __value32: __atomic_wide_counter__bindgen_ty_1,
+unsafe extern "C" {
+    pub fn timer_getoverrun(__timer: timer_t) -> core::ffi::c_int;
 }
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct __atomic_wide_counter__bindgen_ty_1 {
-    pub __low: core::ffi::c_uint,
-    pub __high: core::ffi::c_uint,
+unsafe extern "C" {
+    pub fn timespec_get(__ts: *mut timespec, __base: core::ffi::c_int) -> core::ffi::c_int;
 }
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of __atomic_wide_counter__bindgen_ty_1"]
-        [::core::mem::size_of::<__atomic_wide_counter__bindgen_ty_1>() - 8usize];
-    ["Alignment of __atomic_wide_counter__bindgen_ty_1"]
-        [::core::mem::align_of::<__atomic_wide_counter__bindgen_ty_1>() - 4usize];
-    ["Offset of field: __atomic_wide_counter__bindgen_ty_1::__low"]
-        [::core::mem::offset_of!(__atomic_wide_counter__bindgen_ty_1, __low) - 0usize];
-    ["Offset of field: __atomic_wide_counter__bindgen_ty_1::__high"]
-        [::core::mem::offset_of!(__atomic_wide_counter__bindgen_ty_1, __high) - 4usize];
-};
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of __atomic_wide_counter"][::core::mem::size_of::<__atomic_wide_counter>() - 8usize];
-    ["Alignment of __atomic_wide_counter"]
-        [::core::mem::align_of::<__atomic_wide_counter>() - 8usize];
-    ["Offset of field: __atomic_wide_counter::__value64"]
-        [::core::mem::offset_of!(__atomic_wide_counter, __value64) - 0usize];
-    ["Offset of field: __atomic_wide_counter::__value32"]
-        [::core::mem::offset_of!(__atomic_wide_counter, __value32) - 0usize];
-};
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct __pthread_internal_list {
-    pub __prev: *mut __pthread_internal_list,
-    pub __next: *mut __pthread_internal_list,
+unsafe extern "C" {
+    pub fn timespec_getres(__ts: *mut timespec, __base: core::ffi::c_int) -> core::ffi::c_int;
 }
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of __pthread_internal_list"]
-        [::core::mem::size_of::<__pthread_internal_list>() - 16usize];
-    ["Alignment of __pthread_internal_list"]
-        [::core::mem::align_of::<__pthread_internal_list>() - 8usize];
-    ["Offset of field: __pthread_internal_list::__prev"]
-        [::core::mem::offset_of!(__pthread_internal_list, __prev) - 0usize];
-    ["Offset of field: __pthread_internal_list::__next"]
-        [::core::mem::offset_of!(__pthread_internal_list, __next) - 8usize];
-};
-pub type __pthread_list_t = __pthread_internal_list;
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct __pthread_internal_slist {
-    pub __next: *mut __pthread_internal_slist,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of __pthread_internal_slist"]
-        [::core::mem::size_of::<__pthread_internal_slist>() - 8usize];
-    ["Alignment of __pthread_internal_slist"]
-        [::core::mem::align_of::<__pthread_internal_slist>() - 8usize];
-    ["Offset of field: __pthread_internal_slist::__next"]
-        [::core::mem::offset_of!(__pthread_internal_slist, __next) - 0usize];
-};
-pub type __pthread_slist_t = __pthread_internal_slist;
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct __pthread_mutex_s {
-    pub __lock: core::ffi::c_int,
-    pub __count: core::ffi::c_uint,
-    pub __owner: core::ffi::c_int,
-    pub __nusers: core::ffi::c_uint,
-    pub __kind: core::ffi::c_int,
-    pub __spins: core::ffi::c_int,
-    pub __list: __pthread_list_t,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of __pthread_mutex_s"][::core::mem::size_of::<__pthread_mutex_s>() - 40usize];
-    ["Alignment of __pthread_mutex_s"][::core::mem::align_of::<__pthread_mutex_s>() - 8usize];
-    ["Offset of field: __pthread_mutex_s::__lock"]
-        [::core::mem::offset_of!(__pthread_mutex_s, __lock) - 0usize];
-    ["Offset of field: __pthread_mutex_s::__count"]
-        [::core::mem::offset_of!(__pthread_mutex_s, __count) - 4usize];
-    ["Offset of field: __pthread_mutex_s::__owner"]
-        [::core::mem::offset_of!(__pthread_mutex_s, __owner) - 8usize];
-    ["Offset of field: __pthread_mutex_s::__nusers"]
-        [::core::mem::offset_of!(__pthread_mutex_s, __nusers) - 12usize];
-    ["Offset of field: __pthread_mutex_s::__kind"]
-        [::core::mem::offset_of!(__pthread_mutex_s, __kind) - 16usize];
-    ["Offset of field: __pthread_mutex_s::__spins"]
-        [::core::mem::offset_of!(__pthread_mutex_s, __spins) - 20usize];
-    ["Offset of field: __pthread_mutex_s::__list"]
-        [::core::mem::offset_of!(__pthread_mutex_s, __list) - 24usize];
-};
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct __pthread_rwlock_arch_t {
-    pub __readers: core::ffi::c_uint,
-    pub __writers: core::ffi::c_uint,
-    pub __wrphase_futex: core::ffi::c_uint,
-    pub __writers_futex: core::ffi::c_uint,
-    pub __pad3: core::ffi::c_uint,
-    pub __pad4: core::ffi::c_uint,
-    pub __cur_writer: core::ffi::c_int,
-    pub __shared: core::ffi::c_int,
-    pub __pad1: core::ffi::c_ulong,
-    pub __pad2: core::ffi::c_ulong,
-    pub __flags: core::ffi::c_uint,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of __pthread_rwlock_arch_t"]
-        [::core::mem::size_of::<__pthread_rwlock_arch_t>() - 56usize];
-    ["Alignment of __pthread_rwlock_arch_t"]
-        [::core::mem::align_of::<__pthread_rwlock_arch_t>() - 8usize];
-    ["Offset of field: __pthread_rwlock_arch_t::__readers"]
-        [::core::mem::offset_of!(__pthread_rwlock_arch_t, __readers) - 0usize];
-    ["Offset of field: __pthread_rwlock_arch_t::__writers"]
-        [::core::mem::offset_of!(__pthread_rwlock_arch_t, __writers) - 4usize];
-    ["Offset of field: __pthread_rwlock_arch_t::__wrphase_futex"]
-        [::core::mem::offset_of!(__pthread_rwlock_arch_t, __wrphase_futex) - 8usize];
-    ["Offset of field: __pthread_rwlock_arch_t::__writers_futex"]
-        [::core::mem::offset_of!(__pthread_rwlock_arch_t, __writers_futex) - 12usize];
-    ["Offset of field: __pthread_rwlock_arch_t::__pad3"]
-        [::core::mem::offset_of!(__pthread_rwlock_arch_t, __pad3) - 16usize];
-    ["Offset of field: __pthread_rwlock_arch_t::__pad4"]
-        [::core::mem::offset_of!(__pthread_rwlock_arch_t, __pad4) - 20usize];
-    ["Offset of field: __pthread_rwlock_arch_t::__cur_writer"]
-        [::core::mem::offset_of!(__pthread_rwlock_arch_t, __cur_writer) - 24usize];
-    ["Offset of field: __pthread_rwlock_arch_t::__shared"]
-        [::core::mem::offset_of!(__pthread_rwlock_arch_t, __shared) - 28usize];
-    ["Offset of field: __pthread_rwlock_arch_t::__pad1"]
-        [::core::mem::offset_of!(__pthread_rwlock_arch_t, __pad1) - 32usize];
-    ["Offset of field: __pthread_rwlock_arch_t::__pad2"]
-        [::core::mem::offset_of!(__pthread_rwlock_arch_t, __pad2) - 40usize];
-    ["Offset of field: __pthread_rwlock_arch_t::__flags"]
-        [::core::mem::offset_of!(__pthread_rwlock_arch_t, __flags) - 48usize];
-};
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub struct __pthread_cond_s {
-    pub __wseq: __atomic_wide_counter,
-    pub __g1_start: __atomic_wide_counter,
-    pub __g_refs: [core::ffi::c_uint; 2usize],
-    pub __g_size: [core::ffi::c_uint; 2usize],
-    pub __g1_orig_size: core::ffi::c_uint,
-    pub __wrefs: core::ffi::c_uint,
-    pub __g_signals: [core::ffi::c_uint; 2usize],
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of __pthread_cond_s"][::core::mem::size_of::<__pthread_cond_s>() - 48usize];
-    ["Alignment of __pthread_cond_s"][::core::mem::align_of::<__pthread_cond_s>() - 8usize];
-    ["Offset of field: __pthread_cond_s::__wseq"]
-        [::core::mem::offset_of!(__pthread_cond_s, __wseq) - 0usize];
-    ["Offset of field: __pthread_cond_s::__g1_start"]
-        [::core::mem::offset_of!(__pthread_cond_s, __g1_start) - 8usize];
-    ["Offset of field: __pthread_cond_s::__g_refs"]
-        [::core::mem::offset_of!(__pthread_cond_s, __g_refs) - 16usize];
-    ["Offset of field: __pthread_cond_s::__g_size"]
-        [::core::mem::offset_of!(__pthread_cond_s, __g_size) - 24usize];
-    ["Offset of field: __pthread_cond_s::__g1_orig_size"]
-        [::core::mem::offset_of!(__pthread_cond_s, __g1_orig_size) - 32usize];
-    ["Offset of field: __pthread_cond_s::__wrefs"]
-        [::core::mem::offset_of!(__pthread_cond_s, __wrefs) - 36usize];
-    ["Offset of field: __pthread_cond_s::__g_signals"]
-        [::core::mem::offset_of!(__pthread_cond_s, __g_signals) - 40usize];
-};
-pub type __tss_t = core::ffi::c_uint;
-pub type __thrd_t = core::ffi::c_ulong;
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct __once_flag {
-    pub __data: core::ffi::c_int,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of __once_flag"][::core::mem::size_of::<__once_flag>() - 4usize];
-    ["Alignment of __once_flag"][::core::mem::align_of::<__once_flag>() - 4usize];
-    ["Offset of field: __once_flag::__data"][::core::mem::offset_of!(__once_flag, __data) - 0usize];
-};
-pub type pthread_t = core::ffi::c_ulong;
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub union pthread_mutexattr_t {
-    pub __size: [core::ffi::c_char; 8usize],
-    pub __align: core::ffi::c_int,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of pthread_mutexattr_t"][::core::mem::size_of::<pthread_mutexattr_t>() - 8usize];
-    ["Alignment of pthread_mutexattr_t"][::core::mem::align_of::<pthread_mutexattr_t>() - 4usize];
-    ["Offset of field: pthread_mutexattr_t::__size"]
-        [::core::mem::offset_of!(pthread_mutexattr_t, __size) - 0usize];
-    ["Offset of field: pthread_mutexattr_t::__align"]
-        [::core::mem::offset_of!(pthread_mutexattr_t, __align) - 0usize];
-};
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub union pthread_condattr_t {
-    pub __size: [core::ffi::c_char; 8usize],
-    pub __align: core::ffi::c_int,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of pthread_condattr_t"][::core::mem::size_of::<pthread_condattr_t>() - 8usize];
-    ["Alignment of pthread_condattr_t"][::core::mem::align_of::<pthread_condattr_t>() - 4usize];
-    ["Offset of field: pthread_condattr_t::__size"]
-        [::core::mem::offset_of!(pthread_condattr_t, __size) - 0usize];
-    ["Offset of field: pthread_condattr_t::__align"]
-        [::core::mem::offset_of!(pthread_condattr_t, __align) - 0usize];
-};
-pub type pthread_key_t = core::ffi::c_uint;
-pub type pthread_once_t = core::ffi::c_int;
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub union pthread_attr_t {
-    pub __size: [core::ffi::c_char; 64usize],
-    pub __align: core::ffi::c_long,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of pthread_attr_t"][::core::mem::size_of::<pthread_attr_t>() - 64usize];
-    ["Alignment of pthread_attr_t"][::core::mem::align_of::<pthread_attr_t>() - 8usize];
-    ["Offset of field: pthread_attr_t::__size"]
-        [::core::mem::offset_of!(pthread_attr_t, __size) - 0usize];
-    ["Offset of field: pthread_attr_t::__align"]
-        [::core::mem::offset_of!(pthread_attr_t, __align) - 0usize];
-};
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub union pthread_mutex_t {
-    pub __data: __pthread_mutex_s,
-    pub __size: [core::ffi::c_char; 48usize],
-    pub __align: core::ffi::c_long,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of pthread_mutex_t"][::core::mem::size_of::<pthread_mutex_t>() - 48usize];
-    ["Alignment of pthread_mutex_t"][::core::mem::align_of::<pthread_mutex_t>() - 8usize];
-    ["Offset of field: pthread_mutex_t::__data"]
-        [::core::mem::offset_of!(pthread_mutex_t, __data) - 0usize];
-    ["Offset of field: pthread_mutex_t::__size"]
-        [::core::mem::offset_of!(pthread_mutex_t, __size) - 0usize];
-    ["Offset of field: pthread_mutex_t::__align"]
-        [::core::mem::offset_of!(pthread_mutex_t, __align) - 0usize];
-};
-#[repr(C)]
-#[derive(Copy, Clone)]
-pub union pthread_cond_t {
-    pub __data: __pthread_cond_s,
-    pub __size: [core::ffi::c_char; 48usize],
-    pub __align: core::ffi::c_longlong,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of pthread_cond_t"][::core::mem::size_of::<pthread_cond_t>() - 48usize];
-    ["Alignment of pthread_cond_t"][::core::mem::align_of::<pthread_cond_t>() - 8usize];
-    ["Offset of field: pthread_cond_t::__data"]
-        [::core::mem::offset_of!(pthread_cond_t, __data) - 0usize];
-    ["Offset of field: pthread_cond_t::__size"]
-        [::core::mem::offset_of!(pthread_cond_t, __size) - 0usize];
-    ["Offset of field: pthread_cond_t::__align"]
-        [::core::mem::offset_of!(pthread_cond_t, __align) - 0usize];
-};
-pub type __jmp_buf = [core::ffi::c_ulonglong; 22usize];
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct __sigset_t {
-    pub __val: [core::ffi::c_ulong; 16usize],
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of __sigset_t"][::core::mem::size_of::<__sigset_t>() - 128usize];
-    ["Alignment of __sigset_t"][::core::mem::align_of::<__sigset_t>() - 8usize];
-    ["Offset of field: __sigset_t::__val"][::core::mem::offset_of!(__sigset_t, __val) - 0usize];
-};
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct __jmp_buf_tag {
-    pub __jmpbuf: __jmp_buf,
-    pub __mask_was_saved: core::ffi::c_int,
-    pub __saved_mask: __sigset_t,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of __jmp_buf_tag"][::core::mem::size_of::<__jmp_buf_tag>() - 312usize];
-    ["Alignment of __jmp_buf_tag"][::core::mem::align_of::<__jmp_buf_tag>() - 8usize];
-    ["Offset of field: __jmp_buf_tag::__jmpbuf"]
-        [::core::mem::offset_of!(__jmp_buf_tag, __jmpbuf) - 0usize];
-    ["Offset of field: __jmp_buf_tag::__mask_was_saved"]
-        [::core::mem::offset_of!(__jmp_buf_tag, __mask_was_saved) - 176usize];
-    ["Offset of field: __jmp_buf_tag::__saved_mask"]
-        [::core::mem::offset_of!(__jmp_buf_tag, __saved_mask) - 184usize];
-};
-pub const PTHREAD_CREATE_JOINABLE: _bindgen_ty_1 = 0;
-pub const PTHREAD_CREATE_DETACHED: _bindgen_ty_1 = 1;
+pub const PTHREAD_MUTEX_NORMAL: _bindgen_ty_1 = 0;
+pub const PTHREAD_MUTEX_RECURSIVE: _bindgen_ty_1 = 1;
+pub const PTHREAD_MUTEX_ERRORCHECK: _bindgen_ty_1 = 2;
+pub const PTHREAD_MUTEX_ERRORCHECK_NP: _bindgen_ty_1 = 2;
+pub const PTHREAD_MUTEX_RECURSIVE_NP: _bindgen_ty_1 = 1;
+pub const PTHREAD_MUTEX_DEFAULT: _bindgen_ty_1 = 0;
 pub type _bindgen_ty_1 = core::ffi::c_uint;
-pub const PTHREAD_MUTEX_TIMED_NP: _bindgen_ty_2 = 0;
-pub const PTHREAD_MUTEX_RECURSIVE_NP: _bindgen_ty_2 = 1;
-pub const PTHREAD_MUTEX_ERRORCHECK_NP: _bindgen_ty_2 = 2;
-pub const PTHREAD_MUTEX_ADAPTIVE_NP: _bindgen_ty_2 = 3;
+pub const PTHREAD_RWLOCK_PREFER_READER_NP: _bindgen_ty_2 = 0;
+pub const PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP: _bindgen_ty_2 = 1;
 pub type _bindgen_ty_2 = core::ffi::c_uint;
-pub const PTHREAD_INHERIT_SCHED: _bindgen_ty_3 = 0;
-pub const PTHREAD_EXPLICIT_SCHED: _bindgen_ty_3 = 1;
-pub type _bindgen_ty_3 = core::ffi::c_uint;
-pub const PTHREAD_SCOPE_SYSTEM: _bindgen_ty_4 = 0;
-pub const PTHREAD_SCOPE_PROCESS: _bindgen_ty_4 = 1;
-pub type _bindgen_ty_4 = core::ffi::c_uint;
-pub const PTHREAD_PROCESS_PRIVATE: _bindgen_ty_5 = 0;
-pub const PTHREAD_PROCESS_SHARED: _bindgen_ty_5 = 1;
-pub type _bindgen_ty_5 = core::ffi::c_uint;
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct _pthread_cleanup_buffer {
-    pub __routine: ::core::option::Option<unsafe extern "C" fn(arg1: *mut core::ffi::c_void)>,
-    pub __arg: *mut core::ffi::c_void,
-    pub __canceltype: core::ffi::c_int,
-    pub __prev: *mut _pthread_cleanup_buffer,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of _pthread_cleanup_buffer"]
-        [::core::mem::size_of::<_pthread_cleanup_buffer>() - 32usize];
-    ["Alignment of _pthread_cleanup_buffer"]
-        [::core::mem::align_of::<_pthread_cleanup_buffer>() - 8usize];
-    ["Offset of field: _pthread_cleanup_buffer::__routine"]
-        [::core::mem::offset_of!(_pthread_cleanup_buffer, __routine) - 0usize];
-    ["Offset of field: _pthread_cleanup_buffer::__arg"]
-        [::core::mem::offset_of!(_pthread_cleanup_buffer, __arg) - 8usize];
-    ["Offset of field: _pthread_cleanup_buffer::__canceltype"]
-        [::core::mem::offset_of!(_pthread_cleanup_buffer, __canceltype) - 16usize];
-    ["Offset of field: _pthread_cleanup_buffer::__prev"]
-        [::core::mem::offset_of!(_pthread_cleanup_buffer, __prev) - 24usize];
-};
-pub const PTHREAD_CANCEL_ENABLE: _bindgen_ty_6 = 0;
-pub const PTHREAD_CANCEL_DISABLE: _bindgen_ty_6 = 1;
-pub type _bindgen_ty_6 = core::ffi::c_uint;
-pub const PTHREAD_CANCEL_DEFERRED: _bindgen_ty_7 = 0;
-pub const PTHREAD_CANCEL_ASYNCHRONOUS: _bindgen_ty_7 = 1;
-pub type _bindgen_ty_7 = core::ffi::c_uint;
 unsafe extern "C" {
-    pub fn pthread_create(
-        __newthread: *mut pthread_t,
-        __attr: *const pthread_attr_t,
-        __start_routine: ::core::option::Option<
-            unsafe extern "C" fn(arg1: *mut core::ffi::c_void) -> *mut core::ffi::c_void,
-        >,
-        __arg: *mut core::ffi::c_void,
+    pub fn pthread_atfork(
+        __prepare: ::core::option::Option<unsafe extern "C" fn()>,
+        __parent: ::core::option::Option<unsafe extern "C" fn()>,
+        __child: ::core::option::Option<unsafe extern "C" fn()>,
     ) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_exit(__retval: *mut core::ffi::c_void) -> !;
-}
-unsafe extern "C" {
-    pub fn pthread_join(
-        __th: pthread_t,
-        __thread_return: *mut *mut core::ffi::c_void,
-    ) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_detach(__th: pthread_t) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_self() -> pthread_t;
-}
-unsafe extern "C" {
-    pub fn pthread_equal(__thread1: pthread_t, __thread2: pthread_t) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_attr_init(__attr: *mut pthread_attr_t) -> core::ffi::c_int;
 }
 unsafe extern "C" {
     pub fn pthread_attr_destroy(__attr: *mut pthread_attr_t) -> core::ffi::c_int;
@@ -723,25 +2256,19 @@ unsafe extern "C" {
 unsafe extern "C" {
     pub fn pthread_attr_getdetachstate(
         __attr: *const pthread_attr_t,
-        __detachstate: *mut core::ffi::c_int,
-    ) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_attr_setdetachstate(
-        __attr: *mut pthread_attr_t,
-        __detachstate: core::ffi::c_int,
+        __state: *mut core::ffi::c_int,
     ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
     pub fn pthread_attr_getguardsize(
         __attr: *const pthread_attr_t,
-        __guardsize: *mut usize,
+        __size: *mut usize,
     ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn pthread_attr_setguardsize(
-        __attr: *mut pthread_attr_t,
-        __guardsize: usize,
+    pub fn pthread_attr_getinheritsched(
+        __attr: *const pthread_attr_t,
+        __flag: *mut core::ffi::c_int,
     ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
@@ -751,33 +2278,9 @@ unsafe extern "C" {
     ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn pthread_attr_setschedparam(
-        __attr: *mut pthread_attr_t,
-        __param: *const sched_param,
-    ) -> core::ffi::c_int;
-}
-unsafe extern "C" {
     pub fn pthread_attr_getschedpolicy(
         __attr: *const pthread_attr_t,
         __policy: *mut core::ffi::c_int,
-    ) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_attr_setschedpolicy(
-        __attr: *mut pthread_attr_t,
-        __policy: core::ffi::c_int,
-    ) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_attr_getinheritsched(
-        __attr: *const pthread_attr_t,
-        __inherit: *mut core::ffi::c_int,
-    ) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_attr_setinheritsched(
-        __attr: *mut pthread_attr_t,
-        __inherit: core::ffi::c_int,
     ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
@@ -787,180 +2290,194 @@ unsafe extern "C" {
     ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
+    pub fn pthread_attr_getstack(
+        __attr: *const pthread_attr_t,
+        __addr: *mut *mut core::ffi::c_void,
+        __size: *mut usize,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_attr_getstacksize(
+        __attr: *const pthread_attr_t,
+        __size: *mut usize,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_attr_init(__attr: *mut pthread_attr_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_attr_setdetachstate(
+        __attr: *mut pthread_attr_t,
+        __state: core::ffi::c_int,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_attr_setguardsize(
+        __attr: *mut pthread_attr_t,
+        __size: usize,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_attr_setinheritsched(
+        __attr: *mut pthread_attr_t,
+        __flag: core::ffi::c_int,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_attr_setschedparam(
+        __attr: *mut pthread_attr_t,
+        __param: *const sched_param,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_attr_setschedpolicy(
+        __attr: *mut pthread_attr_t,
+        __policy: core::ffi::c_int,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
     pub fn pthread_attr_setscope(
         __attr: *mut pthread_attr_t,
         __scope: core::ffi::c_int,
     ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn pthread_attr_getstackaddr(
-        __attr: *const pthread_attr_t,
-        __stackaddr: *mut *mut core::ffi::c_void,
-    ) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_attr_setstackaddr(
+    pub fn pthread_attr_setstack(
         __attr: *mut pthread_attr_t,
-        __stackaddr: *mut core::ffi::c_void,
-    ) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_attr_getstacksize(
-        __attr: *const pthread_attr_t,
-        __stacksize: *mut usize,
+        __addr: *mut core::ffi::c_void,
+        __size: usize,
     ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
     pub fn pthread_attr_setstacksize(
+        __addr: *mut pthread_attr_t,
+        __size: usize,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_condattr_destroy(__attr: *mut pthread_condattr_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_condattr_getclock(
+        __attr: *const pthread_condattr_t,
+        __clock: *mut clockid_t,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_condattr_getpshared(
+        __attr: *const pthread_condattr_t,
+        __shared: *mut core::ffi::c_int,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_condattr_init(__attr: *mut pthread_condattr_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_condattr_setclock(
+        __attr: *mut pthread_condattr_t,
+        __clock: clockid_t,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_condattr_setpshared(
+        __attr: *mut pthread_condattr_t,
+        __shared: core::ffi::c_int,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_cond_broadcast(__cond: *mut pthread_cond_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_cond_clockwait(
+        __cond: *mut pthread_cond_t,
+        __mutex: *mut pthread_mutex_t,
+        __clock: clockid_t,
+        __timeout: *const timespec,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_cond_destroy(__cond: *mut pthread_cond_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_cond_init(
+        __cond: *mut pthread_cond_t,
+        __attr: *const pthread_condattr_t,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_cond_signal(__cond: *mut pthread_cond_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_cond_timedwait(
+        __cond: *mut pthread_cond_t,
+        __mutex: *mut pthread_mutex_t,
+        __timeout: *const timespec,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_cond_timedwait_monotonic_np(
+        __cond: *mut pthread_cond_t,
+        __mutex: *mut pthread_mutex_t,
+        __timeout: *const timespec,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_cond_wait(
+        __cond: *mut pthread_cond_t,
+        __mutex: *mut pthread_mutex_t,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_create(
+        __pthread_ptr: *mut pthread_t,
+        __attr: *const pthread_attr_t,
+        __start_routine: ::core::option::Option<
+            unsafe extern "C" fn(arg1: *mut core::ffi::c_void) -> *mut core::ffi::c_void,
+        >,
+        arg1: *mut core::ffi::c_void,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_detach(__pthread: pthread_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_exit(__return_value: *mut core::ffi::c_void) -> !;
+}
+unsafe extern "C" {
+    pub fn pthread_equal(__lhs: pthread_t, __rhs: pthread_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_getattr_np(
+        __pthread: pthread_t,
         __attr: *mut pthread_attr_t,
-        __stacksize: usize,
     ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn pthread_setschedparam(
-        __target_thread: pthread_t,
-        __policy: core::ffi::c_int,
-        __param: *const sched_param,
-    ) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_getschedparam(
-        __target_thread: pthread_t,
-        __policy: *mut core::ffi::c_int,
-        __param: *mut sched_param,
-    ) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_setschedprio(
-        __target_thread: pthread_t,
-        __prio: core::ffi::c_int,
-    ) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_once(
-        __once_control: *mut pthread_once_t,
-        __init_routine: ::core::option::Option<unsafe extern "C" fn()>,
-    ) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_setcancelstate(
-        __state: core::ffi::c_int,
-        __oldstate: *mut core::ffi::c_int,
-    ) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_setcanceltype(
-        __type: core::ffi::c_int,
-        __oldtype: *mut core::ffi::c_int,
-    ) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_cancel(__th: pthread_t) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_testcancel();
-}
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct __cancel_jmp_buf_tag {
-    pub __cancel_jmp_buf: __jmp_buf,
-    pub __mask_was_saved: core::ffi::c_int,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of __cancel_jmp_buf_tag"][::core::mem::size_of::<__cancel_jmp_buf_tag>() - 184usize];
-    ["Alignment of __cancel_jmp_buf_tag"][::core::mem::align_of::<__cancel_jmp_buf_tag>() - 8usize];
-    ["Offset of field: __cancel_jmp_buf_tag::__cancel_jmp_buf"]
-        [::core::mem::offset_of!(__cancel_jmp_buf_tag, __cancel_jmp_buf) - 0usize];
-    ["Offset of field: __cancel_jmp_buf_tag::__mask_was_saved"]
-        [::core::mem::offset_of!(__cancel_jmp_buf_tag, __mask_was_saved) - 176usize];
-};
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct __pthread_unwind_buf_t {
-    pub __cancel_jmp_buf: [__cancel_jmp_buf_tag; 1usize],
-    pub __pad: [*mut core::ffi::c_void; 4usize],
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of __pthread_unwind_buf_t"][::core::mem::size_of::<__pthread_unwind_buf_t>() - 216usize];
-    ["Alignment of __pthread_unwind_buf_t"]
-        [::core::mem::align_of::<__pthread_unwind_buf_t>() - 8usize];
-    ["Offset of field: __pthread_unwind_buf_t::__cancel_jmp_buf"]
-        [::core::mem::offset_of!(__pthread_unwind_buf_t, __cancel_jmp_buf) - 0usize];
-    ["Offset of field: __pthread_unwind_buf_t::__pad"]
-        [::core::mem::offset_of!(__pthread_unwind_buf_t, __pad) - 184usize];
-};
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct __pthread_cleanup_frame {
-    pub __cancel_routine:
-        ::core::option::Option<unsafe extern "C" fn(arg1: *mut core::ffi::c_void)>,
-    pub __cancel_arg: *mut core::ffi::c_void,
-    pub __do_it: core::ffi::c_int,
-    pub __cancel_type: core::ffi::c_int,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of __pthread_cleanup_frame"]
-        [::core::mem::size_of::<__pthread_cleanup_frame>() - 24usize];
-    ["Alignment of __pthread_cleanup_frame"]
-        [::core::mem::align_of::<__pthread_cleanup_frame>() - 8usize];
-    ["Offset of field: __pthread_cleanup_frame::__cancel_routine"]
-        [::core::mem::offset_of!(__pthread_cleanup_frame, __cancel_routine) - 0usize];
-    ["Offset of field: __pthread_cleanup_frame::__cancel_arg"]
-        [::core::mem::offset_of!(__pthread_cleanup_frame, __cancel_arg) - 8usize];
-    ["Offset of field: __pthread_cleanup_frame::__do_it"]
-        [::core::mem::offset_of!(__pthread_cleanup_frame, __do_it) - 16usize];
-    ["Offset of field: __pthread_cleanup_frame::__cancel_type"]
-        [::core::mem::offset_of!(__pthread_cleanup_frame, __cancel_type) - 20usize];
-};
-unsafe extern "C" {
-    pub fn __pthread_register_cancel(__buf: *mut __pthread_unwind_buf_t);
-}
-unsafe extern "C" {
-    pub fn __pthread_unregister_cancel(__buf: *mut __pthread_unwind_buf_t);
-}
-unsafe extern "C" {
-    pub fn __pthread_unwind_next(__buf: *mut __pthread_unwind_buf_t) -> !;
-}
-unsafe extern "C" {
-    pub fn __sigsetjmp(__env: *mut __jmp_buf_tag, __savemask: core::ffi::c_int)
+    pub fn pthread_getcpuclockid(__pthread: pthread_t, __clock: *mut clockid_t)
     -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn pthread_mutex_init(
-        __mutex: *mut pthread_mutex_t,
-        __mutexattr: *const pthread_mutexattr_t,
+    pub fn pthread_getspecific(__key: pthread_key_t) -> *mut core::ffi::c_void;
+}
+unsafe extern "C" {
+    pub fn pthread_gettid_np(__pthread: pthread_t) -> pid_t;
+}
+unsafe extern "C" {
+    pub fn pthread_join(
+        __pthread: pthread_t,
+        __return_value_ptr: *mut *mut core::ffi::c_void,
     ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn pthread_mutex_destroy(__mutex: *mut pthread_mutex_t) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_mutex_trylock(__mutex: *mut pthread_mutex_t) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_mutex_lock(__mutex: *mut pthread_mutex_t) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_mutex_unlock(__mutex: *mut pthread_mutex_t) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_mutex_getprioceiling(
-        __mutex: *const pthread_mutex_t,
-        __prioceiling: *mut core::ffi::c_int,
+    pub fn pthread_key_create(
+        __key_ptr: *mut pthread_key_t,
+        __key_destructor: ::core::option::Option<
+            unsafe extern "C" fn(arg1: *mut core::ffi::c_void),
+        >,
     ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn pthread_mutex_setprioceiling(
-        __mutex: *mut pthread_mutex_t,
-        __prioceiling: core::ffi::c_int,
-        __old_ceiling: *mut core::ffi::c_int,
-    ) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_mutexattr_init(__attr: *mut pthread_mutexattr_t) -> core::ffi::c_int;
+    pub fn pthread_key_delete(__key: pthread_key_t) -> core::ffi::c_int;
 }
 unsafe extern "C" {
     pub fn pthread_mutexattr_destroy(__attr: *mut pthread_mutexattr_t) -> core::ffi::c_int;
@@ -968,13 +2485,13 @@ unsafe extern "C" {
 unsafe extern "C" {
     pub fn pthread_mutexattr_getpshared(
         __attr: *const pthread_mutexattr_t,
-        __pshared: *mut core::ffi::c_int,
+        __shared: *mut core::ffi::c_int,
     ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn pthread_mutexattr_setpshared(
-        __attr: *mut pthread_mutexattr_t,
-        __pshared: core::ffi::c_int,
+    pub fn pthread_mutexattr_gettype(
+        __attr: *const pthread_mutexattr_t,
+        __type: *mut core::ffi::c_int,
     ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
@@ -984,95 +2501,273 @@ unsafe extern "C" {
     ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
+    pub fn pthread_mutexattr_init(__attr: *mut pthread_mutexattr_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_mutexattr_setpshared(
+        __attr: *mut pthread_mutexattr_t,
+        __shared: core::ffi::c_int,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_mutexattr_settype(
+        __attr: *mut pthread_mutexattr_t,
+        __type: core::ffi::c_int,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
     pub fn pthread_mutexattr_setprotocol(
         __attr: *mut pthread_mutexattr_t,
         __protocol: core::ffi::c_int,
     ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn pthread_mutexattr_getprioceiling(
-        __attr: *const pthread_mutexattr_t,
-        __prioceiling: *mut core::ffi::c_int,
-    ) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_mutexattr_setprioceiling(
-        __attr: *mut pthread_mutexattr_t,
-        __prioceiling: core::ffi::c_int,
-    ) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_cond_init(
-        __cond: *mut pthread_cond_t,
-        __cond_attr: *const pthread_condattr_t,
-    ) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_cond_destroy(__cond: *mut pthread_cond_t) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_cond_signal(__cond: *mut pthread_cond_t) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_cond_broadcast(__cond: *mut pthread_cond_t) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_cond_wait(
-        __cond: *mut pthread_cond_t,
+    pub fn pthread_mutex_clocklock(
         __mutex: *mut pthread_mutex_t,
-    ) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_cond_timedwait(
-        __cond: *mut pthread_cond_t,
-        __mutex: *mut pthread_mutex_t,
+        __clock: clockid_t,
         __abstime: *const timespec,
     ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn pthread_condattr_init(__attr: *mut pthread_condattr_t) -> core::ffi::c_int;
+    pub fn pthread_mutex_destroy(__mutex: *mut pthread_mutex_t) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn pthread_condattr_destroy(__attr: *mut pthread_condattr_t) -> core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn pthread_condattr_getpshared(
-        __attr: *const pthread_condattr_t,
-        __pshared: *mut core::ffi::c_int,
+    pub fn pthread_mutex_init(
+        __mutex: *mut pthread_mutex_t,
+        __attr: *const pthread_mutexattr_t,
     ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn pthread_condattr_setpshared(
-        __attr: *mut pthread_condattr_t,
-        __pshared: core::ffi::c_int,
+    pub fn pthread_mutex_lock(__mutex: *mut pthread_mutex_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_mutex_timedlock(
+        __mutex: *mut pthread_mutex_t,
+        __timeout: *const timespec,
     ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn pthread_key_create(
-        __key: *mut pthread_key_t,
-        __destr_function: ::core::option::Option<
-            unsafe extern "C" fn(arg1: *mut core::ffi::c_void),
-        >,
+    pub fn pthread_mutex_timedlock_monotonic_np(
+        __mutex: *mut pthread_mutex_t,
+        __timeout: *const timespec,
     ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn pthread_key_delete(__key: pthread_key_t) -> core::ffi::c_int;
+    pub fn pthread_mutex_trylock(__mutex: *mut pthread_mutex_t) -> core::ffi::c_int;
 }
 unsafe extern "C" {
-    pub fn pthread_getspecific(__key: pthread_key_t) -> *mut core::ffi::c_void;
+    pub fn pthread_mutex_unlock(__mutex: *mut pthread_mutex_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_once(
+        __once: *mut pthread_once_t,
+        __init_routine: ::core::option::Option<unsafe extern "C" fn()>,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_rwlockattr_init(__attr: *mut pthread_rwlockattr_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_rwlockattr_destroy(__attr: *mut pthread_rwlockattr_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_rwlockattr_getpshared(
+        __attr: *const pthread_rwlockattr_t,
+        __shared: *mut core::ffi::c_int,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_rwlockattr_setpshared(
+        __attr: *mut pthread_rwlockattr_t,
+        __shared: core::ffi::c_int,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_rwlockattr_getkind_np(
+        __attr: *const pthread_rwlockattr_t,
+        __kind: *mut core::ffi::c_int,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_rwlockattr_setkind_np(
+        __attr: *mut pthread_rwlockattr_t,
+        __kind: core::ffi::c_int,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_rwlock_clockrdlock(
+        __rwlock: *mut pthread_rwlock_t,
+        __clock: clockid_t,
+        __timeout: *const timespec,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_rwlock_clockwrlock(
+        __rwlock: *mut pthread_rwlock_t,
+        __clock: clockid_t,
+        __timeout: *const timespec,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_rwlock_destroy(__rwlock: *mut pthread_rwlock_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_rwlock_init(
+        __rwlock: *mut pthread_rwlock_t,
+        __attr: *const pthread_rwlockattr_t,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_rwlock_rdlock(__rwlock: *mut pthread_rwlock_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_rwlock_timedrdlock(
+        __rwlock: *mut pthread_rwlock_t,
+        __timeout: *const timespec,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_rwlock_timedrdlock_monotonic_np(
+        __rwlock: *mut pthread_rwlock_t,
+        __timeout: *const timespec,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_rwlock_timedwrlock(
+        __rwlock: *mut pthread_rwlock_t,
+        __timeout: *const timespec,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_rwlock_timedwrlock_monotonic_np(
+        __rwlock: *mut pthread_rwlock_t,
+        __timeout: *const timespec,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_rwlock_tryrdlock(__rwlock: *mut pthread_rwlock_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_rwlock_trywrlock(__rwlock: *mut pthread_rwlock_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_rwlock_unlock(__rwlock: *mut pthread_rwlock_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_rwlock_wrlock(__rwlock: *mut pthread_rwlock_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_barrierattr_init(__attr: *mut pthread_barrierattr_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_barrierattr_destroy(__attr: *mut pthread_barrierattr_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_barrierattr_getpshared(
+        __attr: *const pthread_barrierattr_t,
+        __shared: *mut core::ffi::c_int,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_barrierattr_setpshared(
+        __attr: *mut pthread_barrierattr_t,
+        __shared: core::ffi::c_int,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_barrier_init(
+        __barrier: *mut pthread_barrier_t,
+        __attr: *const pthread_barrierattr_t,
+        __count: core::ffi::c_uint,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_barrier_destroy(__barrier: *mut pthread_barrier_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_barrier_wait(__barrier: *mut pthread_barrier_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_spin_destroy(__spinlock: *mut pthread_spinlock_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_spin_init(
+        __spinlock: *mut pthread_spinlock_t,
+        __shared: core::ffi::c_int,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_spin_lock(__spinlock: *mut pthread_spinlock_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_spin_trylock(__spinlock: *mut pthread_spinlock_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_spin_unlock(__spinlock: *mut pthread_spinlock_t) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_self() -> pthread_t;
+}
+unsafe extern "C" {
+    pub fn pthread_setname_np(
+        __pthread: pthread_t,
+        __name: *const core::ffi::c_char,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_setschedparam(
+        __pthread: pthread_t,
+        __policy: core::ffi::c_int,
+        __param: *const sched_param,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_getschedparam(
+        __pthread: pthread_t,
+        __policy: *mut core::ffi::c_int,
+        __param: *mut sched_param,
+    ) -> core::ffi::c_int;
+}
+unsafe extern "C" {
+    pub fn pthread_setschedprio(
+        __pthread: pthread_t,
+        __priority: core::ffi::c_int,
+    ) -> core::ffi::c_int;
 }
 unsafe extern "C" {
     pub fn pthread_setspecific(
         __key: pthread_key_t,
-        __pointer: *const core::ffi::c_void,
+        __value: *const core::ffi::c_void,
     ) -> core::ffi::c_int;
 }
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct __pthread_cleanup_t {
+    pub __cleanup_prev: *mut __pthread_cleanup_t,
+    pub __cleanup_routine:
+        ::core::option::Option<unsafe extern "C" fn(arg1: *mut core::ffi::c_void)>,
+    pub __cleanup_arg: *mut core::ffi::c_void,
+}
+#[allow(clippy::unnecessary_operation, clippy::identity_op)]
+const _: () = {
+    ["Size of __pthread_cleanup_t"][::core::mem::size_of::<__pthread_cleanup_t>() - 24usize];
+    ["Alignment of __pthread_cleanup_t"][::core::mem::align_of::<__pthread_cleanup_t>() - 8usize];
+    ["Offset of field: __pthread_cleanup_t::__cleanup_prev"]
+        [::core::mem::offset_of!(__pthread_cleanup_t, __cleanup_prev) - 0usize];
+    ["Offset of field: __pthread_cleanup_t::__cleanup_routine"]
+        [::core::mem::offset_of!(__pthread_cleanup_t, __cleanup_routine) - 8usize];
+    ["Offset of field: __pthread_cleanup_t::__cleanup_arg"]
+        [::core::mem::offset_of!(__pthread_cleanup_t, __cleanup_arg) - 16usize];
+};
 unsafe extern "C" {
-    pub fn pthread_atfork(
-        __prepare: ::core::option::Option<unsafe extern "C" fn()>,
-        __parent: ::core::option::Option<unsafe extern "C" fn()>,
-        __child: ::core::option::Option<unsafe extern "C" fn()>,
-    ) -> core::ffi::c_int;
+    pub fn __pthread_cleanup_push(
+        c: *mut __pthread_cleanup_t,
+        arg1: ::core::option::Option<unsafe extern "C" fn(arg1: *mut core::ffi::c_void)>,
+        arg2: *mut core::ffi::c_void,
+    );
+}
+unsafe extern "C" {
+    pub fn __pthread_cleanup_pop(arg1: *mut __pthread_cleanup_t, arg2: core::ffi::c_int);
 }
 pub type ma_pthread_t = pthread_t;
 pub type ma_pthread_mutex_t = pthread_mutex_t;
@@ -1136,9 +2831,9 @@ pub const _ma_channel_position_MA_CHANNEL_AUX_28: _ma_channel_position = 48;
 pub const _ma_channel_position_MA_CHANNEL_AUX_29: _ma_channel_position = 49;
 pub const _ma_channel_position_MA_CHANNEL_AUX_30: _ma_channel_position = 50;
 pub const _ma_channel_position_MA_CHANNEL_AUX_31: _ma_channel_position = 51;
+pub const _ma_channel_position_MA_CHANNEL_POSITION_COUNT: _ma_channel_position = 52;
 pub const _ma_channel_position_MA_CHANNEL_LEFT: _ma_channel_position = 2;
 pub const _ma_channel_position_MA_CHANNEL_RIGHT: _ma_channel_position = 3;
-pub const _ma_channel_position_MA_CHANNEL_POSITION_COUNT: _ma_channel_position = 52;
 pub type _ma_channel_position = core::ffi::c_uint;
 pub const ma_result_MA_SUCCESS: ma_result = 0;
 pub const ma_result_MA_ERROR: ma_result = -1;
@@ -1385,7 +3080,7 @@ pub type ma_thread_priority = core::ffi::c_int;
 pub type ma_thread = ma_pthread_t;
 pub type ma_mutex = ma_pthread_mutex_t;
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct ma_event {
     pub value: ma_uint32,
     pub lock: ma_pthread_mutex_t,
@@ -1393,14 +3088,14 @@ pub struct ma_event {
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_event"][::core::mem::size_of::<ma_event>() - 104usize];
-    ["Alignment of ma_event"][::core::mem::align_of::<ma_event>() - 8usize];
+    ["Size of ma_event"][::core::mem::size_of::<ma_event>() - 92usize];
+    ["Alignment of ma_event"][::core::mem::align_of::<ma_event>() - 4usize];
     ["Offset of field: ma_event::value"][::core::mem::offset_of!(ma_event, value) - 0usize];
-    ["Offset of field: ma_event::lock"][::core::mem::offset_of!(ma_event, lock) - 8usize];
-    ["Offset of field: ma_event::cond"][::core::mem::offset_of!(ma_event, cond) - 56usize];
+    ["Offset of field: ma_event::lock"][::core::mem::offset_of!(ma_event, lock) - 4usize];
+    ["Offset of field: ma_event::cond"][::core::mem::offset_of!(ma_event, cond) - 44usize];
 };
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct ma_semaphore {
     pub value: core::ffi::c_int,
     pub lock: ma_pthread_mutex_t,
@@ -1408,11 +3103,11 @@ pub struct ma_semaphore {
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_semaphore"][::core::mem::size_of::<ma_semaphore>() - 104usize];
-    ["Alignment of ma_semaphore"][::core::mem::align_of::<ma_semaphore>() - 8usize];
+    ["Size of ma_semaphore"][::core::mem::size_of::<ma_semaphore>() - 92usize];
+    ["Alignment of ma_semaphore"][::core::mem::align_of::<ma_semaphore>() - 4usize];
     ["Offset of field: ma_semaphore::value"][::core::mem::offset_of!(ma_semaphore, value) - 0usize];
-    ["Offset of field: ma_semaphore::lock"][::core::mem::offset_of!(ma_semaphore, lock) - 8usize];
-    ["Offset of field: ma_semaphore::cond"][::core::mem::offset_of!(ma_semaphore, cond) - 56usize];
+    ["Offset of field: ma_semaphore::lock"][::core::mem::offset_of!(ma_semaphore, lock) - 4usize];
+    ["Offset of field: ma_semaphore::cond"][::core::mem::offset_of!(ma_semaphore, cond) - 44usize];
 };
 unsafe extern "C" {
     pub fn ma_version(pMajor: *mut ma_uint32, pMinor: *mut ma_uint32, pRevision: *mut ma_uint32);
@@ -1420,8 +3115,8 @@ unsafe extern "C" {
 unsafe extern "C" {
     pub fn ma_version_string() -> *const core::ffi::c_char;
 }
-pub type __gnuc_va_list = __BindgenOpaqueArray<u64, 4usize>;
 pub type va_list = __BindgenOpaqueArray<u64, 4usize>;
+pub type __gnuc_va_list = __BindgenOpaqueArray<u64, 4usize>;
 pub type ma_log_callback_proc = ::core::option::Option<
     unsafe extern "C" fn(
         pUserData: *mut core::ffi::c_void,
@@ -1451,7 +3146,7 @@ unsafe extern "C" {
     ) -> ma_log_callback;
 }
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct ma_log {
     pub callbacks: [ma_log_callback; 4usize],
     pub callbackCount: ma_uint32,
@@ -1460,7 +3155,7 @@ pub struct ma_log {
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_log"][::core::mem::size_of::<ma_log>() - 152usize];
+    ["Size of ma_log"][::core::mem::size_of::<ma_log>() - 144usize];
     ["Alignment of ma_log"][::core::mem::align_of::<ma_log>() - 8usize];
     ["Offset of field: ma_log::callbacks"][::core::mem::offset_of!(ma_log, callbacks) - 0usize];
     ["Offset of field: ma_log::callbackCount"]
@@ -5782,17 +7477,17 @@ unsafe extern "C" {
     pub fn ma_semaphore_release(pSemaphore: *mut ma_semaphore) -> ma_result;
 }
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct ma_fence {
     pub e: ma_event,
     pub counter: ma_uint32,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_fence"][::core::mem::size_of::<ma_fence>() - 112usize];
-    ["Alignment of ma_fence"][::core::mem::align_of::<ma_fence>() - 8usize];
+    ["Size of ma_fence"][::core::mem::size_of::<ma_fence>() - 96usize];
+    ["Alignment of ma_fence"][::core::mem::align_of::<ma_fence>() - 4usize];
     ["Offset of field: ma_fence::e"][::core::mem::offset_of!(ma_fence, e) - 0usize];
-    ["Offset of field: ma_fence::counter"][::core::mem::offset_of!(ma_fence, counter) - 104usize];
+    ["Offset of field: ma_fence::counter"][::core::mem::offset_of!(ma_fence, counter) - 92usize];
 };
 unsafe extern "C" {
     pub fn ma_fence_init(pFence: *mut ma_fence) -> ma_result;
@@ -5856,7 +7551,7 @@ unsafe extern "C" {
     ) -> ma_bool32;
 }
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct ma_async_notification_event {
     pub cb: ma_async_notification_callbacks,
     pub e: ma_event,
@@ -5864,7 +7559,7 @@ pub struct ma_async_notification_event {
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
     ["Size of ma_async_notification_event"]
-        [::core::mem::size_of::<ma_async_notification_event>() - 112usize];
+        [::core::mem::size_of::<ma_async_notification_event>() - 104usize];
     ["Alignment of ma_async_notification_event"]
         [::core::mem::align_of::<ma_async_notification_event>() - 8usize];
     ["Offset of field: ma_async_notification_event::cb"]
@@ -6550,7 +8245,7 @@ unsafe extern "C" {
     pub fn ma_job_queue_config_init(flags: ma_uint32, capacity: ma_uint32) -> ma_job_queue_config;
 }
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct ma_job_queue {
     pub flags: ma_uint32,
     pub capacity: ma_uint32,
@@ -6565,7 +8260,7 @@ pub struct ma_job_queue {
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_job_queue"][::core::mem::size_of::<ma_job_queue>() - 200usize];
+    ["Size of ma_job_queue"][::core::mem::size_of::<ma_job_queue>() - 192usize];
     ["Alignment of ma_job_queue"][::core::mem::align_of::<ma_job_queue>() - 8usize];
     ["Offset of field: ma_job_queue::flags"][::core::mem::offset_of!(ma_job_queue, flags) - 0usize];
     ["Offset of field: ma_job_queue::capacity"]
@@ -6574,14 +8269,14 @@ const _: () = {
     ["Offset of field: ma_job_queue::tail"][::core::mem::offset_of!(ma_job_queue, tail) - 16usize];
     ["Offset of field: ma_job_queue::sem"][::core::mem::offset_of!(ma_job_queue, sem) - 24usize];
     ["Offset of field: ma_job_queue::allocator"]
-        [::core::mem::offset_of!(ma_job_queue, allocator) - 128usize];
+        [::core::mem::offset_of!(ma_job_queue, allocator) - 120usize];
     ["Offset of field: ma_job_queue::pJobs"]
-        [::core::mem::offset_of!(ma_job_queue, pJobs) - 168usize];
-    ["Offset of field: ma_job_queue::lock"][::core::mem::offset_of!(ma_job_queue, lock) - 176usize];
+        [::core::mem::offset_of!(ma_job_queue, pJobs) - 160usize];
+    ["Offset of field: ma_job_queue::lock"][::core::mem::offset_of!(ma_job_queue, lock) - 168usize];
     ["Offset of field: ma_job_queue::_pHeap"]
-        [::core::mem::offset_of!(ma_job_queue, _pHeap) - 184usize];
+        [::core::mem::offset_of!(ma_job_queue, _pHeap) - 176usize];
     ["Offset of field: ma_job_queue::_ownsHeap"]
-        [::core::mem::offset_of!(ma_job_queue, _ownsHeap) - 192usize];
+        [::core::mem::offset_of!(ma_job_queue, _ownsHeap) - 184usize];
 };
 unsafe extern "C" {
     pub fn ma_job_queue_get_heap_size(
@@ -6674,7 +8369,7 @@ unsafe extern "C" {
     pub fn ma_device_job_thread_config_init() -> ma_device_job_thread_config;
 }
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct ma_device_job_thread {
     pub thread: ma_thread,
     pub jobQueue: ma_job_queue,
@@ -6682,14 +8377,14 @@ pub struct ma_device_job_thread {
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_device_job_thread"][::core::mem::size_of::<ma_device_job_thread>() - 216usize];
+    ["Size of ma_device_job_thread"][::core::mem::size_of::<ma_device_job_thread>() - 208usize];
     ["Alignment of ma_device_job_thread"][::core::mem::align_of::<ma_device_job_thread>() - 8usize];
     ["Offset of field: ma_device_job_thread::thread"]
         [::core::mem::offset_of!(ma_device_job_thread, thread) - 0usize];
     ["Offset of field: ma_device_job_thread::jobQueue"]
         [::core::mem::offset_of!(ma_device_job_thread, jobQueue) - 8usize];
     ["Offset of field: ma_device_job_thread::_hasThread"]
-        [::core::mem::offset_of!(ma_device_job_thread, _hasThread) - 208usize];
+        [::core::mem::offset_of!(ma_device_job_thread, _hasThread) - 200usize];
 };
 unsafe extern "C" {
     pub fn ma_device_job_thread_init(
@@ -7801,886 +9496,282 @@ pub struct ma_context {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub union ma_context__bindgen_ty_1 {
-    pub alsa: ma_context__bindgen_ty_1__bindgen_ty_1,
-    pub pulse: ma_context__bindgen_ty_1__bindgen_ty_2,
-    pub jack: ma_context__bindgen_ty_1__bindgen_ty_3,
-    pub null_backend: ma_context__bindgen_ty_1__bindgen_ty_4,
+    pub aaudio: ma_context__bindgen_ty_1__bindgen_ty_1,
+    pub opensl: ma_context__bindgen_ty_1__bindgen_ty_2,
+    pub null_backend: ma_context__bindgen_ty_1__bindgen_ty_3,
 }
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct ma_context__bindgen_ty_1__bindgen_ty_1 {
-    pub asoundSO: ma_handle,
-    pub snd_pcm_open: ma_proc,
-    pub snd_pcm_close: ma_proc,
-    pub snd_pcm_hw_params_sizeof: ma_proc,
-    pub snd_pcm_hw_params_any: ma_proc,
-    pub snd_pcm_hw_params_set_format: ma_proc,
-    pub snd_pcm_hw_params_set_format_first: ma_proc,
-    pub snd_pcm_hw_params_get_format_mask: ma_proc,
-    pub snd_pcm_hw_params_set_channels: ma_proc,
-    pub snd_pcm_hw_params_set_channels_near: ma_proc,
-    pub snd_pcm_hw_params_set_channels_minmax: ma_proc,
-    pub snd_pcm_hw_params_set_rate_resample: ma_proc,
-    pub snd_pcm_hw_params_set_rate: ma_proc,
-    pub snd_pcm_hw_params_set_rate_near: ma_proc,
-    pub snd_pcm_hw_params_set_rate_minmax: ma_proc,
-    pub snd_pcm_hw_params_set_buffer_size_near: ma_proc,
-    pub snd_pcm_hw_params_set_periods_near: ma_proc,
-    pub snd_pcm_hw_params_set_access: ma_proc,
-    pub snd_pcm_hw_params_get_format: ma_proc,
-    pub snd_pcm_hw_params_get_channels: ma_proc,
-    pub snd_pcm_hw_params_get_channels_min: ma_proc,
-    pub snd_pcm_hw_params_get_channels_max: ma_proc,
-    pub snd_pcm_hw_params_get_rate: ma_proc,
-    pub snd_pcm_hw_params_get_rate_min: ma_proc,
-    pub snd_pcm_hw_params_get_rate_max: ma_proc,
-    pub snd_pcm_hw_params_get_buffer_size: ma_proc,
-    pub snd_pcm_hw_params_get_periods: ma_proc,
-    pub snd_pcm_hw_params_get_access: ma_proc,
-    pub snd_pcm_hw_params_test_format: ma_proc,
-    pub snd_pcm_hw_params_test_channels: ma_proc,
-    pub snd_pcm_hw_params_test_rate: ma_proc,
-    pub snd_pcm_hw_params: ma_proc,
-    pub snd_pcm_sw_params_sizeof: ma_proc,
-    pub snd_pcm_sw_params_current: ma_proc,
-    pub snd_pcm_sw_params_get_boundary: ma_proc,
-    pub snd_pcm_sw_params_set_avail_min: ma_proc,
-    pub snd_pcm_sw_params_set_start_threshold: ma_proc,
-    pub snd_pcm_sw_params_set_stop_threshold: ma_proc,
-    pub snd_pcm_sw_params: ma_proc,
-    pub snd_pcm_format_mask_sizeof: ma_proc,
-    pub snd_pcm_format_mask_test: ma_proc,
-    pub snd_pcm_get_chmap: ma_proc,
-    pub snd_pcm_state: ma_proc,
-    pub snd_pcm_prepare: ma_proc,
-    pub snd_pcm_start: ma_proc,
-    pub snd_pcm_drop: ma_proc,
-    pub snd_pcm_drain: ma_proc,
-    pub snd_pcm_reset: ma_proc,
-    pub snd_device_name_hint: ma_proc,
-    pub snd_device_name_get_hint: ma_proc,
-    pub snd_card_get_index: ma_proc,
-    pub snd_device_name_free_hint: ma_proc,
-    pub snd_pcm_mmap_begin: ma_proc,
-    pub snd_pcm_mmap_commit: ma_proc,
-    pub snd_pcm_recover: ma_proc,
-    pub snd_pcm_readi: ma_proc,
-    pub snd_pcm_writei: ma_proc,
-    pub snd_pcm_avail: ma_proc,
-    pub snd_pcm_avail_update: ma_proc,
-    pub snd_pcm_wait: ma_proc,
-    pub snd_pcm_nonblock: ma_proc,
-    pub snd_pcm_info: ma_proc,
-    pub snd_pcm_info_sizeof: ma_proc,
-    pub snd_pcm_info_get_name: ma_proc,
-    pub snd_pcm_poll_descriptors: ma_proc,
-    pub snd_pcm_poll_descriptors_count: ma_proc,
-    pub snd_pcm_poll_descriptors_revents: ma_proc,
-    pub snd_config_update_free_global: ma_proc,
-    pub internalDeviceEnumLock: ma_mutex,
-    pub useVerboseDeviceEnumeration: ma_bool32,
+    pub hAAudio: ma_handle,
+    pub AAudio_createStreamBuilder: ma_proc,
+    pub AAudioStreamBuilder_delete: ma_proc,
+    pub AAudioStreamBuilder_setDeviceId: ma_proc,
+    pub AAudioStreamBuilder_setDirection: ma_proc,
+    pub AAudioStreamBuilder_setSharingMode: ma_proc,
+    pub AAudioStreamBuilder_setFormat: ma_proc,
+    pub AAudioStreamBuilder_setChannelCount: ma_proc,
+    pub AAudioStreamBuilder_setSampleRate: ma_proc,
+    pub AAudioStreamBuilder_setBufferCapacityInFrames: ma_proc,
+    pub AAudioStreamBuilder_setFramesPerDataCallback: ma_proc,
+    pub AAudioStreamBuilder_setDataCallback: ma_proc,
+    pub AAudioStreamBuilder_setErrorCallback: ma_proc,
+    pub AAudioStreamBuilder_setPerformanceMode: ma_proc,
+    pub AAudioStreamBuilder_setUsage: ma_proc,
+    pub AAudioStreamBuilder_setContentType: ma_proc,
+    pub AAudioStreamBuilder_setInputPreset: ma_proc,
+    pub AAudioStreamBuilder_setAllowedCapturePolicy: ma_proc,
+    pub AAudioStreamBuilder_openStream: ma_proc,
+    pub AAudioStream_close: ma_proc,
+    pub AAudioStream_getState: ma_proc,
+    pub AAudioStream_waitForStateChange: ma_proc,
+    pub AAudioStream_getFormat: ma_proc,
+    pub AAudioStream_getChannelCount: ma_proc,
+    pub AAudioStream_getSampleRate: ma_proc,
+    pub AAudioStream_getBufferCapacityInFrames: ma_proc,
+    pub AAudioStream_getFramesPerDataCallback: ma_proc,
+    pub AAudioStream_getFramesPerBurst: ma_proc,
+    pub AAudioStream_requestStart: ma_proc,
+    pub AAudioStream_requestStop: ma_proc,
+    pub jobThread: ma_device_job_thread,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
     ["Size of ma_context__bindgen_ty_1__bindgen_ty_1"]
-        [::core::mem::size_of::<ma_context__bindgen_ty_1__bindgen_ty_1>() - 600usize];
+        [::core::mem::size_of::<ma_context__bindgen_ty_1__bindgen_ty_1>() - 448usize];
     ["Alignment of ma_context__bindgen_ty_1__bindgen_ty_1"]
         [::core::mem::align_of::<ma_context__bindgen_ty_1__bindgen_ty_1>() - 8usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::asoundSO"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_1, asoundSO) - 0usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_open"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_1, snd_pcm_open) - 8usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_close"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_1, snd_pcm_close) - 16usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_sizeof"][::core::mem::offset_of!(
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::hAAudio"]
+        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_1, hAAudio) - 0usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudio_createStreamBuilder"][::core::mem::offset_of!(
         ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params_sizeof
+        AAudio_createStreamBuilder
+    )
+        - 8usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStreamBuilder_delete"][::core::mem::offset_of!(
+        ma_context__bindgen_ty_1__bindgen_ty_1,
+        AAudioStreamBuilder_delete
+    )
+        - 16usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStreamBuilder_setDeviceId"][::core::mem::offset_of!(
+        ma_context__bindgen_ty_1__bindgen_ty_1,
+        AAudioStreamBuilder_setDeviceId
     )
         - 24usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_any"][::core::mem::offset_of!(
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStreamBuilder_setDirection"][::core::mem::offset_of!(
         ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params_any
-    ) - 32usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_set_format"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params_set_format
+        AAudioStreamBuilder_setDirection
     )
-        - 40usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_set_format_first"]
+        - 32usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStreamBuilder_setSharingMode"]
         [::core::mem::offset_of!(
             ma_context__bindgen_ty_1__bindgen_ty_1,
-            snd_pcm_hw_params_set_format_first
-        ) - 48usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_get_format_mask"]
-        [::core::mem::offset_of!(
-            ma_context__bindgen_ty_1__bindgen_ty_1,
-            snd_pcm_hw_params_get_format_mask
-        ) - 56usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_set_channels"][::core::mem::offset_of!(
+            AAudioStreamBuilder_setSharingMode
+        ) - 40usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStreamBuilder_setFormat"][::core::mem::offset_of!(
         ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params_set_channels
+        AAudioStreamBuilder_setFormat
     )
-        - 64usize];
+        - 48usize];
     [
-        "Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_set_channels_near",
+        "Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStreamBuilder_setChannelCount",
     ][::core::mem::offset_of!(
         ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params_set_channels_near
+        AAudioStreamBuilder_setChannelCount
+    ) - 56usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStreamBuilder_setSampleRate"]
+        [::core::mem::offset_of!(
+            ma_context__bindgen_ty_1__bindgen_ty_1,
+            AAudioStreamBuilder_setSampleRate
+        ) - 64usize];
+    [
+        "Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStreamBuilder_setBufferCapacityInFrames",
+    ][::core::mem::offset_of!(
+        ma_context__bindgen_ty_1__bindgen_ty_1,
+        AAudioStreamBuilder_setBufferCapacityInFrames
     ) - 72usize];
     [
-        "Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_set_channels_minmax",
+        "Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStreamBuilder_setFramesPerDataCallback",
     ][::core::mem::offset_of!(
         ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params_set_channels_minmax
+        AAudioStreamBuilder_setFramesPerDataCallback
     ) - 80usize];
     [
-        "Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_set_rate_resample",
+        "Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStreamBuilder_setDataCallback",
     ][::core::mem::offset_of!(
         ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params_set_rate_resample
+        AAudioStreamBuilder_setDataCallback
     ) - 88usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_set_rate"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params_set_rate
-    )
-        - 96usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_set_rate_near"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params_set_rate_near
-    )
-        - 104usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_set_rate_minmax"]
-        [::core::mem::offset_of!(
-            ma_context__bindgen_ty_1__bindgen_ty_1,
-            snd_pcm_hw_params_set_rate_minmax
-        ) - 112usize];
     [
-        "Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_set_buffer_size_near",
+        "Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStreamBuilder_setErrorCallback",
     ][::core::mem::offset_of!(
         ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params_set_buffer_size_near
-    ) - 120usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_set_periods_near"]
+        AAudioStreamBuilder_setErrorCallback
+    ) - 96usize];
+    [
+        "Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStreamBuilder_setPerformanceMode",
+    ][::core::mem::offset_of!(
+        ma_context__bindgen_ty_1__bindgen_ty_1,
+        AAudioStreamBuilder_setPerformanceMode
+    ) - 104usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStreamBuilder_setUsage"][::core::mem::offset_of!(
+        ma_context__bindgen_ty_1__bindgen_ty_1,
+        AAudioStreamBuilder_setUsage
+    )
+        - 112usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStreamBuilder_setContentType"]
         [::core::mem::offset_of!(
             ma_context__bindgen_ty_1__bindgen_ty_1,
-            snd_pcm_hw_params_set_periods_near
+            AAudioStreamBuilder_setContentType
+        ) - 120usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStreamBuilder_setInputPreset"]
+        [::core::mem::offset_of!(
+            ma_context__bindgen_ty_1__bindgen_ty_1,
+            AAudioStreamBuilder_setInputPreset
         ) - 128usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_set_access"][::core::mem::offset_of!(
+    [
+        "Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStreamBuilder_setAllowedCapturePolicy",
+    ][::core::mem::offset_of!(
         ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params_set_access
-    )
-        - 136usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_get_format"][::core::mem::offset_of!(
+        AAudioStreamBuilder_setAllowedCapturePolicy
+    ) - 136usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStreamBuilder_openStream"][::core::mem::offset_of!(
         ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params_get_format
+        AAudioStreamBuilder_openStream
     )
         - 144usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_get_channels"][::core::mem::offset_of!(
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStream_close"][::core::mem::offset_of!(
         ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params_get_channels
+        AAudioStream_close
+    ) - 152usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStream_getState"][::core::mem::offset_of!(
+        ma_context__bindgen_ty_1__bindgen_ty_1,
+        AAudioStream_getState
     )
-        - 152usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_get_channels_min"]
-        [::core::mem::offset_of!(
-            ma_context__bindgen_ty_1__bindgen_ty_1,
-            snd_pcm_hw_params_get_channels_min
-        ) - 160usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_get_channels_max"]
-        [::core::mem::offset_of!(
-            ma_context__bindgen_ty_1__bindgen_ty_1,
-            snd_pcm_hw_params_get_channels_max
-        ) - 168usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_get_rate"][::core::mem::offset_of!(
+        - 160usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStream_waitForStateChange"][::core::mem::offset_of!(
         ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params_get_rate
+        AAudioStream_waitForStateChange
+    )
+        - 168usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStream_getFormat"][::core::mem::offset_of!(
+        ma_context__bindgen_ty_1__bindgen_ty_1,
+        AAudioStream_getFormat
     )
         - 176usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_get_rate_min"][::core::mem::offset_of!(
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStream_getChannelCount"][::core::mem::offset_of!(
         ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params_get_rate_min
+        AAudioStream_getChannelCount
     )
         - 184usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_get_rate_max"][::core::mem::offset_of!(
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStream_getSampleRate"][::core::mem::offset_of!(
         ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params_get_rate_max
+        AAudioStream_getSampleRate
     )
         - 192usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_get_buffer_size"]
-        [::core::mem::offset_of!(
-            ma_context__bindgen_ty_1__bindgen_ty_1,
-            snd_pcm_hw_params_get_buffer_size
-        ) - 200usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_get_periods"][::core::mem::offset_of!(
+    [
+        "Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStream_getBufferCapacityInFrames",
+    ][::core::mem::offset_of!(
         ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params_get_periods
-    )
-        - 208usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_get_access"][::core::mem::offset_of!(
+        AAudioStream_getBufferCapacityInFrames
+    ) - 200usize];
+    [
+        "Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStream_getFramesPerDataCallback",
+    ][::core::mem::offset_of!(
         ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params_get_access
+        AAudioStream_getFramesPerDataCallback
+    ) - 208usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStream_getFramesPerBurst"][::core::mem::offset_of!(
+        ma_context__bindgen_ty_1__bindgen_ty_1,
+        AAudioStream_getFramesPerBurst
     )
         - 216usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_test_format"][::core::mem::offset_of!(
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStream_requestStart"][::core::mem::offset_of!(
         ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params_test_format
+        AAudioStream_requestStart
     )
         - 224usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_test_channels"][::core::mem::offset_of!(
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::AAudioStream_requestStop"][::core::mem::offset_of!(
         ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params_test_channels
+        AAudioStream_requestStop
     )
         - 232usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params_test_rate"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params_test_rate
-    )
-        - 240usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_hw_params"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_hw_params
-    ) - 248usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_sw_params_sizeof"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_sw_params_sizeof
-    )
-        - 256usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_sw_params_current"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_sw_params_current
-    )
-        - 264usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_sw_params_get_boundary"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_sw_params_get_boundary
-    )
-        - 272usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_sw_params_set_avail_min"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_sw_params_set_avail_min
-    )
-        - 280usize];
-    [
-        "Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_sw_params_set_start_threshold",
-    ][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_sw_params_set_start_threshold
-    ) - 288usize];
-    [
-        "Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_sw_params_set_stop_threshold",
-    ][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_sw_params_set_stop_threshold
-    ) - 296usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_sw_params"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_sw_params
-    ) - 304usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_format_mask_sizeof"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_format_mask_sizeof
-    )
-        - 312usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_format_mask_test"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_format_mask_test
-    )
-        - 320usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_get_chmap"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_get_chmap
-    ) - 328usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_state"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_1, snd_pcm_state) - 336usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_prepare"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_prepare
-    ) - 344usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_start"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_1, snd_pcm_start) - 352usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_drop"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_1, snd_pcm_drop) - 360usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_drain"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_1, snd_pcm_drain) - 368usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_reset"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_1, snd_pcm_reset) - 376usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_device_name_hint"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_device_name_hint
-    ) - 384usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_device_name_get_hint"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_device_name_get_hint
-    )
-        - 392usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_card_get_index"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_card_get_index
-    ) - 400usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_device_name_free_hint"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_device_name_free_hint
-    )
-        - 408usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_mmap_begin"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_mmap_begin
-    ) - 416usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_mmap_commit"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_mmap_commit
-    ) - 424usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_recover"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_recover
-    ) - 432usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_readi"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_1, snd_pcm_readi) - 440usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_writei"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_writei
-    ) - 448usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_avail"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_1, snd_pcm_avail) - 456usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_avail_update"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_avail_update
-    ) - 464usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_wait"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_1, snd_pcm_wait) - 472usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_nonblock"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_nonblock
-    ) - 480usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_info"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_1, snd_pcm_info) - 488usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_info_sizeof"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_info_sizeof
-    ) - 496usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_info_get_name"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_info_get_name
-    )
-        - 504usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_poll_descriptors"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_poll_descriptors
-    )
-        - 512usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_poll_descriptors_count"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_poll_descriptors_count
-    )
-        - 520usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_pcm_poll_descriptors_revents"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_pcm_poll_descriptors_revents
-    )
-        - 528usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::snd_config_update_free_global"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        snd_config_update_free_global
-    )
-        - 536usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::internalDeviceEnumLock"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        internalDeviceEnumLock
-    )
-        - 544usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::useVerboseDeviceEnumeration"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_1,
-        useVerboseDeviceEnumeration
-    )
-        - 592usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_1::jobThread"]
+        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_1, jobThread) - 240usize];
 };
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_context__bindgen_ty_1__bindgen_ty_2 {
-    pub pulseSO: ma_handle,
-    pub pa_mainloop_new: ma_proc,
-    pub pa_mainloop_free: ma_proc,
-    pub pa_mainloop_quit: ma_proc,
-    pub pa_mainloop_get_api: ma_proc,
-    pub pa_mainloop_iterate: ma_proc,
-    pub pa_mainloop_wakeup: ma_proc,
-    pub pa_threaded_mainloop_new: ma_proc,
-    pub pa_threaded_mainloop_free: ma_proc,
-    pub pa_threaded_mainloop_start: ma_proc,
-    pub pa_threaded_mainloop_stop: ma_proc,
-    pub pa_threaded_mainloop_lock: ma_proc,
-    pub pa_threaded_mainloop_unlock: ma_proc,
-    pub pa_threaded_mainloop_wait: ma_proc,
-    pub pa_threaded_mainloop_signal: ma_proc,
-    pub pa_threaded_mainloop_accept: ma_proc,
-    pub pa_threaded_mainloop_get_retval: ma_proc,
-    pub pa_threaded_mainloop_get_api: ma_proc,
-    pub pa_threaded_mainloop_in_thread: ma_proc,
-    pub pa_threaded_mainloop_set_name: ma_proc,
-    pub pa_context_new: ma_proc,
-    pub pa_context_unref: ma_proc,
-    pub pa_context_connect: ma_proc,
-    pub pa_context_disconnect: ma_proc,
-    pub pa_context_set_state_callback: ma_proc,
-    pub pa_context_get_state: ma_proc,
-    pub pa_context_get_sink_info_list: ma_proc,
-    pub pa_context_get_source_info_list: ma_proc,
-    pub pa_context_get_sink_info_by_name: ma_proc,
-    pub pa_context_get_source_info_by_name: ma_proc,
-    pub pa_operation_unref: ma_proc,
-    pub pa_operation_get_state: ma_proc,
-    pub pa_channel_map_init_extend: ma_proc,
-    pub pa_channel_map_valid: ma_proc,
-    pub pa_channel_map_compatible: ma_proc,
-    pub pa_stream_new: ma_proc,
-    pub pa_stream_unref: ma_proc,
-    pub pa_stream_connect_playback: ma_proc,
-    pub pa_stream_connect_record: ma_proc,
-    pub pa_stream_disconnect: ma_proc,
-    pub pa_stream_get_state: ma_proc,
-    pub pa_stream_get_sample_spec: ma_proc,
-    pub pa_stream_get_channel_map: ma_proc,
-    pub pa_stream_get_buffer_attr: ma_proc,
-    pub pa_stream_set_buffer_attr: ma_proc,
-    pub pa_stream_get_device_name: ma_proc,
-    pub pa_stream_set_write_callback: ma_proc,
-    pub pa_stream_set_read_callback: ma_proc,
-    pub pa_stream_set_suspended_callback: ma_proc,
-    pub pa_stream_set_moved_callback: ma_proc,
-    pub pa_stream_is_suspended: ma_proc,
-    pub pa_stream_flush: ma_proc,
-    pub pa_stream_drain: ma_proc,
-    pub pa_stream_is_corked: ma_proc,
-    pub pa_stream_cork: ma_proc,
-    pub pa_stream_trigger: ma_proc,
-    pub pa_stream_begin_write: ma_proc,
-    pub pa_stream_write: ma_proc,
-    pub pa_stream_peek: ma_proc,
-    pub pa_stream_drop: ma_proc,
-    pub pa_stream_writable_size: ma_proc,
-    pub pa_stream_readable_size: ma_proc,
-    pub pMainLoop: ma_ptr,
-    pub pPulseContext: ma_ptr,
-    pub pApplicationName: *mut core::ffi::c_char,
-    pub pServerName: *mut core::ffi::c_char,
+    pub libOpenSLES: ma_handle,
+    pub SL_IID_ENGINE: ma_handle,
+    pub SL_IID_AUDIOIODEVICECAPABILITIES: ma_handle,
+    pub SL_IID_ANDROIDSIMPLEBUFFERQUEUE: ma_handle,
+    pub SL_IID_RECORD: ma_handle,
+    pub SL_IID_PLAY: ma_handle,
+    pub SL_IID_OUTPUTMIX: ma_handle,
+    pub SL_IID_ANDROIDCONFIGURATION: ma_handle,
+    pub slCreateEngine: ma_proc,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
     ["Size of ma_context__bindgen_ty_1__bindgen_ty_2"]
-        [::core::mem::size_of::<ma_context__bindgen_ty_1__bindgen_ty_2>() - 528usize];
+        [::core::mem::size_of::<ma_context__bindgen_ty_1__bindgen_ty_2>() - 72usize];
     ["Alignment of ma_context__bindgen_ty_1__bindgen_ty_2"]
         [::core::mem::align_of::<ma_context__bindgen_ty_1__bindgen_ty_2>() - 8usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pulseSO"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_2, pulseSO) - 0usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_mainloop_new"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_2, pa_mainloop_new) - 8usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_mainloop_free"][::core::mem::offset_of!(
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::libOpenSLES"]
+        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_2, libOpenSLES) - 0usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::SL_IID_ENGINE"]
+        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_2, SL_IID_ENGINE) - 8usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::SL_IID_AUDIOIODEVICECAPABILITIES"][::core::mem::offset_of!(
         ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_mainloop_free
-    ) - 16usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_mainloop_quit"][::core::mem::offset_of!(
+        SL_IID_AUDIOIODEVICECAPABILITIES
+    )
+        - 16usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::SL_IID_ANDROIDSIMPLEBUFFERQUEUE"][::core::mem::offset_of!(
         ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_mainloop_quit
-    ) - 24usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_mainloop_get_api"][::core::mem::offset_of!(
+        SL_IID_ANDROIDSIMPLEBUFFERQUEUE
+    )
+        - 24usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::SL_IID_RECORD"]
+        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_2, SL_IID_RECORD) - 32usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::SL_IID_PLAY"]
+        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_2, SL_IID_PLAY) - 40usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::SL_IID_OUTPUTMIX"][::core::mem::offset_of!(
         ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_mainloop_get_api
-    ) - 32usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_mainloop_iterate"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_mainloop_iterate
-    ) - 40usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_mainloop_wakeup"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_mainloop_wakeup
+        SL_IID_OUTPUTMIX
     ) - 48usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_threaded_mainloop_new"][::core::mem::offset_of!(
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::SL_IID_ANDROIDCONFIGURATION"][::core::mem::offset_of!(
         ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_threaded_mainloop_new
+        SL_IID_ANDROIDCONFIGURATION
     )
         - 56usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_threaded_mainloop_free"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_threaded_mainloop_free
-    )
-        - 64usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_threaded_mainloop_start"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_threaded_mainloop_start
-    )
-        - 72usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_threaded_mainloop_stop"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_threaded_mainloop_stop
-    )
-        - 80usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_threaded_mainloop_lock"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_threaded_mainloop_lock
-    )
-        - 88usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_threaded_mainloop_unlock"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_threaded_mainloop_unlock
-    )
-        - 96usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_threaded_mainloop_wait"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_threaded_mainloop_wait
-    )
-        - 104usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_threaded_mainloop_signal"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_threaded_mainloop_signal
-    )
-        - 112usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_threaded_mainloop_accept"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_threaded_mainloop_accept
-    )
-        - 120usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_threaded_mainloop_get_retval"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_threaded_mainloop_get_retval
-    )
-        - 128usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_threaded_mainloop_get_api"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_threaded_mainloop_get_api
-    )
-        - 136usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_threaded_mainloop_in_thread"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_threaded_mainloop_in_thread
-    )
-        - 144usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_threaded_mainloop_set_name"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_threaded_mainloop_set_name
-    )
-        - 152usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_context_new"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_context_new
-    ) - 160usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_context_unref"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_context_unref
-    ) - 168usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_context_connect"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_context_connect
-    ) - 176usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_context_disconnect"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_context_disconnect
-    )
-        - 184usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_context_set_state_callback"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_context_set_state_callback
-    )
-        - 192usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_context_get_state"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_context_get_state
-    ) - 200usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_context_get_sink_info_list"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_context_get_sink_info_list
-    )
-        - 208usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_context_get_source_info_list"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_context_get_source_info_list
-    )
-        - 216usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_context_get_sink_info_by_name"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_context_get_sink_info_by_name
-    )
-        - 224usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_context_get_source_info_by_name"]
-        [::core::mem::offset_of!(
-            ma_context__bindgen_ty_1__bindgen_ty_2,
-            pa_context_get_source_info_by_name
-        ) - 232usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_operation_unref"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_operation_unref
-    ) - 240usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_operation_get_state"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_operation_get_state
-    )
-        - 248usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_channel_map_init_extend"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_channel_map_init_extend
-    )
-        - 256usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_channel_map_valid"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_channel_map_valid
-    ) - 264usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_channel_map_compatible"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_channel_map_compatible
-    )
-        - 272usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_new"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_2, pa_stream_new) - 280usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_unref"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_unref
-    ) - 288usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_connect_playback"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_connect_playback
-    )
-        - 296usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_connect_record"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_connect_record
-    )
-        - 304usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_disconnect"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_disconnect
-    ) - 312usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_get_state"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_get_state
-    ) - 320usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_get_sample_spec"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_get_sample_spec
-    )
-        - 328usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_get_channel_map"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_get_channel_map
-    )
-        - 336usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_get_buffer_attr"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_get_buffer_attr
-    )
-        - 344usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_set_buffer_attr"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_set_buffer_attr
-    )
-        - 352usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_get_device_name"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_get_device_name
-    )
-        - 360usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_set_write_callback"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_set_write_callback
-    )
-        - 368usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_set_read_callback"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_set_read_callback
-    )
-        - 376usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_set_suspended_callback"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_set_suspended_callback
-    )
-        - 384usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_set_moved_callback"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_set_moved_callback
-    )
-        - 392usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_is_suspended"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_is_suspended
-    )
-        - 400usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_flush"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_flush
-    ) - 408usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_drain"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_drain
-    ) - 416usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_is_corked"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_is_corked
-    ) - 424usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_cork"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_cork
-    ) - 432usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_trigger"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_trigger
-    ) - 440usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_begin_write"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_begin_write
-    )
-        - 448usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_write"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_write
-    ) - 456usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_peek"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_peek
-    ) - 464usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_drop"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_drop
-    ) - 472usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_writable_size"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_writable_size
-    )
-        - 480usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pa_stream_readable_size"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pa_stream_readable_size
-    )
-        - 488usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pMainLoop"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_2, pMainLoop) - 496usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pPulseContext"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_2, pPulseContext) - 504usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pApplicationName"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_2,
-        pApplicationName
-    ) - 512usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::pServerName"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_2, pServerName) - 520usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_2::slCreateEngine"]
+        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_2, slCreateEngine) - 64usize];
 };
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_context__bindgen_ty_1__bindgen_ty_3 {
-    pub jackSO: ma_handle,
-    pub jack_client_open: ma_proc,
-    pub jack_client_close: ma_proc,
-    pub jack_client_name_size: ma_proc,
-    pub jack_set_process_callback: ma_proc,
-    pub jack_set_buffer_size_callback: ma_proc,
-    pub jack_on_shutdown: ma_proc,
-    pub jack_get_sample_rate: ma_proc,
-    pub jack_get_buffer_size: ma_proc,
-    pub jack_get_ports: ma_proc,
-    pub jack_activate: ma_proc,
-    pub jack_deactivate: ma_proc,
-    pub jack_connect: ma_proc,
-    pub jack_port_register: ma_proc,
-    pub jack_port_name: ma_proc,
-    pub jack_port_get_buffer: ma_proc,
-    pub jack_free: ma_proc,
-    pub pClientName: *mut core::ffi::c_char,
-    pub tryStartServer: ma_bool32,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of ma_context__bindgen_ty_1__bindgen_ty_3"]
-        [::core::mem::size_of::<ma_context__bindgen_ty_1__bindgen_ty_3>() - 152usize];
-    ["Alignment of ma_context__bindgen_ty_1__bindgen_ty_3"]
-        [::core::mem::align_of::<ma_context__bindgen_ty_1__bindgen_ty_3>() - 8usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_3::jackSO"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_3, jackSO) - 0usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_3::jack_client_open"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_3,
-        jack_client_open
-    ) - 8usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_3::jack_client_close"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_3,
-        jack_client_close
-    ) - 16usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_3::jack_client_name_size"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_3,
-        jack_client_name_size
-    ) - 24usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_3::jack_set_process_callback"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_3,
-        jack_set_process_callback
-    )
-        - 32usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_3::jack_set_buffer_size_callback"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_3,
-        jack_set_buffer_size_callback
-    )
-        - 40usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_3::jack_on_shutdown"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_3,
-        jack_on_shutdown
-    ) - 48usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_3::jack_get_sample_rate"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_3,
-        jack_get_sample_rate
-    ) - 56usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_3::jack_get_buffer_size"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_3,
-        jack_get_buffer_size
-    ) - 64usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_3::jack_get_ports"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_3, jack_get_ports) - 72usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_3::jack_activate"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_3, jack_activate) - 80usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_3::jack_deactivate"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_3,
-        jack_deactivate
-    ) - 88usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_3::jack_connect"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_3, jack_connect) - 96usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_3::jack_port_register"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_3,
-        jack_port_register
-    ) - 104usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_3::jack_port_name"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_3,
-        jack_port_name
-    ) - 112usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_3::jack_port_get_buffer"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_3,
-        jack_port_get_buffer
-    ) - 120usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_3::jack_free"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_3, jack_free) - 128usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_3::pClientName"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_3, pClientName) - 136usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_3::tryStartServer"][::core::mem::offset_of!(
-        ma_context__bindgen_ty_1__bindgen_ty_3,
-        tryStartServer
-    ) - 144usize];
-};
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct ma_context__bindgen_ty_1__bindgen_ty_4 {
     pub _unused: core::ffi::c_int,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_context__bindgen_ty_1__bindgen_ty_4"]
-        [::core::mem::size_of::<ma_context__bindgen_ty_1__bindgen_ty_4>() - 4usize];
-    ["Alignment of ma_context__bindgen_ty_1__bindgen_ty_4"]
-        [::core::mem::align_of::<ma_context__bindgen_ty_1__bindgen_ty_4>() - 4usize];
-    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_4::_unused"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_4, _unused) - 0usize];
+    ["Size of ma_context__bindgen_ty_1__bindgen_ty_3"]
+        [::core::mem::size_of::<ma_context__bindgen_ty_1__bindgen_ty_3>() - 4usize];
+    ["Alignment of ma_context__bindgen_ty_1__bindgen_ty_3"]
+        [::core::mem::align_of::<ma_context__bindgen_ty_1__bindgen_ty_3>() - 4usize];
+    ["Offset of field: ma_context__bindgen_ty_1__bindgen_ty_3::_unused"]
+        [::core::mem::offset_of!(ma_context__bindgen_ty_1__bindgen_ty_3, _unused) - 0usize];
 };
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
     ["Size of ma_context__bindgen_ty_1"]
-        [::core::mem::size_of::<ma_context__bindgen_ty_1>() - 600usize];
+        [::core::mem::size_of::<ma_context__bindgen_ty_1>() - 448usize];
     ["Alignment of ma_context__bindgen_ty_1"]
         [::core::mem::align_of::<ma_context__bindgen_ty_1>() - 8usize];
-    ["Offset of field: ma_context__bindgen_ty_1::alsa"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1, alsa) - 0usize];
-    ["Offset of field: ma_context__bindgen_ty_1::pulse"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1, pulse) - 0usize];
-    ["Offset of field: ma_context__bindgen_ty_1::jack"]
-        [::core::mem::offset_of!(ma_context__bindgen_ty_1, jack) - 0usize];
+    ["Offset of field: ma_context__bindgen_ty_1::aaudio"]
+        [::core::mem::offset_of!(ma_context__bindgen_ty_1, aaudio) - 0usize];
+    ["Offset of field: ma_context__bindgen_ty_1::opensl"]
+        [::core::mem::offset_of!(ma_context__bindgen_ty_1, opensl) - 0usize];
     ["Offset of field: ma_context__bindgen_ty_1::null_backend"]
         [::core::mem::offset_of!(ma_context__bindgen_ty_1, null_backend) - 0usize];
 };
@@ -8717,7 +9808,7 @@ const _: () = {
 };
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_context"][::core::mem::size_of::<ma_context>() - 1056usize];
+    ["Size of ma_context"][::core::mem::size_of::<ma_context>() - 880usize];
     ["Alignment of ma_context"][::core::mem::align_of::<ma_context>() - 8usize];
     ["Offset of field: ma_context::callbacks"]
         [::core::mem::offset_of!(ma_context, callbacks) - 0usize];
@@ -8726,25 +9817,25 @@ const _: () = {
     ["Offset of field: ma_context::pLog"][::core::mem::offset_of!(ma_context, pLog) - 112usize];
     ["Offset of field: ma_context::log"][::core::mem::offset_of!(ma_context, log) - 120usize];
     ["Offset of field: ma_context::threadPriority"]
-        [::core::mem::offset_of!(ma_context, threadPriority) - 272usize];
+        [::core::mem::offset_of!(ma_context, threadPriority) - 264usize];
     ["Offset of field: ma_context::threadStackSize"]
-        [::core::mem::offset_of!(ma_context, threadStackSize) - 280usize];
+        [::core::mem::offset_of!(ma_context, threadStackSize) - 272usize];
     ["Offset of field: ma_context::pUserData"]
-        [::core::mem::offset_of!(ma_context, pUserData) - 288usize];
+        [::core::mem::offset_of!(ma_context, pUserData) - 280usize];
     ["Offset of field: ma_context::allocationCallbacks"]
-        [::core::mem::offset_of!(ma_context, allocationCallbacks) - 296usize];
+        [::core::mem::offset_of!(ma_context, allocationCallbacks) - 288usize];
     ["Offset of field: ma_context::deviceEnumLock"]
-        [::core::mem::offset_of!(ma_context, deviceEnumLock) - 328usize];
+        [::core::mem::offset_of!(ma_context, deviceEnumLock) - 320usize];
     ["Offset of field: ma_context::deviceInfoLock"]
-        [::core::mem::offset_of!(ma_context, deviceInfoLock) - 376usize];
+        [::core::mem::offset_of!(ma_context, deviceInfoLock) - 360usize];
     ["Offset of field: ma_context::deviceInfoCapacity"]
-        [::core::mem::offset_of!(ma_context, deviceInfoCapacity) - 424usize];
+        [::core::mem::offset_of!(ma_context, deviceInfoCapacity) - 400usize];
     ["Offset of field: ma_context::playbackDeviceInfoCount"]
-        [::core::mem::offset_of!(ma_context, playbackDeviceInfoCount) - 428usize];
+        [::core::mem::offset_of!(ma_context, playbackDeviceInfoCount) - 404usize];
     ["Offset of field: ma_context::captureDeviceInfoCount"]
-        [::core::mem::offset_of!(ma_context, captureDeviceInfoCount) - 432usize];
+        [::core::mem::offset_of!(ma_context, captureDeviceInfoCount) - 408usize];
     ["Offset of field: ma_context::pDeviceInfos"]
-        [::core::mem::offset_of!(ma_context, pDeviceInfos) - 440usize];
+        [::core::mem::offset_of!(ma_context, pDeviceInfos) - 416usize];
 };
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -8967,128 +10058,139 @@ const _: () = {
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub union ma_device__bindgen_ty_4 {
-    pub alsa: ma_device__bindgen_ty_4__bindgen_ty_1,
-    pub pulse: ma_device__bindgen_ty_4__bindgen_ty_2,
-    pub jack: ma_device__bindgen_ty_4__bindgen_ty_3,
-    pub null_device: ma_device__bindgen_ty_4__bindgen_ty_4,
+    pub aaudio: ma_device__bindgen_ty_4__bindgen_ty_1,
+    pub opensl: ma_device__bindgen_ty_4__bindgen_ty_2,
+    pub null_device: ma_device__bindgen_ty_4__bindgen_ty_3,
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_device__bindgen_ty_4__bindgen_ty_1 {
-    pub pPCMPlayback: ma_ptr,
-    pub pPCMCapture: ma_ptr,
-    pub pPollDescriptorsPlayback: *mut core::ffi::c_void,
-    pub pPollDescriptorsCapture: *mut core::ffi::c_void,
-    pub pollDescriptorCountPlayback: core::ffi::c_int,
-    pub pollDescriptorCountCapture: core::ffi::c_int,
-    pub wakeupfdPlayback: core::ffi::c_int,
-    pub wakeupfdCapture: core::ffi::c_int,
-    pub isUsingMMapPlayback: ma_bool8,
-    pub isUsingMMapCapture: ma_bool8,
+    pub pStreamPlayback: ma_ptr,
+    pub pStreamCapture: ma_ptr,
+    pub rerouteLock: ma_mutex,
+    pub isTearingDown: ma_atomic_bool32,
+    pub pendingReroutes: ma_uint32,
+    pub usage: ma_aaudio_usage,
+    pub contentType: ma_aaudio_content_type,
+    pub inputPreset: ma_aaudio_input_preset,
+    pub allowedCapturePolicy: ma_aaudio_allowed_capture_policy,
+    pub noAutoStartAfterReroute: ma_bool32,
+    pub enableCompatibilityWorkarounds: ma_bool32,
+    pub allowSetBufferCapacity: ma_bool32,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
     ["Size of ma_device__bindgen_ty_4__bindgen_ty_1"]
-        [::core::mem::size_of::<ma_device__bindgen_ty_4__bindgen_ty_1>() - 56usize];
+        [::core::mem::size_of::<ma_device__bindgen_ty_4__bindgen_ty_1>() - 96usize];
     ["Alignment of ma_device__bindgen_ty_4__bindgen_ty_1"]
         [::core::mem::align_of::<ma_device__bindgen_ty_4__bindgen_ty_1>() - 8usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::pPCMPlayback"]
-        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_1, pPCMPlayback) - 0usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::pPCMCapture"]
-        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_1, pPCMCapture) - 8usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::pPollDescriptorsPlayback"][::core::mem::offset_of!(
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::pStreamPlayback"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_1, pStreamPlayback) - 0usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::pStreamCapture"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_1, pStreamCapture) - 8usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::rerouteLock"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_1, rerouteLock) - 16usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::isTearingDown"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_1, isTearingDown) - 56usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::pendingReroutes"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_1, pendingReroutes) - 60usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::usage"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_1, usage) - 64usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::contentType"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_1, contentType) - 68usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::inputPreset"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_1, inputPreset) - 72usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::allowedCapturePolicy"][::core::mem::offset_of!(
         ma_device__bindgen_ty_4__bindgen_ty_1,
-        pPollDescriptorsPlayback
+        allowedCapturePolicy
+    ) - 76usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::noAutoStartAfterReroute"][::core::mem::offset_of!(
+        ma_device__bindgen_ty_4__bindgen_ty_1,
+        noAutoStartAfterReroute
     )
-        - 16usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::pPollDescriptorsCapture"][::core::mem::offset_of!(
+        - 80usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::enableCompatibilityWorkarounds"][::core::mem::offset_of!(
         ma_device__bindgen_ty_4__bindgen_ty_1,
-        pPollDescriptorsCapture
+        enableCompatibilityWorkarounds
     )
-        - 24usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::pollDescriptorCountPlayback"][::core::mem::offset_of!(
+        - 84usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::allowSetBufferCapacity"][::core::mem::offset_of!(
         ma_device__bindgen_ty_4__bindgen_ty_1,
-        pollDescriptorCountPlayback
-    )
-        - 32usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::pollDescriptorCountCapture"][::core::mem::offset_of!(
-        ma_device__bindgen_ty_4__bindgen_ty_1,
-        pollDescriptorCountCapture
-    )
-        - 36usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::wakeupfdPlayback"][::core::mem::offset_of!(
-        ma_device__bindgen_ty_4__bindgen_ty_1,
-        wakeupfdPlayback
-    ) - 40usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::wakeupfdCapture"]
-        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_1, wakeupfdCapture) - 44usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::isUsingMMapPlayback"][::core::mem::offset_of!(
-        ma_device__bindgen_ty_4__bindgen_ty_1,
-        isUsingMMapPlayback
-    ) - 48usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_1::isUsingMMapCapture"][::core::mem::offset_of!(
-        ma_device__bindgen_ty_4__bindgen_ty_1,
-        isUsingMMapCapture
-    ) - 49usize];
+        allowSetBufferCapacity
+    ) - 88usize];
 };
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_device__bindgen_ty_4__bindgen_ty_2 {
-    pub pMainLoop: ma_ptr,
-    pub pPulseContext: ma_ptr,
-    pub pStreamPlayback: ma_ptr,
-    pub pStreamCapture: ma_ptr,
+    pub pOutputMixObj: ma_ptr,
+    pub pOutputMix: ma_ptr,
+    pub pAudioPlayerObj: ma_ptr,
+    pub pAudioPlayer: ma_ptr,
+    pub pAudioRecorderObj: ma_ptr,
+    pub pAudioRecorder: ma_ptr,
+    pub pBufferQueuePlayback: ma_ptr,
+    pub pBufferQueueCapture: ma_ptr,
+    pub isDrainingCapture: ma_bool32,
+    pub isDrainingPlayback: ma_bool32,
+    pub currentBufferIndexPlayback: ma_uint32,
+    pub currentBufferIndexCapture: ma_uint32,
+    pub pBufferPlayback: *mut ma_uint8,
+    pub pBufferCapture: *mut ma_uint8,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
     ["Size of ma_device__bindgen_ty_4__bindgen_ty_2"]
-        [::core::mem::size_of::<ma_device__bindgen_ty_4__bindgen_ty_2>() - 32usize];
+        [::core::mem::size_of::<ma_device__bindgen_ty_4__bindgen_ty_2>() - 96usize];
     ["Alignment of ma_device__bindgen_ty_4__bindgen_ty_2"]
         [::core::mem::align_of::<ma_device__bindgen_ty_4__bindgen_ty_2>() - 8usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_2::pMainLoop"]
-        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_2, pMainLoop) - 0usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_2::pPulseContext"]
-        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_2, pPulseContext) - 8usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_2::pStreamPlayback"]
-        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_2, pStreamPlayback) - 16usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_2::pStreamCapture"]
-        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_2, pStreamCapture) - 24usize];
-};
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct ma_device__bindgen_ty_4__bindgen_ty_3 {
-    pub pClient: ma_ptr,
-    pub ppPortsPlayback: *mut ma_ptr,
-    pub ppPortsCapture: *mut ma_ptr,
-    pub pIntermediaryBufferPlayback: *mut f32,
-    pub pIntermediaryBufferCapture: *mut f32,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of ma_device__bindgen_ty_4__bindgen_ty_3"]
-        [::core::mem::size_of::<ma_device__bindgen_ty_4__bindgen_ty_3>() - 40usize];
-    ["Alignment of ma_device__bindgen_ty_4__bindgen_ty_3"]
-        [::core::mem::align_of::<ma_device__bindgen_ty_4__bindgen_ty_3>() - 8usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_3::pClient"]
-        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_3, pClient) - 0usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_3::ppPortsPlayback"]
-        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_3, ppPortsPlayback) - 8usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_3::ppPortsCapture"]
-        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_3, ppPortsCapture) - 16usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_3::pIntermediaryBufferPlayback"][::core::mem::offset_of!(
-        ma_device__bindgen_ty_4__bindgen_ty_3,
-        pIntermediaryBufferPlayback
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_2::pOutputMixObj"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_2, pOutputMixObj) - 0usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_2::pOutputMix"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_2, pOutputMix) - 8usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_2::pAudioPlayerObj"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_2, pAudioPlayerObj) - 16usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_2::pAudioPlayer"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_2, pAudioPlayer) - 24usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_2::pAudioRecorderObj"][::core::mem::offset_of!(
+        ma_device__bindgen_ty_4__bindgen_ty_2,
+        pAudioRecorderObj
+    ) - 32usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_2::pAudioRecorder"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_2, pAudioRecorder) - 40usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_2::pBufferQueuePlayback"][::core::mem::offset_of!(
+        ma_device__bindgen_ty_4__bindgen_ty_2,
+        pBufferQueuePlayback
+    ) - 48usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_2::pBufferQueueCapture"][::core::mem::offset_of!(
+        ma_device__bindgen_ty_4__bindgen_ty_2,
+        pBufferQueueCapture
+    ) - 56usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_2::isDrainingCapture"][::core::mem::offset_of!(
+        ma_device__bindgen_ty_4__bindgen_ty_2,
+        isDrainingCapture
+    ) - 64usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_2::isDrainingPlayback"][::core::mem::offset_of!(
+        ma_device__bindgen_ty_4__bindgen_ty_2,
+        isDrainingPlayback
+    ) - 68usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_2::currentBufferIndexPlayback"][::core::mem::offset_of!(
+        ma_device__bindgen_ty_4__bindgen_ty_2,
+        currentBufferIndexPlayback
     )
-        - 24usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_3::pIntermediaryBufferCapture"][::core::mem::offset_of!(
-        ma_device__bindgen_ty_4__bindgen_ty_3,
-        pIntermediaryBufferCapture
+        - 72usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_2::currentBufferIndexCapture"][::core::mem::offset_of!(
+        ma_device__bindgen_ty_4__bindgen_ty_2,
+        currentBufferIndexCapture
     )
-        - 32usize];
+        - 76usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_2::pBufferPlayback"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_2, pBufferPlayback) - 80usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_2::pBufferCapture"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_2, pBufferCapture) - 88usize];
 };
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct ma_device__bindgen_ty_4__bindgen_ty_4 {
+pub struct ma_device__bindgen_ty_4__bindgen_ty_3 {
     pub deviceThread: ma_thread,
     pub operationEvent: ma_event,
     pub operationCompletionEvent: ma_event,
@@ -9105,75 +10207,73 @@ pub struct ma_device__bindgen_ty_4__bindgen_ty_4 {
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_device__bindgen_ty_4__bindgen_ty_4"]
-        [::core::mem::size_of::<ma_device__bindgen_ty_4__bindgen_ty_4>() - 376usize];
-    ["Alignment of ma_device__bindgen_ty_4__bindgen_ty_4"]
-        [::core::mem::align_of::<ma_device__bindgen_ty_4__bindgen_ty_4>() - 8usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_4::deviceThread"]
-        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_4, deviceThread) - 0usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_4::operationEvent"]
-        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_4, operationEvent) - 8usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_4::operationCompletionEvent"][::core::mem::offset_of!(
-        ma_device__bindgen_ty_4__bindgen_ty_4,
+    ["Size of ma_device__bindgen_ty_4__bindgen_ty_3"]
+        [::core::mem::size_of::<ma_device__bindgen_ty_4__bindgen_ty_3>() - 344usize];
+    ["Alignment of ma_device__bindgen_ty_4__bindgen_ty_3"]
+        [::core::mem::align_of::<ma_device__bindgen_ty_4__bindgen_ty_3>() - 8usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_3::deviceThread"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_3, deviceThread) - 0usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_3::operationEvent"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_3, operationEvent) - 8usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_3::operationCompletionEvent"][::core::mem::offset_of!(
+        ma_device__bindgen_ty_4__bindgen_ty_3,
         operationCompletionEvent
     )
-        - 112usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_4::operationSemaphore"][::core::mem::offset_of!(
-        ma_device__bindgen_ty_4__bindgen_ty_4,
+        - 100usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_3::operationSemaphore"][::core::mem::offset_of!(
+        ma_device__bindgen_ty_4__bindgen_ty_3,
         operationSemaphore
-    ) - 216usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_4::operation"]
-        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_4, operation) - 320usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_4::operationResult"][::core::mem::offset_of!(
-        ma_device__bindgen_ty_4__bindgen_ty_4,
+    ) - 192usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_3::operation"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_3, operation) - 284usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_3::operationResult"][::core::mem::offset_of!(
+        ma_device__bindgen_ty_4__bindgen_ty_3,
         operationResult
-    ) - 324usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_4::timer"]
-        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_4, timer) - 328usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_4::priorRunTime"]
-        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_4, priorRunTime) - 336usize];
+    ) - 288usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_3::timer"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_3, timer) - 296usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_3::priorRunTime"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_3, priorRunTime) - 304usize];
     [
-        "Offset of field: ma_device__bindgen_ty_4__bindgen_ty_4::currentPeriodFramesRemainingPlayback",
+        "Offset of field: ma_device__bindgen_ty_4__bindgen_ty_3::currentPeriodFramesRemainingPlayback",
     ][::core::mem::offset_of!(
-        ma_device__bindgen_ty_4__bindgen_ty_4,
+        ma_device__bindgen_ty_4__bindgen_ty_3,
         currentPeriodFramesRemainingPlayback
-    ) - 344usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_4::currentPeriodFramesRemainingCapture"]
+    ) - 312usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_3::currentPeriodFramesRemainingCapture"]
         [::core::mem::offset_of!(
-            ma_device__bindgen_ty_4__bindgen_ty_4,
+            ma_device__bindgen_ty_4__bindgen_ty_3,
             currentPeriodFramesRemainingCapture
-        ) - 348usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_4::lastProcessedFramePlayback"][::core::mem::offset_of!(
-        ma_device__bindgen_ty_4__bindgen_ty_4,
+        ) - 316usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_3::lastProcessedFramePlayback"][::core::mem::offset_of!(
+        ma_device__bindgen_ty_4__bindgen_ty_3,
         lastProcessedFramePlayback
     )
-        - 352usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_4::lastProcessedFrameCapture"][::core::mem::offset_of!(
-        ma_device__bindgen_ty_4__bindgen_ty_4,
+        - 320usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_3::lastProcessedFrameCapture"][::core::mem::offset_of!(
+        ma_device__bindgen_ty_4__bindgen_ty_3,
         lastProcessedFrameCapture
     )
-        - 360usize];
-    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_4::isStarted"]
-        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_4, isStarted) - 368usize];
+        - 328usize];
+    ["Offset of field: ma_device__bindgen_ty_4__bindgen_ty_3::isStarted"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4__bindgen_ty_3, isStarted) - 336usize];
 };
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
     ["Size of ma_device__bindgen_ty_4"]
-        [::core::mem::size_of::<ma_device__bindgen_ty_4>() - 376usize];
+        [::core::mem::size_of::<ma_device__bindgen_ty_4>() - 344usize];
     ["Alignment of ma_device__bindgen_ty_4"]
         [::core::mem::align_of::<ma_device__bindgen_ty_4>() - 8usize];
-    ["Offset of field: ma_device__bindgen_ty_4::alsa"]
-        [::core::mem::offset_of!(ma_device__bindgen_ty_4, alsa) - 0usize];
-    ["Offset of field: ma_device__bindgen_ty_4::pulse"]
-        [::core::mem::offset_of!(ma_device__bindgen_ty_4, pulse) - 0usize];
-    ["Offset of field: ma_device__bindgen_ty_4::jack"]
-        [::core::mem::offset_of!(ma_device__bindgen_ty_4, jack) - 0usize];
+    ["Offset of field: ma_device__bindgen_ty_4::aaudio"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4, aaudio) - 0usize];
+    ["Offset of field: ma_device__bindgen_ty_4::opensl"]
+        [::core::mem::offset_of!(ma_device__bindgen_ty_4, opensl) - 0usize];
     ["Offset of field: ma_device__bindgen_ty_4::null_device"]
         [::core::mem::offset_of!(ma_device__bindgen_ty_4, null_device) - 0usize];
 };
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_device"][::core::mem::size_of::<ma_device>() - 3832usize];
+    ["Size of ma_device"][::core::mem::size_of::<ma_device>() - 3760usize];
     ["Alignment of ma_device"][::core::mem::align_of::<ma_device>() - 8usize];
     ["Offset of field: ma_device::pContext"][::core::mem::offset_of!(ma_device, pContext) - 0usize];
     ["Offset of field: ma_device::type_"][::core::mem::offset_of!(ma_device, type_) - 8usize];
@@ -9189,33 +10289,33 @@ const _: () = {
     ["Offset of field: ma_device::startStopLock"]
         [::core::mem::offset_of!(ma_device, startStopLock) - 56usize];
     ["Offset of field: ma_device::wakeupEvent"]
-        [::core::mem::offset_of!(ma_device, wakeupEvent) - 104usize];
+        [::core::mem::offset_of!(ma_device, wakeupEvent) - 96usize];
     ["Offset of field: ma_device::startEvent"]
-        [::core::mem::offset_of!(ma_device, startEvent) - 208usize];
+        [::core::mem::offset_of!(ma_device, startEvent) - 188usize];
     ["Offset of field: ma_device::stopEvent"]
-        [::core::mem::offset_of!(ma_device, stopEvent) - 312usize];
-    ["Offset of field: ma_device::thread"][::core::mem::offset_of!(ma_device, thread) - 416usize];
+        [::core::mem::offset_of!(ma_device, stopEvent) - 280usize];
+    ["Offset of field: ma_device::thread"][::core::mem::offset_of!(ma_device, thread) - 376usize];
     ["Offset of field: ma_device::workResult"]
-        [::core::mem::offset_of!(ma_device, workResult) - 424usize];
+        [::core::mem::offset_of!(ma_device, workResult) - 384usize];
     ["Offset of field: ma_device::isOwnerOfContext"]
-        [::core::mem::offset_of!(ma_device, isOwnerOfContext) - 428usize];
+        [::core::mem::offset_of!(ma_device, isOwnerOfContext) - 388usize];
     ["Offset of field: ma_device::noPreSilencedOutputBuffer"]
-        [::core::mem::offset_of!(ma_device, noPreSilencedOutputBuffer) - 429usize];
-    ["Offset of field: ma_device::noClip"][::core::mem::offset_of!(ma_device, noClip) - 430usize];
+        [::core::mem::offset_of!(ma_device, noPreSilencedOutputBuffer) - 389usize];
+    ["Offset of field: ma_device::noClip"][::core::mem::offset_of!(ma_device, noClip) - 390usize];
     ["Offset of field: ma_device::noDisableDenormals"]
-        [::core::mem::offset_of!(ma_device, noDisableDenormals) - 431usize];
+        [::core::mem::offset_of!(ma_device, noDisableDenormals) - 391usize];
     ["Offset of field: ma_device::noFixedSizedCallback"]
-        [::core::mem::offset_of!(ma_device, noFixedSizedCallback) - 432usize];
+        [::core::mem::offset_of!(ma_device, noFixedSizedCallback) - 392usize];
     ["Offset of field: ma_device::masterVolumeFactor"]
-        [::core::mem::offset_of!(ma_device, masterVolumeFactor) - 436usize];
+        [::core::mem::offset_of!(ma_device, masterVolumeFactor) - 396usize];
     ["Offset of field: ma_device::duplexRB"]
-        [::core::mem::offset_of!(ma_device, duplexRB) - 440usize];
+        [::core::mem::offset_of!(ma_device, duplexRB) - 400usize];
     ["Offset of field: ma_device::resampling"]
-        [::core::mem::offset_of!(ma_device, resampling) - 592usize];
+        [::core::mem::offset_of!(ma_device, resampling) - 552usize];
     ["Offset of field: ma_device::playback"]
-        [::core::mem::offset_of!(ma_device, playback) - 624usize];
+        [::core::mem::offset_of!(ma_device, playback) - 584usize];
     ["Offset of field: ma_device::capture"]
-        [::core::mem::offset_of!(ma_device, capture) - 2056usize];
+        [::core::mem::offset_of!(ma_device, capture) - 2016usize];
 };
 unsafe extern "C" {
     pub fn ma_context_config_init() -> ma_context_config;
@@ -11322,11 +12422,12 @@ pub struct ma_resource_manager_config {
     pub ppCustomDecodingBackendVTables: *mut *mut ma_decoding_backend_vtable,
     pub customDecodingBackendCount: ma_uint32,
     pub pCustomDecodingBackendUserData: *mut core::ffi::c_void,
+    pub resampling: ma_resampler_config,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
     ["Size of ma_resource_manager_config"]
-        [::core::mem::size_of::<ma_resource_manager_config>() - 104usize];
+        [::core::mem::size_of::<ma_resource_manager_config>() - 152usize];
     ["Alignment of ma_resource_manager_config"]
         [::core::mem::align_of::<ma_resource_manager_config>() - 8usize];
     ["Offset of field: ma_resource_manager_config::allocationCallbacks"]
@@ -11359,12 +12460,14 @@ const _: () = {
         ma_resource_manager_config,
         pCustomDecodingBackendUserData
     ) - 96usize];
+    ["Offset of field: ma_resource_manager_config::resampling"]
+        [::core::mem::offset_of!(ma_resource_manager_config, resampling) - 104usize];
 };
 unsafe extern "C" {
     pub fn ma_resource_manager_config_init() -> ma_resource_manager_config;
 }
 #[repr(C)]
-#[derive(Copy, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub struct ma_resource_manager {
     pub config: ma_resource_manager_config,
     pub pRootDataBufferNode: *mut ma_resource_manager_data_buffer_node,
@@ -11376,22 +12479,22 @@ pub struct ma_resource_manager {
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_resource_manager"][::core::mem::size_of::<ma_resource_manager>() - 1120usize];
+    ["Size of ma_resource_manager"][::core::mem::size_of::<ma_resource_manager>() - 1144usize];
     ["Alignment of ma_resource_manager"][::core::mem::align_of::<ma_resource_manager>() - 8usize];
     ["Offset of field: ma_resource_manager::config"]
         [::core::mem::offset_of!(ma_resource_manager, config) - 0usize];
     ["Offset of field: ma_resource_manager::pRootDataBufferNode"]
-        [::core::mem::offset_of!(ma_resource_manager, pRootDataBufferNode) - 104usize];
+        [::core::mem::offset_of!(ma_resource_manager, pRootDataBufferNode) - 152usize];
     ["Offset of field: ma_resource_manager::dataBufferBSTLock"]
-        [::core::mem::offset_of!(ma_resource_manager, dataBufferBSTLock) - 112usize];
+        [::core::mem::offset_of!(ma_resource_manager, dataBufferBSTLock) - 160usize];
     ["Offset of field: ma_resource_manager::jobThreads"]
-        [::core::mem::offset_of!(ma_resource_manager, jobThreads) - 160usize];
+        [::core::mem::offset_of!(ma_resource_manager, jobThreads) - 200usize];
     ["Offset of field: ma_resource_manager::jobQueue"]
-        [::core::mem::offset_of!(ma_resource_manager, jobQueue) - 672usize];
+        [::core::mem::offset_of!(ma_resource_manager, jobQueue) - 712usize];
     ["Offset of field: ma_resource_manager::defaultVFS"]
-        [::core::mem::offset_of!(ma_resource_manager, defaultVFS) - 872usize];
+        [::core::mem::offset_of!(ma_resource_manager, defaultVFS) - 904usize];
     ["Offset of field: ma_resource_manager::log"]
-        [::core::mem::offset_of!(ma_resource_manager, log) - 968usize];
+        [::core::mem::offset_of!(ma_resource_manager, log) - 1000usize];
 };
 unsafe extern "C" {
     pub fn ma_resource_manager_init(
@@ -12201,6 +13304,11 @@ unsafe extern "C" {
         globalTime: ma_uint64,
     ) -> ma_result;
 }
+unsafe extern "C" {
+    pub fn ma_node_graph_get_processing_size_in_frames(
+        pNodeGraph: *const ma_node_graph,
+    ) -> ma_uint32;
+}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_data_source_node_config {
@@ -12866,10 +13974,11 @@ pub struct ma_engine_node_config {
     pub isPitchDisabled: ma_bool8,
     pub isSpatializationDisabled: ma_bool8,
     pub pinnedListenerIndex: ma_uint8,
+    pub resampling: ma_resampler_config,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_engine_node_config"][::core::mem::size_of::<ma_engine_node_config>() - 40usize];
+    ["Size of ma_engine_node_config"][::core::mem::size_of::<ma_engine_node_config>() - 88usize];
     ["Alignment of ma_engine_node_config"]
         [::core::mem::align_of::<ma_engine_node_config>() - 8usize];
     ["Offset of field: ma_engine_node_config::pEngine"]
@@ -12892,6 +14001,8 @@ const _: () = {
         [::core::mem::offset_of!(ma_engine_node_config, isSpatializationDisabled) - 33usize];
     ["Offset of field: ma_engine_node_config::pinnedListenerIndex"]
         [::core::mem::offset_of!(ma_engine_node_config, pinnedListenerIndex) - 34usize];
+    ["Offset of field: ma_engine_node_config::resampling"]
+        [::core::mem::offset_of!(ma_engine_node_config, resampling) - 40usize];
 };
 unsafe extern "C" {
     pub fn ma_engine_node_config_init(
@@ -12909,11 +14020,12 @@ pub struct ma_engine_node {
     pub volumeSmoothTimeInPCMFrames: ma_uint32,
     pub monoExpansionMode: ma_mono_expansion_mode,
     pub fader: ma_fader,
-    pub resampler: ma_linear_resampler,
+    pub resampler: ma_resampler,
     pub spatializer: ma_spatializer,
     pub panner: ma_panner,
     pub volumeGainer: ma_gainer,
     pub volume: ma_atomic_float,
+    pub oldVolume: f32,
     pub pitch: f32,
     pub oldPitch: f32,
     pub oldDopplerPitch: f32,
@@ -12951,7 +14063,7 @@ const _: () = {
 };
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_engine_node"][::core::mem::size_of::<ma_engine_node>() - 896usize];
+    ["Size of ma_engine_node"][::core::mem::size_of::<ma_engine_node>() - 952usize];
     ["Alignment of ma_engine_node"][::core::mem::align_of::<ma_engine_node>() - 8usize];
     ["Offset of field: ma_engine_node::baseNode"]
         [::core::mem::offset_of!(ma_engine_node, baseNode) - 0usize];
@@ -12968,31 +14080,33 @@ const _: () = {
     ["Offset of field: ma_engine_node::resampler"]
         [::core::mem::offset_of!(ma_engine_node, resampler) - 424usize];
     ["Offset of field: ma_engine_node::spatializer"]
-        [::core::mem::offset_of!(ma_engine_node, spatializer) - 560usize];
+        [::core::mem::offset_of!(ma_engine_node, spatializer) - 616usize];
     ["Offset of field: ma_engine_node::panner"]
-        [::core::mem::offset_of!(ma_engine_node, panner) - 760usize];
+        [::core::mem::offset_of!(ma_engine_node, panner) - 816usize];
     ["Offset of field: ma_engine_node::volumeGainer"]
-        [::core::mem::offset_of!(ma_engine_node, volumeGainer) - 776usize];
+        [::core::mem::offset_of!(ma_engine_node, volumeGainer) - 832usize];
     ["Offset of field: ma_engine_node::volume"]
-        [::core::mem::offset_of!(ma_engine_node, volume) - 824usize];
+        [::core::mem::offset_of!(ma_engine_node, volume) - 880usize];
+    ["Offset of field: ma_engine_node::oldVolume"]
+        [::core::mem::offset_of!(ma_engine_node, oldVolume) - 884usize];
     ["Offset of field: ma_engine_node::pitch"]
-        [::core::mem::offset_of!(ma_engine_node, pitch) - 828usize];
+        [::core::mem::offset_of!(ma_engine_node, pitch) - 888usize];
     ["Offset of field: ma_engine_node::oldPitch"]
-        [::core::mem::offset_of!(ma_engine_node, oldPitch) - 832usize];
+        [::core::mem::offset_of!(ma_engine_node, oldPitch) - 892usize];
     ["Offset of field: ma_engine_node::oldDopplerPitch"]
-        [::core::mem::offset_of!(ma_engine_node, oldDopplerPitch) - 836usize];
+        [::core::mem::offset_of!(ma_engine_node, oldDopplerPitch) - 896usize];
     ["Offset of field: ma_engine_node::isPitchDisabled"]
-        [::core::mem::offset_of!(ma_engine_node, isPitchDisabled) - 840usize];
+        [::core::mem::offset_of!(ma_engine_node, isPitchDisabled) - 900usize];
     ["Offset of field: ma_engine_node::isSpatializationDisabled"]
-        [::core::mem::offset_of!(ma_engine_node, isSpatializationDisabled) - 844usize];
+        [::core::mem::offset_of!(ma_engine_node, isSpatializationDisabled) - 904usize];
     ["Offset of field: ma_engine_node::pinnedListenerIndex"]
-        [::core::mem::offset_of!(ma_engine_node, pinnedListenerIndex) - 848usize];
+        [::core::mem::offset_of!(ma_engine_node, pinnedListenerIndex) - 908usize];
     ["Offset of field: ma_engine_node::fadeSettings"]
-        [::core::mem::offset_of!(ma_engine_node, fadeSettings) - 856usize];
+        [::core::mem::offset_of!(ma_engine_node, fadeSettings) - 912usize];
     ["Offset of field: ma_engine_node::_ownsHeap"]
-        [::core::mem::offset_of!(ma_engine_node, _ownsHeap) - 880usize];
+        [::core::mem::offset_of!(ma_engine_node, _ownsHeap) - 936usize];
     ["Offset of field: ma_engine_node::_pHeap"]
-        [::core::mem::offset_of!(ma_engine_node, _pHeap) - 888usize];
+        [::core::mem::offset_of!(ma_engine_node, _pHeap) - 944usize];
 };
 unsafe extern "C" {
     pub fn ma_engine_node_get_heap_size(
@@ -13043,13 +14157,14 @@ pub struct ma_sound_config {
     pub loopPointEndInPCMFrames: ma_uint64,
     pub endCallback: ma_sound_end_proc,
     pub pEndCallbackUserData: *mut core::ffi::c_void,
+    pub pitchResampling: ma_resampler_config,
     pub initNotifications: ma_resource_manager_pipeline_notifications,
     pub pDoneFence: *mut ma_fence,
     pub isLooping: ma_bool32,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_sound_config"][::core::mem::size_of::<ma_sound_config>() - 160usize];
+    ["Size of ma_sound_config"][::core::mem::size_of::<ma_sound_config>() - 208usize];
     ["Alignment of ma_sound_config"][::core::mem::align_of::<ma_sound_config>() - 8usize];
     ["Offset of field: ma_sound_config::pFilePath"]
         [::core::mem::offset_of!(ma_sound_config, pFilePath) - 0usize];
@@ -13085,12 +14200,14 @@ const _: () = {
         [::core::mem::offset_of!(ma_sound_config, endCallback) - 96usize];
     ["Offset of field: ma_sound_config::pEndCallbackUserData"]
         [::core::mem::offset_of!(ma_sound_config, pEndCallbackUserData) - 104usize];
+    ["Offset of field: ma_sound_config::pitchResampling"]
+        [::core::mem::offset_of!(ma_sound_config, pitchResampling) - 112usize];
     ["Offset of field: ma_sound_config::initNotifications"]
-        [::core::mem::offset_of!(ma_sound_config, initNotifications) - 112usize];
+        [::core::mem::offset_of!(ma_sound_config, initNotifications) - 160usize];
     ["Offset of field: ma_sound_config::pDoneFence"]
-        [::core::mem::offset_of!(ma_sound_config, pDoneFence) - 144usize];
+        [::core::mem::offset_of!(ma_sound_config, pDoneFence) - 192usize];
     ["Offset of field: ma_sound_config::isLooping"]
-        [::core::mem::offset_of!(ma_sound_config, isLooping) - 152usize];
+        [::core::mem::offset_of!(ma_sound_config, isLooping) - 200usize];
 };
 unsafe extern "C" {
     pub fn ma_sound_config_init() -> ma_sound_config;
@@ -13107,28 +14224,37 @@ pub struct ma_sound {
     pub atEnd: ma_bool32,
     pub endCallback: ma_sound_end_proc,
     pub pEndCallbackUserData: *mut core::ffi::c_void,
+    pub pProcessingCache: *mut f32,
+    pub processingCacheFramesRemaining: ma_uint32,
+    pub processingCacheCap: ma_uint32,
     pub ownsDataSource: ma_bool8,
     pub pResourceManagerDataSource: *mut ma_resource_manager_data_source,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_sound"][::core::mem::size_of::<ma_sound>() - 952usize];
+    ["Size of ma_sound"][::core::mem::size_of::<ma_sound>() - 1024usize];
     ["Alignment of ma_sound"][::core::mem::align_of::<ma_sound>() - 8usize];
     ["Offset of field: ma_sound::engineNode"]
         [::core::mem::offset_of!(ma_sound, engineNode) - 0usize];
     ["Offset of field: ma_sound::pDataSource"]
-        [::core::mem::offset_of!(ma_sound, pDataSource) - 896usize];
+        [::core::mem::offset_of!(ma_sound, pDataSource) - 952usize];
     ["Offset of field: ma_sound::seekTarget"]
-        [::core::mem::offset_of!(ma_sound, seekTarget) - 904usize];
-    ["Offset of field: ma_sound::atEnd"][::core::mem::offset_of!(ma_sound, atEnd) - 912usize];
+        [::core::mem::offset_of!(ma_sound, seekTarget) - 960usize];
+    ["Offset of field: ma_sound::atEnd"][::core::mem::offset_of!(ma_sound, atEnd) - 968usize];
     ["Offset of field: ma_sound::endCallback"]
-        [::core::mem::offset_of!(ma_sound, endCallback) - 920usize];
+        [::core::mem::offset_of!(ma_sound, endCallback) - 976usize];
     ["Offset of field: ma_sound::pEndCallbackUserData"]
-        [::core::mem::offset_of!(ma_sound, pEndCallbackUserData) - 928usize];
+        [::core::mem::offset_of!(ma_sound, pEndCallbackUserData) - 984usize];
+    ["Offset of field: ma_sound::pProcessingCache"]
+        [::core::mem::offset_of!(ma_sound, pProcessingCache) - 992usize];
+    ["Offset of field: ma_sound::processingCacheFramesRemaining"]
+        [::core::mem::offset_of!(ma_sound, processingCacheFramesRemaining) - 1000usize];
+    ["Offset of field: ma_sound::processingCacheCap"]
+        [::core::mem::offset_of!(ma_sound, processingCacheCap) - 1004usize];
     ["Offset of field: ma_sound::ownsDataSource"]
-        [::core::mem::offset_of!(ma_sound, ownsDataSource) - 936usize];
+        [::core::mem::offset_of!(ma_sound, ownsDataSource) - 1008usize];
     ["Offset of field: ma_sound::pResourceManagerDataSource"]
-        [::core::mem::offset_of!(ma_sound, pResourceManagerDataSource) - 944usize];
+        [::core::mem::offset_of!(ma_sound, pResourceManagerDataSource) - 1016usize];
 };
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -13139,14 +14265,14 @@ pub struct ma_sound_inlined {
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_sound_inlined"][::core::mem::size_of::<ma_sound_inlined>() - 968usize];
+    ["Size of ma_sound_inlined"][::core::mem::size_of::<ma_sound_inlined>() - 1040usize];
     ["Alignment of ma_sound_inlined"][::core::mem::align_of::<ma_sound_inlined>() - 8usize];
     ["Offset of field: ma_sound_inlined::sound"]
         [::core::mem::offset_of!(ma_sound_inlined, sound) - 0usize];
     ["Offset of field: ma_sound_inlined::pNext"]
-        [::core::mem::offset_of!(ma_sound_inlined, pNext) - 952usize];
+        [::core::mem::offset_of!(ma_sound_inlined, pNext) - 1024usize];
     ["Offset of field: ma_sound_inlined::pPrev"]
-        [::core::mem::offset_of!(ma_sound_inlined, pPrev) - 960usize];
+        [::core::mem::offset_of!(ma_sound_inlined, pPrev) - 1032usize];
 };
 pub type ma_sound_group_config = ma_sound_config;
 pub type ma_sound_group = ma_sound;
@@ -13189,10 +14315,12 @@ pub struct ma_engine_config {
     pub pResourceManagerVFS: *mut ma_vfs,
     pub onProcess: ma_engine_process_proc,
     pub pProcessUserData: *mut core::ffi::c_void,
+    pub resourceManagerResampling: ma_resampler_config,
+    pub pitchResampling: ma_resampler_config,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_engine_config"][::core::mem::size_of::<ma_engine_config>() - 168usize];
+    ["Size of ma_engine_config"][::core::mem::size_of::<ma_engine_config>() - 264usize];
     ["Alignment of ma_engine_config"][::core::mem::align_of::<ma_engine_config>() - 8usize];
     ["Offset of field: ma_engine_config::pResourceManager"]
         [::core::mem::offset_of!(ma_engine_config, pResourceManager) - 0usize];
@@ -13240,6 +14368,10 @@ const _: () = {
         [::core::mem::offset_of!(ma_engine_config, onProcess) - 152usize];
     ["Offset of field: ma_engine_config::pProcessUserData"]
         [::core::mem::offset_of!(ma_engine_config, pProcessUserData) - 160usize];
+    ["Offset of field: ma_engine_config::resourceManagerResampling"]
+        [::core::mem::offset_of!(ma_engine_config, resourceManagerResampling) - 168usize];
+    ["Offset of field: ma_engine_config::pitchResampling"]
+        [::core::mem::offset_of!(ma_engine_config, pitchResampling) - 216usize];
 };
 unsafe extern "C" {
     pub fn ma_engine_config_init() -> ma_engine_config;
@@ -13265,10 +14397,11 @@ pub struct ma_engine {
     pub monoExpansionMode: ma_mono_expansion_mode,
     pub onProcess: ma_engine_process_proc,
     pub pProcessUserData: *mut core::ffi::c_void,
+    pub pitchResamplingConfig: ma_resampler_config,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_engine"][::core::mem::size_of::<ma_engine>() - 1312usize];
+    ["Size of ma_engine"][::core::mem::size_of::<ma_engine>() - 1360usize];
     ["Alignment of ma_engine"][::core::mem::align_of::<ma_engine>() - 8usize];
     ["Offset of field: ma_engine::nodeGraph"]
         [::core::mem::offset_of!(ma_engine, nodeGraph) - 0usize];
@@ -13304,6 +14437,8 @@ const _: () = {
         [::core::mem::offset_of!(ma_engine, onProcess) - 1296usize];
     ["Offset of field: ma_engine::pProcessUserData"]
         [::core::mem::offset_of!(ma_engine, pProcessUserData) - 1304usize];
+    ["Offset of field: ma_engine::pitchResamplingConfig"]
+        [::core::mem::offset_of!(ma_engine, pitchResamplingConfig) - 1312usize];
 };
 unsafe extern "C" {
     pub fn ma_engine_init(pConfig: *const ma_engine_config, pEngine: *mut ma_engine) -> ma_result;
@@ -13570,6 +14705,18 @@ unsafe extern "C" {
         pSound: *mut ma_sound,
         fadeLengthInFrames: ma_uint64,
     ) -> ma_result;
+}
+unsafe extern "C" {
+    pub fn ma_sound_reset_start_time(pSound: *mut ma_sound);
+}
+unsafe extern "C" {
+    pub fn ma_sound_reset_stop_time(pSound: *mut ma_sound);
+}
+unsafe extern "C" {
+    pub fn ma_sound_reset_fade(pSound: *mut ma_sound);
+}
+unsafe extern "C" {
+    pub fn ma_sound_reset_stop_time_and_fade(pSound: *mut ma_sound);
 }
 unsafe extern "C" {
     pub fn ma_sound_set_volume(pSound: *mut ma_sound, volume: f32);
@@ -14061,3 +15208,4 @@ unsafe extern "C" {
 unsafe extern "C" {
     pub fn ma_sound_group_get_time_in_pcm_frames(pGroup: *const ma_sound_group) -> ma_uint64;
 }
+pub type __uint128_t = u128;

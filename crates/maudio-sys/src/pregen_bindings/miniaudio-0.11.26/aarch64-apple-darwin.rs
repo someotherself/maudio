@@ -2,27 +2,27 @@
 
 pub const MA_VERSION_MAJOR: u32 = 0;
 pub const MA_VERSION_MINOR: u32 = 11;
-pub const MA_VERSION_REVISION: u32 = 23;
+pub const MA_VERSION_REVISION: u32 = 26;
 pub const MA_SIZEOF_PTR: u32 = 8;
 pub const MA_TRUE: u32 = 1;
 pub const MA_FALSE: u32 = 0;
 pub const MA_SIZE_MAX: u32 = 4294967295;
 pub const __has_safe_buffers: u32 = 1;
-pub const __DARWIN_ONLY_64_BIT_INO_T: u32 = 0;
+pub const __DARWIN_ONLY_64_BIT_INO_T: u32 = 1;
 pub const __DARWIN_ONLY_UNIX_CONFORMANCE: u32 = 1;
-pub const __DARWIN_ONLY_VERS_1050: u32 = 0;
+pub const __DARWIN_ONLY_VERS_1050: u32 = 1;
 pub const __DARWIN_UNIX03: u32 = 1;
 pub const __DARWIN_64_BIT_INO_T: u32 = 1;
 pub const __DARWIN_VERS_1050: u32 = 1;
 pub const __DARWIN_NON_CANCELABLE: u32 = 0;
-pub const __DARWIN_SUF_64_BIT_INO_T: &[u8; 9] = b"$INODE64\0";
-pub const __DARWIN_SUF_1050: &[u8; 6] = b"$1050\0";
 pub const __DARWIN_SUF_EXTSN: &[u8; 14] = b"$DARWIN_EXTSN\0";
 pub const __DARWIN_C_ANSI: u32 = 4096;
 pub const __DARWIN_C_FULL: u32 = 900000;
 pub const __DARWIN_C_LEVEL: u32 = 900000;
 pub const __DARWIN_NO_LONG_LONG: u32 = 0;
 pub const _DARWIN_FEATURE_64_BIT_INODE: u32 = 1;
+pub const _DARWIN_FEATURE_ONLY_64_BIT_INODE: u32 = 1;
+pub const _DARWIN_FEATURE_ONLY_VERS_1050: u32 = 1;
 pub const _DARWIN_FEATURE_ONLY_UNIX_CONFORMANCE: u32 = 1;
 pub const _DARWIN_FEATURE_UNIX_CONFORMANCE: u32 = 3;
 pub const __has_ptrcheck: u32 = 0;
@@ -1568,9 +1568,9 @@ pub const _ma_channel_position_MA_CHANNEL_AUX_28: _ma_channel_position = 48;
 pub const _ma_channel_position_MA_CHANNEL_AUX_29: _ma_channel_position = 49;
 pub const _ma_channel_position_MA_CHANNEL_AUX_30: _ma_channel_position = 50;
 pub const _ma_channel_position_MA_CHANNEL_AUX_31: _ma_channel_position = 51;
+pub const _ma_channel_position_MA_CHANNEL_POSITION_COUNT: _ma_channel_position = 52;
 pub const _ma_channel_position_MA_CHANNEL_LEFT: _ma_channel_position = 2;
 pub const _ma_channel_position_MA_CHANNEL_RIGHT: _ma_channel_position = 3;
-pub const _ma_channel_position_MA_CHANNEL_POSITION_COUNT: _ma_channel_position = 52;
 pub type _ma_channel_position = core::ffi::c_uint;
 pub const ma_result_MA_SUCCESS: ma_result = 0;
 pub const ma_result_MA_ERROR: ma_result = -1;
@@ -1928,7 +1928,7 @@ unsafe extern "C" {
         pLog: *mut ma_log,
         level: ma_uint32,
         pFormat: *const core::ffi::c_char,
-        args: *mut __va_list_tag,
+        args: va_list,
     ) -> ma_result;
 }
 unsafe extern "C" {
@@ -11002,11 +11002,12 @@ pub struct ma_resource_manager_config {
     pub ppCustomDecodingBackendVTables: *mut *mut ma_decoding_backend_vtable,
     pub customDecodingBackendCount: ma_uint32,
     pub pCustomDecodingBackendUserData: *mut core::ffi::c_void,
+    pub resampling: ma_resampler_config,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
     ["Size of ma_resource_manager_config"]
-        [::core::mem::size_of::<ma_resource_manager_config>() - 104usize];
+        [::core::mem::size_of::<ma_resource_manager_config>() - 152usize];
     ["Alignment of ma_resource_manager_config"]
         [::core::mem::align_of::<ma_resource_manager_config>() - 8usize];
     ["Offset of field: ma_resource_manager_config::allocationCallbacks"]
@@ -11039,6 +11040,8 @@ const _: () = {
         ma_resource_manager_config,
         pCustomDecodingBackendUserData
     ) - 96usize];
+    ["Offset of field: ma_resource_manager_config::resampling"]
+        [::core::mem::offset_of!(ma_resource_manager_config, resampling) - 104usize];
 };
 unsafe extern "C" {
     pub fn ma_resource_manager_config_init() -> ma_resource_manager_config;
@@ -11056,22 +11059,22 @@ pub struct ma_resource_manager {
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_resource_manager"][::core::mem::size_of::<ma_resource_manager>() - 1168usize];
+    ["Size of ma_resource_manager"][::core::mem::size_of::<ma_resource_manager>() - 1216usize];
     ["Alignment of ma_resource_manager"][::core::mem::align_of::<ma_resource_manager>() - 8usize];
     ["Offset of field: ma_resource_manager::config"]
         [::core::mem::offset_of!(ma_resource_manager, config) - 0usize];
     ["Offset of field: ma_resource_manager::pRootDataBufferNode"]
-        [::core::mem::offset_of!(ma_resource_manager, pRootDataBufferNode) - 104usize];
+        [::core::mem::offset_of!(ma_resource_manager, pRootDataBufferNode) - 152usize];
     ["Offset of field: ma_resource_manager::dataBufferBSTLock"]
-        [::core::mem::offset_of!(ma_resource_manager, dataBufferBSTLock) - 112usize];
+        [::core::mem::offset_of!(ma_resource_manager, dataBufferBSTLock) - 160usize];
     ["Offset of field: ma_resource_manager::jobThreads"]
-        [::core::mem::offset_of!(ma_resource_manager, jobThreads) - 176usize];
+        [::core::mem::offset_of!(ma_resource_manager, jobThreads) - 224usize];
     ["Offset of field: ma_resource_manager::jobQueue"]
-        [::core::mem::offset_of!(ma_resource_manager, jobQueue) - 688usize];
+        [::core::mem::offset_of!(ma_resource_manager, jobQueue) - 736usize];
     ["Offset of field: ma_resource_manager::defaultVFS"]
-        [::core::mem::offset_of!(ma_resource_manager, defaultVFS) - 904usize];
+        [::core::mem::offset_of!(ma_resource_manager, defaultVFS) - 952usize];
     ["Offset of field: ma_resource_manager::log"]
-        [::core::mem::offset_of!(ma_resource_manager, log) - 1000usize];
+        [::core::mem::offset_of!(ma_resource_manager, log) - 1048usize];
 };
 unsafe extern "C" {
     pub fn ma_resource_manager_init(
@@ -11881,6 +11884,11 @@ unsafe extern "C" {
         globalTime: ma_uint64,
     ) -> ma_result;
 }
+unsafe extern "C" {
+    pub fn ma_node_graph_get_processing_size_in_frames(
+        pNodeGraph: *const ma_node_graph,
+    ) -> ma_uint32;
+}
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_data_source_node_config {
@@ -12546,10 +12554,11 @@ pub struct ma_engine_node_config {
     pub isPitchDisabled: ma_bool8,
     pub isSpatializationDisabled: ma_bool8,
     pub pinnedListenerIndex: ma_uint8,
+    pub resampling: ma_resampler_config,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_engine_node_config"][::core::mem::size_of::<ma_engine_node_config>() - 40usize];
+    ["Size of ma_engine_node_config"][::core::mem::size_of::<ma_engine_node_config>() - 88usize];
     ["Alignment of ma_engine_node_config"]
         [::core::mem::align_of::<ma_engine_node_config>() - 8usize];
     ["Offset of field: ma_engine_node_config::pEngine"]
@@ -12572,6 +12581,8 @@ const _: () = {
         [::core::mem::offset_of!(ma_engine_node_config, isSpatializationDisabled) - 33usize];
     ["Offset of field: ma_engine_node_config::pinnedListenerIndex"]
         [::core::mem::offset_of!(ma_engine_node_config, pinnedListenerIndex) - 34usize];
+    ["Offset of field: ma_engine_node_config::resampling"]
+        [::core::mem::offset_of!(ma_engine_node_config, resampling) - 40usize];
 };
 unsafe extern "C" {
     pub fn ma_engine_node_config_init(
@@ -12589,11 +12600,12 @@ pub struct ma_engine_node {
     pub volumeSmoothTimeInPCMFrames: ma_uint32,
     pub monoExpansionMode: ma_mono_expansion_mode,
     pub fader: ma_fader,
-    pub resampler: ma_linear_resampler,
+    pub resampler: ma_resampler,
     pub spatializer: ma_spatializer,
     pub panner: ma_panner,
     pub volumeGainer: ma_gainer,
     pub volume: ma_atomic_float,
+    pub oldVolume: f32,
     pub pitch: f32,
     pub oldPitch: f32,
     pub oldDopplerPitch: f32,
@@ -12631,7 +12643,7 @@ const _: () = {
 };
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_engine_node"][::core::mem::size_of::<ma_engine_node>() - 896usize];
+    ["Size of ma_engine_node"][::core::mem::size_of::<ma_engine_node>() - 952usize];
     ["Alignment of ma_engine_node"][::core::mem::align_of::<ma_engine_node>() - 8usize];
     ["Offset of field: ma_engine_node::baseNode"]
         [::core::mem::offset_of!(ma_engine_node, baseNode) - 0usize];
@@ -12648,31 +12660,33 @@ const _: () = {
     ["Offset of field: ma_engine_node::resampler"]
         [::core::mem::offset_of!(ma_engine_node, resampler) - 424usize];
     ["Offset of field: ma_engine_node::spatializer"]
-        [::core::mem::offset_of!(ma_engine_node, spatializer) - 560usize];
+        [::core::mem::offset_of!(ma_engine_node, spatializer) - 616usize];
     ["Offset of field: ma_engine_node::panner"]
-        [::core::mem::offset_of!(ma_engine_node, panner) - 760usize];
+        [::core::mem::offset_of!(ma_engine_node, panner) - 816usize];
     ["Offset of field: ma_engine_node::volumeGainer"]
-        [::core::mem::offset_of!(ma_engine_node, volumeGainer) - 776usize];
+        [::core::mem::offset_of!(ma_engine_node, volumeGainer) - 832usize];
     ["Offset of field: ma_engine_node::volume"]
-        [::core::mem::offset_of!(ma_engine_node, volume) - 824usize];
+        [::core::mem::offset_of!(ma_engine_node, volume) - 880usize];
+    ["Offset of field: ma_engine_node::oldVolume"]
+        [::core::mem::offset_of!(ma_engine_node, oldVolume) - 884usize];
     ["Offset of field: ma_engine_node::pitch"]
-        [::core::mem::offset_of!(ma_engine_node, pitch) - 828usize];
+        [::core::mem::offset_of!(ma_engine_node, pitch) - 888usize];
     ["Offset of field: ma_engine_node::oldPitch"]
-        [::core::mem::offset_of!(ma_engine_node, oldPitch) - 832usize];
+        [::core::mem::offset_of!(ma_engine_node, oldPitch) - 892usize];
     ["Offset of field: ma_engine_node::oldDopplerPitch"]
-        [::core::mem::offset_of!(ma_engine_node, oldDopplerPitch) - 836usize];
+        [::core::mem::offset_of!(ma_engine_node, oldDopplerPitch) - 896usize];
     ["Offset of field: ma_engine_node::isPitchDisabled"]
-        [::core::mem::offset_of!(ma_engine_node, isPitchDisabled) - 840usize];
+        [::core::mem::offset_of!(ma_engine_node, isPitchDisabled) - 900usize];
     ["Offset of field: ma_engine_node::isSpatializationDisabled"]
-        [::core::mem::offset_of!(ma_engine_node, isSpatializationDisabled) - 844usize];
+        [::core::mem::offset_of!(ma_engine_node, isSpatializationDisabled) - 904usize];
     ["Offset of field: ma_engine_node::pinnedListenerIndex"]
-        [::core::mem::offset_of!(ma_engine_node, pinnedListenerIndex) - 848usize];
+        [::core::mem::offset_of!(ma_engine_node, pinnedListenerIndex) - 908usize];
     ["Offset of field: ma_engine_node::fadeSettings"]
-        [::core::mem::offset_of!(ma_engine_node, fadeSettings) - 856usize];
+        [::core::mem::offset_of!(ma_engine_node, fadeSettings) - 912usize];
     ["Offset of field: ma_engine_node::_ownsHeap"]
-        [::core::mem::offset_of!(ma_engine_node, _ownsHeap) - 880usize];
+        [::core::mem::offset_of!(ma_engine_node, _ownsHeap) - 936usize];
     ["Offset of field: ma_engine_node::_pHeap"]
-        [::core::mem::offset_of!(ma_engine_node, _pHeap) - 888usize];
+        [::core::mem::offset_of!(ma_engine_node, _pHeap) - 944usize];
 };
 unsafe extern "C" {
     pub fn ma_engine_node_get_heap_size(
@@ -12723,13 +12737,14 @@ pub struct ma_sound_config {
     pub loopPointEndInPCMFrames: ma_uint64,
     pub endCallback: ma_sound_end_proc,
     pub pEndCallbackUserData: *mut core::ffi::c_void,
+    pub pitchResampling: ma_resampler_config,
     pub initNotifications: ma_resource_manager_pipeline_notifications,
     pub pDoneFence: *mut ma_fence,
     pub isLooping: ma_bool32,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_sound_config"][::core::mem::size_of::<ma_sound_config>() - 160usize];
+    ["Size of ma_sound_config"][::core::mem::size_of::<ma_sound_config>() - 208usize];
     ["Alignment of ma_sound_config"][::core::mem::align_of::<ma_sound_config>() - 8usize];
     ["Offset of field: ma_sound_config::pFilePath"]
         [::core::mem::offset_of!(ma_sound_config, pFilePath) - 0usize];
@@ -12765,12 +12780,14 @@ const _: () = {
         [::core::mem::offset_of!(ma_sound_config, endCallback) - 96usize];
     ["Offset of field: ma_sound_config::pEndCallbackUserData"]
         [::core::mem::offset_of!(ma_sound_config, pEndCallbackUserData) - 104usize];
+    ["Offset of field: ma_sound_config::pitchResampling"]
+        [::core::mem::offset_of!(ma_sound_config, pitchResampling) - 112usize];
     ["Offset of field: ma_sound_config::initNotifications"]
-        [::core::mem::offset_of!(ma_sound_config, initNotifications) - 112usize];
+        [::core::mem::offset_of!(ma_sound_config, initNotifications) - 160usize];
     ["Offset of field: ma_sound_config::pDoneFence"]
-        [::core::mem::offset_of!(ma_sound_config, pDoneFence) - 144usize];
+        [::core::mem::offset_of!(ma_sound_config, pDoneFence) - 192usize];
     ["Offset of field: ma_sound_config::isLooping"]
-        [::core::mem::offset_of!(ma_sound_config, isLooping) - 152usize];
+        [::core::mem::offset_of!(ma_sound_config, isLooping) - 200usize];
 };
 unsafe extern "C" {
     pub fn ma_sound_config_init() -> ma_sound_config;
@@ -12787,28 +12804,37 @@ pub struct ma_sound {
     pub atEnd: ma_bool32,
     pub endCallback: ma_sound_end_proc,
     pub pEndCallbackUserData: *mut core::ffi::c_void,
+    pub pProcessingCache: *mut f32,
+    pub processingCacheFramesRemaining: ma_uint32,
+    pub processingCacheCap: ma_uint32,
     pub ownsDataSource: ma_bool8,
     pub pResourceManagerDataSource: *mut ma_resource_manager_data_source,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_sound"][::core::mem::size_of::<ma_sound>() - 952usize];
+    ["Size of ma_sound"][::core::mem::size_of::<ma_sound>() - 1024usize];
     ["Alignment of ma_sound"][::core::mem::align_of::<ma_sound>() - 8usize];
     ["Offset of field: ma_sound::engineNode"]
         [::core::mem::offset_of!(ma_sound, engineNode) - 0usize];
     ["Offset of field: ma_sound::pDataSource"]
-        [::core::mem::offset_of!(ma_sound, pDataSource) - 896usize];
+        [::core::mem::offset_of!(ma_sound, pDataSource) - 952usize];
     ["Offset of field: ma_sound::seekTarget"]
-        [::core::mem::offset_of!(ma_sound, seekTarget) - 904usize];
-    ["Offset of field: ma_sound::atEnd"][::core::mem::offset_of!(ma_sound, atEnd) - 912usize];
+        [::core::mem::offset_of!(ma_sound, seekTarget) - 960usize];
+    ["Offset of field: ma_sound::atEnd"][::core::mem::offset_of!(ma_sound, atEnd) - 968usize];
     ["Offset of field: ma_sound::endCallback"]
-        [::core::mem::offset_of!(ma_sound, endCallback) - 920usize];
+        [::core::mem::offset_of!(ma_sound, endCallback) - 976usize];
     ["Offset of field: ma_sound::pEndCallbackUserData"]
-        [::core::mem::offset_of!(ma_sound, pEndCallbackUserData) - 928usize];
+        [::core::mem::offset_of!(ma_sound, pEndCallbackUserData) - 984usize];
+    ["Offset of field: ma_sound::pProcessingCache"]
+        [::core::mem::offset_of!(ma_sound, pProcessingCache) - 992usize];
+    ["Offset of field: ma_sound::processingCacheFramesRemaining"]
+        [::core::mem::offset_of!(ma_sound, processingCacheFramesRemaining) - 1000usize];
+    ["Offset of field: ma_sound::processingCacheCap"]
+        [::core::mem::offset_of!(ma_sound, processingCacheCap) - 1004usize];
     ["Offset of field: ma_sound::ownsDataSource"]
-        [::core::mem::offset_of!(ma_sound, ownsDataSource) - 936usize];
+        [::core::mem::offset_of!(ma_sound, ownsDataSource) - 1008usize];
     ["Offset of field: ma_sound::pResourceManagerDataSource"]
-        [::core::mem::offset_of!(ma_sound, pResourceManagerDataSource) - 944usize];
+        [::core::mem::offset_of!(ma_sound, pResourceManagerDataSource) - 1016usize];
 };
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -12819,14 +12845,14 @@ pub struct ma_sound_inlined {
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_sound_inlined"][::core::mem::size_of::<ma_sound_inlined>() - 968usize];
+    ["Size of ma_sound_inlined"][::core::mem::size_of::<ma_sound_inlined>() - 1040usize];
     ["Alignment of ma_sound_inlined"][::core::mem::align_of::<ma_sound_inlined>() - 8usize];
     ["Offset of field: ma_sound_inlined::sound"]
         [::core::mem::offset_of!(ma_sound_inlined, sound) - 0usize];
     ["Offset of field: ma_sound_inlined::pNext"]
-        [::core::mem::offset_of!(ma_sound_inlined, pNext) - 952usize];
+        [::core::mem::offset_of!(ma_sound_inlined, pNext) - 1024usize];
     ["Offset of field: ma_sound_inlined::pPrev"]
-        [::core::mem::offset_of!(ma_sound_inlined, pPrev) - 960usize];
+        [::core::mem::offset_of!(ma_sound_inlined, pPrev) - 1032usize];
 };
 pub type ma_sound_group_config = ma_sound_config;
 pub type ma_sound_group = ma_sound;
@@ -12869,10 +12895,12 @@ pub struct ma_engine_config {
     pub pResourceManagerVFS: *mut ma_vfs,
     pub onProcess: ma_engine_process_proc,
     pub pProcessUserData: *mut core::ffi::c_void,
+    pub resourceManagerResampling: ma_resampler_config,
+    pub pitchResampling: ma_resampler_config,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_engine_config"][::core::mem::size_of::<ma_engine_config>() - 168usize];
+    ["Size of ma_engine_config"][::core::mem::size_of::<ma_engine_config>() - 264usize];
     ["Alignment of ma_engine_config"][::core::mem::align_of::<ma_engine_config>() - 8usize];
     ["Offset of field: ma_engine_config::pResourceManager"]
         [::core::mem::offset_of!(ma_engine_config, pResourceManager) - 0usize];
@@ -12920,6 +12948,10 @@ const _: () = {
         [::core::mem::offset_of!(ma_engine_config, onProcess) - 152usize];
     ["Offset of field: ma_engine_config::pProcessUserData"]
         [::core::mem::offset_of!(ma_engine_config, pProcessUserData) - 160usize];
+    ["Offset of field: ma_engine_config::resourceManagerResampling"]
+        [::core::mem::offset_of!(ma_engine_config, resourceManagerResampling) - 168usize];
+    ["Offset of field: ma_engine_config::pitchResampling"]
+        [::core::mem::offset_of!(ma_engine_config, pitchResampling) - 216usize];
 };
 unsafe extern "C" {
     pub fn ma_engine_config_init() -> ma_engine_config;
@@ -12945,10 +12977,11 @@ pub struct ma_engine {
     pub monoExpansionMode: ma_mono_expansion_mode,
     pub onProcess: ma_engine_process_proc,
     pub pProcessUserData: *mut core::ffi::c_void,
+    pub pitchResamplingConfig: ma_resampler_config,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_engine"][::core::mem::size_of::<ma_engine>() - 1312usize];
+    ["Size of ma_engine"][::core::mem::size_of::<ma_engine>() - 1360usize];
     ["Alignment of ma_engine"][::core::mem::align_of::<ma_engine>() - 8usize];
     ["Offset of field: ma_engine::nodeGraph"]
         [::core::mem::offset_of!(ma_engine, nodeGraph) - 0usize];
@@ -12984,6 +13017,8 @@ const _: () = {
         [::core::mem::offset_of!(ma_engine, onProcess) - 1296usize];
     ["Offset of field: ma_engine::pProcessUserData"]
         [::core::mem::offset_of!(ma_engine, pProcessUserData) - 1304usize];
+    ["Offset of field: ma_engine::pitchResamplingConfig"]
+        [::core::mem::offset_of!(ma_engine, pitchResamplingConfig) - 1312usize];
 };
 unsafe extern "C" {
     pub fn ma_engine_init(pConfig: *const ma_engine_config, pEngine: *mut ma_engine) -> ma_result;
@@ -13250,6 +13285,18 @@ unsafe extern "C" {
         pSound: *mut ma_sound,
         fadeLengthInFrames: ma_uint64,
     ) -> ma_result;
+}
+unsafe extern "C" {
+    pub fn ma_sound_reset_start_time(pSound: *mut ma_sound);
+}
+unsafe extern "C" {
+    pub fn ma_sound_reset_stop_time(pSound: *mut ma_sound);
+}
+unsafe extern "C" {
+    pub fn ma_sound_reset_fade(pSound: *mut ma_sound);
+}
+unsafe extern "C" {
+    pub fn ma_sound_reset_stop_time_and_fade(pSound: *mut ma_sound);
 }
 unsafe extern "C" {
     pub fn ma_sound_set_volume(pSound: *mut ma_sound, volume: f32);
@@ -13741,25 +13788,4 @@ unsafe extern "C" {
 unsafe extern "C" {
     pub fn ma_sound_group_get_time_in_pcm_frames(pGroup: *const ma_sound_group) -> ma_uint64;
 }
-pub type __builtin_va_list = [__va_list_tag; 1usize];
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct __va_list_tag {
-    pub gp_offset: core::ffi::c_uint,
-    pub fp_offset: core::ffi::c_uint,
-    pub overflow_arg_area: *mut core::ffi::c_void,
-    pub reg_save_area: *mut core::ffi::c_void,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of __va_list_tag"][::core::mem::size_of::<__va_list_tag>() - 24usize];
-    ["Alignment of __va_list_tag"][::core::mem::align_of::<__va_list_tag>() - 8usize];
-    ["Offset of field: __va_list_tag::gp_offset"]
-        [::core::mem::offset_of!(__va_list_tag, gp_offset) - 0usize];
-    ["Offset of field: __va_list_tag::fp_offset"]
-        [::core::mem::offset_of!(__va_list_tag, fp_offset) - 4usize];
-    ["Offset of field: __va_list_tag::overflow_arg_area"]
-        [::core::mem::offset_of!(__va_list_tag, overflow_arg_area) - 8usize];
-    ["Offset of field: __va_list_tag::reg_save_area"]
-        [::core::mem::offset_of!(__va_list_tag, reg_save_area) - 16usize];
-};
+pub type __builtin_va_list = *mut core::ffi::c_char;

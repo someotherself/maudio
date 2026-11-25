@@ -2,39 +2,8 @@
 
 pub const MA_VERSION_MAJOR: u32 = 0;
 pub const MA_VERSION_MINOR: u32 = 11;
-pub const MA_VERSION_REVISION: u32 = 23;
+pub const MA_VERSION_REVISION: u32 = 26;
 pub const MA_SIZEOF_PTR: u32 = 8;
-pub const _VCRT_COMPILER_PREPROCESSOR: u32 = 1;
-pub const _SAL_VERSION: u32 = 20;
-pub const __SAL_H_VERSION: u32 = 180000000;
-pub const _USE_DECLSPECS_FOR_SAL: u32 = 0;
-pub const _USE_ATTRIBUTES_FOR_SAL: u32 = 0;
-pub const _CRT_PACKING: u32 = 8;
-pub const _HAS_EXCEPTIONS: u32 = 1;
-pub const _STL_LANG: u32 = 0;
-pub const _HAS_CXX17: u32 = 0;
-pub const _HAS_CXX20: u32 = 0;
-pub const _HAS_CXX23: u32 = 0;
-pub const _HAS_CXX26: u32 = 0;
-pub const _HAS_NODISCARD: u32 = 0;
-pub const _ARM_WINAPI_PARTITION_DESKTOP_SDK_AVAILABLE: u32 = 1;
-pub const _CRT_BUILD_DESKTOP_APP: u32 = 1;
-pub const _ARGMAX: u32 = 100;
-pub const _CRT_INT_MAX: u32 = 2147483647;
-pub const _CRT_FUNCTIONS_REQUIRED: u32 = 1;
-pub const _CRT_HAS_CXX17: u32 = 0;
-pub const _CRT_HAS_C11: u32 = 1;
-pub const _CRT_INTERNAL_NONSTDC_NAMES: u32 = 1;
-pub const __STDC_SECURE_LIB__: u32 = 200411;
-pub const __GOT_SECURE_LIB__: u32 = 200411;
-pub const __STDC_WANT_SECURE_LIB__: u32 = 1;
-pub const _SECURECRT_FILL_BUFFER_PATTERN: u32 = 254;
-pub const _CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES: u32 = 0;
-pub const _CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES_COUNT: u32 = 0;
-pub const _CRT_SECURE_CPP_OVERLOAD_SECURE_NAMES: u32 = 1;
-pub const _CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES_MEMORY: u32 = 0;
-pub const _CRT_SECURE_CPP_OVERLOAD_SECURE_NAMES_MEMORY: u32 = 0;
-pub const _STATIC_INLINE_UCRT_FUNCTIONS: u32 = 0;
 pub const MA_TRUE: u32 = 1;
 pub const MA_FALSE: u32 = 0;
 pub const MA_SIZE_MAX: u32 = 4294967295;
@@ -53,115 +22,7 @@ pub const MA_MAX_NODE_LOCAL_BUS_COUNT: u32 = 2;
 pub const MA_NODE_BUS_COUNT_UNKNOWN: u32 = 255;
 pub const MA_ENGINE_MAX_LISTENERS: u32 = 4;
 pub const MA_SOUND_SOURCE_CHANNEL_COUNT: u32 = 4294967295;
-pub type va_list = *mut core::ffi::c_char;
-unsafe extern "C" {
-    pub fn __va_start(arg1: *mut *mut core::ffi::c_char, ...);
-}
-pub type __vcrt_bool = bool;
 pub type wchar_t = core::ffi::c_ushort;
-unsafe extern "C" {
-    pub fn __security_init_cookie();
-}
-unsafe extern "C" {
-    pub fn __security_check_cookie(_StackCookie: usize);
-}
-unsafe extern "C" {
-    pub fn __report_gsfailure(_StackCookie: usize) -> !;
-}
-unsafe extern "C" {
-    pub static mut __security_cookie: usize;
-}
-pub type __crt_bool = bool;
-unsafe extern "C" {
-    pub fn _invalid_parameter_noinfo();
-}
-unsafe extern "C" {
-    pub fn _invalid_parameter_noinfo_noreturn() -> !;
-}
-unsafe extern "C" {
-    pub fn _invoke_watson(
-        _Expression: *const wchar_t,
-        _FunctionName: *const wchar_t,
-        _FileName: *const wchar_t,
-        _LineNo: core::ffi::c_uint,
-        _Reserved: usize,
-    ) -> !;
-}
-pub type errno_t = core::ffi::c_int;
-pub type wint_t = core::ffi::c_ushort;
-pub type wctype_t = core::ffi::c_ushort;
-pub type __time32_t = core::ffi::c_long;
-pub type __time64_t = core::ffi::c_longlong;
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct __crt_locale_data_public {
-    pub _locale_pctype: *const core::ffi::c_ushort,
-    pub _locale_mb_cur_max: core::ffi::c_int,
-    pub _locale_lc_codepage: core::ffi::c_uint,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of __crt_locale_data_public"]
-        [::core::mem::size_of::<__crt_locale_data_public>() - 16usize];
-    ["Alignment of __crt_locale_data_public"]
-        [::core::mem::align_of::<__crt_locale_data_public>() - 8usize];
-    ["Offset of field: __crt_locale_data_public::_locale_pctype"]
-        [::core::mem::offset_of!(__crt_locale_data_public, _locale_pctype) - 0usize];
-    ["Offset of field: __crt_locale_data_public::_locale_mb_cur_max"]
-        [::core::mem::offset_of!(__crt_locale_data_public, _locale_mb_cur_max) - 8usize];
-    ["Offset of field: __crt_locale_data_public::_locale_lc_codepage"]
-        [::core::mem::offset_of!(__crt_locale_data_public, _locale_lc_codepage) - 12usize];
-};
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct __crt_locale_pointers {
-    pub locinfo: *mut __crt_locale_data,
-    pub mbcinfo: *mut __crt_multibyte_data,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of __crt_locale_pointers"][::core::mem::size_of::<__crt_locale_pointers>() - 16usize];
-    ["Alignment of __crt_locale_pointers"]
-        [::core::mem::align_of::<__crt_locale_pointers>() - 8usize];
-    ["Offset of field: __crt_locale_pointers::locinfo"]
-        [::core::mem::offset_of!(__crt_locale_pointers, locinfo) - 0usize];
-    ["Offset of field: __crt_locale_pointers::mbcinfo"]
-        [::core::mem::offset_of!(__crt_locale_pointers, mbcinfo) - 8usize];
-};
-pub type _locale_t = *mut __crt_locale_pointers;
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct _Mbstatet {
-    pub _Wchar: core::ffi::c_ulong,
-    pub _Byte: core::ffi::c_ushort,
-    pub _State: core::ffi::c_ushort,
-}
-#[allow(clippy::unnecessary_operation, clippy::identity_op)]
-const _: () = {
-    ["Size of _Mbstatet"][::core::mem::size_of::<_Mbstatet>() - 8usize];
-    ["Alignment of _Mbstatet"][::core::mem::align_of::<_Mbstatet>() - 4usize];
-    ["Offset of field: _Mbstatet::_Wchar"][::core::mem::offset_of!(_Mbstatet, _Wchar) - 0usize];
-    ["Offset of field: _Mbstatet::_Byte"][::core::mem::offset_of!(_Mbstatet, _Byte) - 4usize];
-    ["Offset of field: _Mbstatet::_State"][::core::mem::offset_of!(_Mbstatet, _State) - 6usize];
-};
-pub type mbstate_t = _Mbstatet;
-pub type time_t = __time64_t;
-pub type rsize_t = usize;
-unsafe extern "C" {
-    pub fn _errno() -> *mut core::ffi::c_int;
-}
-unsafe extern "C" {
-    pub fn _set_errno(_Value: core::ffi::c_int) -> errno_t;
-}
-unsafe extern "C" {
-    pub fn _get_errno(_Value: *mut core::ffi::c_int) -> errno_t;
-}
-unsafe extern "C" {
-    pub fn __threadid() -> core::ffi::c_ulong;
-}
-unsafe extern "C" {
-    pub fn __threadhandle() -> usize;
-}
 pub type ma_int8 = core::ffi::c_schar;
 pub type ma_uint8 = core::ffi::c_uchar;
 pub type ma_int16 = core::ffi::c_short;
@@ -177,13 +38,13 @@ pub type ma_float = f32;
 pub type ma_double = f64;
 pub type ma_handle = *mut core::ffi::c_void;
 pub type ma_ptr = *mut core::ffi::c_void;
-pub type ma_proc = *mut core::ffi::c_void;
+pub type ma_proc = ::core::option::Option<unsafe extern "C" fn()>;
 pub type ma_wchar_win32 = wchar_t;
 pub const ma_log_level_MA_LOG_LEVEL_DEBUG: ma_log_level = 4;
 pub const ma_log_level_MA_LOG_LEVEL_INFO: ma_log_level = 3;
 pub const ma_log_level_MA_LOG_LEVEL_WARNING: ma_log_level = 2;
 pub const ma_log_level_MA_LOG_LEVEL_ERROR: ma_log_level = 1;
-pub type ma_log_level = core::ffi::c_int;
+pub type ma_log_level = core::ffi::c_uint;
 pub type ma_channel = ma_uint8;
 pub const _ma_channel_position_MA_CHANNEL_NONE: _ma_channel_position = 0;
 pub const _ma_channel_position_MA_CHANNEL_MONO: _ma_channel_position = 1;
@@ -237,10 +98,10 @@ pub const _ma_channel_position_MA_CHANNEL_AUX_28: _ma_channel_position = 48;
 pub const _ma_channel_position_MA_CHANNEL_AUX_29: _ma_channel_position = 49;
 pub const _ma_channel_position_MA_CHANNEL_AUX_30: _ma_channel_position = 50;
 pub const _ma_channel_position_MA_CHANNEL_AUX_31: _ma_channel_position = 51;
+pub const _ma_channel_position_MA_CHANNEL_POSITION_COUNT: _ma_channel_position = 52;
 pub const _ma_channel_position_MA_CHANNEL_LEFT: _ma_channel_position = 2;
 pub const _ma_channel_position_MA_CHANNEL_RIGHT: _ma_channel_position = 3;
-pub const _ma_channel_position_MA_CHANNEL_POSITION_COUNT: _ma_channel_position = 52;
-pub type _ma_channel_position = core::ffi::c_int;
+pub type _ma_channel_position = core::ffi::c_uint;
 pub const ma_result_MA_SUCCESS: ma_result = 0;
 pub const ma_result_MA_ERROR: ma_result = -1;
 pub const ma_result_MA_INVALID_ARGS: ma_result = -2;
@@ -314,14 +175,14 @@ pub const ma_result_MA_FAILED_TO_START_BACKEND_DEVICE: ma_result = -402;
 pub const ma_result_MA_FAILED_TO_STOP_BACKEND_DEVICE: ma_result = -403;
 pub type ma_result = core::ffi::c_int;
 pub const ma_stream_format_ma_stream_format_pcm: ma_stream_format = 0;
-pub type ma_stream_format = core::ffi::c_int;
+pub type ma_stream_format = core::ffi::c_uint;
 pub const ma_stream_layout_ma_stream_layout_interleaved: ma_stream_layout = 0;
 pub const ma_stream_layout_ma_stream_layout_deinterleaved: ma_stream_layout = 1;
-pub type ma_stream_layout = core::ffi::c_int;
+pub type ma_stream_layout = core::ffi::c_uint;
 pub const ma_dither_mode_ma_dither_mode_none: ma_dither_mode = 0;
 pub const ma_dither_mode_ma_dither_mode_rectangle: ma_dither_mode = 1;
 pub const ma_dither_mode_ma_dither_mode_triangle: ma_dither_mode = 2;
-pub type ma_dither_mode = core::ffi::c_int;
+pub type ma_dither_mode = core::ffi::c_uint;
 pub const ma_format_ma_format_unknown: ma_format = 0;
 pub const ma_format_ma_format_u8: ma_format = 1;
 pub const ma_format_ma_format_s16: ma_format = 2;
@@ -329,7 +190,7 @@ pub const ma_format_ma_format_s24: ma_format = 3;
 pub const ma_format_ma_format_s32: ma_format = 4;
 pub const ma_format_ma_format_f32: ma_format = 5;
 pub const ma_format_ma_format_count: ma_format = 6;
-pub type ma_format = core::ffi::c_int;
+pub type ma_format = core::ffi::c_uint;
 pub const ma_standard_sample_rate_ma_standard_sample_rate_48000: ma_standard_sample_rate = 48000;
 pub const ma_standard_sample_rate_ma_standard_sample_rate_44100: ma_standard_sample_rate = 44100;
 pub const ma_standard_sample_rate_ma_standard_sample_rate_32000: ma_standard_sample_rate = 32000;
@@ -347,12 +208,12 @@ pub const ma_standard_sample_rate_ma_standard_sample_rate_384000: ma_standard_sa
 pub const ma_standard_sample_rate_ma_standard_sample_rate_min: ma_standard_sample_rate = 8000;
 pub const ma_standard_sample_rate_ma_standard_sample_rate_max: ma_standard_sample_rate = 384000;
 pub const ma_standard_sample_rate_ma_standard_sample_rate_count: ma_standard_sample_rate = 14;
-pub type ma_standard_sample_rate = core::ffi::c_int;
+pub type ma_standard_sample_rate = core::ffi::c_uint;
 pub const ma_channel_mix_mode_ma_channel_mix_mode_rectangular: ma_channel_mix_mode = 0;
 pub const ma_channel_mix_mode_ma_channel_mix_mode_simple: ma_channel_mix_mode = 1;
 pub const ma_channel_mix_mode_ma_channel_mix_mode_custom_weights: ma_channel_mix_mode = 2;
 pub const ma_channel_mix_mode_ma_channel_mix_mode_default: ma_channel_mix_mode = 0;
-pub type ma_channel_mix_mode = core::ffi::c_int;
+pub type ma_channel_mix_mode = core::ffi::c_uint;
 pub const ma_standard_channel_map_ma_standard_channel_map_microsoft: ma_standard_channel_map = 0;
 pub const ma_standard_channel_map_ma_standard_channel_map_alsa: ma_standard_channel_map = 1;
 pub const ma_standard_channel_map_ma_standard_channel_map_rfc3551: ma_standard_channel_map = 2;
@@ -362,10 +223,10 @@ pub const ma_standard_channel_map_ma_standard_channel_map_sound4: ma_standard_ch
 pub const ma_standard_channel_map_ma_standard_channel_map_sndio: ma_standard_channel_map = 6;
 pub const ma_standard_channel_map_ma_standard_channel_map_webaudio: ma_standard_channel_map = 3;
 pub const ma_standard_channel_map_ma_standard_channel_map_default: ma_standard_channel_map = 0;
-pub type ma_standard_channel_map = core::ffi::c_int;
+pub type ma_standard_channel_map = core::ffi::c_uint;
 pub const ma_performance_profile_ma_performance_profile_low_latency: ma_performance_profile = 0;
 pub const ma_performance_profile_ma_performance_profile_conservative: ma_performance_profile = 1;
-pub type ma_performance_profile = core::ffi::c_int;
+pub type ma_performance_profile = core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_allocation_callbacks {
@@ -493,6 +354,8 @@ unsafe extern "C" {
 unsafe extern "C" {
     pub fn ma_version_string() -> *const core::ffi::c_char;
 }
+pub type __gnuc_va_list = __builtin_va_list;
+pub type va_list = __builtin_va_list;
 pub type ma_log_callback_proc = ::core::option::Option<
     unsafe extern "C" fn(
         pUserData: *mut core::ffi::c_void,
@@ -1945,7 +1808,7 @@ unsafe extern "C" {
 }
 pub const ma_pan_mode_ma_pan_mode_balance: ma_pan_mode = 0;
 pub const ma_pan_mode_ma_pan_mode_pan: ma_pan_mode = 1;
-pub type ma_pan_mode = core::ffi::c_int;
+pub type ma_pan_mode = core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_panner_config {
@@ -2130,13 +1993,13 @@ pub const ma_attenuation_model_ma_attenuation_model_none: ma_attenuation_model =
 pub const ma_attenuation_model_ma_attenuation_model_inverse: ma_attenuation_model = 1;
 pub const ma_attenuation_model_ma_attenuation_model_linear: ma_attenuation_model = 2;
 pub const ma_attenuation_model_ma_attenuation_model_exponential: ma_attenuation_model = 3;
-pub type ma_attenuation_model = core::ffi::c_int;
+pub type ma_attenuation_model = core::ffi::c_uint;
 pub const ma_positioning_ma_positioning_absolute: ma_positioning = 0;
 pub const ma_positioning_ma_positioning_relative: ma_positioning = 1;
-pub type ma_positioning = core::ffi::c_int;
+pub type ma_positioning = core::ffi::c_uint;
 pub const ma_handedness_ma_handedness_right: ma_handedness = 0;
 pub const ma_handedness_ma_handedness_left: ma_handedness = 1;
-pub type ma_handedness = core::ffi::c_int;
+pub type ma_handedness = core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_spatializer_listener_config {
@@ -2951,7 +2814,7 @@ const _: () = {
 };
 pub const ma_resample_algorithm_ma_resample_algorithm_linear: ma_resample_algorithm = 0;
 pub const ma_resample_algorithm_ma_resample_algorithm_custom: ma_resample_algorithm = 1;
-pub type ma_resample_algorithm = core::ffi::c_int;
+pub type ma_resample_algorithm = core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_resampler_config {
@@ -3142,12 +3005,12 @@ pub const ma_channel_conversion_path_ma_channel_conversion_path_shuffle:
 pub const ma_channel_conversion_path_ma_channel_conversion_path_weights:
     ma_channel_conversion_path = 5;
 #[doc = "Channel Conversion"]
-pub type ma_channel_conversion_path = core::ffi::c_int;
+pub type ma_channel_conversion_path = core::ffi::c_uint;
 pub const ma_mono_expansion_mode_ma_mono_expansion_mode_duplicate: ma_mono_expansion_mode = 0;
 pub const ma_mono_expansion_mode_ma_mono_expansion_mode_average: ma_mono_expansion_mode = 1;
 pub const ma_mono_expansion_mode_ma_mono_expansion_mode_stereo_only: ma_mono_expansion_mode = 2;
 pub const ma_mono_expansion_mode_ma_mono_expansion_mode_default: ma_mono_expansion_mode = 0;
-pub type ma_mono_expansion_mode = core::ffi::c_int;
+pub type ma_mono_expansion_mode = core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_channel_converter_config {
@@ -3383,7 +3246,7 @@ pub const ma_data_converter_execution_path_ma_data_converter_execution_path_resa
     ma_data_converter_execution_path = 4;
 pub const ma_data_converter_execution_path_ma_data_converter_execution_path_channels_first:
     ma_data_converter_execution_path = 5;
-pub type ma_data_converter_execution_path = core::ffi::c_int;
+pub type ma_data_converter_execution_path = core::ffi::c_uint;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct ma_data_converter {
@@ -5071,7 +4934,7 @@ pub const ma_job_type_MA_JOB_TYPE_RESOURCE_MANAGER_PAGE_DATA_STREAM: ma_job_type
 pub const ma_job_type_MA_JOB_TYPE_RESOURCE_MANAGER_SEEK_DATA_STREAM: ma_job_type = 10;
 pub const ma_job_type_MA_JOB_TYPE_DEVICE_AAUDIO_REROUTE: ma_job_type = 11;
 pub const ma_job_type_MA_JOB_TYPE_COUNT: ma_job_type = 12;
-pub type ma_job_type = core::ffi::c_int;
+pub type ma_job_type = core::ffi::c_uint;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct ma_job {
@@ -5601,7 +5464,7 @@ unsafe extern "C" {
     pub fn ma_job_process(pJob: *mut ma_job) -> ma_result;
 }
 pub const ma_job_queue_flags_MA_JOB_QUEUE_FLAG_NON_BLOCKING: ma_job_queue_flags = 1;
-pub type ma_job_queue_flags = core::ffi::c_int;
+pub type ma_job_queue_flags = core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_job_queue_config {
@@ -5691,7 +5554,7 @@ pub const ma_device_state_ma_device_state_stopped: ma_device_state = 1;
 pub const ma_device_state_ma_device_state_started: ma_device_state = 2;
 pub const ma_device_state_ma_device_state_starting: ma_device_state = 3;
 pub const ma_device_state_ma_device_state_stopping: ma_device_state = 4;
-pub type ma_device_state = core::ffi::c_int;
+pub type ma_device_state = core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_atomic_device_state {
@@ -5740,7 +5603,7 @@ pub const ma_backend_ma_backend_opensl: ma_backend = 11;
 pub const ma_backend_ma_backend_webaudio: ma_backend = 12;
 pub const ma_backend_ma_backend_custom: ma_backend = 13;
 pub const ma_backend_ma_backend_null: ma_backend = 14;
-pub type ma_backend = core::ffi::c_int;
+pub type ma_backend = core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_device_job_thread_config {
@@ -5819,7 +5682,7 @@ pub const ma_device_notification_type_ma_device_notification_type_interruption_e
     ma_device_notification_type = 4;
 pub const ma_device_notification_type_ma_device_notification_type_unlocked:
     ma_device_notification_type = 5;
-pub type ma_device_notification_type = core::ffi::c_int;
+pub type ma_device_notification_type = core::ffi::c_uint;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct ma_device_notification {
@@ -5941,10 +5804,10 @@ pub const ma_device_type_ma_device_type_playback: ma_device_type = 1;
 pub const ma_device_type_ma_device_type_capture: ma_device_type = 2;
 pub const ma_device_type_ma_device_type_duplex: ma_device_type = 3;
 pub const ma_device_type_ma_device_type_loopback: ma_device_type = 4;
-pub type ma_device_type = core::ffi::c_int;
+pub type ma_device_type = core::ffi::c_uint;
 pub const ma_share_mode_ma_share_mode_shared: ma_share_mode = 0;
 pub const ma_share_mode_ma_share_mode_exclusive: ma_share_mode = 1;
-pub type ma_share_mode = core::ffi::c_int;
+pub type ma_share_mode = core::ffi::c_uint;
 pub const ma_ios_session_category_ma_ios_session_category_default: ma_ios_session_category = 0;
 pub const ma_ios_session_category_ma_ios_session_category_none: ma_ios_session_category = 1;
 pub const ma_ios_session_category_ma_ios_session_category_ambient: ma_ios_session_category = 2;
@@ -5954,7 +5817,7 @@ pub const ma_ios_session_category_ma_ios_session_category_record: ma_ios_session
 pub const ma_ios_session_category_ma_ios_session_category_play_and_record: ma_ios_session_category =
     6;
 pub const ma_ios_session_category_ma_ios_session_category_multi_route: ma_ios_session_category = 7;
-pub type ma_ios_session_category = core::ffi::c_int;
+pub type ma_ios_session_category = core::ffi::c_uint;
 pub const ma_ios_session_category_option_ma_ios_session_category_option_mix_with_others:
     ma_ios_session_category_option = 1;
 pub const ma_ios_session_category_option_ma_ios_session_category_option_duck_others:
@@ -5968,7 +5831,7 @@ pub const ma_ios_session_category_option_ma_ios_session_category_option_allow_bl
     ma_ios_session_category_option = 32;
 pub const ma_ios_session_category_option_ma_ios_session_category_option_allow_air_play:
     ma_ios_session_category_option = 64;
-pub type ma_ios_session_category_option = core::ffi::c_int;
+pub type ma_ios_session_category_option = core::ffi::c_uint;
 pub const ma_opensl_stream_type_ma_opensl_stream_type_default: ma_opensl_stream_type = 0;
 pub const ma_opensl_stream_type_ma_opensl_stream_type_voice: ma_opensl_stream_type = 1;
 pub const ma_opensl_stream_type_ma_opensl_stream_type_system: ma_opensl_stream_type = 2;
@@ -5976,7 +5839,7 @@ pub const ma_opensl_stream_type_ma_opensl_stream_type_ring: ma_opensl_stream_typ
 pub const ma_opensl_stream_type_ma_opensl_stream_type_media: ma_opensl_stream_type = 4;
 pub const ma_opensl_stream_type_ma_opensl_stream_type_alarm: ma_opensl_stream_type = 5;
 pub const ma_opensl_stream_type_ma_opensl_stream_type_notification: ma_opensl_stream_type = 6;
-pub type ma_opensl_stream_type = core::ffi::c_int;
+pub type ma_opensl_stream_type = core::ffi::c_uint;
 pub const ma_opensl_recording_preset_ma_opensl_recording_preset_default:
     ma_opensl_recording_preset = 0;
 pub const ma_opensl_recording_preset_ma_opensl_recording_preset_generic:
@@ -5989,11 +5852,11 @@ pub const ma_opensl_recording_preset_ma_opensl_recording_preset_voice_communicat
     ma_opensl_recording_preset = 4;
 pub const ma_opensl_recording_preset_ma_opensl_recording_preset_voice_unprocessed:
     ma_opensl_recording_preset = 5;
-pub type ma_opensl_recording_preset = core::ffi::c_int;
+pub type ma_opensl_recording_preset = core::ffi::c_uint;
 pub const ma_wasapi_usage_ma_wasapi_usage_default: ma_wasapi_usage = 0;
 pub const ma_wasapi_usage_ma_wasapi_usage_games: ma_wasapi_usage = 1;
 pub const ma_wasapi_usage_ma_wasapi_usage_pro_audio: ma_wasapi_usage = 2;
-pub type ma_wasapi_usage = core::ffi::c_int;
+pub type ma_wasapi_usage = core::ffi::c_uint;
 pub const ma_aaudio_usage_ma_aaudio_usage_default: ma_aaudio_usage = 0;
 pub const ma_aaudio_usage_ma_aaudio_usage_media: ma_aaudio_usage = 1;
 pub const ma_aaudio_usage_ma_aaudio_usage_voice_communication: ma_aaudio_usage = 2;
@@ -6011,13 +5874,13 @@ pub const ma_aaudio_usage_ma_aaudio_usage_emergency: ma_aaudio_usage = 13;
 pub const ma_aaudio_usage_ma_aaudio_usage_safety: ma_aaudio_usage = 14;
 pub const ma_aaudio_usage_ma_aaudio_usage_vehicle_status: ma_aaudio_usage = 15;
 pub const ma_aaudio_usage_ma_aaudio_usage_announcement: ma_aaudio_usage = 16;
-pub type ma_aaudio_usage = core::ffi::c_int;
+pub type ma_aaudio_usage = core::ffi::c_uint;
 pub const ma_aaudio_content_type_ma_aaudio_content_type_default: ma_aaudio_content_type = 0;
 pub const ma_aaudio_content_type_ma_aaudio_content_type_speech: ma_aaudio_content_type = 1;
 pub const ma_aaudio_content_type_ma_aaudio_content_type_music: ma_aaudio_content_type = 2;
 pub const ma_aaudio_content_type_ma_aaudio_content_type_movie: ma_aaudio_content_type = 3;
 pub const ma_aaudio_content_type_ma_aaudio_content_type_sonification: ma_aaudio_content_type = 4;
-pub type ma_aaudio_content_type = core::ffi::c_int;
+pub type ma_aaudio_content_type = core::ffi::c_uint;
 pub const ma_aaudio_input_preset_ma_aaudio_input_preset_default: ma_aaudio_input_preset = 0;
 pub const ma_aaudio_input_preset_ma_aaudio_input_preset_generic: ma_aaudio_input_preset = 1;
 pub const ma_aaudio_input_preset_ma_aaudio_input_preset_camcorder: ma_aaudio_input_preset = 2;
@@ -6028,7 +5891,7 @@ pub const ma_aaudio_input_preset_ma_aaudio_input_preset_voice_communication:
 pub const ma_aaudio_input_preset_ma_aaudio_input_preset_unprocessed: ma_aaudio_input_preset = 5;
 pub const ma_aaudio_input_preset_ma_aaudio_input_preset_voice_performance: ma_aaudio_input_preset =
     6;
-pub type ma_aaudio_input_preset = core::ffi::c_int;
+pub type ma_aaudio_input_preset = core::ffi::c_uint;
 pub const ma_aaudio_allowed_capture_policy_ma_aaudio_allow_capture_default:
     ma_aaudio_allowed_capture_policy = 0;
 pub const ma_aaudio_allowed_capture_policy_ma_aaudio_allow_capture_by_all:
@@ -6037,7 +5900,7 @@ pub const ma_aaudio_allowed_capture_policy_ma_aaudio_allow_capture_by_system:
     ma_aaudio_allowed_capture_policy = 2;
 pub const ma_aaudio_allowed_capture_policy_ma_aaudio_allow_capture_by_none:
     ma_aaudio_allowed_capture_policy = 3;
-pub type ma_aaudio_allowed_capture_policy = core::ffi::c_int;
+pub type ma_aaudio_allowed_capture_policy = core::ffi::c_uint;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub union ma_timer {
@@ -8475,11 +8338,11 @@ pub type ma_vfs = core::ffi::c_void;
 pub type ma_vfs_file = ma_handle;
 pub const ma_open_mode_flags_MA_OPEN_MODE_READ: ma_open_mode_flags = 1;
 pub const ma_open_mode_flags_MA_OPEN_MODE_WRITE: ma_open_mode_flags = 2;
-pub type ma_open_mode_flags = core::ffi::c_int;
+pub type ma_open_mode_flags = core::ffi::c_uint;
 pub const ma_seek_origin_ma_seek_origin_start: ma_seek_origin = 0;
 pub const ma_seek_origin_ma_seek_origin_current: ma_seek_origin = 1;
 pub const ma_seek_origin_ma_seek_origin_end: ma_seek_origin = 2;
-pub type ma_seek_origin = core::ffi::c_int;
+pub type ma_seek_origin = core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_file_info {
@@ -8680,7 +8543,7 @@ pub const ma_encoding_format_ma_encoding_format_wav: ma_encoding_format = 1;
 pub const ma_encoding_format_ma_encoding_format_flac: ma_encoding_format = 2;
 pub const ma_encoding_format_ma_encoding_format_mp3: ma_encoding_format = 3;
 pub const ma_encoding_format_ma_encoding_format_vorbis: ma_encoding_format = 4;
-pub type ma_encoding_format = core::ffi::c_int;
+pub type ma_encoding_format = core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_decoding_backend_config {
@@ -9257,7 +9120,7 @@ pub const ma_waveform_type_ma_waveform_type_sine: ma_waveform_type = 0;
 pub const ma_waveform_type_ma_waveform_type_square: ma_waveform_type = 1;
 pub const ma_waveform_type_ma_waveform_type_triangle: ma_waveform_type = 2;
 pub const ma_waveform_type_ma_waveform_type_sawtooth: ma_waveform_type = 3;
-pub type ma_waveform_type = core::ffi::c_int;
+pub type ma_waveform_type = core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_waveform_config {
@@ -9445,7 +9308,7 @@ unsafe extern "C" {
 pub const ma_noise_type_ma_noise_type_white: ma_noise_type = 0;
 pub const ma_noise_type_ma_noise_type_pink: ma_noise_type = 1;
 pub const ma_noise_type_ma_noise_type_brownian: ma_noise_type = 2;
-pub type ma_noise_type = core::ffi::c_int;
+pub type ma_noise_type = core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_noise_config {
@@ -9608,7 +9471,7 @@ pub const ma_resource_manager_data_source_flags_MA_RESOURCE_MANAGER_DATA_SOURCE_
 pub const ma_resource_manager_data_source_flags_MA_RESOURCE_MANAGER_DATA_SOURCE_FLAG_UNKNOWN_LENGTH : ma_resource_manager_data_source_flags = 16 ;
 pub const ma_resource_manager_data_source_flags_MA_RESOURCE_MANAGER_DATA_SOURCE_FLAG_LOOPING:
     ma_resource_manager_data_source_flags = 32;
-pub type ma_resource_manager_data_source_flags = core::ffi::c_int;
+pub type ma_resource_manager_data_source_flags = core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_resource_manager_pipeline_stage_notification {
@@ -9653,7 +9516,7 @@ pub const ma_resource_manager_flags_MA_RESOURCE_MANAGER_FLAG_NON_BLOCKING:
     ma_resource_manager_flags = 1;
 pub const ma_resource_manager_flags_MA_RESOURCE_MANAGER_FLAG_NO_THREADING:
     ma_resource_manager_flags = 2;
-pub type ma_resource_manager_flags = core::ffi::c_int;
+pub type ma_resource_manager_flags = core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_resource_manager_data_source_config {
@@ -9718,7 +9581,7 @@ pub const ma_resource_manager_data_supply_type_ma_resource_manager_data_supply_t
 pub const ma_resource_manager_data_supply_type_ma_resource_manager_data_supply_type_decoded:
     ma_resource_manager_data_supply_type = 2;
 pub const ma_resource_manager_data_supply_type_ma_resource_manager_data_supply_type_decoded_paged : ma_resource_manager_data_supply_type = 3 ;
-pub type ma_resource_manager_data_supply_type = core::ffi::c_int;
+pub type ma_resource_manager_data_supply_type = core::ffi::c_uint;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct ma_resource_manager_data_supply {
@@ -10108,11 +9971,12 @@ pub struct ma_resource_manager_config {
     pub ppCustomDecodingBackendVTables: *mut *mut ma_decoding_backend_vtable,
     pub customDecodingBackendCount: ma_uint32,
     pub pCustomDecodingBackendUserData: *mut core::ffi::c_void,
+    pub resampling: ma_resampler_config,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
     ["Size of ma_resource_manager_config"]
-        [::core::mem::size_of::<ma_resource_manager_config>() - 104usize];
+        [::core::mem::size_of::<ma_resource_manager_config>() - 152usize];
     ["Alignment of ma_resource_manager_config"]
         [::core::mem::align_of::<ma_resource_manager_config>() - 8usize];
     ["Offset of field: ma_resource_manager_config::allocationCallbacks"]
@@ -10145,6 +10009,8 @@ const _: () = {
         ma_resource_manager_config,
         pCustomDecodingBackendUserData
     ) - 96usize];
+    ["Offset of field: ma_resource_manager_config::resampling"]
+        [::core::mem::offset_of!(ma_resource_manager_config, resampling) - 104usize];
 };
 unsafe extern "C" {
     pub fn ma_resource_manager_config_init() -> ma_resource_manager_config;
@@ -10162,22 +10028,22 @@ pub struct ma_resource_manager {
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_resource_manager"][::core::mem::size_of::<ma_resource_manager>() - 944usize];
+    ["Size of ma_resource_manager"][::core::mem::size_of::<ma_resource_manager>() - 992usize];
     ["Alignment of ma_resource_manager"][::core::mem::align_of::<ma_resource_manager>() - 8usize];
     ["Offset of field: ma_resource_manager::config"]
         [::core::mem::offset_of!(ma_resource_manager, config) - 0usize];
     ["Offset of field: ma_resource_manager::pRootDataBufferNode"]
-        [::core::mem::offset_of!(ma_resource_manager, pRootDataBufferNode) - 104usize];
+        [::core::mem::offset_of!(ma_resource_manager, pRootDataBufferNode) - 152usize];
     ["Offset of field: ma_resource_manager::dataBufferBSTLock"]
-        [::core::mem::offset_of!(ma_resource_manager, dataBufferBSTLock) - 112usize];
+        [::core::mem::offset_of!(ma_resource_manager, dataBufferBSTLock) - 160usize];
     ["Offset of field: ma_resource_manager::jobThreads"]
-        [::core::mem::offset_of!(ma_resource_manager, jobThreads) - 120usize];
+        [::core::mem::offset_of!(ma_resource_manager, jobThreads) - 168usize];
     ["Offset of field: ma_resource_manager::jobQueue"]
-        [::core::mem::offset_of!(ma_resource_manager, jobQueue) - 632usize];
+        [::core::mem::offset_of!(ma_resource_manager, jobQueue) - 680usize];
     ["Offset of field: ma_resource_manager::defaultVFS"]
-        [::core::mem::offset_of!(ma_resource_manager, defaultVFS) - 736usize];
+        [::core::mem::offset_of!(ma_resource_manager, defaultVFS) - 784usize];
     ["Offset of field: ma_resource_manager::log"]
-        [::core::mem::offset_of!(ma_resource_manager, log) - 832usize];
+        [::core::mem::offset_of!(ma_resource_manager, log) - 880usize];
 };
 unsafe extern "C" {
     pub fn ma_resource_manager_init(
@@ -10595,10 +10461,10 @@ pub const ma_node_flags_MA_NODE_FLAG_CONTINUOUS_PROCESSING: ma_node_flags = 2;
 pub const ma_node_flags_MA_NODE_FLAG_ALLOW_NULL_INPUT: ma_node_flags = 4;
 pub const ma_node_flags_MA_NODE_FLAG_DIFFERENT_PROCESSING_RATES: ma_node_flags = 8;
 pub const ma_node_flags_MA_NODE_FLAG_SILENT_OUTPUT: ma_node_flags = 16;
-pub type ma_node_flags = core::ffi::c_int;
+pub type ma_node_flags = core::ffi::c_uint;
 pub const ma_node_state_ma_node_state_started: ma_node_state = 0;
 pub const ma_node_state_ma_node_state_stopped: ma_node_state = 1;
-pub type ma_node_state = core::ffi::c_int;
+pub type ma_node_state = core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_node_vtable {
@@ -10986,6 +10852,11 @@ unsafe extern "C" {
         pNodeGraph: *mut ma_node_graph,
         globalTime: ma_uint64,
     ) -> ma_result;
+}
+unsafe extern "C" {
+    pub fn ma_node_graph_get_processing_size_in_frames(
+        pNodeGraph: *const ma_node_graph,
+    ) -> ma_uint32;
 }
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
@@ -11635,10 +11506,10 @@ pub const ma_sound_flags_MA_SOUND_FLAG_LOOPING: ma_sound_flags = 32;
 pub const ma_sound_flags_MA_SOUND_FLAG_NO_DEFAULT_ATTACHMENT: ma_sound_flags = 4096;
 pub const ma_sound_flags_MA_SOUND_FLAG_NO_PITCH: ma_sound_flags = 8192;
 pub const ma_sound_flags_MA_SOUND_FLAG_NO_SPATIALIZATION: ma_sound_flags = 16384;
-pub type ma_sound_flags = core::ffi::c_int;
+pub type ma_sound_flags = core::ffi::c_uint;
 pub const ma_engine_node_type_ma_engine_node_type_sound: ma_engine_node_type = 0;
 pub const ma_engine_node_type_ma_engine_node_type_group: ma_engine_node_type = 1;
-pub type ma_engine_node_type = core::ffi::c_int;
+pub type ma_engine_node_type = core::ffi::c_uint;
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]
 pub struct ma_engine_node_config {
@@ -11652,10 +11523,11 @@ pub struct ma_engine_node_config {
     pub isPitchDisabled: ma_bool8,
     pub isSpatializationDisabled: ma_bool8,
     pub pinnedListenerIndex: ma_uint8,
+    pub resampling: ma_resampler_config,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_engine_node_config"][::core::mem::size_of::<ma_engine_node_config>() - 40usize];
+    ["Size of ma_engine_node_config"][::core::mem::size_of::<ma_engine_node_config>() - 88usize];
     ["Alignment of ma_engine_node_config"]
         [::core::mem::align_of::<ma_engine_node_config>() - 8usize];
     ["Offset of field: ma_engine_node_config::pEngine"]
@@ -11678,6 +11550,8 @@ const _: () = {
         [::core::mem::offset_of!(ma_engine_node_config, isSpatializationDisabled) - 33usize];
     ["Offset of field: ma_engine_node_config::pinnedListenerIndex"]
         [::core::mem::offset_of!(ma_engine_node_config, pinnedListenerIndex) - 34usize];
+    ["Offset of field: ma_engine_node_config::resampling"]
+        [::core::mem::offset_of!(ma_engine_node_config, resampling) - 40usize];
 };
 unsafe extern "C" {
     pub fn ma_engine_node_config_init(
@@ -11695,11 +11569,12 @@ pub struct ma_engine_node {
     pub volumeSmoothTimeInPCMFrames: ma_uint32,
     pub monoExpansionMode: ma_mono_expansion_mode,
     pub fader: ma_fader,
-    pub resampler: ma_linear_resampler,
+    pub resampler: ma_resampler,
     pub spatializer: ma_spatializer,
     pub panner: ma_panner,
     pub volumeGainer: ma_gainer,
     pub volume: ma_atomic_float,
+    pub oldVolume: f32,
     pub pitch: f32,
     pub oldPitch: f32,
     pub oldDopplerPitch: f32,
@@ -11737,7 +11612,7 @@ const _: () = {
 };
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_engine_node"][::core::mem::size_of::<ma_engine_node>() - 896usize];
+    ["Size of ma_engine_node"][::core::mem::size_of::<ma_engine_node>() - 952usize];
     ["Alignment of ma_engine_node"][::core::mem::align_of::<ma_engine_node>() - 8usize];
     ["Offset of field: ma_engine_node::baseNode"]
         [::core::mem::offset_of!(ma_engine_node, baseNode) - 0usize];
@@ -11754,31 +11629,33 @@ const _: () = {
     ["Offset of field: ma_engine_node::resampler"]
         [::core::mem::offset_of!(ma_engine_node, resampler) - 424usize];
     ["Offset of field: ma_engine_node::spatializer"]
-        [::core::mem::offset_of!(ma_engine_node, spatializer) - 560usize];
+        [::core::mem::offset_of!(ma_engine_node, spatializer) - 616usize];
     ["Offset of field: ma_engine_node::panner"]
-        [::core::mem::offset_of!(ma_engine_node, panner) - 760usize];
+        [::core::mem::offset_of!(ma_engine_node, panner) - 816usize];
     ["Offset of field: ma_engine_node::volumeGainer"]
-        [::core::mem::offset_of!(ma_engine_node, volumeGainer) - 776usize];
+        [::core::mem::offset_of!(ma_engine_node, volumeGainer) - 832usize];
     ["Offset of field: ma_engine_node::volume"]
-        [::core::mem::offset_of!(ma_engine_node, volume) - 824usize];
+        [::core::mem::offset_of!(ma_engine_node, volume) - 880usize];
+    ["Offset of field: ma_engine_node::oldVolume"]
+        [::core::mem::offset_of!(ma_engine_node, oldVolume) - 884usize];
     ["Offset of field: ma_engine_node::pitch"]
-        [::core::mem::offset_of!(ma_engine_node, pitch) - 828usize];
+        [::core::mem::offset_of!(ma_engine_node, pitch) - 888usize];
     ["Offset of field: ma_engine_node::oldPitch"]
-        [::core::mem::offset_of!(ma_engine_node, oldPitch) - 832usize];
+        [::core::mem::offset_of!(ma_engine_node, oldPitch) - 892usize];
     ["Offset of field: ma_engine_node::oldDopplerPitch"]
-        [::core::mem::offset_of!(ma_engine_node, oldDopplerPitch) - 836usize];
+        [::core::mem::offset_of!(ma_engine_node, oldDopplerPitch) - 896usize];
     ["Offset of field: ma_engine_node::isPitchDisabled"]
-        [::core::mem::offset_of!(ma_engine_node, isPitchDisabled) - 840usize];
+        [::core::mem::offset_of!(ma_engine_node, isPitchDisabled) - 900usize];
     ["Offset of field: ma_engine_node::isSpatializationDisabled"]
-        [::core::mem::offset_of!(ma_engine_node, isSpatializationDisabled) - 844usize];
+        [::core::mem::offset_of!(ma_engine_node, isSpatializationDisabled) - 904usize];
     ["Offset of field: ma_engine_node::pinnedListenerIndex"]
-        [::core::mem::offset_of!(ma_engine_node, pinnedListenerIndex) - 848usize];
+        [::core::mem::offset_of!(ma_engine_node, pinnedListenerIndex) - 908usize];
     ["Offset of field: ma_engine_node::fadeSettings"]
-        [::core::mem::offset_of!(ma_engine_node, fadeSettings) - 856usize];
+        [::core::mem::offset_of!(ma_engine_node, fadeSettings) - 912usize];
     ["Offset of field: ma_engine_node::_ownsHeap"]
-        [::core::mem::offset_of!(ma_engine_node, _ownsHeap) - 880usize];
+        [::core::mem::offset_of!(ma_engine_node, _ownsHeap) - 936usize];
     ["Offset of field: ma_engine_node::_pHeap"]
-        [::core::mem::offset_of!(ma_engine_node, _pHeap) - 888usize];
+        [::core::mem::offset_of!(ma_engine_node, _pHeap) - 944usize];
 };
 unsafe extern "C" {
     pub fn ma_engine_node_get_heap_size(
@@ -11829,13 +11706,14 @@ pub struct ma_sound_config {
     pub loopPointEndInPCMFrames: ma_uint64,
     pub endCallback: ma_sound_end_proc,
     pub pEndCallbackUserData: *mut core::ffi::c_void,
+    pub pitchResampling: ma_resampler_config,
     pub initNotifications: ma_resource_manager_pipeline_notifications,
     pub pDoneFence: *mut ma_fence,
     pub isLooping: ma_bool32,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_sound_config"][::core::mem::size_of::<ma_sound_config>() - 160usize];
+    ["Size of ma_sound_config"][::core::mem::size_of::<ma_sound_config>() - 208usize];
     ["Alignment of ma_sound_config"][::core::mem::align_of::<ma_sound_config>() - 8usize];
     ["Offset of field: ma_sound_config::pFilePath"]
         [::core::mem::offset_of!(ma_sound_config, pFilePath) - 0usize];
@@ -11871,12 +11749,14 @@ const _: () = {
         [::core::mem::offset_of!(ma_sound_config, endCallback) - 96usize];
     ["Offset of field: ma_sound_config::pEndCallbackUserData"]
         [::core::mem::offset_of!(ma_sound_config, pEndCallbackUserData) - 104usize];
+    ["Offset of field: ma_sound_config::pitchResampling"]
+        [::core::mem::offset_of!(ma_sound_config, pitchResampling) - 112usize];
     ["Offset of field: ma_sound_config::initNotifications"]
-        [::core::mem::offset_of!(ma_sound_config, initNotifications) - 112usize];
+        [::core::mem::offset_of!(ma_sound_config, initNotifications) - 160usize];
     ["Offset of field: ma_sound_config::pDoneFence"]
-        [::core::mem::offset_of!(ma_sound_config, pDoneFence) - 144usize];
+        [::core::mem::offset_of!(ma_sound_config, pDoneFence) - 192usize];
     ["Offset of field: ma_sound_config::isLooping"]
-        [::core::mem::offset_of!(ma_sound_config, isLooping) - 152usize];
+        [::core::mem::offset_of!(ma_sound_config, isLooping) - 200usize];
 };
 unsafe extern "C" {
     pub fn ma_sound_config_init() -> ma_sound_config;
@@ -11893,28 +11773,37 @@ pub struct ma_sound {
     pub atEnd: ma_bool32,
     pub endCallback: ma_sound_end_proc,
     pub pEndCallbackUserData: *mut core::ffi::c_void,
+    pub pProcessingCache: *mut f32,
+    pub processingCacheFramesRemaining: ma_uint32,
+    pub processingCacheCap: ma_uint32,
     pub ownsDataSource: ma_bool8,
     pub pResourceManagerDataSource: *mut ma_resource_manager_data_source,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_sound"][::core::mem::size_of::<ma_sound>() - 952usize];
+    ["Size of ma_sound"][::core::mem::size_of::<ma_sound>() - 1024usize];
     ["Alignment of ma_sound"][::core::mem::align_of::<ma_sound>() - 8usize];
     ["Offset of field: ma_sound::engineNode"]
         [::core::mem::offset_of!(ma_sound, engineNode) - 0usize];
     ["Offset of field: ma_sound::pDataSource"]
-        [::core::mem::offset_of!(ma_sound, pDataSource) - 896usize];
+        [::core::mem::offset_of!(ma_sound, pDataSource) - 952usize];
     ["Offset of field: ma_sound::seekTarget"]
-        [::core::mem::offset_of!(ma_sound, seekTarget) - 904usize];
-    ["Offset of field: ma_sound::atEnd"][::core::mem::offset_of!(ma_sound, atEnd) - 912usize];
+        [::core::mem::offset_of!(ma_sound, seekTarget) - 960usize];
+    ["Offset of field: ma_sound::atEnd"][::core::mem::offset_of!(ma_sound, atEnd) - 968usize];
     ["Offset of field: ma_sound::endCallback"]
-        [::core::mem::offset_of!(ma_sound, endCallback) - 920usize];
+        [::core::mem::offset_of!(ma_sound, endCallback) - 976usize];
     ["Offset of field: ma_sound::pEndCallbackUserData"]
-        [::core::mem::offset_of!(ma_sound, pEndCallbackUserData) - 928usize];
+        [::core::mem::offset_of!(ma_sound, pEndCallbackUserData) - 984usize];
+    ["Offset of field: ma_sound::pProcessingCache"]
+        [::core::mem::offset_of!(ma_sound, pProcessingCache) - 992usize];
+    ["Offset of field: ma_sound::processingCacheFramesRemaining"]
+        [::core::mem::offset_of!(ma_sound, processingCacheFramesRemaining) - 1000usize];
+    ["Offset of field: ma_sound::processingCacheCap"]
+        [::core::mem::offset_of!(ma_sound, processingCacheCap) - 1004usize];
     ["Offset of field: ma_sound::ownsDataSource"]
-        [::core::mem::offset_of!(ma_sound, ownsDataSource) - 936usize];
+        [::core::mem::offset_of!(ma_sound, ownsDataSource) - 1008usize];
     ["Offset of field: ma_sound::pResourceManagerDataSource"]
-        [::core::mem::offset_of!(ma_sound, pResourceManagerDataSource) - 944usize];
+        [::core::mem::offset_of!(ma_sound, pResourceManagerDataSource) - 1016usize];
 };
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -11925,14 +11814,14 @@ pub struct ma_sound_inlined {
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_sound_inlined"][::core::mem::size_of::<ma_sound_inlined>() - 968usize];
+    ["Size of ma_sound_inlined"][::core::mem::size_of::<ma_sound_inlined>() - 1040usize];
     ["Alignment of ma_sound_inlined"][::core::mem::align_of::<ma_sound_inlined>() - 8usize];
     ["Offset of field: ma_sound_inlined::sound"]
         [::core::mem::offset_of!(ma_sound_inlined, sound) - 0usize];
     ["Offset of field: ma_sound_inlined::pNext"]
-        [::core::mem::offset_of!(ma_sound_inlined, pNext) - 952usize];
+        [::core::mem::offset_of!(ma_sound_inlined, pNext) - 1024usize];
     ["Offset of field: ma_sound_inlined::pPrev"]
-        [::core::mem::offset_of!(ma_sound_inlined, pPrev) - 960usize];
+        [::core::mem::offset_of!(ma_sound_inlined, pPrev) - 1032usize];
 };
 pub type ma_sound_group_config = ma_sound_config;
 pub type ma_sound_group = ma_sound;
@@ -11975,10 +11864,12 @@ pub struct ma_engine_config {
     pub pResourceManagerVFS: *mut ma_vfs,
     pub onProcess: ma_engine_process_proc,
     pub pProcessUserData: *mut core::ffi::c_void,
+    pub resourceManagerResampling: ma_resampler_config,
+    pub pitchResampling: ma_resampler_config,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_engine_config"][::core::mem::size_of::<ma_engine_config>() - 168usize];
+    ["Size of ma_engine_config"][::core::mem::size_of::<ma_engine_config>() - 264usize];
     ["Alignment of ma_engine_config"][::core::mem::align_of::<ma_engine_config>() - 8usize];
     ["Offset of field: ma_engine_config::pResourceManager"]
         [::core::mem::offset_of!(ma_engine_config, pResourceManager) - 0usize];
@@ -12026,6 +11917,10 @@ const _: () = {
         [::core::mem::offset_of!(ma_engine_config, onProcess) - 152usize];
     ["Offset of field: ma_engine_config::pProcessUserData"]
         [::core::mem::offset_of!(ma_engine_config, pProcessUserData) - 160usize];
+    ["Offset of field: ma_engine_config::resourceManagerResampling"]
+        [::core::mem::offset_of!(ma_engine_config, resourceManagerResampling) - 168usize];
+    ["Offset of field: ma_engine_config::pitchResampling"]
+        [::core::mem::offset_of!(ma_engine_config, pitchResampling) - 216usize];
 };
 unsafe extern "C" {
     pub fn ma_engine_config_init() -> ma_engine_config;
@@ -12051,10 +11946,11 @@ pub struct ma_engine {
     pub monoExpansionMode: ma_mono_expansion_mode,
     pub onProcess: ma_engine_process_proc,
     pub pProcessUserData: *mut core::ffi::c_void,
+    pub pitchResamplingConfig: ma_resampler_config,
 }
 #[allow(clippy::unnecessary_operation, clippy::identity_op)]
 const _: () = {
-    ["Size of ma_engine"][::core::mem::size_of::<ma_engine>() - 1312usize];
+    ["Size of ma_engine"][::core::mem::size_of::<ma_engine>() - 1360usize];
     ["Alignment of ma_engine"][::core::mem::align_of::<ma_engine>() - 8usize];
     ["Offset of field: ma_engine::nodeGraph"]
         [::core::mem::offset_of!(ma_engine, nodeGraph) - 0usize];
@@ -12090,6 +11986,8 @@ const _: () = {
         [::core::mem::offset_of!(ma_engine, onProcess) - 1296usize];
     ["Offset of field: ma_engine::pProcessUserData"]
         [::core::mem::offset_of!(ma_engine, pProcessUserData) - 1304usize];
+    ["Offset of field: ma_engine::pitchResamplingConfig"]
+        [::core::mem::offset_of!(ma_engine, pitchResamplingConfig) - 1312usize];
 };
 unsafe extern "C" {
     pub fn ma_engine_init(pConfig: *const ma_engine_config, pEngine: *mut ma_engine) -> ma_result;
@@ -12356,6 +12254,18 @@ unsafe extern "C" {
         pSound: *mut ma_sound,
         fadeLengthInFrames: ma_uint64,
     ) -> ma_result;
+}
+unsafe extern "C" {
+    pub fn ma_sound_reset_start_time(pSound: *mut ma_sound);
+}
+unsafe extern "C" {
+    pub fn ma_sound_reset_stop_time(pSound: *mut ma_sound);
+}
+unsafe extern "C" {
+    pub fn ma_sound_reset_fade(pSound: *mut ma_sound);
+}
+unsafe extern "C" {
+    pub fn ma_sound_reset_stop_time_and_fade(pSound: *mut ma_sound);
 }
 unsafe extern "C" {
     pub fn ma_sound_set_volume(pSound: *mut ma_sound, volume: f32);
@@ -12847,13 +12757,4 @@ unsafe extern "C" {
 unsafe extern "C" {
     pub fn ma_sound_group_get_time_in_pcm_frames(pGroup: *const ma_sound_group) -> ma_uint64;
 }
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct __crt_locale_data {
-    pub _address: u8,
-}
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct __crt_multibyte_data {
-    pub _address: u8,
-}
+pub type __builtin_va_list = *mut core::ffi::c_char;
