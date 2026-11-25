@@ -11,6 +11,9 @@ defaults:
   run:
     shell: bash
 
+env:
+  CMAKE_POLICY_VERSION_MINIMUM: "3.5"
+
 jobs:
   lint:
     runs-on: ubuntu-latest
