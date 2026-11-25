@@ -772,6 +772,7 @@ pub(crate) mod engine_ffi {
         #[cfg(windows)]
         let path = {
             let path = path
+                .as_ref()
                 .to_str()
                 .ok_or(MaudioError::new_ma_error(crate::ErrorKinds::InvalidCString))?;
             std::ffi::CString::new(path.as_bytes())
