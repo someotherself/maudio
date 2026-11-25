@@ -202,7 +202,7 @@ impl<F: PcmFormat, E: CodecFormat, D> Encoder<F, E, D> {
     ) -> MaResult<()> {
         #[cfg(windows)]
         {
-            let path = crate::wide_null_terminated(path);
+            let path = crate::wide_null_terminated(&path);
 
             encoder_ffi::ma_encoder_init_file_w(path, config, encoder)
         }
