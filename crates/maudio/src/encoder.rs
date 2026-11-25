@@ -155,7 +155,10 @@ impl<F: PcmFormat, E: CodecFormat, D> Encoder<F, E, D> {
         }
     }
 
-    fn init_from_file(config: &EncoderBuilder<F, E>, path: &Path) -> MaResult<Encoder<F, E, Fs>> {
+    fn init_from_file(
+        config: &EncoderBuilder<F, E>,
+        path: impl AsRef<Path>,
+    ) -> MaResult<Encoder<F, E, Fs>> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_encoder>> = Box::new(MaybeUninit::uninit());
 
         Encoder::<F, E, D>::init_from_file_internal(path, config, mem.as_mut_ptr())?;
@@ -193,7 +196,7 @@ impl<F: PcmFormat, E: CodecFormat, D> Encoder<F, E, D> {
     }
 
     fn init_from_file_internal(
-        path: &Path,
+        path: impl AsRef<Path>,
         config: &EncoderBuilder<F, E>,
         encoder: *mut sys::ma_encoder,
     ) -> MaResult<()> {
@@ -201,7 +204,7 @@ impl<F: PcmFormat, E: CodecFormat, D> Encoder<F, E, D> {
         {
             let path = crate::wide_null_terminated(path);
 
-            encoder_ffi::ma_encoder_init_file_w(&path, config, encoder)
+            encoder_ffi::ma_encoder_init_file_w(path, config, encoder)
         }
 
         #[cfg(not(windows))]
@@ -561,7 +564,7 @@ impl<F: PcmFormat> EncoderBuilder<F, Unknown> {
 }
 
 impl<F: PcmFormat, E: CodecFormat> EncoderBuilder<F, E> {
-    pub fn build_path(&self, path: &Path) -> MaResult<Encoder<F, E, Fs>> {
+    pub fn build_path(&self, path: impl AsRef<Path>) -> MaResult<Encoder<F, E, Fs>> {
         Encoder::<F, E, Fs>::init_from_file(self, path)
     }
 

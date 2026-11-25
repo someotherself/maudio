@@ -194,7 +194,10 @@ impl<F: PcmFormat, S> Decoder<F, S> {
         Ok(Decoder::new(inner, config.format, Owned(data_arc)))
     }
 
-    fn init_file(path: &Path, config: &mut DecoderBuilder<F>) -> MaResult<Decoder<F, Fs>> {
+    fn init_file(
+        path: impl AsRef<Path>,
+        config: &mut DecoderBuilder<F>,
+    ) -> MaResult<Decoder<F, Fs>> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
 
         Decoder::<F, S>::init_from_file_internal(path, config, mem.as_mut_ptr())?;
@@ -231,7 +234,7 @@ impl<F: PcmFormat, S> Decoder<F, S> {
     }
 
     fn init_from_file_internal(
-        path: &Path,
+        path: impl AsRef<Path>,
         config: &DecoderBuilder<F>,
         decoder: *mut sys::ma_decoder,
     ) -> MaResult<()> {
@@ -946,7 +949,7 @@ impl<F: PcmFormat> DecoderBuilder<F> {
     ///
     /// This is usually the most convenient option when decoding from a normal
     /// file on disk.
-    pub fn from_file(&mut self, path: &Path) -> MaResult<Decoder<F, Fs>> {
+    pub fn from_file(&mut self, path: impl AsRef<Path>) -> MaResult<Decoder<F, Fs>> {
         Decoder::<F, Fs>::init_file(path, self)
     }
 

@@ -535,12 +535,12 @@ impl<F: PcmFormat, I> ResourceGuard<F, I> {
     #[inline]
     pub(crate) fn from_path<R: AsRmPtr<Format = F> + ?Sized>(
         rm: &R,
-        path: &Path,
+        path: impl AsRef<Path>,
     ) -> ResourceGuard<F, I> {
         ResourceGuard(Arc::new(ResourceGuardInner {
             rm: private_rm::rm_ptr(rm),
             data_name: RegisteredDataName::RegisteredPath {
-                path: path.to_path_buf(),
+                path: path.as_ref().to_path_buf(),
             },
             _data_store: None,
             owner: private_rm::clone_owner::<R>(rm),
@@ -835,11 +835,11 @@ pub trait RmOps: AsRmPtr {
     /// reuse the first registration instead.
     fn load_path(
         &self,
-        path: &Path,
+        path: impl AsRef<Path>,
     ) -> MaResult<ResourceGuard<<Self as AsRmPtr>::Format, Unknown>> {
         #[cfg(windows)]
         {
-            let name = crate::wide_null_terminated(path);
+            let name = crate::wide_null_terminated(&path);
             resource_ffi::ma_resource_manager_register_encoded_data_w(
                 self,
                 &name,
@@ -858,7 +858,7 @@ pub trait RmOps: AsRmPtr {
 
         #[cfg(not(windows))]
         {
-            let c_path = crate::cstring_from_path(path)?;
+            let c_path = crate::cstring_from_path(&path)?;
             resource_ffi::ma_resource_manager_register_encoded_data(
                 self,
                 c_path.as_ptr(),
@@ -890,14 +890,14 @@ pub trait RmOps: AsRmPtr {
     ///   decoding until the resource is initialized or read.
     fn register_file(
         &self,
-        path: &Path,
+        path: impl AsRef<Path>,
         flags: RmSourceFlags,
     ) -> MaResult<ResourceGuard<<Self as AsRmPtr>::Format, Unknown>> {
         #[cfg(windows)]
         {
             use crate::wide_null_terminated;
 
-            let c_path = wide_null_terminated(path);
+            let c_path = wide_null_terminated(&path);
 
             resource_ffi::ma_resource_manager_register_file_w(self, &c_path, flags)?;
             Ok(ResourceGuard::<Self::Format, Unknown>::from_path::<Self>(
@@ -909,7 +909,7 @@ pub trait RmOps: AsRmPtr {
         {
             use crate::cstring_from_path;
 
-            let c_path = cstring_from_path(path)?;
+            let c_path = cstring_from_path(&path)?;
             resource_ffi::ma_resource_manager_register_file(self, c_path, flags)?;
             Ok(ResourceGuard::<Self::Format, Unknown>::from_path::<Self>(
                 self, path,
@@ -1386,7 +1386,7 @@ pub(crate) mod resource_ffi {
 
     pub fn ma_resource_manager_unregister_file_internal(
         rm: *mut sys::ma_resource_manager,
-        path: &Path,
+        path: impl AsRef<Path>,
     ) -> MaResult<()> {
         #[cfg(windows)]
         {
