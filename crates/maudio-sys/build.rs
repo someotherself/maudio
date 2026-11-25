@@ -2,7 +2,7 @@ use std::env;
 use std::path::PathBuf;
 
 #[allow(unused)]
-const MINIAUDIO_VERSION: &str = "0.11.23";
+const MINIAUDIO_VERSION: &str = "0.11.26";
 
 // Generates new bindings and writes them
 // Used either by the "generate-bindigns" flag

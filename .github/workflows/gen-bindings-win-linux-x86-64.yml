@@ -60,7 +60,7 @@ jobs:
         run: |
           binding_file="$(
             find "$CARGO_TARGET_DIR" \
-              -path "*/build/maudio-sys-*/out/bindings.rs" \
+              -path "*/build/maudio-sys/*/out/bindings.rs" \
               -print \
               -quit
           )"
@@ -149,7 +149,7 @@ jobs:
               -Filter bindings.rs `
               -Recurse |
             Where-Object {
-              $_.FullName -match '[\\/]build[\\/]maudio-sys-[^\\/]+[\\/]out[\\/]bindings\.rs$'
+              $_.FullName -match '[\\/]build[\\/]maudio-sys[\\/][^\\/]+[\\/]out[\\/]bindings\.rs$'
             } |
             Select-Object -First 1
 
@@ -247,7 +247,7 @@ jobs:
               -Filter bindings.rs `
               -Recurse |
             Where-Object {
-              $_.FullName -match '[\\/]build[\\/]maudio-sys-[^\\/]+[\\/]out[\\/]bindings\.rs$'
+              $_.FullName -match '[\\/]build[\\/]maudio-sys[\\/][^\\/]+[\\/]out[\\/]bindings\.rs$'
             } |
             Select-Object -First 1
 

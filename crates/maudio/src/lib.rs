@@ -621,7 +621,7 @@ impl AsRawRef for AllocationCallbacks {
 
 #[cfg(feature = "external-lib")]
 pub mod external_build {
-    const MINIAUDIO_VERSION: &str = "0.11.23";
+    const MINIAUDIO_VERSION: &str = "0.11.26";
 
     pub fn link_external(root: impl AsRef<std::path::Path>) {
         let root = std::path::PathBuf::from(root.as_ref());
