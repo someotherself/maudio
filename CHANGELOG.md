@@ -1,3 +1,9 @@
+# maudio v0.1.16 - 26 Nov 2026 (non-breaking)
+- bump to miniaudio 0.11.26
+- passthrough mode enabled for source nodes
+- impl AsRef<Path> added to public API instead of &Path
+- bump to rust version 1.71, cc 1.11.3 and bindgen 0.73.2
+
 # maudio v0.1.15 - 28 Sept 2026 (breaking)
 - interface for custom audio interfaces added (breaking)
 - CustomContext added
