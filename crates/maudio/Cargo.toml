@@ -29,7 +29,7 @@ example-symphonia = ["dep:symphonia"]
 example-asio = ["dep:asio-sys"]
 
 [dependencies]
-maudio-sys = { path = "../maudio-sys", version = "0.1.9" }
+maudio-sys = { path = "../maudio-sys", version = "0.1.10" }
 
 [dependencies.sdl2]
 version= "0.38.0"
