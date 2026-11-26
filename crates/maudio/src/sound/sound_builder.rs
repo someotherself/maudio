@@ -88,7 +88,7 @@ use crate::{
 /// let endpoint = engine.endpoint();
 ///
 /// let sound = SoundBuilder::new(&engine)
-///     .file_path("assets/music.ogg".as_ref())
+///     .file_path("assets/music.ogg")
 ///     .initial_attachment(&endpoint, 0) // redundant here, only as example
 ///     .build()?;
 /// # Ok(())
