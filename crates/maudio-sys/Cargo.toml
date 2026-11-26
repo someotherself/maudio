@@ -1,6 +1,6 @@
 [package]
 name = "maudio-sys"
-version = "0.1.9"
+version = "0.1.10"
 license = "MIT"
 rust-version = "1.71" # required by bindgen 0.73.2
 edition = "2021"
