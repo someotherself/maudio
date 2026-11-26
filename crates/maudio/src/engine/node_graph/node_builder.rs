@@ -163,7 +163,7 @@ impl CustomSourceNodeBuilder {
         )
     }
 
-    pub fn initial_state(&mut self, state: NodeState) -> *mut Self {
+    pub fn initial_state(&mut self, state: NodeState) -> &mut Self {
         self.config.initialState = state.into();
         self
     }
