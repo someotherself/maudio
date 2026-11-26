@@ -1,5 +1,9 @@
 # Miniaudio version
-- The crate is currently locked to miniaudio version **0.11.23**
+
+| maudio-sys version | Miniaudio version |
+| ------- | ------- |
+| 0.1.10 and later | 0.11.26 |
+| 0.1.9 and earlier | 0.11.23 |
 
 By default, maudio-sys compiles the bundled miniaudio source during the build.
 
@@ -78,7 +82,7 @@ See Rust [Platform Support](https://doc.rust-lang.org/rustc/platform-support.htm
 The folder structure should follow this structure:
 ```text
 native-libs/
-└── miniaudio-0.11.23
+└── miniaudio-0.11.26
     ├── x86_64-unknown-linux-gnu/
     ├── aarch64-unknown-linux-gnu/
     ├── x86_64-pc-windows-msvc/
@@ -92,7 +96,7 @@ Inside the target folder, maudio expects a folder specific for the current minia
 
 You can create the folder structure above using:
 ```bash
-mkdir -p native-libs/miniaudio-0.11.23/{x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu,x86_64-pc-windows-msvc,aarch64-pc-windows-msvc,x86_64-pc-windows-gnu,x86_64-apple-darwin,aarch64-apple-darwin}
+mkdir -p native-libs/miniaudio-0.11.26/{x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu,x86_64-pc-windows-msvc,aarch64-pc-windows-msvc,x86_64-pc-windows-gnu,x86_64-apple-darwin,aarch64-apple-darwin}
 ```
 ### Linux
 

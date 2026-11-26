@@ -545,17 +545,18 @@ pub struct MaudioError {
 pub type MaResult<T> = std::result::Result<T, MaudioError>;
 
 #[cfg(not(windows))]
-pub(crate) fn cstring_from_path(path: &std::path::Path) -> MaResult<std::ffi::CString> {
+pub(crate) fn cstring_from_path(path: impl AsRef<std::path::Path>) -> MaResult<std::ffi::CString> {
     use std::os::unix::ffi::OsStrExt;
-    std::ffi::CString::new(path.as_os_str().as_bytes())
+    std::ffi::CString::new(path.as_ref().as_os_str().as_bytes())
         .map_err(|_| crate::MaudioError::new_ma_error(crate::ErrorKinds::InvalidCString))
 }
 
 #[cfg(windows)]
-pub(crate) fn wide_null_terminated(path: &std::path::Path) -> Vec<u16> {
+pub(crate) fn wide_null_terminated(path: impl AsRef<std::path::Path>) -> Vec<u16> {
     use std::os::windows::ffi::OsStrExt;
 
-    path.as_os_str()
+    path.as_ref()
+        .as_os_str()
         .encode_wide()
         .chain(std::iter::once(0))
         .collect()
@@ -621,7 +622,7 @@ impl AsRawRef for AllocationCallbacks {
 
 #[cfg(feature = "external-lib")]
 pub mod external_build {
-    const MINIAUDIO_VERSION: &str = "0.11.23";
+    const MINIAUDIO_VERSION: &str = "0.11.26";
 
     pub fn link_external(root: impl AsRef<std::path::Path>) {
         let root = std::path::PathBuf::from(root.as_ref());

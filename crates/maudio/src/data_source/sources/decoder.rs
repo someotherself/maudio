@@ -194,7 +194,10 @@ impl<F: PcmFormat, S> Decoder<F, S> {
         Ok(Decoder::new(inner, config.format, Owned(data_arc)))
     }
 
-    fn init_file(path: &Path, config: &mut DecoderBuilder<F>) -> MaResult<Decoder<F, Fs>> {
+    fn init_file(
+        path: impl AsRef<Path>,
+        config: &mut DecoderBuilder<F>,
+    ) -> MaResult<Decoder<F, Fs>> {
         let mut mem: Box<std::mem::MaybeUninit<sys::ma_decoder>> = Box::new(MaybeUninit::uninit());
 
         Decoder::<F, S>::init_from_file_internal(path, config, mem.as_mut_ptr())?;
@@ -231,7 +234,7 @@ impl<F: PcmFormat, S> Decoder<F, S> {
     }
 
     fn init_from_file_internal(
-        path: &Path,
+        path: impl AsRef<Path>,
         config: &DecoderBuilder<F>,
         decoder: *mut sys::ma_decoder,
     ) -> MaResult<()> {
@@ -670,24 +673,25 @@ pub(crate) mod decoder_ffi {
     pub fn ma_decoder_get_data_format<D: AsDecoderPtr + ?Sized>(
         decoder: &D,
     ) -> MaResult<DataFormat> {
-        let ptr = private_decoder::decoder_ptr(decoder);
-        debug_assert!(!ptr.is_null());
-        let decoder = unsafe { &*ptr };
-        let format_raw = decoder.outputFormat;
-        let channels = decoder.converter.channelConverter.channelsOut;
-        let sample_rate: SampleRate = decoder.converter.sampleRateOut.try_into()?;
+        let mut format_raw: sys::ma_format = sys::ma_format_ma_format_unknown;
+        let mut channels: sys::ma_uint32 = 0;
+        let mut sample_rate: sys::ma_uint32 = 0;
 
         let mut channel_map_raw = vec![0 as sys::ma_channel; sys::MA_MAX_CHANNELS as usize];
 
         let res = unsafe {
-            sys::ma_channel_converter_get_output_channel_map(
-                &decoder.converter.channelConverter as *const _,
+            sys::ma_decoder_get_data_format(
+                private_decoder::decoder_ptr(decoder),
+                &mut format_raw,
+                &mut channels,
+                &mut sample_rate,
                 channel_map_raw.as_mut_ptr(),
-                channels as usize,
+                channel_map_raw.len(),
             )
         };
         MaudioError::check(res)?;
 
+        // Could maybe cast when passing the ptr to miniaudio, but copying should be fine here
         let mut channel_map: Vec<Channel> = Vec::new();
         for c in channel_map_raw {
             channel_map.push(Channel::try_from(c)?);
@@ -697,42 +701,9 @@ pub(crate) mod decoder_ffi {
         Ok(DataFormat {
             format: format_raw.try_into()?,
             channels,
-            sample_rate,
+            sample_rate: sample_rate.try_into()?,
             channel_map,
         })
-
-        // TODO: Change this back when 0.11.26 fixes the bug in the data converter
-        // let mut format_raw: sys::ma_format = sys::ma_format_ma_format_unknown;
-        // let mut channels: sys::ma_uint32 = 0;
-        // let mut sample_rate: sys::ma_uint32 = 0;
-
-        // let mut channel_map_raw = vec![0 as sys::ma_channel; sys::MA_MAX_CHANNELS as usize];
-
-        // let res = unsafe {
-        //     sys::ma_decoder_get_data_format(
-        //         private_decoder::decoder_ptr(decoder),
-        //         &mut format_raw,
-        //         &mut channels,
-        //         &mut sample_rate,
-        //         channel_map_raw.as_mut_ptr(),
-        //         channel_map_raw.len(),
-        //     )
-        // };
-        // MaudioError::check(res)?;
-
-        // // Could maybe cast when passing the ptr to miniaudio, but copying should be fine here
-        // let mut channel_map: Vec<Channel> = Vec::new();
-        // for c in channel_map_raw {
-        //     channel_map.push(Channel::try_from(c)?);
-        // }
-        // channel_map.truncate(channels as usize);
-
-        // Ok(DataFormat {
-        //     format: format_raw.try_into()?,
-        //     channels,
-        //     sample_rate: sample_rate.try_into()?,
-        //     channel_map,
-        // })
     }
 
     // Not used because it does not work for a custom decoder
@@ -946,7 +917,7 @@ impl<F: PcmFormat> DecoderBuilder<F> {
     ///
     /// This is usually the most convenient option when decoding from a normal
     /// file on disk.
-    pub fn from_file(&mut self, path: &Path) -> MaResult<Decoder<F, Fs>> {
+    pub fn from_file(&mut self, path: impl AsRef<Path>) -> MaResult<Decoder<F, Fs>> {
         Decoder::<F, Fs>::init_file(path, self)
     }
 

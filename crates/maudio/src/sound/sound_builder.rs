@@ -88,7 +88,7 @@ use crate::{
 /// let endpoint = engine.endpoint();
 ///
 /// let sound = SoundBuilder::new(&engine)
-///     .file_path("assets/music.ogg".as_ref())
+///     .file_path("assets/music.ogg")
 ///     .initial_attachment(&endpoint, 0) // redundant here, only as example
 ///     .build()?;
 /// # Ok(())
@@ -226,15 +226,15 @@ impl<'a, 'b> SoundBuilder<'a, 'b> {
     ///
     /// The provided path is converted to the platform-specific format required by
     /// miniaudio and is only used during sound initialization.
-    pub fn file_path(&mut self, path: &Path) -> &mut Self {
+    pub fn file_path(&mut self, path: impl AsRef<Path>) -> &mut Self {
         self.source = SoundSource::None;
         #[cfg(not(windows))]
         {
-            self.source = SoundSource::FileUtf8(path.to_path_buf());
+            self.source = SoundSource::FileUtf8(path.as_ref().to_path_buf());
         }
         #[cfg(windows)]
         {
-            self.source = SoundSource::FileWide(path.to_path_buf());
+            self.source = SoundSource::FileWide(path.as_ref().to_path_buf());
         }
         self
     }

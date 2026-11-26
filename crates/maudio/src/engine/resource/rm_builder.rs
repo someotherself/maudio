@@ -349,7 +349,7 @@ mod test {
 
         let sound = engine.new_sound_from_source(&src).unwrap();
         let df = sound.data_format().unwrap();
-        assert_eq!(df.channel_map, [Channel::Mono, Channel::None]); // bug in miniaudio
+        assert_eq!(df.channel_map, [Channel::FrontLeft, Channel::FrontRight]);
         assert_eq!(df.channels, 2);
         assert_eq!(df.sample_rate, SampleRate::Sr48000);
         assert_eq!(df.format, Format::F32);
@@ -407,7 +407,7 @@ mod test {
 
         let sound = engine.new_sound_from_source(&src).unwrap();
         let df = sound.data_format().unwrap();
-        assert_eq!(df.channel_map, [Channel::Mono, Channel::None]); // bug in miniaudio
+        assert_eq!(df.channel_map, [Channel::FrontLeft, Channel::FrontRight]);
         assert_eq!(df.channels, 2);
         assert_eq!(df.sample_rate, SampleRate::Sr48000);
         assert_eq!(df.format, Format::F32);

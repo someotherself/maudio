@@ -80,7 +80,7 @@ jobs:
         run: |
           binding_file="$(
             find "target/bindgen-${{ matrix.target }}" \
-              -path "*/build/maudio-sys-*/out/bindings.rs" \
+              -path "*/build/maudio-sys/*/out/bindings.rs" \
               -print \
               -quit
           )"

@@ -182,7 +182,7 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
     }
 
     fn init_file(
-        path: &Path,
+        path: impl AsRef<Path>,
         config: &mut CustomDecoderBuilder<F>,
     ) -> MaResult<CustomDecoder<F, Fs>> {
         let vtables = config.set_backend_vtables()?;
@@ -198,7 +198,7 @@ impl<F: PcmFormat, S> CustomDecoder<F, S> {
     }
 
     fn init_from_file_internal(
-        path: &Path,
+        path: impl AsRef<Path>,
         config: &CustomDecoderBuilder<F>,
         decoder: *mut sys::ma_decoder,
     ) -> MaResult<()> {
@@ -555,7 +555,7 @@ impl<F: PcmFormat> CustomDecoderBuilder<F> {
     ///
     /// This is usually the most convenient option when decoding from a normal
     /// file on disk.
-    pub fn from_file(&mut self, path: &Path) -> MaResult<CustomDecoder<F, Fs>> {
+    pub fn from_file(&mut self, path: impl AsRef<Path>) -> MaResult<CustomDecoder<F, Fs>> {
         CustomDecoder::<F, Fs>::init_file(path, self)
     }
 

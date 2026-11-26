@@ -163,7 +163,7 @@ impl CustomSourceNodeBuilder {
         )
     }
 
-    pub fn initial_state(&mut self, state: NodeState) -> *mut Self {
+    pub fn initial_state(&mut self, state: NodeState) -> &mut Self {
         self.config.initialState = state.into();
         self
     }
@@ -174,14 +174,10 @@ impl CustomSourceNodeBuilder {
         self
     }
 
-    // TODO: Causes a null ptr dereference in miniaudio.
-    // Do not enable until fixed in 0.11.26
     /// Enables passthrough behavior for the source node.
     ///
-    /// This allows the node graph to treat the node as passthrough where that
-    /// behavior is useful, even though the node still uses the source callback
-    /// shape.
-    fn _passthrough(&mut self) -> &mut Self {
+    /// This means that the output of this node is disregarded.
+    pub fn passthrough(&mut self) -> &mut Self {
         self.flags.insert(NodeFlags::PASSTHROUGH);
         self
     }
@@ -945,28 +941,28 @@ mod tests {
         assert_vtable(inner, 0, 1, false);
     }
 
-    // #[test]
-    // fn node_build_test_source_builder_builds_source_node_pass_with_no_inputs_and_one_output() {
-    //     let engine = Engine::new_for_tests().unwrap();
-    //     let node_graph = engine.as_node_graph();
+    #[test]
+    fn node_build_test_source_builder_builds_source_node_pass_with_no_inputs_and_one_output() {
+        let engine = Engine::new_for_tests().unwrap();
+        let node_graph = engine.as_node_graph();
 
-    //     let mut builder = NodeBuilder::source();
-    //     builder.output_channel_count(6).passthrough();
+        let mut builder = NodeBuilder::source();
+        builder.output_channel_count(6).passthrough();
 
-    //     let node = builder
-    //         .build(&node_graph, TestSource { value: 20 })
-    //         .unwrap();
+        let node = builder
+            .build(&node_graph, TestSource { value: 20 })
+            .unwrap();
 
-    //     assert_eq!(node.value, 20);
+        assert_eq!(node.value, 20);
 
-    //     let inner = node_inner(&node);
+        let inner = node_inner(&node);
 
-    //     assert!(matches!(inner.op, NodeFunction::Source));
-    //     assert_eq!(inner.busses.inputs, Vec::<u32>::new());
-    //     assert_eq!(inner.busses.outputs, vec![6]);
+        assert!(matches!(inner.op, NodeFunction::Source));
+        assert_eq!(inner.busses.inputs, Vec::<u32>::new());
+        assert_eq!(inner.busses.outputs, vec![6]);
 
-    //     assert_vtable(inner, 0, 1, false);
-    // }
+        assert_vtable(inner, 0, 1, false);
+    }
 
     #[test]
     fn node_build_test_source_builder_uses_graph_channels_by_default() {

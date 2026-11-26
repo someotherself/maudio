@@ -1,10 +1,7 @@
 //! Sound playback primitives.
 //!
 //! This module defines [`Sound`], an engine-managed audio voice.
-use std::{
-    path::{Path, PathBuf},
-    sync::Arc,
-};
+use std::{path::PathBuf, sync::Arc};
 
 use maudio_sys::ffi as sys;
 
@@ -509,7 +506,7 @@ impl Sound {
     pub(crate) fn init_from_file_internal(
         sound: *mut sys::ma_sound,
         engine: &Engine,
-        path: &Path,
+        path: impl AsRef<std::path::Path>,
         flags: SoundFlags,
         sound_group: Option<&SoundGroup>,
         fence: Option<Fence>,

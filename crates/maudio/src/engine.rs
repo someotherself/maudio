@@ -375,7 +375,7 @@ impl Engine {
     /// The engine manages the sound internally for the duration of playback.
     ///
     /// Will return an [`ErrorKinds::InvalidCString`](crate::ErrorKinds) error if path is not valid UTF8
-    pub fn play_one_shot(&self, path: &Path) -> MaResult<()> {
+    pub fn play_one_shot(&self, path: impl AsRef<Path>) -> MaResult<()> {
         engine_ffi::ma_engine_play_sound(self, path)
     }
 
@@ -388,7 +388,7 @@ impl Engine {
         self.new_sound_with_config_internal(None)
     }
 
-    pub fn new_sound_from_file(&self, path: &Path) -> MaResult<Sound> {
+    pub fn new_sound_from_file(&self, path: impl AsRef<Path>) -> MaResult<Sound> {
         self.new_sound_with_file_internal(path, SoundFlags::NONE, None, None)
     }
 
@@ -421,7 +421,7 @@ impl Engine {
 
     pub fn new_sound_from_file_with_group(
         &self,
-        path: &Path,
+        path: impl AsRef<Path>,
         sound_group: &SoundGroup,
         done_fence: Option<Fence>,
     ) -> MaResult<Sound> {
@@ -431,7 +431,7 @@ impl Engine {
     /// Adding a Fence also requires setting the [`SoundFlags::ASYNC`] flag
     pub fn new_sound_from_file_with_flags(
         &self,
-        path: &Path,
+        path: impl AsRef<Path>,
         flags: SoundFlags,
         done_fence: Option<Fence>,
     ) -> MaResult<Sound> {
@@ -692,7 +692,7 @@ impl Engine {
 
     pub(crate) fn new_sound_with_file_internal(
         &self,
-        path: &Path,
+        path: impl AsRef<Path>,
         flags: SoundFlags,
         sound_group: Option<&SoundGroup>,
         done_fence: Option<Fence>,
@@ -762,13 +762,17 @@ pub(crate) mod engine_ffi {
     }
 
     #[inline]
-    pub fn ma_engine_play_sound(engine: &Engine, path: &std::path::Path) -> MaResult<()> {
+    pub fn ma_engine_play_sound(
+        engine: &Engine,
+        path: impl AsRef<std::path::Path>,
+    ) -> MaResult<()> {
         #[cfg(not(windows))]
         let path = crate::cstring_from_path(path)?;
 
         #[cfg(windows)]
         let path = {
             let path = path
+                .as_ref()
                 .to_str()
                 .ok_or(MaudioError::new_ma_error(crate::ErrorKinds::InvalidCString))?;
             std::ffi::CString::new(path.as_bytes())

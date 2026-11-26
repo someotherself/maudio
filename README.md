@@ -3,7 +3,11 @@
 ### To learn more about miniaudio, check https://miniaud.io/ and https://github.com/mackron/miniaudio
 
 # Miniaudio version
-- The crate is currently locked to miniaudio version **0.11.23**
+
+| maudio version | Miniaudio version |
+| ------- | ------- |
+| 0.1.16 and later | 0.11.26 |
+| 0.1.15 and earlier | 0.11.23 |
 
 miniaudio does not guarantee a stable ABI, even between minor releases. The same applies to maudio.
 See [CHANGELOG](/CHANGELOG.md) for more details.
