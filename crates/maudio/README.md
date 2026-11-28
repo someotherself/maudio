@@ -28,7 +28,7 @@ LLVM / Clang
 - Required to compile the C library and to generate Rust bindings; on Windows, this means installing LLVM (clang) in addition to Visual Studio.
 
 ### Minimum Supported Rust Version (MSRV)
-The minimum supported Rust version is **1.70**
+The minimum supported Rust version is **1.71**
 
 ### Status of cross-platform compatibility
 
